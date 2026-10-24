@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 36
+CURRENT_LEDGER_SCHEMA_VERSION: int = 37
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -946,6 +946,15 @@ def _migrate_v34_to_v35(conn: sqlite3.Connection) -> None:
         )
 
 
+def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
+    """Adds the nullable Player Weak point list (#490)."""
+    if not _ledger_table_exists(conn, "user_profile"):
+        return
+    columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
+    if "weak_points_json" not in columns:
+        conn.execute("ALTER TABLE user_profile ADD COLUMN weak_points_json TEXT")
+
+
 def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
     """Adds immutable Nutrition plan versions and Player-only screening (#461)."""
     conn.execute(
@@ -1097,6 +1106,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     33: _migrate_v33_to_v34,
     34: _migrate_v34_to_v35,
     35: _migrate_v35_to_v36,
+    36: _migrate_v36_to_v37,
 }
 
 

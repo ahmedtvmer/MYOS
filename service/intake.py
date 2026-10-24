@@ -48,6 +48,7 @@ from utils.equipment_access import (
     HOME_GYM,
     map_equipment_access,
 )
+from core.weak_points import WEAK_POINT_MUSCLES, validate_weak_points
 
 STATUS_IN_PROGRESS = "in_progress"
 STATUS_CONFIRMING = "confirming"
@@ -189,6 +190,7 @@ INTAKE_FIELDS: tuple[IntakeField, ...] = (
     ),
     IntakeField("rep_preference", "enum", False, "rep_preference", allowed=("low", "balanced", "high"),
                 option_descriptions=REP_PREFERENCE_OPTION_DESCRIPTIONS),
+    IntakeField("weak_points", "weak_points", False, "weak_points", allowed=WEAK_POINT_MUSCLES),
 )
 
 FIELD_BY_NAME: dict[str, IntakeField] = {field.name: field for field in INTAKE_FIELDS}
@@ -322,6 +324,11 @@ def validate_answer(field_name: str, raw: Any) -> Any:
     spec = FIELD_BY_NAME.get(field_name)
     if spec is None:
         raise IntakeValidationError(f"Unknown onboarding field '{field_name}'.")
+    if field_name == "weak_points":
+        try:
+            return validate_weak_points(raw)
+        except ValueError as exc:
+            raise IntakeValidationError(str(exc)) from None
     case_insensitive_enum = False
     if field_name == "equipment_access":
         if not isinstance(raw, str):

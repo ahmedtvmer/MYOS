@@ -21,6 +21,17 @@ from database.migration_manager import (
 )
 
 
+def test_v37_adds_nullable_weak_points_to_player_profile():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE user_profile (id INTEGER PRIMARY KEY)")
+
+    MIGRATION_REGISTRY[36](conn)
+    MIGRATION_REGISTRY[36](conn)
+
+    columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
+    assert "weak_points_json" in columns
+
+
 @pytest.fixture
 def temp_db_env(tmp_path: Path, monkeypatch):
     catalog_path = tmp_path / "catalog.db"
@@ -621,7 +632,9 @@ def test_v35_to_v36_lazy_migration_adds_nutrition_ledger_schema(temp_db_env):
     conn.execute("ALTER TABLE user_profile DROP COLUMN sex_confirmed")
     set_ledger_schema_version(conn, 35)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-v35", ledgers_dir, backups_dir)
+    apply_lazy_migrations(
+        conn, "nutrition-v35", ledgers_dir, backups_dir, target_version=36
+    )
     assert get_ledger_schema_version(conn) == 36
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"nutrition_plan_versions", "nutrition_screening"} <= tables

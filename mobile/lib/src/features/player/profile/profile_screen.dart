@@ -7,6 +7,7 @@ import '../../../core/api_client.dart';
 import '../../../core/app_failure.dart';
 import '../../../core/connectivity_message.dart';
 import '../../../core/display_language/controller.dart';
+import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/display_language/profile_copy.dart';
 import '../../../core/device_timezone.dart';
@@ -25,6 +26,10 @@ import '../onboarding/onboarding_widgets.dart'
 /// Mirrors the server's `MAX_PAUSE_DAYS` in `service/schedule.py`; the client
 /// check is only a courtesy, the service stays authoritative.
 const int maxPauseDays = 14;
+const List<String> _weakPointKeys = <String>[
+  'chest', 'upper_chest', 'back', 'shoulders', 'side_delts', 'biceps', 'triceps',
+  'forearms', 'quads', 'hamstrings', 'glutes', 'adductors', 'calves', 'abs',
+];
 const String _profileContractError =
     'The service needs an update before this profile can be edited. Please try again later.';
 const AppFailureMessage _profileContractFailure = AppFailureMessage(
@@ -66,6 +71,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final TextEditingController _targetWeightController = TextEditingController();
   PlayerProfile? _savedProfile;
   List<InjuryRecord> _injuries = const <InjuryRecord>[];
+  List<Map<String, String>> _weakPoints = const <Map<String, String>>[];
   OnboardingIntake? _intake;
 
   bool _loading = true;
@@ -199,6 +205,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() {
         _weeklyFrequency = profile.weeklyFrequency;
         _savedProfile = profile;
+        _weakPoints = profile.weakPoints ?? (profile.gender == 'female'
+            ? const <Map<String, String>>[<String, String>{'muscle': 'glutes', 'source': 'default'}]
+            : const <Map<String, String>>[]);
         _intake = intake;
         _equipmentAccess = equipmentOptions.contains(profile.equipmentAccess)
             ? profile.equipmentAccess
@@ -343,6 +352,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _noticeIsError = true;
       });
     }
+  }
+
+  Future<void> _saveWeakPoints() async {
+    setState(() {
+      _saving = true;
+      _notice = null;
+      _noticeFailure = null;
+      _noticeIsError = false;
+    });
+    try {
+      final ProfileUpdateResult profileUpdate = await ref
+          .read(apiClientProvider)
+          .updateProfile(weakPoints: _weakPoints);
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _savedProfile = profileUpdate.profile ?? _savedProfile;
+        _notice = profileUpdate.programMessage ?? _copy.profileSaved;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _noticeFailure = _mutationFailure(error);
+        _noticeIsError = true;
+      });
+    }
+  }
+
+  void _toggleWeakPoint(String muscle) {
+    final List<Map<String, String>> next = List<Map<String, String>>.from(_weakPoints);
+    final int existing = next.indexWhere((Map<String, String> item) => item['muscle'] == muscle);
+    if (existing >= 0) {
+      next.removeAt(existing);
+    } else {
+      next.removeWhere((Map<String, String> item) => item['source'] == 'default');
+      if (next.length < 2) {
+      next.add(<String, String>{'muscle': muscle, 'source': 'named'});
+      }
+    }
+    setState(() => _weakPoints = next);
   }
 
   Future<void> _editInjury({InjuryRecord? injury}) async {
@@ -950,6 +1000,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
         const SizedBox(height: MyosSpacing.lg),
         MyosButton(
+          key: const Key('save_profile_button'),
           label: copy.saveProfile,
           loading: _saving,
           onPressed: _saving ? null : _save,
@@ -1076,6 +1127,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               copy.pauseRange(pause.startsOn, pause.endsOn),
               style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
+        const SizedBox(height: MyosSpacing.md),
+        ExpansionTile(
+          key: const Key('profile_weak_points_section'),
+          tilePadding: EdgeInsets.zero,
+          title: Text(copy.weakPoints),
+          subtitle: Text(copy.weakPointsLead),
+          children: <Widget>[
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Wrap(spacing: MyosSpacing.xs, runSpacing: MyosSpacing.xs, children: <Widget>[
+                for (final String muscle in _weakPointKeys)
+                  FilterChip(
+                    key: Key('profile_weak_point_$muscle'),
+                    label: Text(MyosCopy(ref.watch(displayLanguageProvider)).weakPointMuscle(muscle)),
+                    selected: _weakPoints.any((Map<String, String> item) => item['muscle'] == muscle),
+                    onSelected: _saving ? null : (_) => _toggleWeakPoint(muscle),
+                  ),
+              ]),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: const Key('save_weak_points_button'),
+                onPressed: _saving ? null : _saveWeakPoints,
+                child: Text(copy.saveWeakPoints),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: MyosSpacing.xxl),
       ],
     );

@@ -41,6 +41,25 @@ class MyosCopy {
   String get requestFromCoach =>
       isArabic ? 'طلب من المدرب' : 'Request from coach';
   String get askAssistant => isArabic ? 'اسأل المساعد' : 'Ask the assistant';
+  String get weakPoints => isArabic ? 'نقاط الضعف' : 'Weak points';
+  String get weakPointsLead => isArabic ? 'اختر حتى نقطتي ضعف لتحسينهما.' : 'Choose up to two Weak points to improve.';
+  String weakPointMuscle(String key) => switch (key) {
+        'chest' => isArabic ? 'الصدر' : 'Chest',
+        'upper_chest' => isArabic ? 'أعلى الصدر' : 'Upper chest',
+        'back' => isArabic ? 'الظهر' : 'Back',
+        'shoulders' => isArabic ? 'الأكتاف' : 'Shoulders',
+        'side_delts' => isArabic ? 'الأكتاف الجانبية' : 'Side delts',
+        'biceps' => isArabic ? 'العضلة ذات الرأسين' : 'Biceps',
+        'triceps' => isArabic ? 'العضلة ثلاثية الرؤوس' : 'Triceps',
+        'forearms' => isArabic ? 'الساعدان' : 'Forearms',
+        'quads' => isArabic ? 'العضلة رباعية الرؤوس' : 'Quads',
+        'hamstrings' => isArabic ? 'أوتار الركبة' : 'Hamstrings',
+        'glutes' => isArabic ? 'عضلات المؤخرة' : 'Glutes',
+        'adductors' => isArabic ? 'العضلات المقربة' : 'Adductors',
+        'calves' => isArabic ? 'السمانة' : 'Calves',
+        'abs' => isArabic ? 'عضلات البطن' : 'Abs',
+        _ => key,
+      };
   String get openAssistant => isArabic ? 'فتح المساعد' : 'Open assistant';
   String get wantDifferentProgramAskAssistant => isArabic
       ? 'هل تريد برنامجًا تدريبيًا مختلفًا؟ اسأل المساعد.'

@@ -235,12 +235,19 @@ Future<void> _answerAll(WidgetTester tester,
       find.byKey(const Key('rep_preference_option_balanced')));
   if (skipRepPreference) {
     await _tapAndFind(tester, find.byKey(const Key('onboarding_skip')),
+        find.byKey(const Key('onboarding_weak_point_glutes')));
+    await _tapAndFind(tester, find.byKey(const Key('onboarding_skip')),
         find.byKey(const Key('onboarding_confirm')));
   } else {
     await _tapAndFind(
         tester,
         find.byKey(const Key('rep_preference_option_balanced')),
         find.byKey(const Key('onboarding_continue')));
+    await _tapAndFind(tester, find.byKey(const Key('onboarding_continue')),
+        find.byKey(const Key('onboarding_weak_point_glutes')));
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_glutes'),
+    )).selected, isTrue);
     await _tapAndFind(tester, find.byKey(const Key('onboarding_continue')),
         find.byKey(const Key('onboarding_confirm')));
   }
@@ -250,7 +257,8 @@ void main() {
   testWidgets('disclosure and review each emit once when shown',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _fake()
-      ..intakeAnswers.addAll(_requiredAnswers);
+      ..intakeAnswers.addAll(_requiredAnswers)
+      ..intakeAnswers['weak_points'] = <Map<String, String>>[];
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpOnboarding(tester, fake, analytics: analytics);
 
@@ -462,6 +470,8 @@ void main() {
       size: const Size(1280, 800),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('onboarding_confirm')));
+    await tester.tap(find.byKey(const Key('onboarding_continue')));
+    await _pumpUntilFound(tester, find.byKey(const Key('onboarding_confirm')));
 
     final Completer<void> pending = Completer<void>();
     fake.adapter.beforeRespond = (request) async {
@@ -494,7 +504,55 @@ void main() {
     expect(fake.intakeAnswers['weekly_frequency'], 4);
     expect(fake.intakeAnswers['injuries_or_limitations'], 'None');
     expect(fake.intakeAnswers['rep_preference'], 'balanced');
+    expect(fake.intakeAnswers['weak_points'], <Map<String, String>>[
+      <String, String>{'muscle': 'glutes', 'source': 'default'},
+    ]);
     expect(find.byKey(const Key('onboarding_confirm')), findsOneWidget);
+  });
+
+  testWidgets('female can clear the glute default and name another Weak point', (tester) async {
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeAnswers.addAll(_requiredAnswers);
+    await _pumpOnboarding(tester, fake);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_glutes'),
+    )).selected, isTrue);
+    await tester.tap(find.byKey(const Key('onboarding_weak_point_glutes')));
+    await tester.tap(find.byKey(const Key('onboarding_weak_point_chest')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('onboarding_continue')));
+    await _pumpUntilFound(tester, find.byKey(const Key('onboarding_confirm')));
+    expect(fake.intakeAnswers['weak_points'], <Map<String, String>>[
+      <String, String>{'muscle': 'chest', 'source': 'named'},
+    ]);
+  });
+
+  testWidgets('female can save no Weak points after clearing glutes', (tester) async {
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeAnswers.addAll(_requiredAnswers);
+    await _pumpOnboarding(tester, fake);
+    await tester.tap(find.byKey(const Key('onboarding_weak_point_glutes')));
+    await tester.pump();
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_glutes'),
+    )).selected, isFalse);
+    await tester.tap(find.byKey(const Key('onboarding_continue')));
+    await _pumpUntilFound(tester, find.byKey(const Key('onboarding_confirm')));
+    expect(fake.intakeAnswers['weak_points'], isEmpty);
+  });
+
+  testWidgets('male Weak points step starts with no selection', (tester) async {
+    final Map<String, Object> answers = Map<String, Object>.from(_requiredAnswers)
+      ..['gender'] = 'male';
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeAnswers.addAll(answers);
+    await _pumpOnboarding(tester, fake);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_glutes'),
+    )).selected, isFalse);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_chest'),
+    )).selected, isFalse);
   });
 
   testWidgets('enum option descriptions come from the API, not widgets',
@@ -601,6 +659,7 @@ void main() {
     await _pumpOnboarding(tester, fake);
     await _answerAll(tester, skipRepPreference: true);
     expect(fake.intakeAnswers.containsKey('rep_preference'), isFalse);
+    expect(fake.intakeAnswers.containsKey('weak_points'), isFalse);
     expect(find.byKey(const Key('onboarding_confirm')), findsOneWidget);
   });
 
@@ -678,7 +737,8 @@ void main() {
   testWidgets('an answer can be edited from review and returns to review',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _fake(acknowledged: true)
-      ..intakeAnswers.addAll(_requiredAnswers);
+      ..intakeAnswers.addAll(_requiredAnswers)
+      ..intakeAnswers['weak_points'] = <Map<String, String>>[];
     await _pumpOnboarding(tester, fake);
 
     expect(find.byKey(const Key('onboarding_confirm')), findsOneWidget);
@@ -767,7 +827,8 @@ void main() {
         ..displayLanguage = languageCode
         ..nullOnboardingProgram = noProgram
         ..recoveryEmail = 'alice@example.com'
-        ..intakeAnswers.addAll(_requiredAnswers);
+        ..intakeAnswers.addAll(_requiredAnswers)
+        ..intakeAnswers['weak_points'] = <Map<String, String>>[];
       tester.view.physicalSize = const Size(393, 852);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);

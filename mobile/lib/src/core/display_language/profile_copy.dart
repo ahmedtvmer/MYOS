@@ -12,6 +12,9 @@ class ProfileCopy {
       ? 'حدّث معلومات الملف التي تساعد على تخصيص تدريبك.'
       : 'Update the profile facts used to personalize your training.';
   String get currentGoal => isArabic ? 'الهدف الحالي' : 'Current goal';
+  String get weakPoints => isArabic ? 'نقاط الضعف' : 'Weak points';
+  String get weakPointsLead => isArabic ? 'اختر حتى نقطتي ضعف لتحسينهما.' : 'Choose up to two Weak points to improve.';
+  String get saveWeakPoints => isArabic ? 'حفظ نقاط الضعف' : 'Save Weak points';
   String get injuries => isArabic ? 'الإصابات' : 'Injuries';
   String get injuriesLead => isArabic
       ? 'سجّل الإصابات الحالية ومتابعتها.'

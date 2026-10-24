@@ -41,6 +41,9 @@ class OnboardingCopy {
         'rep_preference' => isArabic
             ? 'ما نطاق التكرارات الذي تفضله؟'
             : 'What rep range do you prefer?',
+        'weak_points' => isArabic
+            ? 'ما نقطتا الضعف اللتان تريد التركيز عليهما؟'
+            : 'Which Weak points do you want to focus on?',
         _ => serverLabel ?? (isArabic ? 'السؤال' : 'Question'),
       };
 
@@ -69,6 +72,7 @@ class OnboardingCopy {
       };
 
   String get unknownOption => isArabic ? 'خيار' : 'Option';
+  String get noWeakPoints => isArabic ? 'لا توجد نقاط ضعف' : 'None';
 
   String reviewLabel(String field, {String? serverLabel}) => switch (field) {
         'gender' => isArabic ? 'التخصص' : 'Specialization',
@@ -87,6 +91,7 @@ class OnboardingCopy {
           isArabic ? 'الإصابات أو القيود' : 'Injuries or limitations',
         'stress_and_sleep' => isArabic ? 'التوتر والنوم' : 'Stress and sleep',
         'rep_preference' => isArabic ? 'تفضيل التكرارات' : 'Rep preference',
+        'weak_points' => isArabic ? 'نقاط الضعف' : 'Weak points',
         _ => serverLabel ?? (isArabic ? 'السؤال' : 'Question'),
       };
 

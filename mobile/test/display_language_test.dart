@@ -25,6 +25,18 @@ class _FailingStore extends InMemoryDisplayLanguageStore {
 }
 
 void main() {
+  test('Weak point muscle labels are present in English and Arabic', () {
+    const List<String> muscles = <String>[
+      'chest', 'upper_chest', 'back', 'shoulders', 'side_delts', 'biceps',
+      'triceps', 'forearms', 'quads', 'hamstrings', 'glutes', 'adductors',
+      'calves', 'abs',
+    ];
+    for (final String muscle in muscles) {
+      expect(const MyosCopy('en').weakPointMuscle(muscle), isNotEmpty);
+      expect(const MyosCopy('ar').weakPointMuscle(muscle), isNotEmpty);
+    }
+  });
+
   test('Progress Volume tab names the counted-sets-per-muscle chart', () {
     expect(const MyosCopy('en').volume, 'Volume');
     expect(const MyosCopy('ar').volume, 'مجموعات محسوبة لكل عضلة');

@@ -164,6 +164,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return field.name;
       }
     }
+    final IntakeField? weakPoints = intake.field('weak_points');
+    if (weakPoints != null && !weakPoints.answered) return weakPoints.name;
     return null;
   }
 
@@ -195,6 +197,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     if (!_draft.containsKey(field.name) && field.answer == null) {
+      if (field.name == 'weak_points' && _fieldByName('gender')?.answer == 'female') {
+        _draft[field.name] = <Map<String, String>>[
+          <String, String>{'muscle': 'glutes', 'source': 'default'},
+        ];
+      } else if (field.name == 'weak_points') {
+        _draft[field.name] = <Map<String, String>>[];
+      }
       final Object? start = _startingValue(field);
       if (start != null) {
         _draft[field.name] = start;
@@ -203,6 +212,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (field.type == 'text') {
       _controllerFor(field);
     }
+  }
+
+  void _toggleWeakPoint(String muscle, Object? currentValue) {
+    final List<Map<String, String>> current = currentValue is List
+        ? currentValue.map((dynamic value) => Map<String, String>.from(value as Map)).toList()
+        : <Map<String, String>>[];
+    final int index = current.indexWhere((Map<String, String> item) => item['muscle'] == muscle);
+    if (index >= 0) {
+      current.removeAt(index);
+    } else {
+      current.removeWhere((Map<String, String> item) => item['source'] == 'default');
+      if (current.length < 2) {
+      current.add(<String, String>{'muscle': muscle, 'source': 'named'});
+      }
+    }
+    setState(() {
+      _draft['weak_points'] = current;
+    });
   }
 
   Object? _startingValue(IntakeField field) {
@@ -660,6 +687,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   bool _canContinue(IntakeField field, Object? value) {
+    if (field.name == 'weak_points') return value is List && isFieldAnswerValid(field, value);
     if (field.isRequired) {
       return isFieldAnswerValid(field, value);
     }
@@ -671,6 +699,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     Object? value,
     String displayLanguage,
   ) {
+    if (field.name == 'weak_points') {
+      final List<Map<String, String>> selections = value is List
+          ? value.map((dynamic item) => Map<String, String>.from(item as Map)).toList()
+          : <Map<String, String>>[];
+      const List<String> muscles = <String>[
+        'chest', 'upper_chest', 'back', 'shoulders', 'side_delts', 'biceps', 'triceps',
+        'forearms', 'quads', 'hamstrings', 'glutes', 'adductors', 'calves', 'abs',
+      ];
+      final MyosCopy copy = MyosCopy(displayLanguage);
+      return Wrap(spacing: MyosSpacing.xs, runSpacing: MyosSpacing.xs, children: <Widget>[
+        for (final String muscle in muscles)
+          FilterChip(
+            key: Key('onboarding_weak_point_$muscle'),
+            label: Text(copy.weakPointMuscle(muscle)),
+            selected: selections.any((Map<String, String> item) => item['muscle'] == muscle),
+            onSelected: (bool selected) => _toggleWeakPoint(muscle, value),
+          ),
+      ]);
+    }
     switch (field.name) {
       case 'proportions':
         return ProportionSelector(
@@ -806,6 +853,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'weekly_frequency',
             'equipment_access',
             'rep_preference',
+            'weak_points',
           ]),
           onEdit: (IntakeField field) => _editField(field.name),
         ),

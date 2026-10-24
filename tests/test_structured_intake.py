@@ -112,6 +112,72 @@ def _register(client: TestClient, username: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 
+def test_weak_points_profile_round_trip_and_validation(api):
+    client, _, _ = api
+    headers = _register(client, "weakpoint-player")
+    assert client.get("/profile", headers=headers).status_code == 404
+    saved = client.put("/profile", headers=headers, json={"weak_points": [
+        {"muscle": "glutes", "source": "default"},
+        {"muscle": "chest", "source": "named"},
+    ]})
+    assert saved.status_code == 200, saved.text
+    assert client.get("/profile", headers=headers).json()["weak_points"] == [
+        {"muscle": "glutes", "source": "default"},
+        {"muscle": "chest", "source": "named"},
+    ]
+    assert client.put("/profile", headers=headers, json={"weak_points": []}).status_code == 200
+    assert client.get("/profile", headers=headers).json()["weak_points"] == []
+    for value in (
+        [{"muscle": "chest", "source": "named"}] * 3,
+        [{"muscle": "chest", "source": "named"}, {"muscle": "chest", "source": "named"}],
+        [{"muscle": "pecs", "source": "named"}],
+        [{"muscle": "chest", "source": "bad"}],
+    ):
+        assert client.put("/profile", headers=headers, json={"weak_points": value}).status_code == 422
+
+
+def test_weak_points_are_optional_intake_answers_and_can_be_cleared(api):
+    client, _, _ = api
+    headers = _register(client, "weakpoint-intake")
+    initial = client.get("/onboarding/intake", headers=headers).json()
+    field = next(item for item in initial["fields"] if item["name"] == "weak_points")
+    assert field["required"] is False and field["answered"] is False
+    client.post("/onboarding/intake/disclosure", headers=headers)
+    for invalid in (
+        [{"muscle": "chest", "source": "named"}] * 3,
+        [{"muscle": "chest", "source": "named"}, {"muscle": "chest", "source": "named"}],
+        [{"muscle": "unknown", "source": "named"}],
+        [{"muscle": "chest", "source": "unknown"}],
+    ):
+        rejected = client.put("/onboarding/intake/answers/weak_points", headers=headers,
+                              json={"value": invalid})
+        assert rejected.status_code == 400
+    saved = client.put("/onboarding/intake/answers/weak_points", headers=headers,
+                       json={"value": [{"muscle": "glutes", "source": "default"}]})
+    assert saved.status_code == 200, saved.text
+    field = next(item for item in saved.json()["fields"] if item["name"] == "weak_points")
+    assert field["answer"] == [{"muscle": "glutes", "source": "default"}]
+    cleared = client.put("/onboarding/intake/answers/weak_points", headers=headers,
+                         json={"value": []})
+    field = next(item for item in cleared.json()["fields"] if item["name"] == "weak_points")
+    assert field["answered"] is True and field["answer"] == []
+
+
+def test_skipping_weak_points_keeps_the_confirmed_profile_unanswered(api, monkeypatch):
+    client, _, _ = api
+    headers = _register(client, "weakpoint-skip")
+    _spy_generation_from_profile(api[1], monkeypatch)
+    client.post("/onboarding/intake/disclosure", headers=headers)
+    for name, value in VALID_ANSWERS.items():
+        response = client.put(f"/onboarding/intake/answers/{name}", headers=headers,
+                              json={"value": value})
+        assert response.status_code == 200, response.text
+    confirmed = client.post("/onboarding/intake/confirm", headers=headers)
+    assert confirmed.status_code == 200, confirmed.text
+    profile = client.get("/profile", headers=headers).json()
+    assert profile["weak_points"] is None
+
+
 def _spy_generation(db: Any, monkeypatch) -> dict[str, Any]:
     """Stubs first-program generation and counts calls, saving through the ledger."""
     calls = {"n": 0}

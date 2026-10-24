@@ -2190,6 +2190,7 @@ class ApiClient {
   /// a rebuild, so a coach-controlled program may stay unchanged while the
   /// profile update still applies.
   Future<ProfileUpdateResult> updateProfile({
+    List<Map<String, String>>? weakPoints,
     int? weeklyFrequency,
     String? repPreference,
     String? equipmentAccess,
@@ -2200,6 +2201,7 @@ class ApiClient {
     bool updateTargetWeight = false,
   }) async {
     final Map<String, dynamic> body = <String, dynamic>{
+      if (weakPoints != null) 'weak_points': weakPoints,
       if (weeklyFrequency != null) 'weekly_frequency': weeklyFrequency,
       if (repPreference != null) 'rep_preference': repPreference,
       if (equipmentAccess != null) 'equipment_access': equipmentAccess,

@@ -147,6 +147,7 @@ class SchemaMixin:
                 stress_and_sleep TEXT NOT NULL,
                 coach_tone TEXT DEFAULT '__DEFAULT_ASSISTANT_STYLE__',
                 custom_instructions TEXT DEFAULT '',
+                weak_points_json TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
