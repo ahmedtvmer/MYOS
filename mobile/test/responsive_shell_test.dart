@@ -195,6 +195,7 @@ void main() {
       expect(find.byType(MyosBottomNavigation), findsNothing);
       expect(_railDestination('Home'), findsOneWidget);
       expect(_railDestination('Program'), findsOneWidget);
+      expect(_railDestination('Nutrition'), findsOneWidget);
       expect(_railDestination('Progress'), findsOneWidget);
 
       final Rect shellBody = tester.getRect(
@@ -222,12 +223,13 @@ void main() {
       expect(find.byType(MyosBottomNavigation), findsOneWidget);
       expect(_bottomDestination('Home'), findsOneWidget);
       expect(_bottomDestination('Program'), findsOneWidget);
+      expect(_bottomDestination('Nutrition'), findsOneWidget);
       expect(_bottomDestination('Progress'), findsOneWidget);
       expect(
         tester
             .widget<MyosBottomNavigation>(find.byType(MyosBottomNavigation))
             .index,
-        2,
+        3,
       );
       expect(
         find.text('Last 28 days · working sets per muscle'),
@@ -241,7 +243,7 @@ void main() {
         tester
             .widget<MyosNavigationRail>(find.byType(MyosNavigationRail))
             .index,
-        2,
+        3,
       );
       expect(
         find.text('Last 28 days · working sets per muscle'),

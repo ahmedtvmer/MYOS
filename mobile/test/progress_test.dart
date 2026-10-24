@@ -537,7 +537,7 @@ void main() {
     expect(find.textContaining('95 kg × 5 @ RIR 2'), findsWidgets);
   });
 
-  testWidgets('bottom navigation now exposes Home, Program, and Progress',
+  testWidgets('bottom navigation exposes all four Player destinations',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _signedInFake();
     await _pumpApp(tester, fake);
@@ -545,7 +545,7 @@ void main() {
     final MyosBottomNavigation nav = tester
         .widget<MyosBottomNavigation>(find.byType(MyosBottomNavigation));
     expect(nav.items.map((MyosNavItem item) => item.label),
-        <String>['Home', 'Program', 'Progress']);
+        <String>['Home', 'Program', 'Nutrition', 'Progress']);
   });
 
   testWidgets('progress has no overflow at 360x640 and text scale 2.0',
