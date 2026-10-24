@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from database.ledger.profile import PLAYER_PROFILE_STORAGE_DEFAULTS
 from service.injuries import render_public_injury_record
+from service.nutrition import assistant_projection
 from service.player_weight_context import render_player_weight_context
 from service.weight_history import WeightTrendQuery, get_weight_trend, player_local_date
 from agent.player_prompt import (
@@ -179,6 +180,12 @@ def _read_assistant_preferences(ledger: Any) -> dict[str, Any]:
     }
 
 
+def _read_player_nutrition(ledger: Any) -> dict[str, Any]:
+    """Returns a privacy-safe projection of active targets and recent adherence."""
+    today = player_local_date(ledger, ledger.ledger_id)
+    return assistant_projection(ledger, today)
+
+
 def _read_active_program(ledger: Any) -> dict[str, Any]:
     program = ledger.get_active_program()
     if program is None:
@@ -255,6 +262,18 @@ PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
         reader=_read_weight_trend,
         status_en="Checking your weight trend…",
         status_ar="ببص على تغيّر وزنك…",
+    ),
+    PlayerReadTool(
+        name="get_player_nutrition",
+        description=(
+            "Read the current player's active Nutrition targets, author, Nutrition goal, pace, "
+            "and last-14-day adherence counts. This is read-only; direct target changes "
+            "to the Nutrition tab."
+        ),
+        args_schema=EmptyToolArgs,
+        reader=_read_player_nutrition,
+        status_en="Checking your Nutrition targets…",
+        status_ar="ببص على أهداف التغذية بتاعتك…",
     ),
     PlayerReadTool(
         name="get_player_injuries",

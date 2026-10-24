@@ -377,6 +377,7 @@ def test_tool_bound_chat_fetches_profile_and_program_only_after_parallel_calls(
         "get_player_profile",
         "get_active_program",
         "get_player_weight_trend",
+        "get_player_nutrition",
         "get_player_injuries",
         "get_assistant_preferences",
     ]
@@ -498,6 +499,7 @@ def test_turn_without_tool_call_sends_no_profile_telemetry_or_program_data(api, 
         "get_player_profile",
         "get_active_program",
         "get_player_weight_trend",
+        "get_player_nutrition",
         "get_player_injuries",
         "get_assistant_preferences",
     )
@@ -2879,3 +2881,60 @@ def test_preferences_api_edit_is_read_by_later_tool_call_and_ordinary_chat_does_
     ]
     assert len(tool_results) == 1
     assert "I train before breakfast" in tool_results[0]
+
+
+def test_player_nutrition_tool_omits_targets_after_positive_rescreen(api, monkeypatch):
+    _force_free_form_coaching_intent(monkeypatch)
+    client, db = api
+    username = "nutrition-tool-rescreen"
+    headers = _authed(_register(client, username)["access_token"])
+    with db.open_ledger(username) as ledger:
+        ledger.upsert_player_profile({
+            "gender": "male", "age": 30, "height_cm": 175.0, "weight_kg": 75.0,
+            "current_goal": "get stronger", "weekly_frequency": 3,
+        })
+    setup_payload = {
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {
+            "pregnant_or_breastfeeding": False,
+            "medical_condition": False,
+            "eating_disorder": False,
+        },
+    }
+    setup = client.post("/nutrition/setup", headers=headers, json=setup_payload)
+    assert setup.status_code == 200, setup.text
+    assert setup.json()["state"] == "ready"
+    assert setup.json()["targets"]["calories"] > 0
+
+    setup_payload["screening"]["medical_condition"] = True
+    blocked = client.post("/nutrition/setup", headers=headers, json=setup_payload)
+    assert blocked.status_code == 200, blocked.text
+    assert blocked.json()["state"] == "blocked"
+    assert blocked.json()["targets"] is None
+
+    model = ScriptedChatModel([
+        ToolCallsTurn(calls=[{
+            "name": "get_player_nutrition", "args": {}, "id": "blocked-nutrition",
+        }]),
+        "I can't provide calorie targets right now. Please speak with a registered dietitian.",
+    ])
+    monkeypatch.setattr(assistant_graph, "llm", model)
+    with client.stream(
+        "POST", "/chat/messages", headers=headers,
+        json={"content": "What are my calorie targets?"},
+    ) as response:
+        response.read()
+        assert response.status_code == 200
+
+    tool_messages = [
+        message
+        for model_call in model.calls
+        for message in model_call["messages"]
+        if getattr(message, "type", "") == "tool"
+    ]
+    assert len(tool_messages) == 1
+    result = json.loads(tool_messages[0].content)
+    assert result["status"] == "blocked"
+    assert result["targets"] is None
+    assert "screening" not in result
+    assert "medical_condition" not in tool_messages[0].content

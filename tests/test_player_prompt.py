@@ -91,6 +91,10 @@ def test_player_prompt_contains_player_data_and_tool_guardrails():
     assert all(concept in prompt_rules for concept in required_concepts)
 
 
+def test_player_prompt_does_not_claim_nutrition_is_untracked():
+    assert "Nutrition, calories and macros are not tracked in this ledger." not in STATIC_SYSTEM_CORE
+
+
 def test_player_prompt_defers_rehab_requests_and_avoids_tool_filler():
     assert (
         "For a Player's pain/injury rehab or fix-it exercise request, decline and refer to a licensed "

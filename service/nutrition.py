@@ -141,6 +141,33 @@ def read(
     return nutrition_state
 
 
+def assistant_projection(ledger: Any, today: date) -> dict[str, Any]:
+    """Returns only assistant-safe Nutrition facts, respecting target blocks."""
+    nutrition_state = read(ledger, today=today)
+    if nutrition_state["state"] != "ready":
+        status = "blocked" if nutrition_state["state"] == "blocked" else "not_set"
+        return {"status": status, "targets": None}
+
+    start = today - timedelta(days=13)
+    adherence = ledger.list_nutrition_adherence(start.isoformat(), today.isoformat())
+    return {
+        "status": "ok",
+        "targets": nutrition_state["targets"],
+        "author": nutrition_state["author"],
+        "goal": nutrition_state["goal"],
+        "pace": nutrition_state["intensity"],
+        "adherence": _adherence_counts(adherence),
+    }
+
+
+def _adherence_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {value: 0 for value in ("on_target", "roughly", "off")}
+    for entry in entries:
+        if entry["value"] in counts:
+            counts[entry["value"]] += 1
+    return counts
+
+
 def _adherence_state(ledger: Any, today: date) -> dict[str, Any]:
     start = today - timedelta(days=6)
     entries = {entry["date"]: entry["value"] for entry in ledger.list_nutrition_adherence(
