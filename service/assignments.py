@@ -24,6 +24,7 @@ from typing import Any, Callable
 from database.registry.assignments import EndedAssignmentSnapshot
 from service import missed_day_alerts
 from service import analytics as analytics_service
+from service import nutrition_alerts
 from service._base import ledger_scope
 from service._tokens import hash_token
 from service.check_ins import next_follow_up_on
@@ -539,7 +540,7 @@ def end_assignment(
             return _refusal("This assignment has already ended.", "assignment.already_ended.v1")
         return _refusal("Assignment not found.", "assignment.not_found.v1")
     assignment = result["ended_assignment"]
-    for alert_kind in ("volume_review", "nutrition_off_streak", "nutrition_unlogged"):
+    for alert_kind in ("volume_review", nutrition_alerts.OFF_KIND, nutrition_alerts.UNLOGGED_KIND):
         try:
             db.resolve_open_coach_alerts_for_assignment(
                 assignment_id, datetime.now(UTC).isoformat(), alert_kind

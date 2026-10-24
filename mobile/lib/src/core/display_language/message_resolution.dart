@@ -717,7 +717,7 @@ String? _volumeReview(Map<String, dynamic> params, MessageCopy copy) =>
 
 String? _nutritionOffStreak(Map<String, dynamic> params, MessageCopy copy) =>
     copy.isArabic
-        ? 'سجّل اللاعب أنه خارج الهدف الغذائي ثلاثة أيام متتالية.'
+        ? 'سجّل اللاعب أنه بعيد عن الهدف ثلاثة أيام متتالية.'
         : 'Player recorded Off for three days in a row.';
 
 String? _nutritionUnlogged(Map<String, dynamic> params, MessageCopy copy) =>

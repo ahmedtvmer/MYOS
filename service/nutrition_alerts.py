@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from service import coach_analytics
+from service import nutrition as nutrition_service
 from service.schedule import local_date_in, timezone_for_versions
 
 OFF_KIND = "nutrition_off_streak"
@@ -17,10 +18,10 @@ def _read_adherence(
     db: Any, ledger_id: str, now: datetime
 ) -> tuple[date, date, date, bool, dict[date, str]]:
     with db.open_ledger(ledger_id) as ledger:
-        has_targets = ledger.get_active_nutrition_plan() is not None
         versions = ledger.list_training_schedules(ledger_id)
         timezone = timezone_for_versions(versions) if versions else "UTC"
         today = local_date_in(now, timezone)
+        has_targets = nutrition_service.read(ledger, today=today).get("state") == "ready"
         start = today
         first_plan_at = ledger.get_first_nutrition_plan_created_at()
         if first_plan_at:
@@ -45,7 +46,8 @@ def _qualifying_episodes(
     qualifying: dict[str, date] = {}
     if not has_targets:
         return qualifying
-    for kind, through in ((OFF_KIND, today), (UNLOGGED_KIND, completed_through)):
+    off_through = today if today in entries else completed_through
+    for kind, through in ((OFF_KIND, off_through), (UNLOGGED_KIND, completed_through)):
         run_start = through
         run_length = 0
         while run_start >= start and _is_signal_day(kind, run_start, entries):
@@ -109,14 +111,20 @@ def _apply_kind(
 
 def _apply_episodes(
     db: Any, assignment: dict[str, Any], now: datetime,
-    entries: dict[date, str], qualifying: dict[str, date]
+    entries: dict[date, str], qualifying: dict[str, date], has_targets: bool,
+    open_alerts: list[dict[str, Any]] | None = None,
 ) -> dict[str, int]:
     created = resolved = 0
     now_iso = now.isoformat()
-    open_alerts = db.list_coach_alerts(
-        assignment["coach_account_id"], ("new", "acknowledged")
-    )
+    if open_alerts is None:
+        open_alerts = db.list_coach_alerts(
+            assignment["coach_account_id"], ("new", "acknowledged")
+        )
     with db.catalog_transaction():
+        if not has_targets:
+            resolved += db.resolve_open_coach_alerts_for_assignment(
+                assignment["assignment_id"], now_iso, UNLOGGED_KIND
+            )
         for kind in (OFF_KIND, UNLOGGED_KIND):
             episode_created, episode_resolved = _apply_kind(
                 db, assignment, kind, now_iso, open_alerts, entries, qualifying
@@ -126,7 +134,10 @@ def _apply_episodes(
     return {"alerts_created": created, "alerts_resolved": resolved}
 
 
-def evaluate_assignment(db: Any, assignment: dict[str, Any], now: datetime) -> dict[str, int]:
+def evaluate_assignment(
+    db: Any, assignment: dict[str, Any], now: datetime,
+    open_alerts: list[dict[str, Any]] | None = None,
+) -> dict[str, int]:
     account = db.get_account(assignment["player_account_id"])
     if not db.is_live_account(account) or not db.ledger_exists(account["ledger_id"]):
         return {"alerts_created": 0, "alerts_resolved": 0}
@@ -136,4 +147,4 @@ def evaluate_assignment(db: Any, assignment: dict[str, Any], now: datetime) -> d
     qualifying = _qualifying_episodes(
         today, start, completed_through, entries, has_targets
     )
-    return _apply_episodes(db, assignment, now, entries, qualifying)
+    return _apply_episodes(db, assignment, now, entries, qualifying, has_targets, open_alerts)

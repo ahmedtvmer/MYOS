@@ -1,6 +1,7 @@
 """Player Nutrition setup and read endpoints."""
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -19,6 +20,7 @@ from svc.schemas import (
 )
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
+logger = logging.getLogger(__name__)
 
 
 def _player_context(player: Any, ledger: Any, db: Any, request: Request | None = None):
@@ -116,9 +118,12 @@ async def log_adherence(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     if assignment is not None:
-        await asyncio.to_thread(
-            nutrition_alerts.evaluate_assignment, db, assignment, datetime.now(UTC)
-        )
+        try:
+            await asyncio.to_thread(
+                nutrition_alerts.evaluate_assignment, db, assignment, datetime.now(UTC)
+            )
+        except Exception:
+            logger.exception("Nutrition alert evaluation failed after adherence write")
     state["coach_sees_adherence"] = assignment is not None
     _apply_authority_view(state, assignment)
     analytics.capture_for_request(request, analytics.AnalyticsEvent(

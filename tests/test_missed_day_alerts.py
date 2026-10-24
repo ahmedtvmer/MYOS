@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from agent.ProgramState import ProgramDaySchema, ProgramExerciseSchema
 from database.database_manager import DatabaseManager
-from database.ledger.nutrition import NutritionPlanVersion
+from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
 from service import alert_sweep
 from service import coach as coach_service
 from service import missed_day_alerts as alerts_service
@@ -201,6 +201,81 @@ def test_unlogged_episode_ignores_the_unfinished_player_local_day(api):
     assert nutrition_alerts.evaluate_assignment(
         db, assignment, datetime(2026, 10, 26, 21, 1, tzinfo=UTC)
     )["alerts_created"] == 1
+
+
+def test_off_episode_sweep_uses_latest_logged_day_when_today_is_unlogged(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2026-10-20T00:00:00+00:00",
+        ))
+        for day in (21, 22, 23):
+            ledger.upsert_nutrition_adherence(f"2026-10-{day}", "off")
+    result = nutrition_alerts.evaluate_assignment(
+        db, assignment, datetime(2026, 10, 24, 12, tzinfo=UTC)
+    )
+    assert result["alerts_created"] == 1
+    alert = next(row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                 if row["kind"] == nutrition_alerts.OFF_KIND)
+    assert alert["details"]["episode_start_date"] == "2026-10-21"
+
+
+def test_positive_rescreen_resolves_unlogged_alert_even_with_plan_row(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2026-10-19T00:00:00+00:00",
+        ))
+    now = datetime(2026, 10, 25, 12, tzinfo=UTC)
+    assert nutrition_alerts.evaluate_assignment(db, assignment, now)["alerts_created"] == 1
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_setup(NutritionSetup(
+            "male", "mostly_sitting",
+            {"pregnant_or_breastfeeding": False, "medical_condition": True,
+             "eating_disorder": False}, None,
+        ))
+        assert ledger.get_active_nutrition_plan() is not None
+    changed = nutrition_alerts.evaluate_assignment(db, assignment, now)
+    assert changed["alerts_resolved"] == 1
+    assert not [row for row in db.list_coach_alerts(coach_account_id, ("new", "acknowledged"))
+                if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+
+
+def test_adherence_write_succeeds_when_alert_evaluation_fails(api, monkeypatch):
+    client, db = api
+    _, player_headers, _, _ = _assign(api)
+    account = db.get_active_account_by_username("p1")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.upsert_player_profile({
+            "gender": "male", "age": 30, "height_cm": 175, "weight_kg": 75,
+            "current_goal": "get stronger", "weekly_frequency": 3,
+        })
+        ledger.save_nutrition_setup(NutritionSetup(
+            "male", "mostly_sitting",
+            {"pregnant_or_breastfeeding": False, "medical_condition": False,
+             "eating_disorder": False},
+            NutritionPlanVersion("maintain", {"code": "default"}, None,
+                                 "mostly_sitting", {"calories": 2000}),
+        ))
+
+    def fail_evaluation(*_args, **_kwargs):
+        raise RuntimeError("catalog unavailable")
+
+    from svc.routers import nutrition as nutrition_router
+    monkeypatch.setattr(nutrition_router.nutrition_alerts, "evaluate_assignment", fail_evaluation)
+    response = client.put("/nutrition/adherence", headers=player_headers,
+                          json={"value": "on_target"})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["today_adherence"] == "on_target"
 
 
 def test_off_does_not_close_an_unlogged_episode(api):

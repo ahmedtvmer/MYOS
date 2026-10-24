@@ -299,7 +299,7 @@ def assistant_projection(ledger: Any, today: date) -> dict[str, Any]:
     """Returns only assistant-safe Nutrition facts, respecting target blocks."""
     nutrition_state = read(ledger, today=today)
     if nutrition_state["state"] != "ready":
-        status = "blocked" if nutrition_state["state"] == "blocked" else "not_set"
+        status = nutrition_state["state"] if nutrition_state["state"] in ("blocked", "under_18") else "not_set"
         return {"status": status, "targets": None}
 
     start = today - timedelta(days=13)

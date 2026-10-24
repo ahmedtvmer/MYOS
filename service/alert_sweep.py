@@ -50,6 +50,7 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
     except Exception:
         counts["errors"] += 1
         logger.exception("Deletion replay failed during the sweep")
+    roster_alerts: dict[str, list[dict[str, Any]]] = {}
     for assignment in db.list_all_active_assignments():
         result: dict[str, Any] | None = None
         try:
@@ -75,7 +76,14 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
                 assignment.get("assignment_id"),
             )
         try:
-            nutrition_result = nutrition_alerts.evaluate_assignment(db, assignment, now)
+            coach_id = assignment["coach_account_id"]
+            if coach_id not in roster_alerts:
+                roster_alerts[coach_id] = db.list_coach_alerts(
+                    coach_id, ("new", "acknowledged")
+                )
+            nutrition_result = nutrition_alerts.evaluate_assignment(
+                db, assignment, now, open_alerts=roster_alerts[coach_id]
+            )
             counts["alerts_created"] += nutrition_result["alerts_created"]
             counts["alerts_resolved"] += nutrition_result["alerts_resolved"]
         except Exception:
