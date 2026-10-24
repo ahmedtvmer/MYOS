@@ -11,6 +11,7 @@ from agent.program_blueprints import (
     SLOT_STAPLES,
     SlotSpec,
     SPLIT_DISPLAY_NAMES,
+    SPLIT_DAY_ORDER_REASON_CODES,
     REST_SECONDS_RANGES_BY_CLASS,
     WARMUP_FAMILIES,
     WARMUP_SPECS,
@@ -26,6 +27,11 @@ from agent.ProgramState import (
     MAX_DYNAMIC_TARGET_SLOTS_PER_DAY,
     CustomDayPlan,
     DynamicSplitPlan,
+)
+from agent.program_rationale import (
+    DAY_ORDER_TEMPLATE,
+    SPLIT_LIFTER_REQUEST,
+    SPLIT_UNSUPPORTED_FREQUENCY,
 )
 from database.exercise_library.ranking import replacement_rank_sql
 from database.exercise_library.schema import exercise_library_visible_sql
@@ -227,9 +233,10 @@ Rules:
 10. Prescriptions: beginners leave 1-2 RIR on compounds and 0-1 RIR on isolations. Intermediate and advanced trainees leave 0-1 RIR on compounds and take isolations to technical failure (the last full-range rep that looks like the first). Rest 3-4 minutes on compounds, 2-3 minutes on isolations, and 1.5-2 minutes on calves and abs.
 """
 
-def _plan_from_blueprint_days(split_name: str, days: list) -> DynamicSplitPlan:
+def _plan_from_blueprint_days(split_name: str, days: list, day_order_reason_code: str) -> DynamicSplitPlan:
     return DynamicSplitPlan(
         split_name=split_name,
+        day_order_reason_code=day_order_reason_code,
         days=[
             CustomDayPlan(
                 day_order=index,
@@ -317,7 +324,10 @@ def get_split_plan(split_type: str, frequency: int, gender: str = "male") -> Dyn
     split_name = SPLIT_FREQUENCY_NAMES.get((split_type, frequency))
     if not split_name:
         split_name = SPLIT_DISPLAY_NAMES.get(split_type, split_type.replace("_", " ").title())
-    return _plan_from_blueprint_days(split_name, days)
+    resolved_type = resolve_split_type(split_type, frequency)
+    return _plan_from_blueprint_days(
+        split_name, days, SPLIT_DAY_ORDER_REASON_CODES.get(resolved_type, DAY_ORDER_TEMPLATE)
+    )
 
 
 def get_default_split(frequency: int, gender: str = "male") -> DynamicSplitPlan:
@@ -459,10 +469,12 @@ def resolve_split(
     if split_type:
         plan = get_split_plan(split_type, clamped_freq, gender)
         if plan is not None:
-            return plan
+            return plan.model_copy(update={"split_reason_code": SPLIT_LIFTER_REQUEST})
         # Recognized request at an unsupported frequency (e.g. "arnold" at 1 day):
         # stay deterministic and fall back to the frequency default rather than the LLM.
-        return get_default_split(clamped_freq, gender=gender)
+        return get_default_split(clamped_freq, gender=gender).model_copy(
+            update={"split_reason_code": SPLIT_UNSUPPORTED_FREQUENCY}
+        )
 
     structured_llm = structured_output_model(llm).with_structured_output(
         DynamicSplitPlan,

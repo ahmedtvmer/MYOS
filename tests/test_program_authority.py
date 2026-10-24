@@ -165,6 +165,28 @@ def _program(name: str = "Coach Plan") -> GeneratedProgramSchema:
     )
 
 
+def test_program_version_round_trips_nullable_program_rationale(api):
+    _, db, _ = api
+    db.switch_user("rationale-player")
+    rationale = {
+        "split": {"code": "split.frequency_default", "params": {"frequency": 1}},
+        "day_order": {"code": "day_order.template", "params": {"split": "Full Body"}},
+        "days": [{"day_order": 1, "exercises": [{
+            "position": 1, "exercise_id": "row",
+            "rationale": {"selection": {"code": "selection.staple", "params": {"slot": "flat_press", "exercise_id": "row", "rank": 1}}},
+        }]}], "focus_muscles": [],
+    }
+    generated = _program("Generated").model_dump()
+    generated["program_rationale"] = rationale
+    db.ledger.save_training_program(generated)
+    loaded = db.ledger.get_active_program()
+    assert loaded.program_rationale == rationale
+    assert not hasattr(loaded.days[0].exercises[0], "rationale")
+
+    db.ledger.save_training_program(_program("Legacy coach program").model_dump())
+    assert db.ledger.get_active_program().program_rationale is None
+
+
 def _three_week_program_data(program_data: dict[str, Any]) -> dict[str, Any]:
     program = copy.deepcopy(program_data)
     for key in ("id", "version", "created_at"):

@@ -622,7 +622,10 @@ def test_v35_to_v36_lazy_migration_adds_nutrition_ledger_schema(temp_db_env):
     set_ledger_schema_version(conn, 35)
     conn.commit()
     apply_lazy_migrations(conn, "nutrition-v35", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == 36
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION
+    assert "program_rationale_json" in {
+        column[1] for column in conn.execute("PRAGMA table_info(training_programs)")
+    }
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"nutrition_plan_versions", "nutrition_screening"} <= tables
     columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profile)")}

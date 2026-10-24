@@ -147,7 +147,7 @@ def test_coach_generation_can_build_a_draft_without_writing_program_or_profile(m
             ],
         )
 
-    monkeypatch.setattr(program_generator, "assemble_deterministic_day", build_day)
+    monkeypatch.setattr(program_generator, "_assemble_deterministic_day_with_rationale", lambda **kwargs: (build_day(kwargs["day"], None, None), []))
 
     generated, _ = program_generator.generate_program_draft_pipeline(
         program_generator.ProgramGenerationRequest(
@@ -160,6 +160,39 @@ def test_coach_generation_can_build_a_draft_without_writing_program_or_profile(m
     ledger.update_player_frequency.assert_not_called()
     ledger.save_training_program.assert_not_called()
     assert ledger.get_player_profile.return_value == profile
+
+
+def test_generated_program_draft_carries_structured_rationale(monkeypatch):
+    profile = {
+        "gender": "male", "weekly_frequency": 2, "rep_preference": "balanced",
+        "equipment_access": "commercial gym", "injuries_or_limitations": "None",
+        "stress_and_sleep": "normal", "training_age_years": 3,
+        "current_goal": "Hypertrophy",
+    }
+    split = type("Split", (), {"split_name": "Full Body", "days": [
+        CustomDayPlan(day_order=1, day_name="Full 1", target_slots=[]),
+        CustomDayPlan(day_order=2, day_name="Full 2", target_slots=[]),
+    ]})()
+    monkeypatch.setattr(program_generator, "resolve_split", lambda **_kwargs: split)
+    monkeypatch.setattr(program_generator, "_assemble_deterministic_day_with_rationale", lambda day, *_args, **_kwargs: (ProgramDaySchema(
+        day_name=day.day_name, day_order=day.day_order,
+        exercises=[
+            ProgramExerciseSchema(
+                exercise_id=f"ex-{index}", exercise_name="Squat", target_reps_min=8,
+                target_reps_max=12,
+            )
+            for index in range(3)
+        ],
+    ), [{"position": index, "exercise_id": f"ex-{index}", "rationale": {"selection": {"code": "selection.staple"}, "position": {"code": "position.heavy_compound"}, "prescription": {"sets": {"code": "sets.coach_dose"}}}} for index in range(1, 4)]))
+    generated, _ = program_generator.generate_program_draft_pipeline(
+        program_generator.ProgramGenerationRequest(frequency_override=2),
+        ledger=MagicMock(), profile=profile,
+    )
+
+    rationale = generated.model_dump().get("program_rationale")
+    assert rationale["split"]["code"] == "split.frequency_default"
+    assert rationale["day_order"]["code"] == "day_order.template"
+    assert rationale["days"][0]["exercises"][0]["rationale"]["prescription"]["sets"]["code"] == "sets.coach_dose"
 
 
 def test_glute_priority_is_explicit_for_female_profiles(monkeypatch):

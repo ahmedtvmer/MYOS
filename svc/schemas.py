@@ -1251,6 +1251,7 @@ class ProgramDraftInput(BaseModel):
 class ProgramDraftExerciseIn(ProgramDraftInput):
     exercise_id: str = Field(min_length=1, max_length=200)
     exercise_name: str = ""
+    rationale: dict[str, Any] | None = None
     body_part: str | None = None
     equipment: str | None = None
     note: str | None = None
@@ -1336,6 +1337,7 @@ class CoachProgramDraftIn(ProgramDraftInput):
     split_type: str = "custom"
     weekly_frequency: int = Field(default=1, ge=1, le=MAX_PROGRAM_DAYS)
     instructions: str = ""
+    program_rationale: dict[str, Any] | None = None
     days: list[ProgramDraftDayIn] = Field(
         default_factory=list,
         max_length=MAX_PROGRAM_DAYS * MAX_PROGRAM_WEEKS,

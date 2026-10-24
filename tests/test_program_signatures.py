@@ -556,7 +556,7 @@ def test_empty_curation_programs_match_coach_pattern_snapshot(
 
 def _without_program_week_fields(program: dict) -> dict:
     """Drops the Program week structure (#330), which postdates this snapshot."""
-    program = {key: value for key, value in program.items() if key != "weeks"}
+    program = {key: value for key, value in program.items() if key not in {"weeks", "program_rationale"}}
     program["days"] = [
         {key: value for key, value in day.items() if key != "week_order"}
         for day in program["days"]
@@ -835,3 +835,43 @@ def test_explosive_signature_matches_are_never_prescribed(fresh_store, seed_exer
         exercise.exercise_id not in olympic_ids
         for exercise in prescribed_hinges
     )
+
+
+def test_generated_rationale_distinguishes_used_and_equipment_skipped_staples(fresh_store, monkeypatch):
+    context = program_generator.DayGenerationContext(
+        equipment_access=COMMERCIAL_GYM, limitations=NO_LIMITATIONS,
+        rep_preference="balanced", recovery_cut=False, experience_level="intermediate",
+    )
+    repeated = CustomDayPlan(
+        day_order=1, day_name="Repeated press", target_slots=["flat_press"] * 3,
+        warmup_family="upper",
+    )
+    _, repeated_reasons = program_generator._assemble_deterministic_day_with_rationale(
+        repeated, context, set(), ledger=fresh_store.ledger,
+    )
+    second_press = next(
+        record for record in repeated_reasons
+        if record["rationale"]["selection"]["params"].get("rank") == 2
+    )
+    assert second_press["rationale"]["selection"]["code"] == "selection.already_used_today"
+    selection_params = second_press["rationale"]["selection"]["params"]
+    assert {"slot", "exercise_id", "rank"} <= set(selection_params)
+    assert second_press["rationale"]["position"]["params"]["index"] == 2
+
+    bodyweight = program_generator.DayGenerationContext(
+        equipment_access=BODYWEIGHT_ONLY, limitations=NO_LIMITATIONS,
+        rep_preference="balanced", recovery_cut=False, experience_level="intermediate",
+    )
+    monkeypatch.setattr(
+        program_generator, "fetch_slot_candidates",
+        lambda slot, access, *_args, **_kwargs: ([{"id": "576"}] if access == COMMERCIAL_GYM else []),
+    )
+    equipment_reason = program_generator._limitation_selection_code(
+        {"id": "25"}, "flat_press", bodyweight, fresh_store.ledger,
+    )
+    assert equipment_reason == "selection.equipment_access_staple"
+    prescription = second_press["rationale"]["prescription"]
+    assert set(prescription["rir"]["params"]) == {"experience_level", "target_rir"}
+    assert set(prescription["reps"]["params"]) == {"slot", "preference", "rep_min", "rep_max", "movement_class"}
+    assert {"count"} <= set(prescription["sets"]["params"])
+    assert {"slot", "movement_class", "rest_seconds"} <= set(prescription["rest"]["params"])

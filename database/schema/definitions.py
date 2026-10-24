@@ -190,7 +190,8 @@ class SchemaMixin:
                 version INTEGER NOT NULL DEFAULT 0,
                 published_by_coach_account_id TEXT,
                 source_template_id TEXT,
-                design_version INTEGER
+                design_version INTEGER,
+                program_rationale_json TEXT
             );
             CREATE TABLE IF NOT EXISTS program_days (
                 id TEXT PRIMARY KEY,

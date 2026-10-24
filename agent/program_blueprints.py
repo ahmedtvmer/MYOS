@@ -18,6 +18,12 @@ the coaching assistant for cues.
 
 import re
 from dataclasses import dataclass, replace
+from agent.program_rationale import (
+    DAY_ORDER_ANTERIOR_POSTERIOR, DAY_ORDER_ARNOLD, DAY_ORDER_ARNOLD_X_UL,
+    DAY_ORDER_FEMALE_UPPER_LOWER, DAY_ORDER_FULL_BODY_DISTRIBUTED,
+    DAY_ORDER_FULL_BODY_GLUTE_PRIORITY, DAY_ORDER_PPL,
+    DAY_ORDER_PPL_X_UL_SPACES_LEG_DAYS, DAY_ORDER_UPPER_LOWER_ALTERNATING,
+)
 from typing import Literal
 
 from database.exercise_library.vocabulary import PRIMARY_ACTIONS, PRIMARY_MUSCLES
@@ -1535,6 +1541,18 @@ SPLIT_SUPPORTED_FREQUENCIES: dict[str, tuple[int, ...]] = {
     "anterior_posterior": (2, 3, 4, 5),
     "ppl": (3,),
     "ppl_x_ul": (5,),
+}
+
+SPLIT_DAY_ORDER_REASON_CODES = {
+    "full_body": DAY_ORDER_FULL_BODY_DISTRIBUTED,
+    "female_full_body": DAY_ORDER_FULL_BODY_GLUTE_PRIORITY,
+    "upper_lower": DAY_ORDER_UPPER_LOWER_ALTERNATING,
+    "female_upper_lower": DAY_ORDER_FEMALE_UPPER_LOWER,
+    "arnold": DAY_ORDER_ARNOLD,
+    "arnold_x_ul": DAY_ORDER_ARNOLD_X_UL,
+    "anterior_posterior": DAY_ORDER_ANTERIOR_POSTERIOR,
+    "ppl": DAY_ORDER_PPL,
+    "ppl_x_ul": DAY_ORDER_PPL_X_UL_SPACES_LEG_DAYS,
 }
 
 SPLIT_TYPE_ALIASES_BY_FREQUENCY: dict[tuple[str, int], str] = {

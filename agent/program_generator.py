@@ -41,6 +41,22 @@ from agent.program_rules import (
     resolve_split,
 )
 from agent.program_cardio import CoachCardioOptions, apply_program_cardio
+from agent.program_rationale import (
+    SELECTION_ALREADY_USED_TODAY,
+    SELECTION_EQUIPMENT_ACCESS_STAPLE,
+    SELECTION_HIDDEN,
+    SELECTION_FALLBACK,
+    SELECTION_LIMITATION_SUBSTITUTE,
+    SETS_COACH_DOSE,
+    SETS_RECOVERY_CUT,
+    SPLIT_COACH_PICK,
+    SPLIT_FREQUENCY_DEFAULT,
+    SPLIT_LIFTER_REQUEST,
+    SPLIT_UNSUPPORTED_FREQUENCY,
+    ExerciseRationaleOptions,
+    build_program_rationale,
+    exercise_rationale,
+)
 from agent.ProgramState import (
     CustomDayPlan,
     DynamicSplitPlan,
@@ -490,6 +506,39 @@ def _pick_from_alternate_slot(
     return _pick_candidate(candidates, slot_key, excluded_ids), candidates
 
 
+def _limitation_selection_code(
+    candidate: dict[str, Any], slot_key: str, context: DayGenerationContext, ledger: Any,
+    excluded_ids: set[str] | None = None,
+) -> str | None:
+    staples = SLOT_STAPLES.get(slot_key, ())
+    candidate_id = str(candidate["id"])
+    if candidate_id not in staples or staples.index(candidate_id) == 0:
+        return None
+    without_limitations = _staple_candidate_ids(
+        fetch_slot_candidates(
+            slot_key,
+            context.equipment_access,
+            NO_LIMITATIONS,
+            limit=SLOT_CANDIDATE_LIMIT,
+            ledger=ledger,
+        ),
+        slot_key,
+    )
+    prior_staples = staples[: staples.index(candidate_id)]
+    if any(staple_id in (excluded_ids or set()) for staple_id in prior_staples):
+        return SELECTION_ALREADY_USED_TODAY
+    if any(staple_id in without_limitations for staple_id in prior_staples):
+        return SELECTION_LIMITATION_SUBSTITUTE
+    if context.equipment_access != COMMERCIAL_GYM:
+        full_access = _staple_candidate_ids(fetch_slot_candidates(
+            slot_key, COMMERCIAL_GYM, context.limitations,
+            limit=SLOT_CANDIDATE_LIMIT, ledger=ledger,
+        ), slot_key)
+        if any(staple_id in full_access for staple_id in prior_staples):
+            return SELECTION_EQUIPMENT_ACCESS_STAPLE
+    return SELECTION_HIDDEN
+
+
 def assemble_deterministic_day(
     day: CustomDayPlan,
     context: DayGenerationContext,
@@ -497,8 +546,15 @@ def assemble_deterministic_day(
     *,
     ledger: Any,
 ) -> ProgramDaySchema:
+    return _assemble_deterministic_day_with_rationale(day, context, excluded_ids, ledger=ledger)[0]
+
+
+def _assemble_deterministic_day_with_rationale(
+    day: CustomDayPlan, context: DayGenerationContext, excluded_ids: set[str], *, ledger: Any
+) -> tuple[ProgramDaySchema, list[dict[str, Any]]]:
     """Fills every blueprint slot with one catalog movement, honouring slot prescriptions."""
     selected_exercises: list[ProgramExerciseSchema] = []
+    selected_rationales: list[dict[str, Any]] = []
     sets_family = resolve_sets_family(day.warmup_family, getattr(day, "sets_family", None))
     double_slots = tuple(getattr(day, "double_slots", ()) or ())
     cuts_used = 0
@@ -559,10 +615,7 @@ def assemble_deterministic_day(
         if apply_cut:
             cuts_used += 1
 
-        selected_exercises.append(
-            _build_program_exercise(
-                chosen,
-                ExercisePrescription(
+        prescription = ExercisePrescription(
                     movement_slot=resolved_slot,
                     spec=spec,
                     working_sets=slot_working_sets(
@@ -570,10 +623,24 @@ def assemble_deterministic_day(
                     ),
                     rep_preference=context.rep_preference,
                     experience_level=context.experience_level,
-                ),
-                [],
-            )
-        )
+                )
+        options = ExerciseRationaleOptions(
+                    selection_code=(
+                        (
+                            SELECTION_LIMITATION_SUBSTITUTE
+                            if limitation_removed_staples else SELECTION_FALLBACK
+                        ) if resolved_slot != slot_key else _limitation_selection_code(
+                            chosen, slot_key, context, ledger, excluded_ids
+                        )
+                    ),
+                    selection_params={"slot": slot_key, "rank": SLOT_STAPLES.get(slot_key, ()).index(str(chosen["id"])) + 1} if str(chosen["id"]) in SLOT_STAPLES.get(slot_key, ()) else {"slot": slot_key},
+                    sets_code=SETS_RECOVERY_CUT if apply_cut else SETS_COACH_DOSE,
+                    day_slots=tuple(day.target_slots),
+                    experience_level=context.experience_level,
+                    cut_from=slot_working_sets(slot_key, spec.archetype, sets_family, double_slots) if apply_cut else None,
+                )
+        selected_exercises.append(_build_program_exercise(chosen, prescription, []))
+        selected_rationales.append(exercise_rationale(chosen, prescription, options))
 
     if len(selected_exercises) < MIN_EXERCISES_PER_DAY:
         for slot_key in day.target_slots:
@@ -599,19 +666,16 @@ def assemble_deterministic_day(
                 continue
             candidate_id = str(candidate["id"])
             substitute_options[candidate_id] = suggestion_candidates
-            selected_exercises.append(
-                _build_program_exercise(
-                    candidate,
-                    ExercisePrescription(
+            prescription = ExercisePrescription(
                         movement_slot=slot_key,
                         spec=spec,
                         working_sets=slot_working_sets(slot_key, spec.archetype, sets_family, double_slots),
                         rep_preference=context.rep_preference,
                         experience_level=context.experience_level,
-                    ),
-                    [],
-                )
-            )
+                    )
+            options = ExerciseRationaleOptions(day_slots=tuple(day.target_slots), experience_level=context.experience_level)
+            selected_exercises.append(_build_program_exercise(candidate, prescription, []))
+            selected_rationales.append(exercise_rationale(candidate, prescription, options))
             break
 
     prescribed_ids = {exercise.exercise_id for exercise in selected_exercises}
@@ -626,6 +690,7 @@ def assemble_deterministic_day(
         )
         if opener_index is not None:
             selected_exercises.insert(0, selected_exercises.pop(opener_index))
+            selected_rationales.insert(0, selected_rationales.pop(opener_index))
     for exercise in selected_exercises:
         alternatives = []
         for candidate in substitute_options.get(exercise.exercise_id, []):
@@ -637,13 +702,19 @@ def assemble_deterministic_day(
                 break
         exercise.suggested_substitutes = alternatives
 
-    return ProgramDaySchema(
+    for index, reason in enumerate(selected_rationales, start=1):
+        reason["position"]["params"]["index"] = index
+    program_day = ProgramDaySchema(
         day_order=day.day_order,
         day_name=day.day_name,
         warmup_exercises=build_warmup_block(day.warmup_family, context.equipment_access, context.limitations, ledger=ledger),
         exercises=selected_exercises,
         cardio=day.cardio,
     )
+    return program_day, [
+        {"position": index, "exercise_id": exercise.exercise_id, "rationale": reason}
+        for index, (exercise, reason) in enumerate(zip(selected_exercises, selected_rationales), start=1)
+    ]
 
 
 def extract_frequency_from_text(text: str | None) -> int | None:
@@ -796,14 +867,29 @@ def _build_program(
     inference_call: Callable[..., Any] | None = None,
 ) -> tuple[GeneratedProgramSchema, str]:
     split_plan = _resolve_split_plan(profile, request, weekly_frequency, inference_call)
-    days = _generate_program_days(profile, request, split_plan, ledger)
+    days, rationale_days = _generate_program_days(profile, request, split_plan, ledger)
     program = GeneratedProgramSchema(
         program_name=split_plan.split_name,
         split_type=split_plan.split_name,
         weekly_frequency=len(split_plan.days),
         days=days,
     )
+    program.program_rationale = build_program_rationale(program, split_plan, request.coach_cardio)
+    for day_rationale, exercise_reasons in zip(program.program_rationale["days"], rationale_days):
+        day_rationale["exercises"] = exercise_reasons["exercises"]
     return program, render_program_markdown(program)
+
+
+def _tag_split_plan(plan: DynamicSplitPlan, requested_reason: str) -> DynamicSplitPlan:
+    reason = (
+        SPLIT_UNSUPPORTED_FREQUENCY
+        if getattr(plan, "split_reason_code", None) == SPLIT_UNSUPPORTED_FREQUENCY
+        else requested_reason
+    )
+    if hasattr(plan, "model_copy"):
+        return plan.model_copy(update={"split_reason_code": reason})
+    plan.split_reason_code = reason
+    return plan
 
 
 def _resolve_split_plan(
@@ -813,20 +899,23 @@ def _resolve_split_plan(
     inference_call: Callable[..., Any] | None = None,
 ) -> DynamicSplitPlan:
     if request.split_id_override is not None:
-        return resolve_split(
+        plan = resolve_split(
             frequency=weekly_frequency,
             preference=request.split_id_override,
             gender=profile.get("gender", "male"),
         )
+        return _tag_split_plan(plan, SPLIT_COACH_PICK)
     preference = request.user_split_override
     if preference:
         preference = _recognized_split_preference(preference)
-    return resolve_split(
+    plan = resolve_split(
         frequency=weekly_frequency,
         preference=preference,
         gender=profile.get("gender", "male"),
         inference_call=inference_call,
     )
+    reason = SPLIT_LIFTER_REQUEST if preference else SPLIT_FREQUENCY_DEFAULT
+    return _tag_split_plan(plan, reason)
 
 
 def _generate_program_days(
@@ -834,7 +923,7 @@ def _generate_program_days(
     request: ProgramGenerationRequest,
     split_plan: DynamicSplitPlan,
     ledger: Any,
-) -> list[ProgramDaySchema]:
+) -> tuple[list[ProgramDaySchema], list[dict[str, Any]]]:
     context = DayGenerationContext(
         equipment_access=map_equipment_access(profile.get("equipment_access", COMMERCIAL_GYM)),
         limitations=profile.get("injuries_or_limitations", NO_LIMITATIONS),
@@ -843,6 +932,7 @@ def _generate_program_days(
         experience_level=experience_level_for_training_age(profile.get("training_age_years", 0.0)),
     )
     days = []
+    rationale_days = []
     for day in split_plan.days:
         if (
             context.equipment_access == BODYWEIGHT_ONLY
@@ -852,8 +942,12 @@ def _generate_program_days(
             day = day.model_copy(
                 update={"target_slots": ["vertical_pull", *day.target_slots]}
             )
-        days.append(
-            assemble_deterministic_day(day=day, context=context, excluded_ids=set(), ledger=ledger)
-        )
+        built = _assemble_deterministic_day_with_rationale(day=day, context=context, excluded_ids=set(), ledger=ledger)
+        if isinstance(built, tuple):
+            program_day, exercise_reasons = built
+        else:
+            program_day, exercise_reasons = built, []
+        days.append(program_day)
+        rationale_days.append({"day_order": day.day_order, "warmup": [], "cardio": None, "exercises": exercise_reasons})
     apply_program_cardio(days, split_plan.days, profile, request.coach_cardio)
-    return days
+    return days, rationale_days

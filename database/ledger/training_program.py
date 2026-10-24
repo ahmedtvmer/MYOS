@@ -165,6 +165,10 @@ class LedgerTrainingProgramMixin:
             if "design_version" in existing_cols:
                 cols.append("design_version")
                 vals.append(program_data.get("design_version"))
+            if "program_rationale_json" in existing_cols:
+                cols.append("program_rationale_json")
+                rationale = program_data.get("program_rationale")
+                vals.append(json.dumps(rationale, ensure_ascii=False) if rationale is not None else None)
 
             cursor.execute(
                 f"INSERT INTO training_programs ({', '.join(cols)}) VALUES ({', '.join(['?'] * len(vals))})", vals
@@ -349,10 +353,14 @@ class LedgerTrainingProgramMixin:
         design_version_expr = (
             "design_version" if "design_version" in program_cols else "NULL AS design_version"
         )
+        rationale_expr = (
+            "program_rationale_json" if "program_rationale_json" in program_cols
+            else "NULL AS program_rationale_json"
+        )
         created_at_expr = "created_at" if "created_at" in program_cols else "NULL AS created_at"
         cursor.execute(f"""
             SELECT id, COALESCE(program_name, name), weekly_frequency, split_type, {instructions_expr},
-                   {version_expr}, {provenance_expr}, {source_template_expr}, {created_at_expr}, {design_version_expr}
+                   {version_expr}, {provenance_expr}, {source_template_expr}, {created_at_expr}, {design_version_expr}, {rationale_expr}
             FROM training_programs
             WHERE {where_sql}
             ORDER BY created_at DESC
@@ -373,6 +381,7 @@ class LedgerTrainingProgramMixin:
             source_template_id,
             created_at,
             design_version,
+            rationale_json,
         ) = row
 
         cursor.execute("PRAGMA table_info(program_days)")
@@ -566,6 +575,7 @@ class LedgerTrainingProgramMixin:
                 published_by_coach_account_id=published_by,
                 source_template_id=source_template_id,
                 design_version=design_version,
+                program_rationale=json.loads(rationale_json) if rationale_json else None,
                 created_at=created_at,
             )
         except Exception as exc:

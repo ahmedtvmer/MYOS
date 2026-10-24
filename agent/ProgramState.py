@@ -25,6 +25,7 @@ from agent.program_prescription import (
     DEFAULT_WARMUP_MOVEMENT_REST_SECONDS,
     DEFAULT_WARMUP_MOVEMENT_SETS,
 )
+from agent.program_rationale import DAY_ORDER_TEMPLATE, SPLIT_FREQUENCY_DEFAULT
 
 MAX_DYNAMIC_DOUBLE_SLOTS_PER_DAY = 2
 MAX_DYNAMIC_TARGET_SLOTS_PER_DAY = MAX_EXERCISES_PER_DAY - MAX_DYNAMIC_DOUBLE_SLOTS_PER_DAY
@@ -215,6 +216,7 @@ class GeneratedProgramSchema(BaseModel):
     split_type: str = Field(description="Resolved split architecture")
     weekly_frequency: int = Field(ge=1, le=MAX_PROGRAM_DAYS)
     instructions: str = Field(default="", description="Reserved program-level notes (currently unused)")
+    program_rationale: dict[str, Any] | None = None
     days: list[ProgramDaySchema] = Field(max_length=MAX_PROGRAM_DAYS)
     version: int | None = Field(default=None, description="Stable ledger version; set when loaded from storage")
     published_by_coach_account_id: str | None = Field(
@@ -316,6 +318,8 @@ class CustomDayPlan(BaseModel):
 
 class DynamicSplitPlan(BaseModel):
     split_name: str = Field(description="Clean descriptive title for this split")
+    day_order_reason_code: str = DAY_ORDER_TEMPLATE
+    split_reason_code: str = SPLIT_FREQUENCY_DEFAULT
     days: list[CustomDayPlan] = Field(
         min_length=1,
         max_length=MAX_PROGRAM_DAYS,

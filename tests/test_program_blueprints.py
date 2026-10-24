@@ -26,6 +26,7 @@ from agent.program_blueprints import (
     SLOT_SPECS,
     SLOT_STAPLES,
     SPLIT_DAY_POOLS,
+    SPLIT_SUPPORTED_FREQUENCIES,
     UL_DAYS,
     WARMUP_FAMILIES,
     WARMUP_SPECS,
@@ -46,6 +47,17 @@ from agent.program_rules import (
     resolve_split,
     valid_splits_for,
 )
+
+
+def test_each_supported_split_frequency_has_authored_day_order_reason():
+    plans = [
+        get_split_plan(split_type, frequency)
+        for split_type, frequencies in SPLIT_SUPPORTED_FREQUENCIES.items()
+        for frequency in frequencies
+    ]
+    assert all(plan is not None for plan in plans)
+    assert all(plan.day_order_reason_code != "day_order.template" for plan in plans)
+    assert get_split_plan("ppl_x_ul", 5).day_order_reason_code == "day_order.ppl_x_ul_spaces_leg_days"
 from utils.equipment_access import (
     BODYWEIGHT_ONLY,
     COMMERCIAL_GYM,
@@ -731,7 +743,9 @@ def test_unsupported_keyword_frequency_falls_back_to_default():
 def test_removed_split_frequencies_fall_back_to_the_frequency_default(frequency, preference):
     plan = resolve_split(frequency, preference)
 
-    assert plan == get_default_split(frequency)
+    default_plan = get_default_split(frequency)
+    assert plan.days == default_plan.days
+    assert plan.split_reason_code == "split.unsupported_frequency"
 
 
 def test_every_offered_split_and_auto_has_leg_training():

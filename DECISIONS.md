@@ -1004,8 +1004,8 @@ This document records the architectural, algorithmic, and heuristic decisions im
 
 ### ADR 091: The assistant explains a Training program only from its recorded Program rationale
 
-* **Status**: Proposed (2026-10-24); spec #487. Mark Accepted with code references when it lands.
+* **Status**: Proposed (2026-10-24); spec #487. Status note (2026-10-24, #491): generation records the Program rationale; assistant readers and change entries remain (#493, #494, #495).
 * **Decision**: Generation records a Program rationale with each program version: the Split reason, a per-template day-order reason, and for every exercise its selection, position and prescription (sets, reps, RIR, rest) reasons, plus warm-up, cardio and Focus muscle reasons, as machine codes with parameters. Exercise substitutions, Program edits, accepted Volume reviews and coach edits add their own entries; untouched exercises keep theirs. The player and coach assistants read it through a scoped read-only tool (whole program, day or exercise, within ADR 078's 4 KB cap) and answer every "why" from it alone. For coach-authored, imported or template-derived items they say the Coach chose them, quote the Coach's note if any, and never invent a reason.
 * **Context**: Players asked why the PPL × UL order or a given exercise was chosen; the generator's reasons existed only in code, so the assistant could not answer truthfully.
 * **Rationale**: Reasons recorded at decision time are facts; reasons inferred afterwards by a model are guesses that could contradict the generator or put words in a Coach's mouth. Codes rather than prose keep the record language-neutral for Arabic replies and testable.
-* **Code References**: none yet.
+* **Code References**: `agent/program_rationale.py`, `agent/program_generator.py`, `agent/program_rules.py`, `database/migration_manager.py`, `database/ledger/training_program.py`.

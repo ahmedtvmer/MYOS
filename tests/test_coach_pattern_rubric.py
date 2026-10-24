@@ -232,6 +232,29 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
     )
     assert program.split_type == expected_split
     assert len(program.days) == days
+    rationale = program.program_rationale
+    assert rationale is not None
+    assert rationale["split"]["code"] in {
+        "split.frequency_default", "split.lifter_request", "split.coach_pick",
+        "split.unsupported_frequency",
+    }
+    if expected_split == "PPL × UL":
+        assert rationale["day_order"]["code"] == "day_order.ppl_x_ul_spaces_leg_days"
+    assert len(rationale["days"]) == len(program.days)
+    for program_day, rationale_day in zip(program.days, rationale["days"]):
+        assert len(rationale_day["exercises"]) == len(program_day.exercises)
+        for position, exercise_record in enumerate(rationale_day["exercises"], start=1):
+            assert exercise_record["position"] == position
+            assert exercise_record["exercise_id"] == program_day.exercises[position - 1].exercise_id
+            exercise_reasons = exercise_record["rationale"]
+            assert set(exercise_reasons) == {"selection", "position", "prescription"}
+            assert exercise_reasons["selection"]["code"].startswith("selection.")
+            assert exercise_reasons["position"]["code"].startswith("position.")
+            assert set(exercise_reasons["prescription"]) == {"sets", "reps", "rir", "rest"}
+            assert all(
+                reason["code"]
+                for reason in exercise_reasons["prescription"].values()
+            )
     for muscle, slots in MUSCLE_GROUPS.items():
         if equipment == "Bodyweight only" and muscle == "shoulders":
             slots = {"shoulder_press"}
