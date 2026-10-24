@@ -130,6 +130,8 @@ class SchemaMixin:
             CREATE TABLE IF NOT EXISTS user_profile (
                 id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
                 gender TEXT DEFAULT 'male',
+                sex_confirmed INTEGER NOT NULL DEFAULT 0,
+                daily_activity TEXT,
                 proportions TEXT NOT NULL,
                 age INTEGER NOT NULL,
                 weight_kg REAL NOT NULL,
@@ -148,6 +150,28 @@ class SchemaMixin:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS nutrition_plan_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author TEXT NOT NULL,
+                provenance TEXT NOT NULL,
+                goal TEXT NOT NULL,
+                goal_reason_data_json TEXT NOT NULL,
+                intensity TEXT,
+                daily_activity TEXT NOT NULL,
+                targets_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_screening (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                answers_json TEXT NOT NULL,
+                answered_at TEXT NOT NULL
+            );
+            CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update
+                BEFORE UPDATE ON nutrition_plan_versions BEGIN
+                SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END;
+            CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_delete
+                BEFORE DELETE ON nutrition_plan_versions BEGIN
+                SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END;
             CREATE TABLE IF NOT EXISTS auth_credentials (
                 id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
                 password_hash TEXT NOT NULL,

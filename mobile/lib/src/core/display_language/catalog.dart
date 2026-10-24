@@ -7,6 +7,7 @@ import '../personal_records.dart';
 import '../program_load.dart';
 import 'arabic_count.dart';
 import 'ai_allowance_copy.dart';
+import 'nutrition_copy.dart';
 import 'message_resolver.dart';
 
 /// Small hand-written app catalog entry point. Product copy is added here as
@@ -29,11 +30,13 @@ class MyosCopy {
   const MyosCopy(this.languageCode);
   final String languageCode;
   bool get isArabic => languageCode == 'ar';
+  NutritionCopy get nutrition => NutritionCopy(languageCode);
   AiAllowanceCopy get _allowanceCopy => AiAllowanceCopy(languageCode);
   String get brandName => isArabic ? 'ميوس' : 'MYOS';
   String get home => isArabic ? 'الرئيسية' : 'Home';
   String get program => isArabic ? 'البرنامج التدريبي' : 'Program';
   String get progress => isArabic ? 'التقدم' : 'Progress';
+  String get nutritionTab => nutrition.tab;
   String get assistant => isArabic ? 'المساعد' : 'Assistant';
   String get requestFromCoach =>
       isArabic ? 'طلب من المدرب' : 'Request from coach';

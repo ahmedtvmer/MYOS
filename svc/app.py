@@ -54,6 +54,7 @@ from svc.routers import (
     checkpoint_reviews,
     dashboard,
     media,
+    nutrition,
     onboarding,
     profile,
     programs,
@@ -521,6 +522,7 @@ def create_app() -> FastAPI:
     app.include_router(alerts.router)
     app.include_router(media.router)
     app.include_router(profile.router)
+    app.include_router(nutrition.router)
     app.include_router(programs.router)
     app.include_router(onboarding.router)
     app.include_router(workouts.router)

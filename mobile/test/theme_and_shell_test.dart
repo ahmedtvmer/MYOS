@@ -188,18 +188,19 @@ void main() {
     expect(dark.systemNavigationBarColor, MyosThemeExtension.dark.canvas);
   });
 
-  testWidgets('bottom navigation exposes Home, Program, and Progress',
+  testWidgets('bottom navigation exposes Home, Program, Nutrition, and Progress',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _signedInFake();
     await _pumpApp(tester, fake, store: InMemoryThemeModeStore());
 
     final MyosBottomNavigation nav = tester
         .widget<MyosBottomNavigation>(find.byType(MyosBottomNavigation));
-    // Progress ships now that its flow is backed by real ledger data (#48).
+    // Progress and Nutrition are durable Player surfaces.
     expect(nav.items.map((MyosNavItem i) => i.label),
-        <String>['Home', 'Program', 'Progress']);
+        <String>['Home', 'Program', 'Nutrition', 'Progress']);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Program'), findsOneWidget);
+    expect(find.text('Nutrition'), findsOneWidget);
     // The Progress tab also renders its own serif title, so the label may
     // appear more than once; the nav items list above is the authoritative check.
     expect(find.text('Progress'), findsWidgets);

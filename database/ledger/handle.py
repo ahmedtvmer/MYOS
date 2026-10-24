@@ -29,6 +29,7 @@ from database.ledger.checkpoint_reviews import LedgerCheckpointReviewsMixin
 from database.ledger.chat import LedgerChatMixin
 from database.ledger.debriefs import LedgerDebriefsMixin
 from database.ledger.onboarding import LedgerOnboardingMixin
+from database.ledger.nutrition import LedgerNutritionMixin
 from database.ledger.profile import LedgerProfileMixin
 from database.ledger.schedule import LedgerScheduleMixin
 from database.ledger.training_program import LedgerTrainingProgramMixin
@@ -47,6 +48,7 @@ class TrainingLedger(
     LedgerOnboardingMixin,
     LedgerChatMixin,
     LedgerDebriefsMixin,
+    LedgerNutritionMixin,
 ):
     """One player's ledger: a single connection plus the ledger operations on it."""
 

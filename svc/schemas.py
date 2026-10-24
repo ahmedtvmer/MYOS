@@ -1058,6 +1058,28 @@ class WeightEntryIn(BaseModel):
         return normalized
 
 
+class NutritionScreeningIn(BaseModel):
+    pregnant_or_breastfeeding: bool
+    medical_condition: bool
+    eating_disorder: bool
+
+
+class NutritionSetupIn(BaseModel):
+    sex: Literal["male", "female"]
+    sex_confirmed: bool
+    daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"]
+    screening: NutritionScreeningIn
+
+    @model_validator(mode="after")
+    def require_sex_confirmation(self) -> "NutritionSetupIn":
+        if not self.sex_confirmed:
+            raise ValueError("Confirm your sex before setting Nutrition targets.")
+        return self
+
+
+class NutritionActivityIn(BaseModel):
+    daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"]
+
 class WeightEntryOut(BaseModel):
     entry_date: str
     weight_kg: float

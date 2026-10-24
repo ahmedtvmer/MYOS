@@ -21,13 +21,14 @@ import '../../../router.dart';
 import '../../shared/mode_switch.dart';
 import '../dashboard/dashboard_tab.dart';
 import '../program/program_tab.dart';
+import '../nutrition/nutrition_tab.dart';
 import '../progress/progress_tab.dart';
 import '../workout/active_workout_controller.dart';
 import '../workout/active_workout_prompt.dart';
 
 /// The player navigation shell.
 ///
-/// Bottom navigation is Home, Program, and Progress (#48); Progress ships only
+/// Bottom navigation is Home, Program, Nutrition, and Progress (#461); Progress ships only
 /// because its Strength and Volume experiences derive from real ledger data.
 /// Settings opens from the header; every other working surface (coach
 /// profile/invite/assignment, workout drafts, assistant chat, profile, plan,
@@ -51,6 +52,11 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
           label: copy.program,
           icon: Icons.article_outlined,
           selectedIcon: Icons.article,
+        ),
+        MyosNavItem(
+          label: copy.nutritionTab,
+          icon: Icons.restaurant_menu_outlined,
+          selectedIcon: Icons.restaurant_menu,
         ),
         MyosNavItem(
           label: copy.progress,
@@ -176,6 +182,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
         children: const <Widget>[
           DashboardTab(),
           ProgramTab(),
+          NutritionTab(),
           ProgressTab(),
         ],
       ),

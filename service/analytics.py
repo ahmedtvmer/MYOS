@@ -318,6 +318,7 @@ PROPERTY_TYPES: dict[str, PropertyType] = {
     "tokens": _bounded_int(20_000_000),
     "cost_usd": _bounded_number(100_000),
     "estimated": _boolean(),
+    "blocked": _boolean(),
     "latency_ms": _bounded_int(31_557_600),
     "finish_reason": _enum(AI_FINISH_REASONS),
     "turns_today": _bounded_int(1_000_000),
@@ -338,6 +339,9 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
         },
     ),
     "onboarding_started": EventContract("server", dict(_COMMON_PROPERTIES)),
+    "nutrition_setup_completed": EventContract(
+        "server", {**_COMMON_PROPERTIES, "blocked": PROPERTY_TYPES["blocked"]}
+    ),
     "onboarding_completed": EventContract(
         "server",
         {

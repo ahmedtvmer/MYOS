@@ -95,6 +95,13 @@ class FakeMyosApi {
   Map<String, dynamic>? lifterAiAllowance;
   Map<String, dynamic>? coachAiAllowance;
   bool profileExists = false;
+  String gender = 'male';
+  bool nutritionLoadFails = false;
+  Map<String, dynamic>? lastNutritionSetupBody;
+  String? lastNutritionActivity;
+  Map<String, dynamic> nutritionState = <String, dynamic>{
+    'state': 'not_started', 'targets': null,
+  };
   final List<Map<String, dynamic>> injuries = <Map<String, dynamic>>[];
   int _injuryId = 0;
   int injuryCreateRequests = 0;
@@ -816,6 +823,33 @@ class FakeMyosApi {
         return _recordWeight(request);
       case '/profile/weight/trend':
         return _weightTrend(request);
+      case '/nutrition':
+        return !_authorized(request)
+            ? const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'})
+            : nutritionLoadFails
+                ? const FakeResponse(503, <String, dynamic>{'detail': 'Nutrition unavailable.'})
+                : FakeResponse(200, <String, dynamic>{...nutritionState, 'sex': gender});
+      case '/nutrition/setup':
+        if (!_authorized(request)) {
+          return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
+        }
+        final bool blocked = (request.body['screening'] as Map<String, dynamic>).values
+            .any((dynamic answer) => answer == true);
+        lastNutritionSetupBody = request.body;
+        gender = request.body['sex'] as String;
+        nutritionState = blocked
+            ? <String, dynamic>{'state': 'blocked', 'targets': null,
+                'message': 'Please speak with a registered dietitian.'}
+            : <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+                'goal_reason': <String, dynamic>{'code': 'default'},
+                'intensity': 'moderate', 'daily_activity': request.body['daily_activity'],
+                'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140,
+                  'carbs_g': 220, 'fat_g': 70, 'floor_applied': false}};
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/activity':
+        lastNutritionActivity = request.body['daily_activity'] as String;
+        nutritionState = <String, dynamic>{...nutritionState, 'daily_activity': request.body['daily_activity']};
+        return FakeResponse(200, nutritionState);
       case '/profile':
         return _profile(request);
       case '/programs/active':
@@ -3605,6 +3639,7 @@ class FakeMyosApi {
   }
 
   Map<String, dynamic> _profileBody() => <String, dynamic>{
+        'gender': gender,
         'rep_preference': repPreference,
         'weekly_frequency': weeklyFrequency,
         'equipment_access': equipmentAccess,

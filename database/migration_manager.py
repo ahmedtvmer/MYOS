@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 35
+CURRENT_LEDGER_SCHEMA_VERSION: int = 36
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -946,6 +946,36 @@ def _migrate_v34_to_v35(conn: sqlite3.Connection) -> None:
         )
 
 
+def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
+    """Adds immutable Nutrition plan versions and Player-only screening (#461)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_plan_versions ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, author TEXT NOT NULL, provenance TEXT NOT NULL,"
+        "goal TEXT NOT NULL, goal_reason_data_json TEXT NOT NULL, intensity TEXT, daily_activity TEXT NOT NULL, targets_json TEXT NOT NULL,"
+        "created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_screening ("
+        "id INTEGER PRIMARY KEY CHECK(id=1), answers_json TEXT NOT NULL, answered_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update "
+        "BEFORE UPDATE ON nutrition_plan_versions BEGIN "
+        "SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END"
+    )
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_delete "
+        "BEFORE DELETE ON nutrition_plan_versions BEGIN "
+        "SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END"
+    )
+    if _ledger_table_exists(conn, "user_profile"):
+        columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
+        if "sex_confirmed" not in columns:
+            conn.execute("ALTER TABLE user_profile ADD COLUMN sex_confirmed INTEGER NOT NULL DEFAULT 0")
+        if "daily_activity" not in columns:
+            conn.execute("ALTER TABLE user_profile ADD COLUMN daily_activity TEXT")
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1066,6 +1096,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     32: _migrate_v32_to_v33,
     33: _migrate_v33_to_v34,
     34: _migrate_v34_to_v35,
+    35: _migrate_v35_to_v36,
 }
 
 

@@ -389,7 +389,7 @@ void _resetOnAccountChange(Ref ref, void Function() reset) {
 /// The selected bottom-navigation tab in the player shell. Home's no-program
 /// state points at Program so the player can generate a program through the
 /// existing Program-tab flow.
-enum PlayerShellTab { home, program, progress }
+enum PlayerShellTab { home, program, nutrition, progress }
 
 final StateProvider<int> playerShellTabProvider = StateProvider<int>(
   (ref) => PlayerShellTab.home.index,

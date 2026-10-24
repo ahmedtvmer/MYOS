@@ -2046,6 +2046,32 @@ class ApiClient {
     );
   }
 
+  Future<NutritionPlanState> nutrition() async {
+    final response = await _send(() => _dio.get<dynamic>('/nutrition'));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> setupNutrition({required String sex,
+    required bool sexConfirmed, required String dailyActivity, required Map<String, bool> screening}) async {
+    final response = await _send(() => _dio.post<dynamic>('/nutrition/setup', data: {
+      'sex': sex,
+      'sex_confirmed': sexConfirmed,
+      'daily_activity': dailyActivity,
+      'screening': screening,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> updateNutritionActivity(String dailyActivity) async {
+    final response = await _send(() => _dio.put<dynamic>('/nutrition/activity', data: {
+      'daily_activity': dailyActivity,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
   Future<InjuryRecord> createInjury({
     required String? bodyArea,
     required String description,

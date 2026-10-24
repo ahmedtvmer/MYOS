@@ -25,6 +25,39 @@ const String defaultAssistantStyle = 'direct';
 const int maxAssistantStyleInstructions = 500;
 const int maxProgramRequestReasonChars = 500;
 
+class NutritionPlanState {
+  const NutritionPlanState({required this.state, this.goal, this.goalReason,
+    this.intensity, this.dailyActivity, this.targets, this.message,
+    this.screening, this.sex});
+
+  factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
+    final Object? rawTargets = json['targets'];
+    final Object? rawScreening = json['screening'];
+    return NutritionPlanState(
+      state: json['state'] as String? ?? 'not_started',
+      goal: json['goal'] as String?,
+      goalReason: json['goal_reason'] is Map<String, dynamic>
+          ? json['goal_reason'] as Map<String, dynamic> : null,
+      intensity: json['intensity'] as String?,
+      dailyActivity: json['daily_activity'] as String?,
+      targets: rawTargets is Map<String, dynamic> ? rawTargets : null,
+      message: json['message'] as String?,
+      screening: rawScreening is Map<String, dynamic> ? rawScreening : null,
+      sex: json['sex'] as String?,
+    );
+  }
+
+  final String state;
+  final String? goal;
+  final Map<String, dynamic>? goalReason;
+  final String? intensity;
+  final String? dailyActivity;
+  final Map<String, dynamic>? targets;
+  final String? message;
+  final Map<String, dynamic>? screening;
+  final String? sex;
+}
+
 class Capabilities {
   const Capabilities({required this.player, required this.coach});
 
