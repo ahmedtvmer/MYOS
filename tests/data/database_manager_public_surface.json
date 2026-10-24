@@ -287,7 +287,7 @@
     },
     "initialize_and_seed": {
       "kind": "method",
-      "signature": "(self, csv_path='<repo>/data/processed_exercises.csv', curation_path='<repo>/data/exercise_curation.csv') -> None"
+      "signature": "(self, csv_path='<repo>/data/processed_exercises.csv', curation_path='<repo>/data/exercise_curation.csv', *, food_path=None, portion_path=None, food_curation_path=None, recipe_path=None) -> None"
     },
     "insert_coach_alert": {
       "kind": "method",

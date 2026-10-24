@@ -8,6 +8,7 @@ from database.exercise_library.curation import DEFAULT_CURATION_CSV_PATH
 from database.exercise_library.curation import apply_exercise_curation
 from database.exercise_library.embeddings import sync_exercise_embeddings
 from database.exercise_library.schema import EXERCISE_COLUMNS
+from database.food_library.seeding import FoodLibraryPaths, seed_food_library
 
 from utils.logger import MyosLogger
 
@@ -19,6 +20,11 @@ class ExerciseSeedingMixin:
         self,
         csv_path=DEFAULT_CSV_PATH,
         curation_path=DEFAULT_CURATION_CSV_PATH,
+        *,
+        food_path=None,
+        portion_path=None,
+        food_curation_path=None,
+        recipe_path=None,
     ) -> None:
         import pandas as pd
 
@@ -48,6 +54,13 @@ class ExerciseSeedingMixin:
             _upsert_provenance(cursor, authored_rows, "MYOS")
             apply_exercise_curation(cursor, curation_path)
             sync_exercise_embeddings(cursor, all_rows)
+            food_paths = FoodLibraryPaths(
+                foods=food_path or FoodLibraryPaths.foods,
+                portions=portion_path or FoodLibraryPaths.portions,
+                curation=food_curation_path or FoodLibraryPaths.curation,
+                recipes=recipe_path or FoodLibraryPaths.recipes,
+            )
+            seed_food_library(self.catalog_conn, food_paths)
 
     EXCLUDED_BIOMECHANICAL_PATTERNS = ("behind neck", "behind the neck", "upright row")
 

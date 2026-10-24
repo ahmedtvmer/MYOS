@@ -31,6 +31,10 @@ data/images/
 data/videos/
 !data/processed_exercises.csv
 !data/exercise_curation.csv
+!data/food_library.csv
+!data/food_portions.csv
+!data/food_curation.csv
+!data/food_recipes.csv
 
 # Future Flutter client (not part of the API image)
 mobile/

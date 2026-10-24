@@ -42,11 +42,14 @@ COPY core/embeddings.py /app/core/embeddings.py
 RUN python -c "from core.embeddings import download_model_files, download_arabic_model_files; download_model_files(); download_arabic_model_files()"
 ENV HF_HUB_OFFLINE=1
 
-# Keep explicit COPY instructions so the Fly build fails fast if either seed
-# file is missing. The production catalog CSV is operator-provided and ignored;
-# the curation CSV is tracked and accompanies it for seeding.
+# Explicit COPY instructions make the Fly build fail fast when any library
+# input is missing. USDA and curation files accompany the exercise seed files.
 COPY data/processed_exercises.csv /app/data/processed_exercises.csv
 COPY data/exercise_curation.csv /app/data/exercise_curation.csv
+COPY data/food_library.csv /app/data/food_library.csv
+COPY data/food_portions.csv /app/data/food_portions.csv
+COPY data/food_curation.csv /app/data/food_curation.csv
+COPY data/food_recipes.csv /app/data/food_recipes.csv
 
 COPY . .
 

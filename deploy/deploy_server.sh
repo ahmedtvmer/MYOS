@@ -262,7 +262,9 @@ upload_build_input() {
     --exclude='*.pyc' --exclude='*.pyo' --exclude='*.pyd' \
     --exclude='*.pem' --exclude='*.key' --exclude='*.p12' --exclude='*.jks' --exclude='*.keystore' \
     --filter='+ /data/' --filter='+ /data/processed_exercises.csv' \
-    --filter='+ /data/exercise_curation.csv' --filter='- /data/***' \
+    --filter='+ /data/exercise_curation.csv' \
+    --filter='+ /data/food_library.csv' --filter='+ /data/food_portions.csv' \
+    --filter='+ /data/food_curation.csv' --filter='+ /data/food_recipes.csv' --filter='- /data/***' \
     "$repo_root/" "$ssh_target:/opt/mayos/app/"
 }
 

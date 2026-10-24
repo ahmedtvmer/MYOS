@@ -220,6 +220,8 @@ def test_build_context_excludes_catalog_media_and_ships_required_csvs():
     assert not _in_build_context("data/videos/0001-2gPfomN.gif", rules)
     assert _in_build_context("data/processed_exercises.csv", rules)
     assert _in_build_context("data/exercise_curation.csv", rules)
+    for food_file in ("food_library.csv", "food_portions.csv", "food_curation.csv", "food_recipes.csv"):
+        assert _in_build_context(f"data/{food_file}", rules)
 
     assert not _in_build_context("data/catalog.db", rules)
     assert not _in_build_context("data/exercises.json", rules)
@@ -249,6 +251,8 @@ def test_dockerfile_fly_does_not_copy_catalog_media():
     assert re.search(r"^COPY \. \.$", dockerfile, re.M)
     assert re.search(r"^COPY data/processed_exercises\.csv ", dockerfile, re.M)
     assert re.search(r"^COPY data/exercise_curation\.csv ", dockerfile, re.M)
+    for food_file in ("food_library.csv", "food_portions.csv", "food_curation.csv", "food_recipes.csv"):
+        assert re.search(rf"^COPY data/{re.escape(food_file)} ", dockerfile, re.M)
 
 
 def test_real_checkout_catalog_media_are_excluded_from_the_context():

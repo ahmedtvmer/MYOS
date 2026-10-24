@@ -1,0 +1,64 @@
+"""Persist the shared Food library in the catalog database."""
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+from database.food_library.builder import (
+    CURATION_PATH, FOOD_PATH, NUTRIENTS, PORTION_PATH, RECIPE_PATH, build_food_library,
+)
+
+
+@dataclass(frozen=True)
+class FoodLibraryPaths:
+    foods: Path = FOOD_PATH
+    portions: Path = PORTION_PATH
+    curation: Path = CURATION_PATH
+    recipes: Path = RECIPE_PATH
+
+
+def _create_food_table(connection):
+    connection.execute("""CREATE TABLE IF NOT EXISTS foods (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, source_name TEXT NOT NULL,
+        arabic_name TEXT, nutrients_json TEXT NOT NULL, portions_json TEXT NOT NULL,
+        aliases_en_json TEXT NOT NULL, aliases_ar_json TEXT NOT NULL,
+        staple_roles_json TEXT NOT NULL, hidden INTEGER NOT NULL,
+        reviewed INTEGER NOT NULL, portion_label TEXT, portion_grams REAL,
+        ingredients_json TEXT
+    )""")
+
+
+def _storage_row(row):
+    return {
+        **row,
+        "nutrients_json": json.dumps({key: row[key] for key in NUTRIENTS}, sort_keys=True),
+        "portions_json": json.dumps(row["portions"], ensure_ascii=False, sort_keys=True),
+        "aliases_en_json": json.dumps(row["aliases_en"], ensure_ascii=False),
+        "aliases_ar_json": json.dumps(row["aliases_ar"], ensure_ascii=False),
+        "staple_roles_json": json.dumps(row["staple_roles"], ensure_ascii=False),
+        "ingredients_json": json.dumps(row.get("ingredients", []), ensure_ascii=False, sort_keys=True),
+    }
+
+
+def _upsert_food_rows(connection, rows):
+    connection.execute("DELETE FROM foods")
+    connection.executemany("""INSERT INTO foods
+        (id,name,source_name,arabic_name,nutrients_json,portions_json,aliases_en_json,
+         aliases_ar_json,staple_roles_json,hidden,reviewed,portion_label,portion_grams,ingredients_json)
+        VALUES (:id,:name,:source_name,:arabic_name,:nutrients_json,:portions_json,:aliases_en_json,
+         :aliases_ar_json,:staple_roles_json,:hidden,:reviewed,:portion_label,:portion_grams,:ingredients_json)
+        ON CONFLICT(id) DO UPDATE SET name=excluded.name, source_name=excluded.source_name,
+         arabic_name=excluded.arabic_name,nutrients_json=excluded.nutrients_json,
+         portions_json=excluded.portions_json,aliases_en_json=excluded.aliases_en_json,
+         aliases_ar_json=excluded.aliases_ar_json,staple_roles_json=excluded.staple_roles_json,
+         hidden=excluded.hidden,reviewed=excluded.reviewed,portion_label=excluded.portion_label,
+         portion_grams=excluded.portion_grams,ingredients_json=excluded.ingredients_json""",
+        [_storage_row(row) for row in rows])
+
+
+def seed_food_library(connection, paths=FoodLibraryPaths()):
+    rows = build_food_library(paths.foods, paths.portions, paths.curation, paths.recipes)
+    _create_food_table(connection)
+    _upsert_food_rows(connection, rows)
+    connection.commit()
+    return len(rows)
