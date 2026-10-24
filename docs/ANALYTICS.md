@@ -364,6 +364,7 @@ those definitions.
 | `tokens_today` | Integer from 0 to 100,000,000 | Account token usage since UTC midnight, using the same exclusion rule as the daily token admission check; `checkpoint_review` is excluded under ADR 052. |
 | `tokens_daily_limit` | Integer from 0 to 100,000,000 | Current `MODEL_DAILY_TOKEN_LIMIT` setting; zero disables this limit. |
 | `limit` | `requests_per_minute` or `daily_tokens` | The coded model limit that refused admission. |
+| `blocked` | Boolean | Whether Nutrition setup ended in a safety block or under-18 refusal; the screening answers themselves are never sent. |
 
 ## PostHog and operational database boundary
 
