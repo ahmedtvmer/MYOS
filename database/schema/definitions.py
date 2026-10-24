@@ -169,7 +169,7 @@ class SchemaMixin:
             CREATE TABLE IF NOT EXISTS nutrition_adherence (
                 entry_date TEXT PRIMARY KEY,
                 value TEXT NOT NULL CHECK(value IN ('on_target', 'roughly', 'off')),
-                source TEXT NOT NULL DEFAULT 'answered' CHECK(source = 'answered'),
+                source TEXT NOT NULL DEFAULT 'answered' CHECK(source IN ('answered', 'computed')),
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals (

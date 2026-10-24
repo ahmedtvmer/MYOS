@@ -200,6 +200,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       padding: const EdgeInsets.all(24),
       children: <Widget>[
         Text(copy.tab, style: text.headlineMedium),
+        if (_plan!.author == 'Coach') Text(copy.setByCoach),
         if (_plan!.pendingGoal != null && _plan!.author != 'Coach') Card(child: ListTile(
           title: Text(copy.updateOffer),
           trailing: Wrap(children: <Widget>[

@@ -874,6 +874,7 @@ class FakeMyosApi {
             'protein_g': gainingLight ? 130 : 145, 'carbs_g': gainingLight ? 250 : 160,
             'fat_g': gainingLight ? 60 : 65, 'weekly_rate_pct': gainingLight ? 0.1 : 0.4,
             'floor_applied': intensity == 'aggressive'},
+          'weekly_change_kg': gainingLight ? 0.2 : -0.4,
           'reach_target_date': '2027-02-01', 'gain_target_warning': goal == 'gain'});
       case '/nutrition/goal':
         lastNutritionGoal = Map<String, dynamic>.from(request.body);

@@ -626,6 +626,9 @@ def test_v36_to_v37_lazy_migration_adds_and_enforces_nutrition_adherence(temp_db
     assert db.ledger.list_nutrition_adherence("2026-10-24", "2026-10-24") == [
         {"date": "2026-10-24", "value": "roughly", "source": "answered"}
     ]
+    conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
+                 "VALUES('2026-10-25', 'off', 'computed', 'now')")
+    assert conn.execute("SELECT source FROM nutrition_adherence WHERE entry_date='2026-10-25'").fetchone()[0] == "computed"
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
                      "VALUES('2026-10-25', 'unknown', 'answered', 'now')")

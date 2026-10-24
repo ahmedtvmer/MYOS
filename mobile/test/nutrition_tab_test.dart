@@ -221,16 +221,16 @@ void main() {
     expect(find.textContaining('Calorie floor applies'), findsOneWidget);
     expect(find.textContaining('1800'), findsOneWidget);
     expect(find.text('Protein: 145 g · Carbohydrates: 160 g · Fat: 65 g'), findsOneWidget);
-    expect(find.textContaining('Weekly change: 0.40%'), findsOneWidget);
+    expect(find.textContaining('Weekly change: −0.4 kg a week'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
-    expect(find.textContaining('2027-02-01'), findsOneWidget);
+    expect(find.textContaining('February 1, 2027'), findsOneWidget);
     await tester.tap(find.text('Gain · Light'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Target weight is below'), findsOneWidget);
     expect(find.textContaining('2200'), findsOneWidget);
     expect(find.text('Protein: 130 g · Carbohydrates: 250 g · Fat: 60 g'), findsOneWidget);
-    expect(find.textContaining('Weekly change: 0.10%'), findsOneWidget);
+    expect(find.textContaining('Weekly change: +0.2 kg a week'), findsOneWidget);
   });
 
   testWidgets('goal offer accepts through dial and persists dismissal', (WidgetTester tester) async {
@@ -241,8 +241,11 @@ void main() {
           'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
     await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
+    expect(find.text('Your goal changed. Update your Nutrition goal?'), findsOneWidget);
     await tester.tap(find.text('Update').first);
     await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Lose · Moderate')).selected, isTrue);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Lose · Aggressive')).selected, isFalse);
     await tester.ensureVisible(find.text('Save Nutrition goal'));
     await tester.tap(find.text('Save Nutrition goal'));
     await tester.pumpAndSettle();
@@ -250,7 +253,8 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(fake.lastNutritionGoal?['goal'], 'lose');
-    expect(find.text('Update your Nutrition goal?'), findsNothing);
+    expect(fake.lastNutritionGoal?['intensity'], 'moderate');
+    expect(find.text('Your goal changed. Update your Nutrition goal?'), findsNothing);
 
     final FakeMyosApi dismissFake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain', 'intensity': 'moderate',
@@ -260,13 +264,14 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(_app(dismissFake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
+    expect(find.text('Your goal changed. Update your Nutrition goal?'), findsOneWidget);
     await tester.tap(find.text('Later'));
     await tester.pumpAndSettle();
     expect(dismissFake.nutritionOfferDismissals, 1);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(_app(dismissFake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
-    expect(find.text('Update your Nutrition goal?'), findsNothing);
+    expect(find.text('Your goal changed. Update your Nutrition goal?'), findsNothing);
   });
 
   testWidgets('Coach-authored targets have no Adjust action', (WidgetTester tester) async {
@@ -276,8 +281,17 @@ void main() {
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
     await tester.pumpWidget(_app(fake, 'ar', ThemeData.light()));
     await tester.pumpAndSettle();
+    expect(find.text('حدّدها مدربك'), findsOneWidget);
     expect(find.text('تعديل'), findsNothing);
     expect(find.textContaining('تغير هدفك'), findsNothing);
+    final FakeMyosApi englishFake = _fake()
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach',
+        'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
+        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(englishFake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Set by your coach'), findsOneWidget);
   });
 
   testWidgets('Arabic pace dial uses right-to-left layout', (WidgetTester tester) async {
@@ -290,6 +304,11 @@ void main() {
     await tester.tap(find.text('تعديل'));
     await tester.pumpAndSettle();
     expect(find.text('خسارة الوزن · قوي'), findsOneWidget);
+    await tester.tap(find.text('خسارة الوزن · قوي'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('يحدّ الحد الأدنى للسعرات من معدل التغير الأسبوعي الفعلي.'), findsOneWidget);
+    expect(find.textContaining('التغير الأسبوعي: −0.4 كجم أسبوعيًا'), findsOneWidget);
+    expect(find.textContaining('تاريخ الوصول إلى الوزن المستهدف: 1 فبراير 2027'), findsOneWidget);
     final Directionality direction = tester.widget(find.byType(Directionality).last);
     expect(direction.textDirection, TextDirection.rtl);
   });

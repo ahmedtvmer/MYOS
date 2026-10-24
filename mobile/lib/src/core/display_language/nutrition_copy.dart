@@ -38,6 +38,7 @@ class NutritionCopy {
   String get latestWeight => isArabic ? 'أحدث وزن' : 'Latest weight';
   String get targetWeight => isArabic ? 'الوزن المستهدف' : 'Target weight';
   String get coachSees => isArabic ? 'مدربك يرى الالتزام الغذائي.' : 'Your coach sees your Nutrition adherence.';
+  String get setByCoach => isArabic ? 'حدّدها مدربك' : 'Set by your coach';
   String get kilograms => isArabic ? 'كجم' : 'kg';
   String adherenceLabel(String? value) => switch (value) {
         'on_target' => onTarget,
@@ -50,8 +51,28 @@ class NutritionCopy {
   String get adjust => isArabic ? 'تعديل' : 'Adjust';
   String get saveGoal => isArabic ? 'حفظ هدف التغذية' : 'Save Nutrition goal';
   String get weeklyChange => isArabic ? 'التغير الأسبوعي' : 'Weekly change';
+  String weeklyRate(double value) {
+    final String sign = value < 0 ? '−' : value > 0 ? '+' : '';
+    final String amount = value.abs().toStringAsFixed(1);
+    return isArabic ? '$sign$amount كجم أسبوعيًا' : '$sign$amount kg a week';
+  }
+  String formatDate(String value) {
+    final DateTime date = DateTime.parse(value);
+    if (!isArabic) {
+      const List<String> months = <String>[
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+      ];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
+    const List<String> months = <String>[
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
   String get reachTarget => isArabic ? 'تاريخ الوصول إلى الوزن المستهدف' : 'Target weight date';
-  String get floorWarning => isArabic ? 'طبّق حد السعرات الأدنى؛ هذا هو معدل التغير الفعلي.' : 'The Calorie floor applies; this is your real weekly rate.';
+  String get floorWarning => isArabic ? 'يحدّ الحد الأدنى للسعرات من معدل التغير الأسبوعي الفعلي.' : 'The Calorie floor applies; this is your real weekly rate.';
   String get gainWarning => isArabic ? 'وزنك المستهدف أقل من وزنك الحالي.' : 'Your Target weight is below your current weight.';
   String get updateOffer => isArabic ? 'تغير هدفك. هل تريد تحديث هدف التغذية؟' : 'Your goal changed. Update your Nutrition goal?';
   String get accept => isArabic ? 'تحديث' : 'Update';

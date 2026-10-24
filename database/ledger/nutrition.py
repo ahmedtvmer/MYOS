@@ -97,6 +97,7 @@ class LedgerNutritionMixin:
             self.save_nutrition_plan(NutritionPlanVersion(
                 goal=setup.plan.goal, reason=setup.plan.reason, intensity=setup.plan.intensity,
                 daily_activity=setup.plan.daily_activity, targets=setup.plan.targets, created_at=now,
+                goal_source_snapshot=setup.plan.goal_source_snapshot,
             ))
 
     def save_nutrition_plan(self, plan: NutritionPlanVersion):
@@ -106,14 +107,10 @@ class LedgerNutritionMixin:
             (plan.goal, json.dumps(plan.reason), plan.intensity, plan.daily_activity,
              json.dumps(plan.targets), plan.created_at or datetime.now(UTC).isoformat()),
         )
-        profile = self.get_nutrition_profile()
-        if profile is not None:
-            profile_snapshot = plan.goal_source_snapshot or {"current_goal": profile.get("current_goal"),
-                                "long_term_goal": profile.get("long_term_goal"),
-                                "target_weight_kg": profile.get("target_weight_kg")}
+        if plan.goal_source_snapshot is not None:
             self.conn.execute(
                 "INSERT INTO nutrition_goal_offer_snapshots(plan_version_id, profile_json) VALUES(?, ?)",
-                (cursor.lastrowid, json.dumps(profile_snapshot, sort_keys=True)),
+                (cursor.lastrowid, json.dumps(plan.goal_source_snapshot, sort_keys=True)),
             )
         return cursor.lastrowid
 

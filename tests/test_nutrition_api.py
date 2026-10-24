@@ -313,24 +313,66 @@ def test_preview_requires_confirmed_sex_and_screening(api):
     assert response.json()["targets"] is None
 
 
-def test_reach_target_date_starts_from_player_local_day(api, monkeypatch):
-    from service import nutrition as nutrition_service
+def test_reach_target_date_uses_real_player_schedule_timezone(api, monkeypatch):
+    from datetime import datetime, timezone
+    from service import weight_history
 
     client, db = api
-    registered = client.post("/auth/register", json={"trainee_id": "local-date", "password": "correct-horse-1"}).json()
+    registered = client.post("/auth/register", json={"trainee_id": "tokyo-local-date", "password": "correct-horse-1"}).json()
     headers = {"Authorization": f"Bearer {registered['access_token']}"}
-    _seed_profile(db, "local-date", age=30, target=60)
+    _seed_profile(db, "tokyo-local-date", age=30, target=60)
+    account = db.get_active_account_by_username("tokyo-local-date")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.append_training_schedule(account["ledger_id"], [0, 1], "Asia/Tokyo", "2026-01-01", "2026-01-01T00:00:00Z")
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 24, 22, 30, tzinfo=timezone.utc).astimezone(tz)
+    monkeypatch.setattr(weight_history, "datetime", FrozenDateTime)
     client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
         "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
         "medical_condition": False, "eating_disorder": False}})
-    local_today = date(2026, 10, 25)
-    monkeypatch.setattr(nutrition_service, "player_local_date", lambda ledger, ledger_id: local_today)
     response = client.post("/nutrition/preview", headers=headers,
                            json={"goal": "lose", "intensity": "moderate"}).json()
     rate = response["targets"]["weekly_rate_pct"]
-    weight = 70
-    days = round(abs(60 - weight) / (weight * rate / 100) * 7)
-    assert response["reach_target_date"] == (local_today + timedelta(days=days)).isoformat()
+    days = round(abs(60 - 70) / (70 * rate / 100) * 7)
+    assert response["reach_target_date"] == (date(2026, 10, 25) + timedelta(days=days)).isoformat()
+
+
+def test_adherence_requires_active_unblocked_nutrition_plan(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "no-plan-adherence", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "no-plan-adherence", age=30, target=None)
+    no_plan = client.put("/nutrition/adherence", headers=headers, json={"value": "off"})
+    assert no_plan.status_code == 409
+    assert "Nutrition plan" in no_plan.json()["detail"]
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": True,
+        "medical_condition": False, "eating_disorder": False}})
+    blocked = client.put("/nutrition/adherence", headers=headers, json={"value": "off"})
+    assert blocked.status_code == 409
+    assert "screening" in blocked.json()["detail"].lower()
+
+
+def test_saving_unchanged_nutrition_goal_is_noop(api, recording_analytics):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "same-pace", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "same-pace", age=30, target=60)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("same-pace")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        before = ledger.conn.execute("SELECT COUNT(*) FROM nutrition_plan_versions").fetchone()[0]
+    response = client.put("/nutrition/goal", headers=headers, json={"goal": "lose", "intensity": "moderate"})
+    assert response.status_code == 200
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        after = ledger.conn.execute("SELECT COUNT(*) FROM nutrition_plan_versions").fetchone()[0]
+    events = [event for event in recording_analytics.events if event["event"] == "nutrition_goal_saved"]
+    assert after == before
+    assert events == []
 
 
 def test_goal_save_analytics_uuid_tracks_each_plan_version(api, recording_analytics):
@@ -415,35 +457,31 @@ def test_adherence_rejects_non_today_date(api):
     assert response.status_code == 422
 
 
-def test_activity_update_keeps_schedule_local_adherence_day(api, monkeypatch):
-    from datetime import date as real_date
-    from service import nutrition as nutrition_service
-    from svc.routers import nutrition as nutrition_router
+def test_adherence_write_uses_real_player_schedule_timezone(api, monkeypatch):
+    from datetime import datetime, timezone
+    from service import weight_history
 
     client, db = api
-    registered = client.post("/auth/register", json={"trainee_id": "cairo-activity", "password": "correct-horse-1"}).json()
+    registered = client.post("/auth/register", json={"trainee_id": "tokyo-adherence", "password": "correct-horse-1"}).json()
     headers = {"Authorization": f"Bearer {registered['access_token']}"}
-    _seed_profile(db, "cairo-activity", age=30, target=None)
-    account = db.get_active_account_by_username("cairo-activity")
+    _seed_profile(db, "tokyo-adherence", age=30, target=None)
+    account = db.get_active_account_by_username("tokyo-adherence")
     with db.open_ledger(account["ledger_id"]) as ledger:
-        ledger.append_training_schedule(account["ledger_id"], [0, 1, 2], "Africa/Cairo", "2026-01-01", "2026-01-01T00:00:00Z")
-    monkeypatch.setattr(nutrition_router, "local_today", lambda *_args, **_kwargs: real_date(2026, 10, 25))
-
-    class UtcDate:
+        ledger.append_training_schedule(account["ledger_id"], [0, 1], "Asia/Tokyo", "2026-01-01", "2026-01-01T00:00:00Z")
+    class FrozenDateTime(datetime):
         @classmethod
-        def today(cls):
-            return real_date(2026, 10, 24)
-
-    monkeypatch.setattr(nutrition_service, "date", UtcDate)
-    client.post("/nutrition/setup", headers=headers, json={
-        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
-        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
-    })
-    assert client.put("/nutrition/adherence", headers=headers, json={"value": "on_target"}).status_code == 200
-    updated = client.put("/nutrition/activity", headers=headers, json={"daily_activity": "on_feet"})
+        def now(cls, tz=None):
+            return cls(2026, 10, 24, 22, 30, tzinfo=timezone.utc).astimezone(tz)
+    monkeypatch.setattr(weight_history, "datetime", FrozenDateTime)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    updated = client.put("/nutrition/adherence", headers=headers, json={"value": "on_target"})
     assert updated.status_code == 200
     assert updated.json()["today_adherence"] == "on_target"
     assert updated.json()["adherence_days"][-1] == {"date": "2026-10-25", "value": "on_target"}
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert ledger.conn.execute("SELECT entry_date FROM nutrition_adherence").fetchone()[0] == "2026-10-25"
 
 
 def test_setup_and_activity_return_complete_assigned_nutrition_state(api, monkeypatch):

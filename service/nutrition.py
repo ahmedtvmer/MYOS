@@ -7,7 +7,6 @@ from typing import Any
 from agent.program_blueprints import classify_goal
 from core.nutrition_targets import NutritionCalculationInput, NutritionTargets, calculate_targets
 from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
-from service.weight_history import player_local_date
 
 
 SCREENING_KEYS = (
@@ -97,16 +96,14 @@ def _profile_is_complete(training_profile: dict[str, Any] | None) -> bool:
 
 
 def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_request: NutritionSetup) -> dict[str, Any]:
-    age, height, weight = training_profile["age"], training_profile["height_cm"], training_profile["weight_kg"]
+    weight = training_profile["weight_kg"]
     goal, reason = resolve_goal(training_profile.get("current_goal"), training_profile.get("long_term_goal"),
                                 float(weight), training_profile.get("target_weight_kg"))
-    training_days = ledger.get_nutrition_training_days(training_profile.get("weekly_frequency") or 0)
-    targets = _target_json(calculate_targets(NutritionCalculationInput(
-        sex=setup_request.sex, age=int(age), height_cm=float(height), weight_kg=float(weight),
-        daily_activity=setup_request.daily_activity, training_days=training_days, goal=goal, intensity="moderate",
-    )))
+    targets = _calculate_for(ledger, training_profile, setup_request.sex,
+                             setup_request.daily_activity, goal, "moderate")
     intensity = None if goal == "maintain" else "moderate"
-    plan = NutritionPlanVersion(goal, reason, intensity, setup_request.daily_activity, targets)
+    plan = NutritionPlanVersion(goal, reason, intensity, setup_request.daily_activity, targets,
+                                goal_source_snapshot=_goal_source(training_profile))
     ledger.save_nutrition_setup(NutritionSetup(setup_request.sex, setup_request.daily_activity,
                                                setup_request.screening, plan))
     return {"state": "ready", "goal": goal, "goal_reason": reason,
@@ -114,9 +111,8 @@ def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_reques
 
 
 def read(
-    ledger: Any, language: str = "en", *, today: date | None = None
+    ledger: Any, language: str = "en", *, today: date
 ) -> dict[str, Any]:
-    today = today or date.today()
     screening = ledger.get_nutrition_screening()
     answers = json.loads(screening[0]) if screening else None
     if answers and any(answers.values()):
@@ -164,11 +160,16 @@ def _adherence_state(ledger: Any, today: date) -> dict[str, Any]:
 
 
 def log_adherence(ledger: Any, value: str, today: date) -> tuple[dict[str, Any], str]:
+    screening = ledger.get_nutrition_screening()
+    if screening is not None and any(json.loads(screening[0]).values()):
+        raise ValueError("Nutrition adherence is unavailable while health screening blocks targets.")
+    if ledger.get_active_nutrition_plan() is None:
+        raise ValueError("An active Nutrition plan is required before recording adherence.")
     updated_at = ledger.upsert_nutrition_adherence(today.isoformat(), value)
     return read(ledger, today=today), updated_at
 
 
-def preview(ledger: Any, goal: str, intensity: str) -> dict[str, Any]:
+def preview(ledger: Any, goal: str, intensity: str, today: date) -> dict[str, Any]:
     profile = ledger.get_nutrition_profile()
     if not _profile_is_complete(profile):
         return {"state": "incomplete", "targets": None, "reach_target_date": None}
@@ -190,15 +191,18 @@ def preview(ledger: Any, goal: str, intensity: str) -> dict[str, Any]:
         direction_matches = (goal == "lose" and target_weight < profile["weight_kg"]) or (goal == "gain" and target_weight > profile["weight_kg"])
         if direction_matches:
             weeks = distance / (float(profile["weight_kg"]) * rate / 100)
-            today = player_local_date(ledger, str(ledger.ledger_id))
             reach_date = (today + timedelta(days=round(weeks * 7))).isoformat()
+    weekly_change = float(profile["weight_kg"]) * rate / 100
+    if goal == "lose":
+        weekly_change *= -1
     return {"state": "ready", "goal": goal, "intensity": intensity, "targets": targets,
             "reach_target_date": reach_date,
+            "weekly_change_kg": weekly_change,
             "gain_target_warning": goal == "gain" and target_weight is not None and target_weight < profile["weight_kg"]}
 
 
-def save_goal(ledger: Any, goal: str, intensity: str, screening: dict[str, bool] | None = None,
-              today: date | None = None) -> dict[str, Any]:
+def save_goal(ledger: Any, goal: str, intensity: str, today: date,
+              screening: dict[str, bool] | None = None) -> dict[str, Any]:
     active = ledger.get_active_nutrition_plan()
     if active is None:
         raise ValueError("Set up Nutrition targets first.")
@@ -216,7 +220,10 @@ def save_goal(ledger: Any, goal: str, intensity: str, screening: dict[str, bool]
         return read(ledger, today=today)
     if not requires_screening and screening_row is None:
         raise ValueError("Complete the health screening before changing Nutrition targets.")
-    result = preview(ledger, goal, intensity)
+    expected_intensity = None if goal == "maintain" else intensity
+    if active["goal"] == goal and active["intensity"] == expected_intensity:
+        return read(ledger, today=today)
+    result = preview(ledger, goal, intensity, today)
     if result["state"] != "ready":
         return result
     profile = ledger.get_nutrition_profile()
@@ -234,7 +241,7 @@ def save_goal(ledger: Any, goal: str, intensity: str, screening: dict[str, bool]
     return read(ledger, today=today)
 
 
-def dismiss_goal_offer(ledger: Any, today: date | None = None) -> dict[str, Any]:
+def dismiss_goal_offer(ledger: Any, today: date) -> dict[str, Any]:
     profile = ledger.get_nutrition_profile()
     if profile is not None:
         ledger.dismiss_nutrition_goal_offer(_offer_key(profile))
@@ -275,7 +282,7 @@ def _read_active_plan(active_plan: Any, answers: dict[str, bool] | None) -> dict
             "provenance": active_plan["provenance"], "screening": answers}
 
 
-def update_activity(ledger: Any, activity: str, today: date | None = None) -> dict[str, Any]:
+def update_activity(ledger: Any, activity: str, today: date) -> dict[str, Any]:
     training_profile = ledger.get_nutrition_profile()
     active_plan = ledger.get_active_nutrition_plan()
     screening = ledger.get_nutrition_screening()
@@ -300,11 +307,5 @@ def update_activity(ledger: Any, activity: str, today: date | None = None) -> di
 def _recalculate_activity_targets(ledger: Any, training_profile: dict[str, Any],
                                   active_plan: Any, activity: str) -> dict[str, Any]:
     goal = active_plan["goal"]
-    age, height, weight = (training_profile["age"], training_profile["height_cm"],
-                           training_profile["weight_kg"])
-    return _target_json(calculate_targets(NutritionCalculationInput(
-        sex=training_profile.get("gender", "male"), age=int(age), height_cm=float(height), weight_kg=float(weight),
-        daily_activity=activity,
-        training_days=ledger.get_nutrition_training_days(training_profile.get("weekly_frequency") or 0),
-        goal=goal, intensity=active_plan["intensity"] or "moderate",
-    )))
+    return _calculate_for(ledger, training_profile, training_profile.get("gender", "male"),
+                          activity, goal, active_plan["intensity"] or "moderate")

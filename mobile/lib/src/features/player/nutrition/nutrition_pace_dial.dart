@@ -34,7 +34,8 @@ class _NutritionPaceDialState extends ConsumerState<NutritionPaceDial> {
         (stop.$2 == (widget.plan.intensity ?? 'moderate')));
     _selected = _stops[current < 0 ? 3 : current];
     if (widget.initialGoal != null) {
-      final int pending = _stops.indexWhere((stop) => stop.$1 == widget.initialGoal);
+      final int pending = _stops.indexWhere((stop) =>
+          stop.$1 == widget.initialGoal && stop.$2 == 'moderate');
       if (pending >= 0) _selected = _stops[pending];
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreview());
@@ -92,7 +93,7 @@ class _NutritionPaceDialState extends ConsumerState<NutritionPaceDial> {
     final bool arabic = ref.watch(displayLanguageProvider) == 'ar';
     final NutritionCopy copy = NutritionCopy(arabic ? 'ar' : 'en');
     final Map<String, dynamic> targets = Map<String, dynamic>.from(_preview?['targets'] as Map? ?? <String, dynamic>{});
-    final double rate = (targets['weekly_rate_pct'] as num? ?? 0).toDouble();
+    final double weeklyChange = ( _preview?['weekly_change_kg'] as num? ?? 0).toDouble();
     return Directionality(textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(appBar: AppBar(title: Text(copy.adjust)), body: ListView(padding: const EdgeInsets.all(20), children: <Widget>[
         Text(copy.adjust, style: Theme.of(context).textTheme.headlineMedium),
@@ -108,10 +109,11 @@ class _NutritionPaceDialState extends ConsumerState<NutritionPaceDial> {
         if (targets.isNotEmpty) ...<Widget>[
           Text('${targets['calories']} ${copy.calories}', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
           Text('${copy.protein}: ${targets['protein_g']} g · ${copy.carbs}: ${targets['carbs_g']} g · ${copy.fat}: ${targets['fat_g']} g'),
-          Text('${copy.weeklyChange}: ${rate.toStringAsFixed(2)}%'),
+          Text('${copy.weeklyChange}: ${copy.weeklyRate(weeklyChange)}'),
           if (targets['floor_applied'] == true) Text(copy.floorWarning, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (_preview?['gain_target_warning'] == true) Text(copy.gainWarning, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          if (_preview?['reach_target_date'] != null) Text('${copy.reachTarget}: ${_preview!['reach_target_date']}'),
+          if (_preview?['reach_target_date'] != null)
+            Text('${copy.reachTarget}: ${copy.formatDate(_preview!['reach_target_date'] as String)}'),
         ],
         if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         FilledButton(onPressed: _saving || _loading ? null : () => _save(copy), child: Text(copy.saveGoal)),
