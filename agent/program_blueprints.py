@@ -1469,7 +1469,7 @@ def coach_ppl_upper_lower_days(frequency: int) -> list[DayBlueprint]:
         DayBlueprint(
             "Upper",
             (
-                "forearm_wrist", "incline_press", "vertical_pull", "biceps_preacher",
+                "forearm_wrist", "flat_press", "vertical_pull", "biceps_preacher",
                 "triceps_pushdown",
             ),
             family="upper",
@@ -1484,7 +1484,7 @@ def coach_ppl_upper_lower_days(frequency: int) -> list[DayBlueprint]:
         DayBlueprint(
             "Push",
             (
-                "side_delts", "flat_press", "shoulder_press", "chest_fly",
+                "side_delts", "incline_press", "shoulder_press", "chest_fly",
                 "triceps_overhead", "triceps_pushdown",
             ),
             family="upper",
@@ -1567,7 +1567,7 @@ def resolve_split_type(split_type: str, frequency: int) -> str:
     """Five-day Arnold and PPL requests map onto their Upper/Lower hybrids.
 
     The Arnold hybrid retains the reference five-day shape. The PPL hybrid
-    keeps Push/Pull/Legs and adds one existing Upper and Lower blueprint.
+    uses the coach-pattern order Upper, Lower, Push, Pull, Legs.
     """
     return SPLIT_TYPE_ALIASES_BY_FREQUENCY.get((split_type, frequency), split_type)
 
