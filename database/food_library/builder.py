@@ -17,7 +17,7 @@ NUTRIENTS = (
 _EXCLUDED_BRAND_TOKENS = {"NFS", "NS", "USDA", "DHA", "ARA", "USA", "UHT"}
 _BRAND_TOKEN = re.compile(r"(?<![A-Za-z])[A-Z][A-Z'&-]*[A-Z](?![A-Za-z])")
 _HALAL_EXCEPTIONS = re.compile(r"\b(?:turkey|beef|chicken|meatless|soy)\b", re.I)
-_HALAL_NAME_TERMS = re.compile(r"\b(?:pork|ham|bacon|pepperoni|salami|prosciutto|lard|wine|beer|liquor)\b", re.I)
+_HALAL_NAME_TERMS = re.compile(r"\b(?:pork|ham|bacon|pepperoni|salami|prosciutto|lard|wine|beer|liquor|alcoholic)\b", re.I)
 _FAST_FOOD_NAME = re.compile(r"\bfrom fast food\b|\brestaurant\b", re.I)
 
 

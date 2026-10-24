@@ -141,6 +141,7 @@ def test_real_usda_rows_follow_halal_alcohol_fast_food_and_baby_rules(tmp_path):
         'Bacon biscuit sandwich', 'Margarita',
         'Antipasto with ham, fish, cheese, vegetables',
         'Cheeseburger slider, from fast food', 'Infant formula, amino acids',
+        'Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof',
     ):
         assert rows[name]['hidden'] is True, name
     for name in (

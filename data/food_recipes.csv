@@ -1,1 +1,71 @@
 id,display_name,arabic_name,ingredient_fdc_id,grams,cooked_yield_g,reviewed
+koshari,Koshari,كشري,168877,150,1000,false
+koshari,Koshari,كشري,172420,90,,false
+koshari,Koshari,كشري,169736,100,,false
+koshari,Koshari,كشري,2644282,40,,false
+koshari,Koshari,كشري,170054,100,,false
+koshari,Koshari,كشري,170000,30,,false
+koshari,Koshari,كشري,2710186,18,,false
+ful_medames,Ful medames with oil,فول مدمس بالزيت,175205,120,380,false
+ful_medames,Ful medames with oil,فول مدمس بالزيت,2710186,10,,false
+ful_medames,Ful medames with oil,فول مدمس بالزيت,2709181,10,,false
+ful_medames,Ful medames with oil,فول مدمس بالزيت,1104647,3,,false
+taameya,Ta'meya,طعمية,175205,100,150,false
+taameya,Ta'meya,طعمية,170000,25,,false
+taameya,Ta'meya,طعمية,1104647,5,,false
+taameya,Ta'meya,طعمية,2710188,30,,false
+taameya,Ta'meya,طعمية,170151,5,,false
+chicken_shawerma,Chicken shawerma sandwich,ساندويتش شاورما فراخ,2646170,140,300,false
+chicken_shawerma,Chicken shawerma sandwich,ساندويتش شاورما فراخ,2707730,90,,false
+chicken_shawerma,Chicken shawerma sandwich,ساندويتش شاورما فراخ,321360,30,,false
+chicken_shawerma,Chicken shawerma sandwich,ساندويتش شاورما فراخ,170000,20,,false
+chicken_shawerma,Chicken shawerma sandwich,ساندويتش شاورما فراخ,2710188,8,,false
+chicken_pane,Chicken pane,فراخ بانيه,2646170,140,190,false
+chicken_pane,Chicken pane,فراخ بانيه,789951,15,,false
+chicken_pane,Chicken pane,فراخ بانيه,2707152,25,,false
+chicken_pane,Chicken pane,فراخ بانيه,174928,30,,false
+chicken_pane,Chicken pane,فراخ بانيه,2710188,18,,false
+molokhia,Molokhia,ملوخية,169354,180,400,false
+molokhia,Molokhia,ملوخية,2646170,60,,false
+molokhia,Molokhia,ملوخية,1104647,6,,false
+molokhia,Molokhia,ملوخية,2710188,8,,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,2685568,150,560,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,2258588,100,,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,168877,100,,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,321360,80,,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,170000,30,,false
+mahshi,Mahshi vegetables with rice,محشي خضار بالأرز,2710188,15,,false
+fattah,Fattah,فتة,2707730,100,450,false
+fattah,Fattah,فتة,168877,120,,false
+fattah,Fattah,فتة,2705853,100,,false
+fattah,Fattah,فتة,170054,100,,false
+fattah,Fattah,فتة,1104647,5,,false
+fattah,Fattah,فتة,2710188,10,,false
+basbousa,Basbousa,بسبوسة,2003589,100,175,false
+basbousa,Basbousa,بسبوسة,169655,55,,false
+basbousa,Basbousa,بسبوسة,2710168,25,,false
+basbousa,Basbousa,بسبوسة,2707152,25,,false
+feteer_meshaltet,Feteer meshaltet,فطير مشلتت,789951,200,330,false
+feteer_meshaltet,Feteer meshaltet,فطير مشلتت,2710168,45,,false
+feteer_meshaltet,Feteer meshaltet,فطير مشلتت,174158,90,,false
+mesakaa,Mesaka'a,مسقعة,2685577,180,300,false
+mesakaa,Mesaka'a,مسقعة,321360,100,,false
+mesakaa,Mesaka'a,مسقعة,170000,35,,false
+mesakaa,Mesaka'a,مسقعة,2710188,18,,false
+tahini_salad,Tahini salad,سلطة طحينة,169410,70,150,false
+tahini_salad,Tahini salad,سلطة طحينة,2709181,25,,false
+tahini_salad,Tahini salad,سلطة طحينة,1104647,4,,false
+tahini_salad,Tahini salad,سلطة طحينة,321360,40,,false
+baba_ghanoush,Baba ghanoush,بابا غنوج,2685577,180,170,false
+baba_ghanoush,Baba ghanoush,بابا غنوج,169410,25,,false
+baba_ghanoush,Baba ghanoush,بابا غنوج,2709181,15,,false
+baba_ghanoush,Baba ghanoush,بابا غنوج,1104647,4,,false
+lentil_soup,Lentil soup,شوربة عدس,172420,100,330,false
+lentil_soup,Lentil soup,شوربة عدس,170000,35,,false
+lentil_soup,Lentil soup,شوربة عدس,170393,30,,false
+lentil_soup,Lentil soup,شوربة عدس,2710188,8,,false
+rice_vermicelli,Rice with vermicelli,أرز بالشعرية,168877,180,400,false
+rice_vermicelli,Rice with vermicelli,أرز بالشعرية,169736,25,,false
+rice_vermicelli,Rice with vermicelli,أرز بالشعرية,2710168,10,,false
+lentil_soup,Lentil soup,شوربة عدس,174158,170,,false
+molokhia,Molokhia,ملوخية,174158,180,,false
