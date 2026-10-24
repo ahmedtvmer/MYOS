@@ -100,6 +100,8 @@ class FakeMyosApi {
   Map<String, dynamic>? lastNutritionSetupBody;
   String? lastNutritionActivity;
   final List<String> nutritionAdherenceValues = <String>[];
+  Map<String, dynamic>? lastNutritionGoal;
+  int nutritionOfferDismissals = 0;
   Map<String, dynamic> nutritionState = <String, dynamic>{
     'state': 'not_started', 'targets': null,
   };
@@ -862,6 +864,26 @@ class FakeMyosApi {
             }),
           ],
         };
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/preview':
+        final String goal = request.body['goal'] as String;
+        final String intensity = request.body['intensity'] as String;
+        final bool gainingLight = goal == 'gain' && intensity == 'light';
+        return FakeResponse(200, <String, dynamic>{'state': 'ready', 'goal': goal, 'intensity': intensity,
+          'targets': <String, dynamic>{'calories': gainingLight ? 2200 : 1800,
+            'protein_g': gainingLight ? 130 : 145, 'carbs_g': gainingLight ? 250 : 160,
+            'fat_g': gainingLight ? 60 : 65, 'weekly_rate_pct': gainingLight ? 0.1 : 0.4,
+            'floor_applied': intensity == 'aggressive'},
+          'reach_target_date': '2027-02-01', 'gain_target_warning': goal == 'gain'});
+      case '/nutrition/goal':
+        lastNutritionGoal = Map<String, dynamic>.from(request.body);
+        nutritionState = <String, dynamic>{...nutritionState, 'goal': request.body['goal'],
+          'intensity': request.body['intensity'], 'goal_reason': <String, dynamic>{'code': 'player_choice'},
+          'pending_goal': null, 'author': 'Player'};
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/goal-offer/dismiss':
+        nutritionOfferDismissals++;
+        nutritionState = <String, dynamic>{...nutritionState, 'pending_goal': null};
         return FakeResponse(200, nutritionState);
       case '/profile':
         return _profile(request);

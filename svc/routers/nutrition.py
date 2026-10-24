@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from service import analytics, nutrition as nutrition_service
 from svc.dependencies import account_id_of, get_db, get_ledger, get_verified_player
-from svc.schemas import NutritionActivityIn, NutritionAdherenceIn, NutritionSetupIn
+from svc.schemas import NutritionActivityIn, NutritionAdherenceIn, NutritionGoalSaveIn, NutritionPaceIn, NutritionSetupIn
 from service.schedule import local_today
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
@@ -105,3 +105,42 @@ async def update_activity(
         db.get_active_assignment_for_player(account_id_of(player)) is not None
     )
     return nutrition_state
+
+
+@router.post("/preview")
+async def preview_nutrition(body: NutritionPaceIn, player: Annotated[Any, Depends(get_verified_player)],
+                            ledger: Annotated[Any, Depends(get_ledger)]):
+    return await asyncio.to_thread(nutrition_service.preview, ledger, body.goal, body.intensity)
+
+
+@router.put("/goal")
+async def save_nutrition_goal(request: Request, body: NutritionGoalSaveIn,
+                              player: Annotated[Any, Depends(get_verified_player)],
+                              ledger: Annotated[Any, Depends(get_ledger)],
+                              db: Annotated[Any, Depends(get_db)]):
+    today = local_today(db, str(player), ledger=ledger)
+    try:
+        result = await asyncio.to_thread(nutrition_service.save_goal, ledger, body.goal,
+                                         body.intensity, body.screening.model_dump() if body.screening else None,
+                                         today)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    result["coach_sees_adherence"] = db.get_active_assignment_for_player(account_id_of(player)) is not None
+    if result.get("state") == "ready":
+        active_plan = await asyncio.to_thread(ledger.get_active_nutrition_plan)
+        analytics.capture_for_request(request, analytics.AnalyticsEvent(
+            account_id=account_id_of(player), event="nutrition_goal_saved",
+            domain_key=f"{player}:{active_plan['id']}", role="player",
+            properties={"goal": result["goal"], "intensity": result.get("intensity") or "none",
+                       "floor_applied": result["targets"]["floor_applied"]}))
+    return result
+
+
+@router.post("/goal-offer/dismiss")
+async def dismiss_goal_offer(player: Annotated[Any, Depends(get_verified_player)],
+                            ledger: Annotated[Any, Depends(get_ledger)],
+                            db: Annotated[Any, Depends(get_db)]):
+    today = local_today(db, str(player), ledger=ledger)
+    result = await asyncio.to_thread(nutrition_service.dismiss_goal_offer, ledger, today)
+    result["coach_sees_adherence"] = db.get_active_assignment_for_player(account_id_of(player)) is not None
+    return result

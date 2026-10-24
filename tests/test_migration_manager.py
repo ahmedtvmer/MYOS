@@ -618,8 +618,8 @@ def test_v36_to_v37_lazy_migration_adds_and_enforces_nutrition_adherence(temp_db
     conn.execute("DROP TABLE nutrition_adherence")
     set_ledger_schema_version(conn, 36)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-v36", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 37
+    apply_lazy_migrations(conn, "nutrition-v36", ledgers_dir, backups_dir, target_version=37)
+    assert get_ledger_schema_version(conn) == 37
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "nutrition_adherence" in tables
     db.ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
@@ -629,6 +629,19 @@ def test_v36_to_v37_lazy_migration_adds_and_enforces_nutrition_adherence(temp_db
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
                      "VALUES('2026-10-25', 'unknown', 'answered', 'now')")
+
+
+def test_v37_to_v38_lazy_migration_adds_nutrition_goal_offer_dismissals(temp_db_env):
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE nutrition_goal_offer_dismissals")
+    conn.execute("DROP TABLE nutrition_goal_offer_snapshots")
+    set_ledger_schema_version(conn, 37)
+    conn.commit()
+    apply_lazy_migrations(conn, "nutrition-offer-v36", ledgers_dir, backups_dir)
+    assert get_ledger_schema_version(conn) == 38
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"nutrition_goal_offer_dismissals", "nutrition_goal_offer_snapshots"} <= tables
 
 
 def test_latest_session_summary_uses_real_working_sets(temp_db_env):

@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -232,6 +233,140 @@ def test_activity_save_creates_version_and_weight_entry_does_not_change_it(api):
     account = db.get_active_account_by_username("activity-plan")
     with db.open_ledger(account["ledger_id"]) as ledger:
         assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_plan_versions").fetchone()[0] == 2
+
+
+def test_pace_preview_does_not_save_and_goal_save_versions_and_rescreens_lose(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-player", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-player", age=30, target=None)
+    setup = {"sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+             "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False}}
+    client.post("/nutrition/setup", headers=headers, json=setup)
+    account = db.get_active_account_by_username("pace-player")
+    before = client.get("/nutrition", headers=headers).json()
+    preview = client.post("/nutrition/preview", headers=headers,
+                          json={"goal": "lose", "intensity": "aggressive"})
+    assert preview.status_code == 200
+    assert preview.json()["targets"]["calories"] >= preview.json()["targets"]["calorie_floor"]
+    assert "reach_target_date" in preview.json()
+    assert client.get("/nutrition", headers=headers).json() == before
+    changed = client.put("/nutrition/goal", headers=headers,
+                         json={"goal": "gain", "intensity": "light"})
+    assert changed.status_code == 200
+    assert changed.json()["goal_reason"] == {"code": "player_choice"}
+    assert changed.json().get("pending_goal") is None
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_plan_versions").fetchone()[0] == 2
+    rescreen = client.put("/nutrition/goal", headers=headers,
+                          json={"goal": "lose", "intensity": "moderate"})
+    assert rescreen.status_code == 400
+    assert "screening" in rescreen.json()["detail"].lower()
+
+
+def test_nutrition_read_offers_goal_update_after_target_edit(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "offer-player", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "offer-player", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("offer-player")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET target_weight_kg=60 WHERE id=1")
+        ledger.conn.commit()
+    assert client.get("/nutrition", headers=headers).json()["pending_goal"] == "lose"
+
+
+def test_goal_offer_dismissal_is_stored_until_another_profile_change(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "dismiss-offer", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "dismiss-offer", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("dismiss-offer")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET target_weight_kg=60 WHERE id=1")
+        ledger.conn.commit()
+    assert client.get("/nutrition", headers=headers).json()["pending_goal"] == "lose"
+    response = client.post("/nutrition/goal-offer/dismiss", headers=headers)
+    assert response.status_code == 200
+    assert client.get("/nutrition", headers=headers).json().get("pending_goal") is None
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET target_weight_kg=80 WHERE id=1")
+        ledger.conn.commit()
+    assert client.get("/nutrition", headers=headers).json()["pending_goal"] == "gain"
+
+
+def test_preview_requires_confirmed_sex_and_screening(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "preview-setup", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "preview-setup", age=30, target=60)
+    response = client.post("/nutrition/preview", headers=headers,
+                           json={"goal": "lose", "intensity": "aggressive"})
+    assert response.status_code == 200
+    assert response.json()["state"] == "setup_required"
+    assert response.json()["targets"] is None
+
+
+def test_reach_target_date_starts_from_player_local_day(api, monkeypatch):
+    from service import nutrition as nutrition_service
+
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "local-date", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "local-date", age=30, target=60)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    local_today = date(2026, 10, 25)
+    monkeypatch.setattr(nutrition_service, "player_local_date", lambda ledger, ledger_id: local_today)
+    response = client.post("/nutrition/preview", headers=headers,
+                           json={"goal": "lose", "intensity": "moderate"}).json()
+    rate = response["targets"]["weekly_rate_pct"]
+    weight = 70
+    days = round(abs(60 - weight) / (weight * rate / 100) * 7)
+    assert response["reach_target_date"] == (local_today + timedelta(days=days)).isoformat()
+
+
+def test_goal_save_analytics_uuid_tracks_each_plan_version(api, recording_analytics):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "goal-event", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "goal-event", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    for goal, intensity in (("gain", "light"), ("maintain", "moderate"), ("gain", "light")):
+        response = client.put("/nutrition/goal", headers=headers,
+                              json={"goal": goal, "intensity": intensity})
+        assert response.status_code == 200
+    events = [event for event in recording_analytics.events if event["event"] == "nutrition_goal_saved"]
+    assert len(events) == 3
+    assert len({event["uuid"] for event in events}) == 3
+
+
+def test_coach_authored_plan_rejects_player_goal_save(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "coach-plan", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "coach-plan", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("coach-plan")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET author='Coach' WHERE id=(SELECT MAX(id) FROM nutrition_plan_versions)")
+        ledger.conn.commit()
+    response = client.put("/nutrition/goal", headers=headers,
+                          json={"goal": "gain", "intensity": "light"})
+    assert response.status_code == 400
+    assert "Coach" in response.json()["detail"]
 
 
 def _seed_profile(db, username, *, age, target, current_goal="get stronger"):

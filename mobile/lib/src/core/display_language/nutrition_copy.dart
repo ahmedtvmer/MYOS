@@ -47,6 +47,17 @@ class NutritionCopy {
       };
   String get cancel => isArabic ? 'إلغاء' : 'Cancel';
   String get updateTargets => isArabic ? 'تحديث الأهداف الغذائية' : 'Update Nutrition targets';
+  String get adjust => isArabic ? 'تعديل' : 'Adjust';
+  String get saveGoal => isArabic ? 'حفظ هدف التغذية' : 'Save Nutrition goal';
+  String get weeklyChange => isArabic ? 'التغير الأسبوعي' : 'Weekly change';
+  String get reachTarget => isArabic ? 'تاريخ الوصول إلى الوزن المستهدف' : 'Target weight date';
+  String get floorWarning => isArabic ? 'طبّق حد السعرات الأدنى؛ هذا هو معدل التغير الفعلي.' : 'The Calorie floor applies; this is your real weekly rate.';
+  String get gainWarning => isArabic ? 'وزنك المستهدف أقل من وزنك الحالي.' : 'Your Target weight is below your current weight.';
+  String get updateOffer => isArabic ? 'تغير هدفك. هل تريد تحديث هدف التغذية؟' : 'Your goal changed. Update your Nutrition goal?';
+  String get accept => isArabic ? 'تحديث' : 'Update';
+  String get dismiss => isArabic ? 'لاحقًا' : 'Later';
+  String get continueLabel => isArabic ? 'متابعة' : 'Continue';
+  String stop(String goalValue, String pace) => '${goal(goalValue)} · ${isArabic ? <String, String>{'light': 'خفيف', 'moderate': 'متوسط', 'aggressive': 'قوي'}[pace] : pace[0].toUpperCase() + pace.substring(1)}';
   String get dietitian => isArabic ? 'لن يحدد ميوس أهدافًا غذائية. يُرجى التحدث إلى اختصاصي تغذية مسجل.' : 'MYOS will not set calorie targets. Please speak with a registered dietitian.';
   String get under18 => isArabic ? 'لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا.' : 'MYOS does not set automatic Nutrition targets for players under 18.';
   String get incomplete => isArabic ? 'أكمل الملف التدريبي قبل إعداد الأهداف الغذائية.' : 'Complete your Training profile before setting Nutrition targets.';
@@ -64,6 +75,8 @@ class NutritionCopy {
         return isArabic
             ? 'تم اختيار هدف التغذية $label لأن هدفك يقول «${data?['goal_text']}».'
             : 'Set to $label because your goal says “${data?['goal_text']}”.';
+      case 'player_choice':
+        return isArabic ? 'اخترت هدف التغذية $label.' : 'You chose $label as your Nutrition goal.';
       default:
         return isArabic ? 'هدف التغذية $label لأن الملف التدريبي لا يحدد هدفًا للوزن.'
             : 'Set to $label because your Training profile has no weight goal.';

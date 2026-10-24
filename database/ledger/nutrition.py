@@ -13,6 +13,7 @@ class NutritionPlanVersion:
     daily_activity: str
     targets: dict
     created_at: str | None = None
+    goal_source_snapshot: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,24 @@ class LedgerNutritionMixin:
             "SELECT * FROM nutrition_plan_versions ORDER BY id DESC LIMIT 1"
         ).fetchone()
 
+    def get_nutrition_goal_offer_dismissal(self):
+        return self.conn.execute(
+            "SELECT offer_key FROM nutrition_goal_offer_dismissals WHERE id=1"
+        ).fetchone()
+
+    def get_nutrition_goal_offer_snapshot(self, plan_version_id):
+        return self.conn.execute(
+            "SELECT profile_json FROM nutrition_goal_offer_snapshots WHERE plan_version_id=?",
+            (plan_version_id,),
+        ).fetchone()
+
+    def dismiss_nutrition_goal_offer(self, offer_key):
+        self.conn.execute(
+            "INSERT INTO nutrition_goal_offer_dismissals(id, offer_key, dismissed_at) VALUES(1, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET offer_key=excluded.offer_key, dismissed_at=excluded.dismissed_at",
+            (offer_key, datetime.now(UTC).isoformat()),
+        )
+
     def get_nutrition_training_days(self, fallback=0):
         row = self.conn.execute(
             "SELECT weekly_frequency FROM training_programs WHERE is_active=1 ORDER BY created_at DESC LIMIT 1"
@@ -81,12 +100,22 @@ class LedgerNutritionMixin:
             ))
 
     def save_nutrition_plan(self, plan: NutritionPlanVersion):
-        self.conn.execute(
+        cursor = self.conn.execute(
             "INSERT INTO nutrition_plan_versions(author, provenance, goal, goal_reason_data_json, intensity, daily_activity, targets_json, created_at) "
             "VALUES('Player', 'automatic', ?, ?, ?, ?, ?, ?)",
             (plan.goal, json.dumps(plan.reason), plan.intensity, plan.daily_activity,
              json.dumps(plan.targets), plan.created_at or datetime.now(UTC).isoformat()),
         )
+        profile = self.get_nutrition_profile()
+        if profile is not None:
+            profile_snapshot = plan.goal_source_snapshot or {"current_goal": profile.get("current_goal"),
+                                "long_term_goal": profile.get("long_term_goal"),
+                                "target_weight_kg": profile.get("target_weight_kg")}
+            self.conn.execute(
+                "INSERT INTO nutrition_goal_offer_snapshots(plan_version_id, profile_json) VALUES(?, ?)",
+                (cursor.lastrowid, json.dumps(profile_snapshot, sort_keys=True)),
+            )
+        return cursor.lastrowid
 
     def update_nutrition_activity(self, activity):
         self.conn.execute("UPDATE user_profile SET daily_activity=?, updated_at=? WHERE id=1",

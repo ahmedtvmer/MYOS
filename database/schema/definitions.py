@@ -172,6 +172,16 @@ class SchemaMixin:
                 source TEXT NOT NULL DEFAULT 'answered' CHECK(source = 'answered'),
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                offer_key TEXT NOT NULL,
+                dismissed_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_goal_offer_snapshots (
+                plan_version_id INTEGER PRIMARY KEY,
+                profile_json TEXT NOT NULL,
+                FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id)
+            );
             CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update
                 BEFORE UPDATE ON nutrition_plan_versions BEGIN
                 SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END;

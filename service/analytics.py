@@ -319,6 +319,10 @@ PROPERTY_TYPES: dict[str, PropertyType] = {
     "cost_usd": _bounded_number(100_000),
     "estimated": _boolean(),
     "blocked": _boolean(),
+    "goal": _enum({"lose", "maintain", "gain"}),
+    "intensity": _enum({"light", "moderate", "aggressive", "none"}),
+    "floor_applied": _boolean(),
+    "value": _enum({"on_target", "roughly", "off"}),
     "latency_ms": _bounded_int(31_557_600),
     "finish_reason": _enum(AI_FINISH_REASONS),
     "turns_today": _bounded_int(1_000_000),
@@ -343,7 +347,11 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
         "server", {**_COMMON_PROPERTIES, "blocked": PROPERTY_TYPES["blocked"]}
     ),
     "nutrition_adherence_logged": EventContract(
-        "server", {**_COMMON_PROPERTIES, "value": _enum(frozenset({"on_target", "roughly", "off"}))}
+        "server", {**_COMMON_PROPERTIES, "value": PROPERTY_TYPES["value"]}
+    ),
+    "nutrition_goal_saved": EventContract(
+        "server", {**_COMMON_PROPERTIES, "goal": PROPERTY_TYPES["goal"],
+                   "intensity": PROPERTY_TYPES["intensity"], "floor_applied": PROPERTY_TYPES["floor_applied"]}
     ),
     "onboarding_completed": EventContract(
         "server",

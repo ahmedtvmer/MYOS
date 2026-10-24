@@ -2080,6 +2080,28 @@ class ApiClient {
         'The service returned invalid Nutrition data.');
   }
 
+  Future<Map<String, dynamic>> previewNutrition(String goal, String intensity) async {
+    final response = await _send(() => _dio.post<dynamic>('/nutrition/preview', data: {
+      'goal': goal, 'intensity': intensity,
+    }));
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<NutritionPlanState> saveNutritionGoal(String goal, String intensity,
+      {Map<String, bool>? screening}) async {
+    final response = await _send(() => _dio.put<dynamic>('/nutrition/goal', data: {
+      'goal': goal, 'intensity': intensity,
+      if (screening != null) 'screening': screening,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> dismissNutritionGoalOffer() async {
+    final response = await _send(() => _dio.post<dynamic>('/nutrition/goal-offer/dismiss'));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
   Future<InjuryRecord> createInjury({
     required String? bodyArea,
     required String description,

@@ -6,6 +6,7 @@ import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/nutrition_copy.dart';
 import '../../../core/models.dart';
 import '../../../providers.dart';
+import 'nutrition_pace_dial.dart';
 
 class NutritionTab extends ConsumerStatefulWidget {
   const NutritionTab({super.key});
@@ -199,6 +200,23 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       padding: const EdgeInsets.all(24),
       children: <Widget>[
         Text(copy.tab, style: text.headlineMedium),
+        if (_plan!.pendingGoal != null && _plan!.author != 'Coach') Card(child: ListTile(
+          title: Text(copy.updateOffer),
+          trailing: Wrap(children: <Widget>[
+            TextButton(onPressed: _saving ? null : _dismissGoalOffer, child: Text(copy.dismiss)),
+            FilledButton(onPressed: _saving ? null : () async {
+              final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
+                MaterialPageRoute<NutritionPlanState>(builder: (_) => NutritionPaceDial(plan: _plan!, initialGoal: _plan!.pendingGoal)));
+              if (saved != null && mounted) setState(() => _plan = saved);
+            }, child: Text(copy.accept)),
+          ]),
+        )),
+        if (_plan!.author != 'Coach') Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+          onPressed: _saving ? null : () async {
+            final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
+              MaterialPageRoute<NutritionPlanState>(builder: (_) => NutritionPaceDial(plan: _plan!)));
+            if (saved != null && mounted) setState(() => _plan = saved);
+          }, icon: const Icon(Icons.tune), label: Text(copy.adjust))),
         _activityRow(copy),
         const SizedBox(height: 20),
         _plate(targets, macroCards, copy, text),
@@ -251,6 +269,17 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       _ => Icon(Icons.circle_outlined, color: color, size: 18),
     };
     return SizedBox(width: 24, height: 24, child: Center(child: mark));
+  }
+
+
+  Future<void> _dismissGoalOffer() async {
+    setState(() => _saving = true);
+    try {
+      final NutritionPlanState dismissed = await ref.read(apiClientProvider).dismissNutritionGoalOffer();
+      if (mounted) setState(() { _plan = dismissed; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
   }
 
   Widget _activityRow(NutritionCopy copy) => ListTile(

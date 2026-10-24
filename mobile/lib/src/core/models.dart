@@ -29,7 +29,7 @@ class NutritionPlanState {
   const NutritionPlanState({required this.state, this.goal, this.goalReason,
     this.intensity, this.dailyActivity, this.targets, this.message,
     this.screening, this.sex, this.todayAdherence, this.adherenceDays = const <Map<String, dynamic>>[],
-    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false});
+    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false, this.pendingGoal, this.author});
 
   factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
     final Object? rawTargets = json['targets'];
@@ -51,6 +51,8 @@ class NutritionPlanState {
       latestWeight: (json['latest_weight'] as num?)?.toDouble(),
       targetWeight: (json['target_weight'] as num?)?.toDouble(),
       coachSeesAdherence: json['coach_sees_adherence'] == true,
+      pendingGoal: json['pending_goal'] as String?,
+      author: json['author'] as String?,
     );
   }
 
@@ -68,6 +70,8 @@ class NutritionPlanState {
   final double? latestWeight;
   final double? targetWeight;
   final bool coachSeesAdherence;
+  final String? pendingGoal;
+  final String? author;
 }
 
 class Capabilities {

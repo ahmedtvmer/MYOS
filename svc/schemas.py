@@ -1085,6 +1085,14 @@ class NutritionAdherenceIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     value: Literal["on_target", "roughly", "off"]
 
+class NutritionPaceIn(BaseModel):
+    goal: Literal["lose", "maintain", "gain"]
+    intensity: Literal["light", "moderate", "aggressive"]
+
+
+class NutritionGoalSaveIn(NutritionPaceIn):
+    screening: NutritionScreeningIn | None = None
+
 class WeightEntryOut(BaseModel):
     entry_date: str
     weight_kg: float

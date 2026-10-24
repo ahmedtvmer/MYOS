@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 37
+CURRENT_LEDGER_SCHEMA_VERSION: int = 38
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -986,6 +986,31 @@ def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
         "created_at TEXT NOT NULL)"
     )
 
+def _migrate_v37_to_v38(conn: sqlite3.Connection) -> None:
+    """Stores Nutrition goal offer decisions and the profile resolved per plan."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals ("
+        "id INTEGER PRIMARY KEY CHECK(id=1), offer_key TEXT NOT NULL, dismissed_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_goal_offer_snapshots ("
+        "plan_version_id INTEGER PRIMARY KEY, profile_json TEXT NOT NULL,"
+        "FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id))"
+    )
+    if _ledger_table_exists(conn, "user_profile") and _ledger_table_exists(conn, "nutrition_plan_versions"):
+        profile_columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
+        current_goal = "profile.current_goal" if "current_goal" in profile_columns else "NULL"
+        long_term_goal = "profile.long_term_goal" if "long_term_goal" in profile_columns else "NULL"
+        target_weight = "profile.target_weight_kg" if "target_weight_kg" in profile_columns else "NULL"
+        conn.execute(
+            "INSERT OR IGNORE INTO nutrition_goal_offer_snapshots(plan_version_id, profile_json) "
+            f"SELECT plan.id, json_object('current_goal', {current_goal}, "
+            f"'long_term_goal', {long_term_goal}, 'target_weight_kg', {target_weight}) "
+            "FROM nutrition_plan_versions AS plan CROSS JOIN user_profile AS profile "
+            "WHERE plan.id=(SELECT MAX(id) FROM nutrition_plan_versions) AND profile.id=1"
+        )
+
+
 
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
@@ -1109,6 +1134,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     34: _migrate_v34_to_v35,
     35: _migrate_v35_to_v36,
     36: _migrate_v36_to_v37,
+    37: _migrate_v37_to_v38,
 }
 
 
