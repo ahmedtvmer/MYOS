@@ -99,6 +99,7 @@ class FakeMyosApi {
   bool nutritionLoadFails = false;
   Map<String, dynamic>? lastNutritionSetupBody;
   String? lastNutritionActivity;
+  final List<String> nutritionAdherenceValues = <String>[];
   Map<String, dynamic> nutritionState = <String, dynamic>{
     'state': 'not_started', 'targets': null,
   };
@@ -840,7 +841,7 @@ class FakeMyosApi {
         nutritionState = blocked
             ? <String, dynamic>{'state': 'blocked', 'targets': null,
                 'message': 'Please speak with a registered dietitian.'}
-            : <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+            : <String, dynamic>{...nutritionState, 'state': 'ready', 'goal': 'maintain',
                 'goal_reason': <String, dynamic>{'code': 'default'},
                 'intensity': 'moderate', 'daily_activity': request.body['daily_activity'],
                 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140,
@@ -849,6 +850,18 @@ class FakeMyosApi {
       case '/nutrition/activity':
         lastNutritionActivity = request.body['daily_activity'] as String;
         nutritionState = <String, dynamic>{...nutritionState, 'daily_activity': request.body['daily_activity']};
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/adherence':
+        nutritionAdherenceValues.add(request.body['value'] as String);
+        nutritionState = <String, dynamic>{...nutritionState,
+          'today_adherence': request.body['value'],
+          'adherence_days': <Map<String, dynamic>>[
+            <String, dynamic>{'date': '2026-10-24', 'value': request.body['value']},
+            ...List<Map<String, dynamic>>.generate(6, (int index) => <String, dynamic>{
+              'date': '2026-10-${23 - index}', 'value': index == 0 ? 'roughly' : null,
+            }),
+          ],
+        };
         return FakeResponse(200, nutritionState);
       case '/profile':
         return _profile(request);

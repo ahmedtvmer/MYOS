@@ -24,6 +24,25 @@ class NutritionSetup:
 
 
 class LedgerNutritionMixin:
+    def upsert_nutrition_adherence(self, entry_date, value):
+        updated_at = datetime.now(UTC).isoformat(timespec="microseconds")
+        self.conn.execute(
+            "INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
+            "VALUES(?, ?, 'answered', ?) ON CONFLICT(entry_date) DO UPDATE SET "
+            "value=excluded.value, source='answered', created_at=excluded.created_at",
+            (str(entry_date), str(value), updated_at),
+        )
+        self._commit_ledger()
+        return updated_at
+
+    def list_nutrition_adherence(self, start_date, end_date):
+        rows = self.conn.execute(
+            "SELECT entry_date, value, source FROM nutrition_adherence "
+            "WHERE entry_date >= ? AND entry_date <= ? ORDER BY entry_date",
+            (str(start_date), str(end_date)),
+        ).fetchall()
+        return [{"date": str(row[0]), "value": str(row[1]), "source": str(row[2])} for row in rows]
+
     def get_nutrition_profile(self):
         row = self.conn.execute("SELECT * FROM user_profile WHERE id=1").fetchone()
         return dict(row) if row else None

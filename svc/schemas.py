@@ -1080,6 +1080,11 @@ class NutritionSetupIn(BaseModel):
 class NutritionActivityIn(BaseModel):
     daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"]
 
+
+class NutritionAdherenceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: Literal["on_target", "roughly", "off"]
+
 class WeightEntryOut(BaseModel):
     entry_date: str
     weight_kg: float

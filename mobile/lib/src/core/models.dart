@@ -28,7 +28,8 @@ const int maxProgramRequestReasonChars = 500;
 class NutritionPlanState {
   const NutritionPlanState({required this.state, this.goal, this.goalReason,
     this.intensity, this.dailyActivity, this.targets, this.message,
-    this.screening, this.sex});
+    this.screening, this.sex, this.todayAdherence, this.adherenceDays = const <Map<String, dynamic>>[],
+    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false});
 
   factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
     final Object? rawTargets = json['targets'];
@@ -44,6 +45,12 @@ class NutritionPlanState {
       message: json['message'] as String?,
       screening: rawScreening is Map<String, dynamic> ? rawScreening : null,
       sex: json['sex'] as String?,
+      todayAdherence: json['today_adherence'] as String?,
+      adherenceDays: (json['adherence_days'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>().toList(),
+      latestWeight: (json['latest_weight'] as num?)?.toDouble(),
+      targetWeight: (json['target_weight'] as num?)?.toDouble(),
+      coachSeesAdherence: json['coach_sees_adherence'] == true,
     );
   }
 
@@ -56,6 +63,11 @@ class NutritionPlanState {
   final String? message;
   final Map<String, dynamic>? screening;
   final String? sex;
+  final String? todayAdherence;
+  final List<Map<String, dynamic>> adherenceDays;
+  final double? latestWeight;
+  final double? targetWeight;
+  final bool coachSeesAdherence;
 }
 
 class Capabilities {

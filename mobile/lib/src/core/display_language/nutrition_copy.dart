@@ -30,6 +30,21 @@ class NutritionCopy {
   String get carbs => isArabic ? 'الكربوهيدرات' : 'Carbohydrates';
   String get fat => isArabic ? 'الدهون' : 'Fat';
   String get macrosTitle => isArabic ? 'الماكروز' : 'Macros';
+  String get howTodayWent => isArabic ? 'كيف كان يومك؟' : 'How did today go?';
+  String get onTarget => isArabic ? 'على الهدف' : 'On target';
+  String get roughly => isArabic ? 'تقريبًا' : 'Roughly';
+  String get off => isArabic ? 'بعيد عن الهدف' : 'Off';
+  String get lastSevenDays => isArabic ? 'آخر 7 أيام' : 'Last 7 days';
+  String get latestWeight => isArabic ? 'أحدث وزن' : 'Latest weight';
+  String get targetWeight => isArabic ? 'الوزن المستهدف' : 'Target weight';
+  String get coachSees => isArabic ? 'مدربك يرى الالتزام الغذائي.' : 'Your coach sees your Nutrition adherence.';
+  String get kilograms => isArabic ? 'كجم' : 'kg';
+  String adherenceLabel(String? value) => switch (value) {
+        'on_target' => onTarget,
+        'roughly' => roughly,
+        'off' => off,
+        _ => isArabic ? 'غير مسجل' : 'Unlogged',
+      };
   String get cancel => isArabic ? 'إلغاء' : 'Cancel';
   String get updateTargets => isArabic ? 'تحديث الأهداف الغذائية' : 'Update Nutrition targets';
   String get dietitian => isArabic ? 'لن يحدد ميوس أهدافًا غذائية. يُرجى التحدث إلى اختصاصي تغذية مسجل.' : 'MYOS will not set calorie targets. Please speak with a registered dietitian.';

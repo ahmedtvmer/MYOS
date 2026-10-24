@@ -2072,6 +2072,14 @@ class ApiClient {
         'The service returned invalid Nutrition data.');
   }
 
+  Future<NutritionPlanState> logNutritionAdherence(String value) async {
+    final response = await _send(() => _dio.put<dynamic>('/nutrition/adherence', data: {
+      'value': value,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
   Future<InjuryRecord> createInjury({
     required String? bodyArea,
     required String description,

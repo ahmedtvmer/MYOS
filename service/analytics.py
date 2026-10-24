@@ -342,6 +342,9 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
     "nutrition_setup_completed": EventContract(
         "server", {**_COMMON_PROPERTIES, "blocked": PROPERTY_TYPES["blocked"]}
     ),
+    "nutrition_adherence_logged": EventContract(
+        "server", {**_COMMON_PROPERTIES, "value": _enum(frozenset({"on_target", "roughly", "off"}))}
+    ),
     "onboarding_completed": EventContract(
         "server",
         {

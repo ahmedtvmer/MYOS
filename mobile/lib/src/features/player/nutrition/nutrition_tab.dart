@@ -95,6 +95,16 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     }
   }
 
+  Future<void> _logAdherence(String value) async {
+    setState(() { _saving = true; _error = null; });
+    try {
+      final NutritionPlanState plan = await ref.read(apiClientProvider).logNutritionAdherence(value);
+      if (mounted) setState(() { _plan = plan; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool arabic = ref.watch(displayLanguageProvider) == 'ar';
@@ -196,10 +206,51 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         Text(copy.macrosTitle, style: text.titleMedium),
         ..._macroCards(targets, macroCards),
         const SizedBox(height: 12),
+        Text(copy.howTodayWent, style: text.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: <Widget>[
+          _adherenceButton(copy.onTarget, 'on_target', copy),
+          _adherenceButton(copy.roughly, 'roughly', copy),
+          _adherenceButton(copy.off, 'off', copy),
+        ]),
+        const SizedBox(height: 16),
+        Text(copy.lastSevenDays, style: text.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 12, children: <Widget>[
+          for (final Map<String, dynamic> day in _plan!.adherenceDays)
+            Tooltip(message: '${day['date']}: ${copy.adherenceLabel(day['value'] as String?)}',
+              child: _adherenceMark(day['value'] as String?, Theme.of(context).colorScheme)),
+        ]),
+        const SizedBox(height: 16),
+        Text('${copy.latestWeight}: ${_plan!.latestWeight == null ? '—' : '${_plan!.latestWeight} ${copy.kilograms}'}', style: text.bodyLarge),
+        Text('${copy.targetWeight}: ${_plan!.targetWeight == null ? '—' : '${_plan!.targetWeight} ${copy.kilograms}'}', style: text.bodyMedium),
+        if (_plan!.coachSeesAdherence) Padding(
+          padding: const EdgeInsets.only(top: 12), child: Text(copy.coachSees, textAlign: TextAlign.center)),
+        const SizedBox(height: 12),
         Text(copy.reason(_plan!.goalReason, _plan!.goal ?? 'maintain'), textAlign: TextAlign.center),
         if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ],
     );
+  }
+
+  Widget _adherenceButton(String label, String value, NutritionCopy copy) =>
+      ChoiceChip(label: Text(label), selected: _plan?.todayAdherence == value,
+        onSelected: _saving ? null : (_) => _logAdherence(value));
+
+  Widget _adherenceMark(String? value, ColorScheme colors) {
+    final Color color = switch (value) {
+      'on_target' => colors.primary,
+      'roughly' => colors.tertiary,
+      'off' => colors.error,
+      _ => colors.outlineVariant,
+    };
+    final Widget mark = switch (value) {
+      'on_target' => Icon(Icons.circle, color: color, size: 18),
+      'roughly' => Icon(Icons.change_history, color: color, size: 20),
+      'off' => Icon(Icons.square, color: color, size: 16),
+      _ => Icon(Icons.circle_outlined, color: color, size: 18),
+    };
+    return SizedBox(width: 24, height: 24, child: Center(child: mark));
   }
 
   Widget _activityRow(NutritionCopy copy) => ListTile(

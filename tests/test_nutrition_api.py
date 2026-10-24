@@ -245,3 +245,84 @@ def _seed_profile(db, username, *, age, target, current_goal="get stronger"):
         ) VALUES (1, 'male', 0, NULL, 'average', ?, 70, ?, 165, 'balanced',
             ?, '', 4, 1, 'Commercial gym', 'None', '', '', '', 'now', 'now')""", (age, target, current_goal))
         ledger.conn.commit()
+
+
+def test_adherence_write_replaces_today_and_returns_seven_day_state(api, recording_analytics):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "adherence-player", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "adherence-player", age=30, target=60)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    first = client.put("/nutrition/adherence", headers=headers, json={"value": "off"})
+    assert first.status_code == 200, first.text
+    second = client.put("/nutrition/adherence", headers=headers, json={"value": "on_target"})
+    assert second.status_code == 200, second.text
+    state = client.get("/nutrition", headers=headers).json()
+    assert state["today_adherence"] == "on_target"
+    assert len(state["adherence_days"]) == 7
+    assert sum(day["value"] == "on_target" for day in state["adherence_days"]) == 1
+    account = db.get_active_account_by_username("adherence-player")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_adherence").fetchone()[0] == 1
+    events = [event for event in recording_analytics.events if event["event"] == "nutrition_adherence_logged"]
+    assert [event["properties"]["value"] for event in events] == ["off", "on_target"]
+    assert events[0]["uuid"] != events[1]["uuid"]
+
+
+def test_adherence_rejects_non_today_date(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "adherence-date", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    response = client.put("/nutrition/adherence", headers=headers, json={"value": "off", "date": "2000-01-01"})
+    assert response.status_code == 422
+
+
+def test_activity_update_keeps_schedule_local_adherence_day(api, monkeypatch):
+    from datetime import date as real_date
+    from service import nutrition as nutrition_service
+    from svc.routers import nutrition as nutrition_router
+
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "cairo-activity", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "cairo-activity", age=30, target=None)
+    account = db.get_active_account_by_username("cairo-activity")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.append_training_schedule(account["ledger_id"], [0, 1, 2], "Africa/Cairo", "2026-01-01", "2026-01-01T00:00:00Z")
+    monkeypatch.setattr(nutrition_router, "local_today", lambda *_args, **_kwargs: real_date(2026, 10, 25))
+
+    class UtcDate:
+        @classmethod
+        def today(cls):
+            return real_date(2026, 10, 24)
+
+    monkeypatch.setattr(nutrition_service, "date", UtcDate)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    assert client.put("/nutrition/adherence", headers=headers, json={"value": "on_target"}).status_code == 200
+    updated = client.put("/nutrition/activity", headers=headers, json={"daily_activity": "on_feet"})
+    assert updated.status_code == 200
+    assert updated.json()["today_adherence"] == "on_target"
+    assert updated.json()["adherence_days"][-1] == {"date": "2026-10-25", "value": "on_target"}
+
+
+def test_setup_and_activity_return_complete_assigned_nutrition_state(api, monkeypatch):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "complete-nutrition", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "complete-nutrition", age=30, target=65)
+    monkeypatch.setattr(db, "get_active_assignment_for_player", lambda _account: {"assignment_id": "active"})
+    payload = {"sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+               "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False}}
+    setup = client.post("/nutrition/setup", headers=headers, json=payload).json()
+    for state in (setup, client.put("/nutrition/activity", headers=headers,
+                                    json={"daily_activity": "on_feet"}).json()):
+        assert len(state["adherence_days"]) == 7
+        assert state["latest_weight"] == 70
+        assert state["target_weight"] == 65
+        assert state["coach_sees_adherence"] is True

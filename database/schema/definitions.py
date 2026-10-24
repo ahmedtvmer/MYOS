@@ -166,6 +166,12 @@ class SchemaMixin:
                 answers_json TEXT NOT NULL,
                 answered_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS nutrition_adherence (
+                entry_date TEXT PRIMARY KEY,
+                value TEXT NOT NULL CHECK(value IN ('on_target', 'roughly', 'off')),
+                source TEXT NOT NULL DEFAULT 'answered' CHECK(source = 'answered'),
+                created_at TEXT NOT NULL
+            );
             CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update
                 BEFORE UPDATE ON nutrition_plan_versions BEGIN
                 SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END;

@@ -612,21 +612,23 @@ def test_existing_ledger_gets_assistant_memory_idempotently(temp_db_env, version
     assert get_ledger_schema_version(db.conn) == CURRENT_LEDGER_SCHEMA_VERSION
 
 
-def test_v35_to_v36_lazy_migration_adds_nutrition_ledger_schema(temp_db_env):
+def test_v36_to_v37_lazy_migration_adds_and_enforces_nutrition_adherence(temp_db_env):
     db, ledgers_dir, backups_dir = temp_db_env
     conn = db.conn
-    conn.execute("DROP TABLE nutrition_screening")
-    conn.execute("DROP TABLE nutrition_plan_versions")
-    conn.execute("ALTER TABLE user_profile DROP COLUMN daily_activity")
-    conn.execute("ALTER TABLE user_profile DROP COLUMN sex_confirmed")
-    set_ledger_schema_version(conn, 35)
+    conn.execute("DROP TABLE nutrition_adherence")
+    set_ledger_schema_version(conn, 36)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-v35", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == 36
+    apply_lazy_migrations(conn, "nutrition-v36", ledgers_dir, backups_dir)
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 37
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"nutrition_plan_versions", "nutrition_screening"} <= tables
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profile)")}
-    assert {"sex_confirmed", "daily_activity"} <= columns
+    assert "nutrition_adherence" in tables
+    db.ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
+    assert db.ledger.list_nutrition_adherence("2026-10-24", "2026-10-24") == [
+        {"date": "2026-10-24", "value": "roughly", "source": "answered"}
+    ]
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
+                     "VALUES('2026-10-25', 'unknown', 'answered', 'now')")
 
 
 def test_latest_session_summary_uses_real_working_sets(temp_db_env):

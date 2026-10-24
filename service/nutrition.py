@@ -1,6 +1,7 @@
 """Player Nutrition setup, deterministic target selection, and version storage."""
 
 import json
+from datetime import date, timedelta
 from typing import Any
 
 from agent.program_blueprints import classify_goal
@@ -101,7 +102,10 @@ def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_reques
             "intensity": intensity, "daily_activity": setup_request.daily_activity, "targets": targets}
 
 
-def read(ledger: Any, language: str = "en") -> dict[str, Any]:
+def read(
+    ledger: Any, language: str = "en", *, today: date | None = None
+) -> dict[str, Any]:
+    today = today or date.today()
     screening = ledger.get_nutrition_screening()
     answers = json.loads(screening[0]) if screening else None
     if answers and any(answers.values()):
@@ -109,8 +113,34 @@ def read(ledger: Any, language: str = "en") -> dict[str, Any]:
                 "message": _message("blocked", language)}
     active_plan = ledger.get_active_nutrition_plan()
     if active_plan is None:
-        return _read_without_plan(ledger, answers, language)
-    return _read_active_plan(active_plan, answers)
+        nutrition_state = _read_without_plan(ledger, answers, language)
+    else:
+        nutrition_state = _read_active_plan(active_plan, answers)
+    nutrition_state.update(_adherence_state(ledger, today))
+    return nutrition_state
+
+
+def _adherence_state(ledger: Any, today: date) -> dict[str, Any]:
+    start = today - timedelta(days=6)
+    entries = {entry["date"]: entry["value"] for entry in ledger.list_nutrition_adherence(
+        start.isoformat(), today.isoformat())}
+    profile = ledger.get_nutrition_profile()
+    weights = ledger.list_weight_history("0001-01-01", "9999-12-31")
+    return {
+        "today_adherence": entries.get(today.isoformat()),
+        "adherence_days": [
+            {"date": (start + timedelta(days=offset)).isoformat(),
+             "value": entries.get((start + timedelta(days=offset)).isoformat())}
+            for offset in range(7)
+        ],
+        "latest_weight": weights[-1]["weight_kg"] if weights else profile.get("weight_kg") if profile else None,
+        "target_weight": profile.get("target_weight_kg") if profile else None,
+    }
+
+
+def log_adherence(ledger: Any, value: str, today: date) -> tuple[dict[str, Any], str]:
+    updated_at = ledger.upsert_nutrition_adherence(today.isoformat(), value)
+    return read(ledger, today=today), updated_at
 
 
 def _read_without_plan(ledger: Any, answers: dict[str, bool] | None,
@@ -136,16 +166,16 @@ def _read_active_plan(active_plan: Any, answers: dict[str, bool] | None) -> dict
             "provenance": active_plan["provenance"], "screening": answers}
 
 
-def update_activity(ledger: Any, activity: str) -> dict[str, Any]:
+def update_activity(ledger: Any, activity: str, today: date | None = None) -> dict[str, Any]:
     training_profile = ledger.get_nutrition_profile()
     active_plan = ledger.get_active_nutrition_plan()
     screening = ledger.get_nutrition_screening()
     if screening and any(json.loads(screening[0]).values()):
-        return read(ledger)
+        return read(ledger, today=today)
     if not _profile_is_complete(training_profile) or active_plan is None:
-        return read(ledger)
+        return read(ledger, today=today)
     if int(training_profile["age"]) < 18:
-        return read(ledger)
+        return read(ledger, today=today)
     targets = _recalculate_activity_targets(ledger, training_profile, active_plan, activity)
     with ledger.ledger_transaction():
         ledger.update_nutrition_activity(activity)
@@ -153,7 +183,7 @@ def update_activity(ledger: Any, activity: str) -> dict[str, Any]:
             active_plan["goal"], json.loads(active_plan["goal_reason_data_json"]),
             active_plan["intensity"], activity, targets,
         ))
-    return read(ledger)
+    return read(ledger, today=today)
 
 
 def _recalculate_activity_targets(ledger: Any, training_profile: dict[str, Any],
