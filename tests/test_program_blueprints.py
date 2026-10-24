@@ -29,6 +29,7 @@ from agent.program_blueprints import (
     UL_DAYS,
     WARMUP_FAMILIES,
     WARMUP_SPECS,
+    classify_goal,
     experience_level_for_training_age,
     is_fat_loss_goal,
     is_poor_recovery,
@@ -828,6 +829,24 @@ def test_is_fat_loss_goal_patterns():
     assert not is_fat_loss_goal(None, None)
 
 
+def test_shared_goal_classifier_handles_english_arabic_and_boundaries():
+    for goal in (
+        "fat loss", "خسارة الدهون", "حرق الدهون", "تنشيف", "تخسيس", "أخس", "اخس",
+        "نزول الوزن", "خسارة وزن", "خسارة الوزن", "إنقاص الوزن", "انقاص وزن",
+        "تقليل الدهون", "خساره الدهون", "خَسَارَة الدهون", "خسـارة الدهون",
+    ):
+        assert classify_goal(goal) == "lose", goal
+    for goal in (
+        "bulk", "gain weight", "mass", "تضخيم", "زيادة الوزن", "زيادة وزن", "تضخم",
+        "اتضخم", "عايز اتضخم", "زياده الوزن",
+    ):
+        assert classify_goal(goal) == "gain", goal
+    for goal in ("lower back pain", "get stronger", "bodybuilding", "زيادة الوزنات"):
+        assert classify_goal(goal) is None, goal
+    assert classify_goal("bulk", "lose weight") == "gain"
+    assert classify_goal("get stronger", "lose weight") == "lose"
+
+
 @pytest.mark.parametrize("gender,frequency", [("male", 3), ("female", 3)])
 def test_fat_loss_goal_adds_cardio_finisher_to_every_day(gender, frequency):
     program = _generate(gender, frequency, goal="fat loss")
@@ -837,6 +856,16 @@ def test_fat_loss_goal_adds_cardio_finisher_to_every_day(gender, frequency):
     loaded = db.ledger.get_active_program()
     assert loaded is not None
     assert [day.cardio for day in loaded.days] == [FAT_LOSS_CARDIO_NOTE] * len(program.days)
+
+
+def test_arabic_fat_loss_goal_adds_cardio_finisher_to_every_day():
+    program = _generate("male", 4, goal="خسارة الدهون")
+    assert all(day.cardio == FAT_LOSS_CARDIO_NOTE for day in program.days)
+
+
+def test_long_term_fat_loss_goal_keeps_cardio_when_current_goal_is_bulk():
+    program = _generate("male", 4, goal="bulk", long_term_goal="lose weight")
+    assert all(day.cardio == FAT_LOSS_CARDIO_NOTE for day in program.days)
 
 
 def test_other_goals_keep_default_cardio():

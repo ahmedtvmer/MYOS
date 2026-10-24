@@ -1693,21 +1693,58 @@ FAT_LOSS_GOAL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     )
 )
 
+GAIN_GOAL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"\bbulk(?:ing)?\b",
+        r"\bgain\s+(?:some\s+)?weight\b",
+        r"\bmass\b",
+        r"\bmuscle\s+gain\b",
+        r"(?<!\w)(?:تضخيم|تضخم|اتضخم|زياده\s+الوزن|زياده\s+وزن)(?!\w)",
+    )
+)
+
+ARABIC_LOSE_GOAL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"(?<!\w)(?:خساره\s+الدهون|حرق\s+الدهون|تنشيف|تخسيس|اخس|نزول\s+الوزن|"
+        r"خساره\s+وزن|خساره\s+الوزن|انقاص\s+الوزن|انقاص\s+وزن|تقليل\s+الدهون)(?!\w)",
+    )
+)
+
 FAT_LOSS_CARDIO_NOTE = (
     "Fat-loss finisher: 20-30 min incline treadmill walk (8-12% incline, brisk ~4-5 km/h) "
     "or moderate cycling, after the session"
 )
 
 
-def is_fat_loss_goal(current_goal: str | None, long_term_goal: str | None = None) -> bool:
-    """True when the player's stated goal is fat loss (checks both goal fields)."""
+def classify_goal(
+    current_goal: str | None, long_term_goal: str | None = None
+) -> Literal["lose", "gain"] | None:
+    """Classify a player's stated goal as lose, gain or neither."""
     for goal in (current_goal, long_term_goal):
         if not goal:
             continue
-        text = goal.lower()
-        if any(pattern.search(text) for pattern in FAT_LOSS_GOAL_PATTERNS):
-            return True
-    return False
+        text = _normalize_arabic_goal(goal.casefold())
+        if any(
+            pattern.search(text)
+            for pattern in (*FAT_LOSS_GOAL_PATTERNS, *ARABIC_LOSE_GOAL_PATTERNS)
+        ):
+            return "lose"
+        if any(pattern.search(text) for pattern in GAIN_GOAL_PATTERNS):
+            return "gain"
+    return None
+
+
+def is_fat_loss_goal(current_goal: str | None, long_term_goal: str | None = None) -> bool:
+    """True when the player's stated goal is fat loss (checks both goal fields)."""
+    return classify_goal(current_goal) == "lose" or classify_goal(long_term_goal) == "lose"
+
+
+def _normalize_arabic_goal(text: str) -> str:
+    """Normalize common Arabic letter variants and marks before goal matching."""
+    text = text.translate(str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي", "ـ": ""}))
+    return re.sub(r"[\u064b-\u0652]", "", text)
 
 
 # Recovery signals modulate ONLY escalated-accessory volume (see
