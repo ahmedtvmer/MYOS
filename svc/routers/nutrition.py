@@ -1,11 +1,13 @@
 """Player Nutrition setup and read endpoints."""
 
 import asyncio
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from service import analytics, nutrition as nutrition_service
+from service import nutrition_alerts
 from svc.dependencies import account_id_of, get_db, get_ledger, get_verified_player
 from svc.schemas import NutritionActivityIn, NutritionAdherenceIn, NutritionGoalSaveIn, NutritionPaceIn, NutritionSetupIn
 from service.weight_history import player_local_date
@@ -82,6 +84,11 @@ async def log_adherence(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
+    if assigned:
+        assignment = db.get_active_assignment_for_player(account_id_of(player))
+        if assignment is not None:
+            await asyncio.to_thread(nutrition_alerts.evaluate_assignment, db, assignment,
+                                    datetime.now(UTC))
     nutrition_state["coach_sees_adherence"] = assigned
     analytics.capture_for_request(request, analytics.AnalyticsEvent(
         account_id=account_id_of(player), event="nutrition_adherence_logged",

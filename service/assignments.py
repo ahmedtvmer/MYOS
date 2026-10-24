@@ -539,12 +539,13 @@ def end_assignment(
             return _refusal("This assignment has already ended.", "assignment.already_ended.v1")
         return _refusal("Assignment not found.", "assignment.not_found.v1")
     assignment = result["ended_assignment"]
-    try:
-        db.resolve_open_coach_alerts_for_assignment(
-            assignment_id, datetime.now(UTC).isoformat(), "volume_review"
-        )
-    except Exception:
-        logger.exception("Volume review alert resolution failed after assignment end")
+    for alert_kind in ("volume_review", "nutrition_off_streak", "nutrition_unlogged"):
+        try:
+            db.resolve_open_coach_alerts_for_assignment(
+                assignment_id, datetime.now(UTC).isoformat(), alert_kind
+            )
+        except Exception:
+            logger.exception("%s alert resolution failed after assignment end", alert_kind)
     discard_assignment_program_draft(
         db, assignment_id, assignment.player_account_id, best_effort=True
     )

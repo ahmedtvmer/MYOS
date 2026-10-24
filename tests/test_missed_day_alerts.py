@@ -16,9 +16,11 @@ from fastapi.testclient import TestClient
 
 from agent.ProgramState import ProgramDaySchema, ProgramExerciseSchema
 from database.database_manager import DatabaseManager
+from database.ledger.nutrition import NutritionPlanVersion
 from service import alert_sweep
 from service import coach as coach_service
 from service import missed_day_alerts as alerts_service
+from service import nutrition_alerts
 from service import workouts as workouts_service
 from svc.app import create_app
 from svc.dependencies import get_db
@@ -136,6 +138,210 @@ def _notices(db, coach_account_id, kind=alerts_service.MISSED_DAY_KIND):
         for notice in db.list_assignment_notices(coach_account_id, limit=50)
         if notice["kind"] == kind
     ]
+
+
+def test_nutrition_patterns_are_deduplicated_and_resolve_on_a_good_day(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    now = datetime(2026, 10, 25, 12, tzinfo=UTC)
+    today = now.date()
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at=(today - timedelta(days=10)).isoformat() + "T00:00:00+00:00",
+        ))
+        for offset in (2, 1, 0):
+            ledger.upsert_nutrition_adherence((today - timedelta(days=offset)).isoformat(), "off")
+
+    assert nutrition_alerts.evaluate_assignment(db, assignment, now)["alerts_created"] == 1
+    assert nutrition_alerts.evaluate_assignment(db, assignment, now)["alerts_created"] == 0
+    off_alerts = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                  if row["kind"] == nutrition_alerts.OFF_KIND]
+    assert len(off_alerts) == 1
+    assert off_alerts[0]["details"]["episode_start_date"] == (today - timedelta(days=2)).isoformat()
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.upsert_nutrition_adherence(today.isoformat(), "on_target")
+    nutrition_alerts.evaluate_assignment(db, assignment, now)
+    resolved = [row for row in db.list_coach_alerts(coach_account_id, ("resolved",))
+                if row["kind"] == nutrition_alerts.OFF_KIND]
+    assert len(resolved) == 1
+
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.conn.execute("DELETE FROM nutrition_adherence")
+        ledger.conn.commit()
+    assert nutrition_alerts.evaluate_assignment(db, assignment, now)["alerts_created"] == 1
+    assert nutrition_alerts.evaluate_assignment(db, assignment, now)["alerts_created"] == 0
+    unlogged_alerts = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                       if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(unlogged_alerts) == 1
+    assert unlogged_alerts[0]["details"]["episode_start_date"] == (today - timedelta(days=9)).isoformat()
+
+
+def test_unlogged_episode_ignores_the_unfinished_player_local_day(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.append_training_schedule(
+            player["ledger_id"], ALL_DAYS, "Africa/Cairo", "2026-10-01",
+            "2026-10-01T00:00:00+00:00",
+        )
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2026-10-23T20:55:00+00:00",
+        ))
+    after_one_day = datetime(2026, 10, 24, 21, 1, tzinfo=UTC)
+    assert nutrition_alerts.evaluate_assignment(db, assignment, after_one_day)["alerts_created"] == 0
+    assert nutrition_alerts.evaluate_assignment(
+        db, assignment, datetime(2026, 10, 25, 21, 1, tzinfo=UTC)
+    )["alerts_created"] == 0
+    assert nutrition_alerts.evaluate_assignment(
+        db, assignment, datetime(2026, 10, 26, 21, 1, tzinfo=UTC)
+    )["alerts_created"] == 1
+
+
+def test_off_does_not_close_an_unlogged_episode(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2026-10-19T00:00:00+00:00",
+        ))
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 23, 12, tzinfo=UTC))
+    initial = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+               if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(initial) == 1
+
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.upsert_nutrition_adherence("2026-10-23", "off")
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 23, 12, tzinfo=UTC))
+    unlogged = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(unlogged) == 1
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 24, 12, tzinfo=UTC))
+    resolved = [row for row in db.list_coach_alerts(coach_account_id, ("resolved",))
+                if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(resolved) == 1
+
+
+def test_missing_day_does_not_restart_an_off_episode(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2026-10-19T00:00:00+00:00",
+        ))
+        for day in (20, 21, 22):
+            ledger.upsert_nutrition_adherence(f"2026-10-{day}", "off")
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 22, 12, tzinfo=UTC))
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 23, 12, tzinfo=UTC))
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        for day in (24, 25, 26):
+            ledger.upsert_nutrition_adherence(f"2026-10-{day}", "off")
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 26, 12, tzinfo=UTC))
+    off_alerts = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                  if row["kind"] == nutrition_alerts.OFF_KIND]
+    assert len(off_alerts) == 1
+    assert off_alerts[0]["details"]["episode_start_date"] == "2026-10-20"
+
+
+def test_long_unlogged_episode_keeps_its_original_dedupe_start(api):
+    _, db = api
+    _, _, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+            created_at="2025-10-24T00:00:00+00:00",
+        ))
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 25, 12, tzinfo=UTC))
+    nutrition_alerts.evaluate_assignment(db, assignment, datetime(2026, 10, 26, 12, tzinfo=UTC))
+    open_alerts = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                   if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(open_alerts) == 1
+    assert open_alerts[0]["details"]["episode_start_date"] == "2025-10-25"
+
+
+def test_assignment_end_resolves_both_nutrition_alert_kinds(api):
+    client, db = api
+    _, player_headers, assignment_id, coach_account_id = _assign(api)
+    alert_ids = []
+    for kind in (nutrition_alerts.OFF_KIND, nutrition_alerts.UNLOGGED_KIND):
+        inserted = db.insert_coach_alert(
+            uuid.uuid4().hex, assignment_id, coach_account_id,
+            db.get_active_assignment_for_coach(coach_account_id, assignment_id)["player_account_id"],
+            kind, "2026-10-20", {"episode_start_date": "2026-10-20"},
+            datetime.now(UTC).isoformat(),
+        )
+        alert_id = inserted["alert"]["alert_id"]
+        alert_ids.append(alert_id)
+        if kind == nutrition_alerts.UNLOGGED_KIND:
+            db.acknowledge_coach_alert_transition(
+                alert_id, coach_account_id, datetime.now(UTC).isoformat()
+            )
+
+    ended = client.post("/assignments/me/end", headers=player_headers)
+
+    assert ended.status_code == 200
+    ended_alerts = [db.get_coach_alert(alert_id) for alert_id in alert_ids]
+    assert all(alert is not None and alert["state"] == "resolved" for alert in ended_alerts)
+
+
+def test_adherence_write_sweep_and_roster_api_surface_nutrition_alerts(api):
+    client, db = api
+    coach_headers, player_headers, off_assignment_id, coach_account_id = _assign(
+        api, player_name="z_off"
+    )
+    today = datetime.now(UTC).date()
+    invite = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    unlogged_player = _register(client, "y_unlogged")
+    unlogged_headers = _authed(unlogged_player["access_token"])
+    unlogged_assignment_id = client.post(
+        "/assignments/invites/redeem", headers=unlogged_headers,
+        json={"token": invite, "consent": True},
+    ).json()["assignment"]["assignment_id"]
+    invite = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    quiet_player = _register(client, "a_quiet")
+    client.post("/assignments/invites/redeem", headers=_authed(quiet_player["access_token"]),
+                json={"token": invite, "consent": True})
+
+    for username, values in (("z_off", ("off", "off")), ("y_unlogged", ())):
+        account = db.get_active_account_by_username(username)
+        with db.open_ledger(account["ledger_id"]) as ledger:
+            ledger.save_nutrition_plan(NutritionPlanVersion(
+                "maintain", {"code": "default"}, None, "mostly_sitting", {"calories": 2000},
+                created_at=(today - timedelta(days=5)).isoformat() + "T00:00:00+00:00",
+            ))
+            for offset, value in enumerate(values, start=1):
+                ledger.upsert_nutrition_adherence((today - timedelta(days=offset)).isoformat(), value)
+
+    write = client.put("/nutrition/adherence", headers=player_headers, json={"value": "off"})
+    assert write.status_code == 200
+    written_alert = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                     if row["kind"] == nutrition_alerts.OFF_KIND]
+    assert len(written_alert) == 1
+
+    alert_sweep.run_sweep(db, now=datetime.now(UTC))
+    swept_alert = [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                   if row["kind"] == nutrition_alerts.UNLOGGED_KIND]
+    assert len(swept_alert) == 1
+    roster = client.get("/coach/assignments", headers=coach_headers).json()["assignments"]
+    assert {row["assignment_id"] for row in roster[:2]} == {
+        off_assignment_id, unlogged_assignment_id,
+    }
+    assert roster[2]["player_username"] == "a_quiet"
 
 
 def test_sweep_creates_one_alert_and_notice_for_a_two_day_streak(api):

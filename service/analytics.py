@@ -218,6 +218,8 @@ _COACH_ALERT_KINDS = frozenset(
         "program_final_week_started",
         "program_final_week_completed",
         "volume_review",
+        "nutrition_off_streak",
+        "nutrition_unlogged",
     }
 )
 _PROGRAM_REQUEST_KINDS = frozenset({"exercise_substitution", "split_change"})

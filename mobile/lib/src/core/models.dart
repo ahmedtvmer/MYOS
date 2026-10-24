@@ -1090,6 +1090,8 @@ class CoachAlert {
   static const String programFinalWeekStartedKind = 'program_final_week_started';
   static const String programFinalWeekCompletedKind =
       'program_final_week_completed';
+  static const String nutritionOffStreakKind = 'nutrition_off_streak';
+  static const String nutritionUnloggedKind = 'nutrition_unlogged';
 
   bool get isNew => state == 'new';
   bool get isAcknowledged => state == 'acknowledged';
@@ -1102,6 +1104,8 @@ class CoachAlert {
   bool get isStall => kind == stallKind;
   bool get isProfileChange => kind == profileChangeKind;
   bool get isWeightOffTargetTrend => kind == weightOffTargetTrendKind;
+  bool get isNutritionOffStreak => kind == nutritionOffStreakKind;
+  bool get isNutritionUnlogged => kind == nutritionUnloggedKind;
 
   static const Map<String, String> _messageCodeByKind = <String, String>{
     missedExpectedDaysKind: 'coach_alert.missed_expected_days.v1',
@@ -1116,6 +1120,8 @@ class CoachAlert {
     programFinalWeekCompletedKind:
         'coach_alert.program_final_week_completed.v1',
     volumeReviewKind: 'coach_alert.volume_review.v1',
+    nutritionOffStreakKind: 'coach_alert.nutrition_off_streak.v1',
+    nutritionUnloggedKind: 'coach_alert.nutrition_unlogged.v1',
   };
 
   String? get supportedMessageCode {

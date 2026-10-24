@@ -76,6 +76,12 @@ class LedgerNutritionMixin:
             (offer_key, datetime.now(UTC).isoformat()),
         )
 
+    def get_first_nutrition_plan_created_at(self):
+        row = self.conn.execute(
+            "SELECT MIN(created_at) FROM nutrition_plan_versions"
+        ).fetchone()
+        return str(row[0]) if row and row[0] else None
+
     def get_nutrition_training_days(self, fallback=0):
         row = self.conn.execute(
             "SELECT weekly_frequency FROM training_programs WHERE is_active=1 ORDER BY created_at DESC LIMIT 1"

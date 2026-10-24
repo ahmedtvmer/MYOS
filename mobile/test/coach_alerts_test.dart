@@ -241,6 +241,28 @@ void main() {
       _stallAlert(),
       _profileChangeAlert(),
       <String, dynamic>{
+        'alert_id': 'alert-nutrition-off',
+        'assignment_id': 'assignment-1',
+        'player_username': 'bob',
+        'kind': 'nutrition_off_streak',
+        'state': 'new',
+        'created_at': '2026-09-22T08:00:00Z',
+        'message_code': 'coach_alert.nutrition_off_streak.v1',
+        'message_params': <String, dynamic>{},
+        'message_fallback': 'Player recorded Off for three days in a row.',
+      },
+      <String, dynamic>{
+        'alert_id': 'alert-nutrition-unlogged',
+        'assignment_id': 'assignment-1',
+        'player_username': 'bob',
+        'kind': 'nutrition_unlogged',
+        'state': 'new',
+        'created_at': '2026-09-22T08:00:00Z',
+        'message_code': 'coach_alert.nutrition_unlogged.v1',
+        'message_params': <String, dynamic>{},
+        'message_fallback': 'Player has not logged Nutrition adherence for three days.',
+      },
+      <String, dynamic>{
         ..._profileChangeAlert(),
         'alert_id': 'alert-injury',
         'profile_changes': null,
@@ -261,6 +283,8 @@ void main() {
       'Stalling',
       'Injuries or limitations',
       'Knee',
+      'Player recorded Off for three days in a row.',
+      'Player has not logged Nutrition adherence for three days.',
     ];
     final List<String> arabicDescriptions = <String>[
       'فات اللاعب يومان',
@@ -270,6 +294,8 @@ void main() {
       'توقف التقدم',
       'الإصابات أو القيود',
       'الركبة',
+      'سجّل اللاعب أنه خارج الهدف الغذائي ثلاثة أيام متتالية.',
+      'لم يسجّل اللاعب الالتزام الغذائي منذ ثلاثة أيام.',
     ];
     await expectCoachPhoneLayout(
       tester,

@@ -64,6 +64,8 @@ COACH_ALERT_MESSAGE_PARAM_ALLOWLISTS = {
     "coach_alert.program_final_week_started.v1": frozenset(),
     "coach_alert.program_final_week_completed.v1": frozenset(),
     "coach_alert.volume_review.v1": frozenset(),
+    "coach_alert.nutrition_off_streak.v1": frozenset(),
+    "coach_alert.nutrition_unlogged.v1": frozenset(),
 }
 _AI_ALLOWANCE_REQUEST_MESSAGE_PARAMS = frozenset({"remaining_requests", "reset_at"})
 ERROR_MESSAGE_PARAM_ALLOWLISTS = {
@@ -608,6 +610,20 @@ def _volume_review(evidence: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+def _nutrition_off_streak(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    return structured_message(
+        "coach_alert.nutrition_off_streak.v1", {},
+        "Player recorded Off for three days in a row.",
+    )
+
+
+def _nutrition_unlogged(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    return structured_message(
+        "coach_alert.nutrition_unlogged.v1", {},
+        "Player has not logged Nutrition adherence for three days.",
+    )
+
+
 _COACH_ALERT_BUILDERS: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] = {
     "missed_expected_days": _missed_days,
     "follow_up_due": _follow_up,
@@ -619,4 +635,6 @@ _COACH_ALERT_BUILDERS: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] 
     "program_final_week_started": _program_final_week_started,
     "program_final_week_completed": _program_final_week_completed,
     "volume_review": _volume_review,
+    "nutrition_off_streak": _nutrition_off_streak,
+    "nutrition_unlogged": _nutrition_unlogged,
 }

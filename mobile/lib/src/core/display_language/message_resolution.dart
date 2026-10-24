@@ -91,6 +91,8 @@ const Map<String, Set<String>> _paramKeys = <String, Set<String>>{
   'coach_alert.program_final_week_started.v1': <String>{},
   'coach_alert.program_final_week_completed.v1': <String>{},
   'coach_alert.volume_review.v1': <String>{},
+  'coach_alert.nutrition_off_streak.v1': <String>{},
+  'coach_alert.nutrition_unlogged.v1': <String>{},
   'app.update_required.v1': <String>{'min_build'},
   'http.bad_request.v1': <String>{},
   'http.unauthorized.v1': <String>{},
@@ -302,6 +304,8 @@ final Map<String, _MessageTemplate> _templates = <String, _MessageTemplate>{
   'coach_alert.program_final_week_started.v1': _programFinalWeekStarted,
   'coach_alert.program_final_week_completed.v1': _programFinalWeekCompleted,
   'coach_alert.volume_review.v1': _volumeReview,
+  'coach_alert.nutrition_off_streak.v1': _nutritionOffStreak,
+  'coach_alert.nutrition_unlogged.v1': _nutritionUnlogged,
   'assignment_notice.assignment_redeemed.v1': _assignmentRedeemed,
   'assignment_notice.training_pause_scheduled.v1': _assignmentPause,
   'assignment_notice.missed_expected_days.v1': _assignmentMissedDays,
@@ -710,6 +714,16 @@ String? _programFinalWeekCompleted(
 
 String? _volumeReview(Map<String, dynamic> params, MessageCopy copy) =>
     copy.volumeReviewFallback;
+
+String? _nutritionOffStreak(Map<String, dynamic> params, MessageCopy copy) =>
+    copy.isArabic
+        ? 'سجّل اللاعب أنه خارج الهدف الغذائي ثلاثة أيام متتالية.'
+        : 'Player recorded Off for three days in a row.';
+
+String? _nutritionUnlogged(Map<String, dynamic> params, MessageCopy copy) =>
+    copy.isArabic
+        ? 'لم يسجّل اللاعب الالتزام الغذائي منذ ثلاثة أيام.'
+        : 'Player has not logged Nutrition adherence for three days.';
 
 int? _count(Object? value) => value is int && value >= 0 ? value : null;
 
