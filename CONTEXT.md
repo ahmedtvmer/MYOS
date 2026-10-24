@@ -198,6 +198,20 @@ The named arrangement of a Training program's training days across the week, suc
 _Arabic_: تقسيمة
 _Avoid_: Split type, split family
 
+**Weak point**:
+A muscle a Player names as lagging, at most two, from the program's muscle groups plus upper chest and side delts. Every Weak point is a Focus muscle.
+_Arabic_: نقطة ضعف
+_Avoid_: Lagging muscle, priority muscle
+
+**Focus muscle**:
+A muscle an automatically generated Training program trains with one extra exercise in a different variant, opening its day, and with proportionally more weekly sets. It is either a Player's Weak point or, for a female Player who names none, glutes by default, shown pre-selected and removable.
+_Arabic_: عضلة تركيز
+_Avoid_: Priority muscle, emphasis muscle
+
+**Program rationale**:
+The recorded reason for a Training program's Split, its day order, and each exercise's selection, position and prescription, written when generation or a later change makes that decision. The assistant explains a program from it and never invents a reason, including for a Coach's choices.
+_Avoid_: Explanation, reasoning trace
+
 **Program week**:
 An ordered group of Training program days. A Coach-authored Training program may contain multiple Program weeks; each week has its own ordered days. The Player advances to the next Program week only after committing every day in the current week on the active program version. Calendar dates, missed days, and Schedule pauses do not move the Player between weeks. When a new program version is published, the Player's current `(week_order, day_order)` carries forward and clamps to an existing week/day if edits removed its position. An automatic Training program has one repeating Program week.
 _Arabic_: أسبوع البرنامج
