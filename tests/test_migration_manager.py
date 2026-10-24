@@ -612,16 +612,19 @@ def test_existing_ledger_gets_assistant_memory_idempotently(temp_db_env, version
     assert get_ledger_schema_version(db.conn) == CURRENT_LEDGER_SCHEMA_VERSION
 
 
-def test_v36_to_v37_lazy_migration_adds_and_enforces_nutrition_adherence(temp_db_env):
+def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     db, ledgers_dir, backups_dir = temp_db_env
     conn = db.conn
-    conn.execute("DROP TABLE nutrition_adherence")
-    set_ledger_schema_version(conn, 36)
+    conn.execute("ALTER TABLE nutrition_plan_versions DROP COLUMN authority_assignment_id")
+    set_ledger_schema_version(conn, 38)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-v36", ledgers_dir, backups_dir, target_version=37)
-    assert get_ledger_schema_version(conn) == 37
+    apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir)
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 39
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "nutrition_adherence" in tables
+    assert "authority_assignment_id" in {
+        row[1] for row in conn.execute("PRAGMA table_info(nutrition_plan_versions)")
+    }
     db.ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
     assert db.ledger.list_nutrition_adherence("2026-10-24", "2026-10-24") == [
         {"date": "2026-10-24", "value": "roughly", "source": "answered"}
@@ -641,7 +644,7 @@ def test_v37_to_v38_lazy_migration_adds_nutrition_goal_offer_dismissals(temp_db_
     conn.execute("DROP TABLE nutrition_goal_offer_snapshots")
     set_ledger_schema_version(conn, 37)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-offer-v36", ledgers_dir, backups_dir)
+    apply_lazy_migrations(conn, "nutrition-offer-v36", ledgers_dir, backups_dir, target_version=38)
     assert get_ledger_schema_version(conn) == 38
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"nutrition_goal_offer_dismissals", "nutrition_goal_offer_snapshots"} <= tables

@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 38
+CURRENT_LEDGER_SCHEMA_VERSION: int = 39
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -1012,6 +1012,15 @@ def _migrate_v37_to_v38(conn: sqlite3.Connection) -> None:
 
 
 
+def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
+    """Binds Coach Nutrition authority to the Assignment that granted it (#464)."""
+    if not _ledger_table_exists(conn, "nutrition_plan_versions"):
+        return
+    columns = {column[1] for column in conn.execute("PRAGMA table_info(nutrition_plan_versions)")}
+    if "authority_assignment_id" not in columns:
+        conn.execute("ALTER TABLE nutrition_plan_versions ADD COLUMN authority_assignment_id TEXT")
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1135,6 +1144,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     35: _migrate_v35_to_v36,
     36: _migrate_v36_to_v37,
     37: _migrate_v37_to_v38,
+    38: _migrate_v38_to_v39,
 }
 
 

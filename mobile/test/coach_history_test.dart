@@ -116,6 +116,56 @@ Future<void> _expectCoachExerciseDetail(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('Coach Nutrition segment saves targets and confirms authority once',
+      (tester) async {
+    final FakeMyosApi fake = _coachFake();
+    fake.coachPlayerNutrition['adherence_days'] = List<Map<String, dynamic>>.generate(
+      14, (int index) => <String, dynamic>{
+        'date': '2026-10-${(index + 1).toString().padLeft(2, '0')}',
+        'value': index % 3 == 0 ? 'off' : index % 3 == 1 ? 'roughly' : 'on_target',
+      });
+    fake.coachPlayerNutrition['weight_trend'] = <Map<String, dynamic>>[
+      <String, dynamic>{'date': '2026-10-24', 'weight_kg': 70.0},
+    ];
+    await _pumpApp(tester, fake, logicalWidth: 390, logicalHeight: 844);
+    await _openRosterEntry(tester);
+    await _pumpUntilFound(tester, find.text('Nutrition'));
+    await tester.tap(find.text('Nutrition').first);
+    await _pumpUntilFound(tester, find.text('Set by player'));
+    expect(find.text('Calorie floor: 1500 kcal'), findsOneWidget);
+    expect(find.text('Nutrition adherence · last 14 days'), findsOneWidget);
+    expect(find.text('Weight trend'), findsOneWidget);
+    expect(find.text('Next pace check'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.text('Save targets'));
+    await tester.tap(find.text('Save targets'));
+    await tester.pumpAndSettle();
+    expect(find.text('Take over Nutrition targets'), findsOneWidget);
+    await tester.tap(find.text('Take over targets'));
+    await tester.pumpAndSettle();
+    expect(fake.coachNutritionSaveRequests.single['confirm_takeover'], isTrue);
+
+    await tester.ensureVisible(find.text('Save targets'));
+    await tester.tap(find.text('Save targets'));
+    await tester.pumpAndSettle();
+    expect(find.text('Take over Nutrition targets'), findsNothing);
+    expect(fake.coachNutritionSaveRequests, hasLength(2));
+    expect(fake.coachNutritionSaveRequests.last['confirm_takeover'], isFalse);
+
+    await tester.ensureVisible(find.text('Separate training-day and rest-day targets'));
+    await tester.tap(find.text('Separate training-day and rest-day targets'));
+    await tester.pumpAndSettle();
+    expect(find.text('Training day'), findsOneWidget);
+    expect(find.text('Rest day'), findsOneWidget);
+    await tester.ensureVisible(find.text('Save targets'));
+    await tester.tap(find.text('Save targets'));
+    await tester.pumpAndSettle();
+    expect(fake.coachNutritionSaveRequests.last['training_day_targets'], isNotNull);
+    expect(fake.coachNutritionSaveRequests.last['rest_day_targets'], isNotNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Personal record exercise opens Coach-safe exercise details',
       (tester) async {
     final FakeMyosApi fake = _coachFake();

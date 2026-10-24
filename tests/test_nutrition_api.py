@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
@@ -63,6 +64,208 @@ def test_setup_persists_targets_and_returns_goal_reason(api):
     weight = client.post("/profile/weight", headers=headers, json={"weight_kg": 71})
     assert weight.status_code == 200
     assert client.get("/nutrition", headers=headers).json()["targets"] == body["targets"]
+
+
+def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
+    client, db = api
+    coach = client.post("/auth/register", json={"trainee_id": "nutrition-coach", "password": "correct-horse-1"}).json()
+    coach_headers = {"Authorization": f"Bearer {coach['access_token']}"}
+    from service import coach as coach_service
+    issued = coach_service.issue_coach_invite(db, "nutrition-coach", actor="cli")
+    assert client.post("/coach/invite/redeem", headers=coach_headers, json={"token": issued["token"]}).status_code == 200
+    assert client.put("/coach/profile", headers=coach_headers, json={"display_name":"Coach", "bio":"b", "specialization":"s", "capacity":5}).status_code == 200
+    player = client.post("/auth/register", json={"trainee_id": "nutrition-client", "password": "correct-horse-1"}).json()
+    player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+    denied = client.get("/coach/assignments/nope/nutrition", headers=coach_headers)
+    assert denied.status_code == 403
+    token = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    redeemed = client.post("/assignments/invites/redeem", headers=player_headers, json={"token":token,"consent":True}).json()
+    assignment_id = redeemed["assignment"]["assignment_id"]
+    _seed_profile(db, "nutrition-client", age=30, target=None)
+    setup = client.post("/nutrition/setup", headers=player_headers, json={
+        "sex":"female", "sex_confirmed":True, "daily_activity":"mostly_sitting",
+        "screening":{"pregnant_or_breastfeeding":False,"medical_condition":False,"eating_disorder":False}})
+    assert setup.status_code == 200
+    from agent.ProgramState import GeneratedProgramSchema, ProgramDaySchema, ProgramExerciseSchema
+    coach_account_id = db.get_active_account_by_username("nutrition-coach")["account_id"]
+    player_account = db.get_active_account_by_username("nutrition-client")
+    db.catalog_conn.executemany(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES (?, ?, 'Test', 'Test', 'Test')",
+        [("sq", "Squat"), ("bp", "Bench Press"), ("row", "Row")],
+    )
+    db.catalog_conn.commit()
+    program = GeneratedProgramSchema(
+        program_name="Published training program", split_type="Full Body", weekly_frequency=1,
+        days=[ProgramDaySchema(day_name="Full A", day_order=1, exercises=[
+                ProgramExerciseSchema(exercise_id="sq", exercise_name="Squat", target_reps_min=5, target_reps_max=8),
+                ProgramExerciseSchema(exercise_id="bp", exercise_name="Bench Press", target_reps_min=5, target_reps_max=8),
+                ProgramExerciseSchema(exercise_id="row", exercise_name="Row", target_reps_min=5, target_reps_max=8),
+        ])],
+    )
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        ledger.save_training_program(program.model_dump())
+    published = client.post(f"/coach/assignments/{assignment_id}/program/approve",
+                            headers=coach_headers, json={"expected_active_version": 1})
+    assert published.status_code == 200, published.text
+    assert client.get("/nutrition", headers=player_headers).json()["authority"] == "player"
+    payload = {"goal":"maintain", "targets":setup.json()["targets"]}
+    path = f"/coach/assignments/{assignment_id}/nutrition"
+    assert client.get(path, headers=coach_headers).json()["authority"] == "player"
+    missing_confirmation = client.put(path, headers=coach_headers, json=payload)
+    assert missing_confirmation.status_code == 400
+    assert "confirm" in missing_confirmation.json()["detail"].lower()
+    payload["confirm_takeover"] = True
+    saved = client.put(path, headers=coach_headers, json=payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["authority"] == "coach"
+    activity_change = client.put("/nutrition/activity", headers=player_headers,
+                                 json={"daily_activity": "physical_job"})
+    assert activity_change.status_code == 403
+    payload["confirm_takeover"] = False
+    repeated = client.put(path, headers=coach_headers, json=payload)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["authority"] == "coach"
+    string_targets = {key: str(value) for key, value in payload["targets"].items()}
+    normalized = client.put(path, headers=coach_headers, json={**payload, "targets": string_targets})
+    assert normalized.status_code == 200, normalized.text
+    assert all(isinstance(value, int) for value in normalized.json()["targets"].values())
+    with db.open_ledger(db.get_active_account_by_username("nutrition-client")["ledger_id"]) as ledger:
+        saved_targets = json.loads(ledger.get_active_nutrition_plan()["targets_json"])["daily"]
+    assert all(isinstance(value, int) for value in saved_targets.values())
+    with db.open_ledger(db.get_active_account_by_username("nutrition-client")["ledger_id"]) as ledger:
+        ledger.save_training_program(program.model_dump(), published_by_coach_account_id=coach_account_id)
+    assert client.get(path, headers=coach_headers).json()["authority"] == "coach"
+    assert client.get("/nutrition", headers=player_headers).json()["authority"] == "coach"
+    assert client.post(f"/coach/assignments/{assignment_id}/revoke", headers=coach_headers).status_code == 200
+    returned = client.get("/nutrition", headers=player_headers).json()
+    assert returned["authority"] == "player"
+
+
+@pytest.mark.parametrize("goal", ["maintain", "gain"])
+def test_coach_can_save_maintain_or_gain_targets_for_under_18_player(api, goal):
+    client, db = api
+    coach = client.post("/auth/register", json={"trainee_id": f"minor-coach-{goal}", "password": "correct-horse-1"}).json()
+    coach_headers = {"Authorization": f"Bearer {coach['access_token']}"}
+    from service import coach as coach_service
+    issued = coach_service.issue_coach_invite(db, f"minor-coach-{goal}", actor="cli")
+    assert client.post("/coach/invite/redeem", headers=coach_headers, json={"token": issued["token"]}).status_code == 200
+    assert client.put("/coach/profile", headers=coach_headers, json={"display_name":"Coach", "bio":"b", "specialization":"s", "capacity":5}).status_code == 200
+    player_name = f"minor-player-{goal}"
+    player = client.post("/auth/register", json={"trainee_id": player_name, "password": "correct-horse-1"}).json()
+    player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+    token = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    assignment = client.post("/assignments/invites/redeem", headers=player_headers,
+                             json={"token": token, "consent": True}).json()["assignment"]
+    _seed_profile(db, player_name, age=17, target=None)
+    target_calories = 2450 if goal == "gain" else 2000
+    target_carbs = 362 if goal == "gain" else 250
+    saved = client.put(f"/coach/assignments/{assignment['assignment_id']}/nutrition",
+                       headers=coach_headers, json={"goal": goal, "confirm_takeover": True,
+                       "targets": {"calories": target_calories, "protein_g": 100,
+                                   "carbs_g": target_carbs, "fat_g": 67}})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["goal"] == goal
+
+
+@pytest.mark.parametrize(("case", "profile", "body", "expected"), [
+    ("incomplete profile", None, {"goal": "maintain", "confirm_takeover": True,
+     "targets": {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "Training profile"),
+    ("screening block", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True, "targets": {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "dietitian"),
+    ("under-18 loss", {"age": 17, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "lose", "confirm_takeover": True, "targets": {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "under 18"),
+    ("missing confirmation", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "targets": {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "Confirm"),
+    ("missing targets", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True}, "Set Nutrition targets"),
+    ("calorie floor", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True,
+      "targets": {"calories": 1500, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "Calorie floor"),
+    ("macro calories", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True,
+      "targets": {"calories": 2000, "protein_g": 0, "carbs_g": 0, "fat_g": 0}}, "within 5%"),
+    ("negative macro", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True,
+      "targets": {"calories": 2000, "protein_g": -1, "carbs_g": 250, "fat_g": 67}}, "protein_g must be a whole number"),
+    ("boolean calories", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True,
+      "targets": {"calories": True, "protein_g": 100, "carbs_g": 250, "fat_g": 67}}, "calories must be a whole number"),
+    ("gain rate cap", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "gain", "confirm_takeover": True,
+      "targets": {"calories": 3000, "protein_g": 150, "carbs_g": 400, "fat_g": 89}}, "0.5% per week"),
+    ("maintain surplus rate cap", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "maintain", "confirm_takeover": True,
+      "targets": {"calories": 5000, "protein_g": 200, "carbs_g": 825, "fat_g": 100}}, "0.5% per week"),
+    ("lose rate cap", {"age": 30, "height_cm": 165, "weight_kg": 70, "gender": "male"},
+     {"goal": "lose", "daily_activity": "physical_job", "confirm_takeover": True,
+      "targets": {"calories": 1600, "protein_g": 100, "carbs_g": 149, "fat_g": 67}}, "1% per week"),
+])
+def test_coach_nutrition_validation_rules(case, profile, body, expected, api):
+    client, db = api
+    suffix = case.lower().replace(" ", "-")
+    coach = client.post("/auth/register", json={"trainee_id": f"coach-{suffix}", "password": "correct-horse-1"}).json()
+    coach_headers = {"Authorization": f"Bearer {coach['access_token']}"}
+    from service import coach as coach_service
+    invite = coach_service.issue_coach_invite(db, f"coach-{suffix}", actor="cli")
+    assert client.post("/coach/invite/redeem", headers=coach_headers, json={"token": invite["token"]}).status_code == 200
+    assert client.put("/coach/profile", headers=coach_headers, json={
+        "display_name": "Coach", "bio": "b", "specialization": "s", "capacity": 5,
+    }).status_code == 200
+    player_name = f"player-{suffix}"
+    player = client.post("/auth/register", json={"trainee_id": player_name, "password": "correct-horse-1"}).json()
+    player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+    token = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    assignment = client.post("/assignments/invites/redeem", headers=player_headers,
+                             json={"token": token, "consent": True}).json()["assignment"]
+    if profile is not None:
+        _seed_profile(db, player_name, age=profile["age"], target=None)
+    if case == "screening block":
+        client.post("/nutrition/setup", headers=player_headers, json={
+            "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+            "screening": {"pregnant_or_breastfeeding": False, "medical_condition": True,
+                          "eating_disorder": False},
+        })
+    response = client.put(
+        f"/coach/assignments/{assignment['assignment_id']}/nutrition",
+        headers=coach_headers, json=body,
+    )
+    assert response.status_code == 400, response.text
+    assert expected.lower() in response.json()["detail"].lower()
+
+
+def test_player_target_uses_training_or_rest_day_schedule_and_assignment_authority(api, monkeypatch):
+    from datetime import date
+    from database.ledger.nutrition import NutritionPlanVersion
+    from svc.routers import nutrition as nutrition_router
+
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "nutrition-day-type", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "nutrition-day-type", age=30, target=None)
+    account = db.get_active_account_by_username("nutrition-day-type")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            goal="maintain", reason={"code": "coach"}, intensity=None,
+            daily_activity="mostly_sitting", author="Coach", provenance="coach",
+            authority_assignment_id="prior-assignment",
+            targets={
+                "daily": None,
+                "training_day": {"calories": 2200, "protein_g": 120, "carbs_g": 260, "fat_g": 71},
+                "rest_day": {"calories": 1900, "protein_g": 120, "carbs_g": 185, "fat_g": 71},
+            },
+        ))
+        ledger.append_training_schedule(account["ledger_id"], [1], "UTC", "2026-10-01", "2026-10-01T00:00:00Z")
+    monkeypatch.setattr(nutrition_router, "player_local_date", lambda *_args, **_kwargs: date(2026, 10, 26))
+    monkeypatch.setattr(db, "get_active_assignment_for_player", lambda _account: {"assignment_id": "new-assignment"})
+    training = client.get("/nutrition", headers=headers).json()
+    assert training["targets"]["calories"] == 2200
+    assert training["target_day_type"] == "training_day"
+    assert training["authority"] == "player"
+
+    monkeypatch.setattr(nutrition_router, "player_local_date", lambda *_args, **_kwargs: date(2026, 10, 27))
+    rest = client.get("/nutrition", headers=headers).json()
+    assert rest["targets"]["calories"] == 1900
+    assert rest["target_day_type"] == "rest_day"
 
 
 def test_positive_rescreen_blocks_existing_plan_and_profileless_is_incomplete(api):
@@ -392,7 +595,7 @@ def test_goal_save_analytics_uuid_tracks_each_plan_version(api, recording_analyt
     assert len({event["uuid"] for event in events}) == 3
 
 
-def test_coach_authored_plan_rejects_player_goal_save(api):
+def test_coach_authored_plan_without_active_assignment_does_not_withhold_player_authority(api):
     client, db = api
     registered = client.post("/auth/register", json={"trainee_id": "coach-plan", "password": "correct-horse-1"}).json()
     headers = {"Authorization": f"Bearer {registered['access_token']}"}
@@ -407,8 +610,8 @@ def test_coach_authored_plan_rejects_player_goal_save(api):
         ledger.conn.commit()
     response = client.put("/nutrition/goal", headers=headers,
                           json={"goal": "gain", "intensity": "light"})
-    assert response.status_code == 400
-    assert "Coach" in response.json()["detail"]
+    assert response.status_code == 200, response.text
+    assert response.json()["authority"] == "player"
 
 
 def _seed_profile(db, username, *, age, target, current_goal="get stronger"):

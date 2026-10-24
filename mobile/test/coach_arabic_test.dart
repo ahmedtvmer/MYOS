@@ -484,6 +484,25 @@ void main() {
     );
   });
 
+  testWidgets('Arabic Coach Nutrition segment is localized and fits desktop width',
+      (WidgetTester tester) async {
+    await _pumpApp(tester, _coachFake(), logicalSize: const Size(1280, 900));
+    await tester.tap(find.byKey(const Key('roster_row_assignment-ar')));
+    await _pumpUntilFound(tester, find.byType(CoachPlayerHistoryScreen));
+    await _pumpUntilFound(tester, find.text('التغذية'));
+    await tester.tap(find.text('التغذية').first);
+    await _pumpUntilFound(tester, find.text('حدده اللاعب'));
+    expect(find.text('الحد الأدنى للسعرات: 1500 سعرة حرارية'), findsOneWidget);
+    expect(find.text('الالتزام الغذائي · آخر 14 يومًا'), findsOneWidget);
+    expect(find.text('اتجاه الوزن'), findsOneWidget);
+    expect(find.text('فحص الوتيرة القادم'), findsOneWidget);
+    final Directionality direction = tester.widget(find.ancestor(
+      of: find.text('حدده اللاعب'), matching: find.byType(Directionality),
+    ).first);
+    expect(direction.textDirection, TextDirection.rtl);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Arabic History section count uses Western numerals',
       (WidgetTester tester) async {
     await _pumpApp(tester, _coachFake());

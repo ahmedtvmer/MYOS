@@ -498,6 +498,13 @@ class FakeMyosApi {
     'has_draft': false,
   };
   Map<String, dynamic> coachPlayerSummary = _defaultCoachSummary();
+  Map<String, dynamic> coachPlayerNutrition = <String, dynamic>{
+    'authority': 'player', 'goal': 'maintain', 'daily_activity': 'mostly_sitting',
+    'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250, 'fat_g': 67},
+    'target_options': <String, dynamic>{'daily': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250, 'fat_g': 67}},
+    'calorie_floor': 1500, 'adherence_days': <dynamic>[], 'weight_trend': <dynamic>[],
+  };
+  final List<Map<String, dynamic>> coachNutritionSaveRequests = <Map<String, dynamic>>[];
   Map<String, dynamic> coachVolumeReview = <String, dynamic>{'review': null};
   List<Map<String, dynamic>> coachPlayerRecords = _defaultCoachRecords();
   List<Map<String, dynamic>> coachPlayerExercises = _defaultCoachExercises();
@@ -685,6 +692,22 @@ class FakeMyosApi {
     }
     if (path.startsWith('/coach/assignments/') && path.endsWith('/check-ins')) {
       return _coachCheckIns(request);
+    }
+    if (path.startsWith('/coach/assignments/') && path.endsWith('/nutrition')) {
+      if (request.method == 'PUT') {
+        coachNutritionSaveRequests.add(Map<String, dynamic>.from(request.body));
+        coachPlayerNutrition = <String, dynamic>{...coachPlayerNutrition,
+          'authority': 'coach', 'goal': request.body['goal'],
+          'daily_activity': request.body['daily_activity'],
+          'targets': request.body['targets'] ?? request.body['training_day_targets'],
+          'target_options': <String, dynamic>{
+            'daily': request.body['targets'],
+            'training_day': request.body['training_day_targets'],
+            'rest_day': request.body['rest_day_targets'],
+          },
+        };
+      }
+      return FakeResponse(200, coachPlayerNutrition);
     }
     if (path.startsWith('/coach/assignments/') &&
         path.endsWith('/program/approve')) {

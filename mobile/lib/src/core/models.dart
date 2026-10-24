@@ -29,7 +29,8 @@ class NutritionPlanState {
   const NutritionPlanState({required this.state, this.goal, this.goalReason,
     this.intensity, this.dailyActivity, this.targets, this.message,
     this.screening, this.sex, this.todayAdherence, this.adherenceDays = const <Map<String, dynamic>>[],
-    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false, this.pendingGoal, this.author});
+    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false,
+    this.pendingGoal, this.author, this.authority = 'player'});
 
   factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
     final Object? rawTargets = json['targets'];
@@ -53,6 +54,7 @@ class NutritionPlanState {
       coachSeesAdherence: json['coach_sees_adherence'] == true,
       pendingGoal: json['pending_goal'] as String?,
       author: json['author'] as String?,
+      authority: json['authority'] as String? ?? 'player',
     );
   }
 
@@ -72,6 +74,40 @@ class NutritionPlanState {
   final bool coachSeesAdherence;
   final String? pendingGoal;
   final String? author;
+  final String authority;
+}
+
+class CoachNutritionState {
+  const CoachNutritionState({required this.authority, this.goal, this.dailyActivity,
+    this.targets, this.targetOptions, this.calorieFloor, this.adherenceDays = const <Map<String, dynamic>>[],
+    this.weightTrend = const <Map<String, dynamic>>[], this.targetWeight, this.nextPaceCheck});
+
+  factory CoachNutritionState.fromJson(Map<String, dynamic> json) => CoachNutritionState(
+    authority: json['authority'] as String? ?? 'player',
+    goal: json['goal'] as String?,
+    dailyActivity: json['daily_activity'] as String?,
+    targets: json['targets'] is Map<String, dynamic> ? json['targets'] as Map<String, dynamic> : null,
+    targetOptions: json['target_options'] is Map<String, dynamic>
+        ? json['target_options'] as Map<String, dynamic> : null,
+    calorieFloor: (json['calorie_floor'] as num?)?.toInt(),
+    adherenceDays: (json['adherence_days'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    weightTrend: (json['weight_trend'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    targetWeight: (json['target_weight'] as num?)?.toDouble(),
+    nextPaceCheck: json['next_pace_check'] as String?,
+  );
+
+  final String authority;
+  final String? goal;
+  final String? dailyActivity;
+  final Map<String, dynamic>? targets;
+  final Map<String, dynamic>? targetOptions;
+  final int? calorieFloor;
+  final List<Map<String, dynamic>> adherenceDays;
+  final List<Map<String, dynamic>> weightTrend;
+  final double? targetWeight;
+  final String? nextPaceCheck;
 }
 
 class Capabilities {

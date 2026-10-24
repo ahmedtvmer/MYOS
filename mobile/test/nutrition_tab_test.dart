@@ -130,6 +130,22 @@ void main() {
     expect(find.text('Physical job'), findsOneWidget);
   });
 
+  testWidgets('Coach-held targets show a badge and make Daily activity read-only',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+        'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
+        'authority': 'coach', 'coach_sees_adherence': true,
+        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Set by your coach'), findsOneWidget);
+    await tester.tap(find.text('Daily activity'));
+    await tester.pumpAndSettle();
+    expect(find.text('Update Nutrition targets'), findsNothing);
+    expect(find.text('Physical job'), findsNothing);
+  });
+
   for (final ThemeData theme in <ThemeData>[ThemeData.light(), ThemeData.dark()]) {
     testWidgets('adherence control and seven-day strip render in both themes', (WidgetTester tester) async {
       final FakeMyosApi fake = _fake()
@@ -274,9 +290,10 @@ void main() {
     expect(find.text('Your goal changed. Update your Nutrition goal?'), findsNothing);
   });
 
-  testWidgets('Coach-authored targets have no Adjust action', (WidgetTester tester) async {
+  testWidgets('Coach-held targets have no Adjust action', (WidgetTester tester) async {
     final FakeMyosApi fake = _fake()
-      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach', 'pending_goal': 'lose',
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach',
+        'authority': 'coach', 'pending_goal': 'lose',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
     await tester.pumpWidget(_app(fake, 'ar', ThemeData.light()));
@@ -285,7 +302,7 @@ void main() {
     expect(find.text('تعديل'), findsNothing);
     expect(find.textContaining('تغير هدفك'), findsNothing);
     final FakeMyosApi englishFake = _fake()
-      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach',
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach', 'authority': 'coach',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
     await tester.pumpWidget(const SizedBox());

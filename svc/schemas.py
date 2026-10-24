@@ -1093,6 +1093,15 @@ class NutritionPaceIn(BaseModel):
 class NutritionGoalSaveIn(NutritionPaceIn):
     screening: NutritionScreeningIn | None = None
 
+class CoachNutritionTargetsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    goal: Literal["lose", "maintain", "gain"]
+    daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"] | None = None
+    confirm_takeover: bool = False
+    targets: dict[str, Any] | None = None
+    training_day_targets: dict[str, Any] | None = None
+    rest_day_targets: dict[str, Any] | None = None
+
 class WeightEntryOut(BaseModel):
     entry_date: str
     weight_kg: float

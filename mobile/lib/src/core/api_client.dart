@@ -818,6 +818,37 @@ class ApiClient {
         response.data, CoachPlayerSummary.fromJson, _invalidCoachHistory);
   }
 
+  Future<CoachNutritionState> coachPlayerNutrition(String assignmentId) async {
+    final response = await _send(() => _dio.get<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition',
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
+  Future<CoachNutritionState> saveCoachPlayerNutrition(String assignmentId, {
+    required String goal,
+    required String dailyActivity,
+    required bool confirmTakeover,
+    Map<String, dynamic>? targets,
+    Map<String, dynamic>? trainingDayTargets,
+    Map<String, dynamic>? restDayTargets,
+  }) async {
+    final response = await _send(() => _dio.put<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition',
+      data: <String, dynamic>{
+        'goal': goal,
+        'daily_activity': dailyActivity,
+        'confirm_takeover': confirmTakeover,
+        if (targets != null) 'targets': targets,
+        if (trainingDayTargets != null) 'training_day_targets': trainingDayTargets,
+        if (restDayTargets != null) 'rest_day_targets': restDayTargets,
+      },
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
   Future<VolumeReview?> coachPlayerVolumeReview(String assignmentId) async {
     final response = await _send(
       () => _dio.get<dynamic>(

@@ -1,11 +1,12 @@
 """Player Nutrition setup, deterministic target selection, and version storage."""
 
 import json
+import math
 from datetime import date, timedelta
 from typing import Any
 
 from agent.program_blueprints import classify_goal
-from core.nutrition_targets import NutritionCalculationInput, NutritionTargets, calculate_targets
+from core.nutrition_targets import ACTIVITY_FACTORS, NutritionCalculationInput, NutritionTargets, calculate_targets
 from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
 
 
@@ -61,6 +62,158 @@ def _goal_source(profile: dict[str, Any]) -> dict[str, Any]:
 
 def _offer_key(profile: dict[str, Any]) -> str:
     return json.dumps(_goal_source(profile), sort_keys=True, separators=(",", ":"))
+
+def coach_read(ledger: Any, today: date, assignment_id: str, days: int = 14) -> dict[str, Any]:
+    state = read(ledger, today=today)
+    state["adherence_days"] = _coach_adherence_days(ledger, today, days)
+    state["weight_trend"] = _coach_weight_trend(ledger, today, days)
+    state["authority"] = (
+        "coach" if state.get("author") == "Coach"
+        and state.get("authority_assignment_id") == assignment_id else "player"
+    )
+    state.pop("authority_assignment_id", None)
+    state.pop("screening", None)
+    profile = ledger.get_nutrition_profile()
+    if profile and _profile_is_complete(profile):
+        state["calorie_floor"] = _player_calorie_floor(ledger, profile, state)
+    state["next_pace_check"] = "after_21_days_of_weigh_ins"
+    return state
+
+
+def _coach_adherence_days(ledger: Any, today: date, days: int) -> list[dict[str, Any]]:
+    start = today - timedelta(days=days - 1)
+    entries = {entry["date"]: entry["value"] for entry in ledger.list_nutrition_adherence(
+        start.isoformat(), today.isoformat())}
+    return [
+        {"date": (start + timedelta(days=offset)).isoformat(),
+         "value": entries.get((start + timedelta(days=offset)).isoformat())}
+        for offset in range(days)
+    ]
+
+
+def _coach_weight_trend(ledger: Any, today: date, days: int) -> list[dict[str, Any]]:
+    start = today - timedelta(days=days - 1)
+    return [{"date": row["entry_date"], "weight_kg": row["weight_kg"]}
+            for row in ledger.list_weight_history(start.isoformat(), today.isoformat())]
+
+
+def _player_calorie_floor(ledger: Any, profile: dict[str, Any], state: dict[str, Any]) -> int:
+    baseline = _coach_target_baseline(
+        ledger, profile, state.get("goal", "maintain"),
+        state.get("daily_activity") or "mostly_sitting",
+    )
+    return int(baseline.calorie_floor)
+
+
+def save_coach_targets(
+    ledger: Any, body: dict[str, Any], assignment_id: str, today: date | None = None
+) -> dict[str, Any]:
+    profile = _coach_profile(ledger, body["goal"])
+    goal = body["goal"]
+    activity = body.get("daily_activity") or profile.get("daily_activity") or "mostly_sitting"
+    _require_coach_authority_confirmation(ledger, body, assignment_id)
+    targets_by_day = _targets_by_day(body)
+    baseline = _coach_target_baseline(ledger, profile, goal, activity)
+    targets_by_day = _validate_coach_targets(targets_by_day, profile, baseline)
+    selected = targets_by_day.get("targets") or targets_by_day.get("training_day_targets")
+    with ledger.ledger_transaction():
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            goal=goal, reason={"code": "coach"}, intensity=None, daily_activity=activity,
+            targets={"daily": selected, "training_day": targets_by_day.get("training_day_targets"),
+                     "rest_day": targets_by_day.get("rest_day_targets")}, author="Coach", provenance="coach",
+            authority_assignment_id=assignment_id,
+            goal_source_snapshot=_goal_source(profile),
+        ))
+    return coach_read(ledger, today or date.today(), assignment_id)
+
+
+def _coach_profile(ledger: Any, goal: str) -> dict[str, Any]:
+    profile = ledger.get_nutrition_profile()
+    if profile is None or not _profile_is_complete(profile):
+        raise ValueError("Complete the Player's Training profile before setting Nutrition targets.")
+    screening = ledger.get_nutrition_screening()
+    if screening and any(json.loads(screening[0]).values()):
+        raise ValueError(_message("blocked", "en"))
+    if int(profile["age"]) < 18 and goal == "lose":
+        raise ValueError("Players under 18 may only have Maintain or Gain targets.")
+    return profile
+
+
+def _require_coach_authority_confirmation(ledger: Any, body: dict[str, Any], assignment_id: str) -> None:
+    plan = ledger.get_active_nutrition_plan()
+    holds_authority = (
+        plan is not None and plan["author"] == "Coach"
+        and plan["authority_assignment_id"] == assignment_id
+    )
+    if not holds_authority and not body.get("confirm_takeover"):
+        raise ValueError("Confirm that you are taking over Nutrition authority.")
+
+
+def _targets_by_day(body: dict[str, Any]) -> dict[str, Any]:
+    targets = {key: body[key] for key in ("targets", "training_day_targets", "rest_day_targets")
+               if body.get(key)}
+    if not targets:
+        raise ValueError("Set Nutrition targets.")
+    return targets
+
+
+def _coach_target_baseline(ledger: Any, profile: dict[str, Any], goal: str,
+                           activity: str) -> NutritionTargets:
+    age = int(profile["age"])
+    training_days = ledger.get_nutrition_training_days(profile.get("weekly_frequency") or 0)
+    inputs = NutritionCalculationInput(
+        sex=profile.get("gender", "male"), age=age,
+        height_cm=float(profile["height_cm"]), weight_kg=float(profile["weight_kg"]),
+        daily_activity=activity, training_days=training_days, goal=goal, intensity="moderate",
+    )
+    if age >= 18:
+        return calculate_targets(inputs)
+    # Coach validation needs a floor for permitted Maintain/Gain plans; minors get no generated plan.
+    bmr = 10 * inputs.weight_kg + 6.25 * inputs.height_cm - 5 * age + (5 if inputs.sex == "male" else -161)
+    maintenance = bmr * (ACTIVITY_FACTORS[activity] + 0.0625 * training_days)
+    floor = max(bmr, 1200 if inputs.sex == "female" else 1500)
+    return NutritionTargets(0, 0, 0, 0, round(bmr, 1), round(maintenance, 1), floor, False, 0)
+
+
+def _validate_coach_targets(targets_by_day: dict[str, Any], profile: dict[str, Any],
+                            baseline: NutritionTargets) -> dict[str, dict[str, int]]:
+    return {
+        day_type: _validate_coach_target(day_type, target, profile, baseline)
+        for day_type, target in targets_by_day.items()
+    }
+
+
+def _validate_coach_target(day_type: str, target: Any, profile: dict[str, Any],
+                           baseline: NutritionTargets) -> dict[str, int]:
+    if not isinstance(target, dict):
+        raise ValueError(f"Targets for {day_type} must include calories and Macros.")
+    calories = _coach_target_amount(target, "calories", day_type, minimum=1)
+    macros = [_coach_target_amount(target, field, day_type, minimum=0)
+              for field in ("protein_g", "carbs_g", "fat_g")]
+    if calories < baseline.calorie_floor:
+        raise ValueError(f"Calories must meet the Calorie floor of {int(baseline.calorie_floor)} kcal for {day_type}.")
+    macro_calories = 4 * macros[0] + 4 * macros[1] + 9 * macros[2]
+    if abs(macro_calories - calories) / calories > .05:
+        raise ValueError(f"Macros must be within 5% of the {calories} kcal target for {day_type}.")
+    calorie_change = calories - baseline.maintenance
+    weekly_rate = abs(calorie_change) * 7 / (float(profile["weight_kg"]) * 7700) * 100
+    cap = .5 if calorie_change > 0 else 1.0 if calorie_change < 0 else 0
+    if weekly_rate > cap:
+        raise ValueError(f"Implied weekly rate must not exceed {cap:g}% per week.")
+    return {"calories": calories, "protein_g": macros[0], "carbs_g": macros[1], "fat_g": macros[2]}
+
+
+def _coach_target_amount(target: dict[str, Any], field: str, day_type: str, *, minimum: int) -> int:
+    raw_amount = target.get(field)
+    if isinstance(raw_amount, bool):
+        raise ValueError(f"{day_type} {field} must be a whole number of at least {minimum}.")
+    try:
+        number = float(raw_amount)
+    except (TypeError, ValueError):
+        raise ValueError(f"{day_type} targets need a valid {field} value.") from None
+    if not math.isfinite(number) or not number.is_integer() or number < minimum:
+        raise ValueError(f"{day_type} {field} must be a whole number of at least {minimum}.")
+    return int(number)
 
 
 def setup(ledger: Any, body: dict[str, Any]) -> dict[str, Any]:
@@ -124,7 +277,8 @@ def read(
     if active_plan is None:
         nutrition_state = _read_without_plan(ledger, answers, language)
     else:
-        nutrition_state = _read_active_plan(active_plan, answers)
+        training_day = _is_training_day(ledger, today)
+        nutrition_state = _read_active_plan(active_plan, answers, training_day)
         profile = ledger.get_nutrition_profile()
         if profile and _profile_is_complete(profile):
             resolved, reason = resolve_goal(profile.get("current_goal"), profile.get("long_term_goal"),
@@ -233,8 +387,6 @@ def save_goal(ledger: Any, goal: str, intensity: str, today: date,
     active = ledger.get_active_nutrition_plan()
     if active is None:
         raise ValueError("Set up Nutrition targets first.")
-    if active["author"] == "Coach":
-        raise ValueError("Your Coach controls this Nutrition plan.")
     screening_row = ledger.get_nutrition_screening()
     requires_screening = goal == "lose" and active["goal"] != "lose"
     if requires_screening and screening is None:
@@ -299,17 +451,32 @@ def _read_without_plan(ledger: Any, answers: dict[str, bool] | None,
             "message": message}
 
 
-def _read_active_plan(active_plan: Any, answers: dict[str, bool] | None) -> dict[str, Any]:
+def _read_active_plan(active_plan: Any, answers: dict[str, bool] | None,
+                      training_day: bool = False) -> dict[str, Any]:
     reason = json.loads(active_plan["goal_reason_data_json"])
     reason.pop("resolved_from", None)
+    targets = json.loads(active_plan["targets_json"])
+    day_type = "training_day" if training_day else "rest_day"
+    is_day_target_map = any(key in targets for key in ("daily", "training_day", "rest_day"))
+    selected_targets = (
+        targets.get(day_type) or targets.get("daily") or targets.get("training_day") or targets.get("rest_day")
+        if is_day_target_map else targets
+    )
+    target_options = targets if is_day_target_map else {"daily": targets}
     return {"state": "ready", "goal": active_plan["goal"],
             "goal_reason": reason,
             "intensity": active_plan["intensity"], "daily_activity": active_plan["daily_activity"],
-            "targets": json.loads(active_plan["targets_json"]), "author": active_plan["author"],
+            "targets": selected_targets, "target_options": target_options, "target_day_type": day_type,
+            "author": active_plan["author"], "authority_assignment_id": active_plan["authority_assignment_id"],
             "provenance": active_plan["provenance"], "screening": answers}
 
 
-def update_activity(ledger: Any, activity: str, today: date) -> dict[str, Any]:
+def _is_training_day(ledger: Any, today: date) -> bool:
+    schedule = ledger.get_schedule_effective_on(ledger.ledger_id, today.isoformat())
+    return bool(schedule and today.isoweekday() in schedule["weekdays"])
+
+
+def update_activity(ledger: Any, activity: str, today: date | None = None) -> dict[str, Any]:
     training_profile = ledger.get_nutrition_profile()
     active_plan = ledger.get_active_nutrition_plan()
     screening = ledger.get_nutrition_screening()

@@ -82,6 +82,73 @@ class NutritionCopy {
   String get dietitian => isArabic ? 'لن يحدد ميوس أهدافًا غذائية. يُرجى التحدث إلى اختصاصي تغذية مسجل.' : 'MYOS will not set calorie targets. Please speak with a registered dietitian.';
   String get under18 => isArabic ? 'لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا.' : 'MYOS does not set automatic Nutrition targets for players under 18.';
   String get incomplete => isArabic ? 'أكمل الملف التدريبي قبل إعداد الأهداف الغذائية.' : 'Complete your Training profile before setting Nutrition targets.';
+  String get coachSetByPlayer => isArabic ? 'حدده اللاعب' : 'Set by player';
+  String get coachSetByYou => isArabic ? 'حددته أنت' : 'Set by you';
+  String get coachTakeoverTitle => isArabic ? 'تولي أهداف التغذية' : 'Take over Nutrition targets';
+  String get coachTakeoverPrompt => isArabic ? 'سيصبح لك حق تعديل أهداف التغذية لهذا اللاعب طوال مدة التعيين.' : 'You will control this Player’s Nutrition targets while the Assignment is active.';
+  String get coachConfirmTakeover => isArabic ? 'تولي الأهداف' : 'Take over targets';
+  String get coachTargets => isArabic ? 'أهداف التغذية' : 'Nutrition targets';
+  String get coachSaveTargets => isArabic ? 'حفظ الأهداف' : 'Save targets';
+  String get coachCalorieFloor => isArabic ? 'الحد الأدنى للسعرات' : 'Calorie floor';
+  String get coachTargetCalories => isArabic ? 'السعرات' : 'Calories';
+  String get coachUseDayTargets => isArabic ? 'أهداف منفصلة لأيام التدريب والراحة' : 'Separate training-day and rest-day targets';
+  String get coachTrainingDay => isArabic ? 'يوم التدريب' : 'Training day';
+  String get coachRestDay => isArabic ? 'يوم الراحة' : 'Rest day';
+  String get coachAdherence14 => isArabic ? 'الالتزام الغذائي · آخر 14 يومًا' : 'Nutrition adherence · last 14 days';
+  String get coachWeightTrend => isArabic ? 'اتجاه الوزن' : 'Weight trend';
+  String get coachNextPaceCheck => isArabic ? 'فحص الوتيرة القادم' : 'Next pace check';
+  String get coachPaceCheckPending => isArabic ? 'بعد 21 يومًا من تسجيل الوزن' : 'After 21 days of weigh-ins';
+  String coachPaceCheckValue(String? value) => switch (value) {
+    'after_21_days_of_weigh_ins' => coachPaceCheckPending,
+    _ => value ?? coachPaceCheckPending,
+  };
+  String get coachNutritionSaved => isArabic ? 'تم حفظ أهداف التغذية.' : 'Nutrition targets saved.';
+  String? coachValidationError(String message) {
+    if (message.contains('Training profile')) {
+      return isArabic ? 'أكمل الملف التدريبي للاعب قبل إعداد الأهداف الغذائية.'
+          : "Complete the Player's Training profile before setting Nutrition targets.";
+    }
+    if (message.contains('registered dietitian')) {
+      return isArabic ? 'لا يمكن إعداد الأهداف الغذائية؛ يُرجى التحدث مع اختصاصي تغذية مسجل.'
+          : 'Nutrition targets are blocked. Please speak with a registered dietitian.';
+    }
+    if (message.contains('under 18')) {
+      return isArabic ? 'لا يمكن إعداد أهداف خسارة الوزن للاعب دون 18 عامًا.'
+          : 'Players under 18 may only have Maintain or Gain targets.';
+    }
+    if (message.contains('Confirm that you are taking over')) {
+      return isArabic ? 'أكد تولي مسؤولية أهداف التغذية.'
+          : 'Confirm that you are taking over Nutrition authority.';
+    }
+    if (message.contains('Set Nutrition targets') || message.contains('must include calories')) {
+      return isArabic ? 'أدخل أهداف السعرات والماكروز.' : 'Set Nutrition targets with calories and Macros.';
+    }
+    final RegExpMatch? floor = RegExp(r'floor of (\d+) kcal').firstMatch(message);
+    if (floor != null) {
+      final String amount = floor.group(1)!;
+      return isArabic ? 'يجب ألا تقل السعرات عن الحد الأدنى البالغ $amount.'
+          : 'Calories must meet the Calorie floor of $amount kcal.';
+    }
+    if (message.contains('within 5%')) {
+      return isArabic ? 'يجب أن تتوافق سعرات الماكروز مع الهدف ضمن 5٪.'
+          : 'Calories from Macros must be within 5% of the target.';
+    }
+    final RegExpMatch? rate = RegExp(r'not exceed ([\d.]+)%').firstMatch(message);
+    if (rate != null) {
+      final String amount = rate.group(1)!;
+      return isArabic ? 'يجب ألا تتجاوز الوتيرة الأسبوعية $amount٪ من وزن الجسم.'
+          : 'The weekly rate must not exceed $amount% of bodyweight.';
+    }
+    if (message.contains('must be a whole number') || message.contains('valid ')) {
+      return isArabic ? 'أدخل السعرات والماكروز كأعداد صحيحة غير سالبة.'
+          : 'Enter calories and Macros as whole numbers; Macro values cannot be negative.';
+    }
+    return null;
+  }
+  String get coachGoal => isArabic ? 'هدف التغذية' : 'Nutrition goal';
+  String get coachMacroCalories => isArabic ? 'السعرات المحسوبة من الماكروز' : 'Calories from Macros';
+  String coachWeightValue(String date, Object weight) => isArabic
+      ? '\u2066$date · $weight\u2069 كجم' : '$date · $weight kg';
   String goal(String value) => isArabic
       ? <String, String>{'lose': 'خسارة الوزن', 'gain': 'زيادة الوزن', 'maintain': 'الحفاظ على الوزن'}[value] ?? value
       : value[0].toUpperCase() + value.substring(1);

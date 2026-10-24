@@ -14,6 +14,9 @@ class NutritionPlanVersion:
     targets: dict
     created_at: str | None = None
     goal_source_snapshot: dict | None = None
+    author: str = "Player"
+    provenance: str = "automatic"
+    authority_assignment_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,14 +107,17 @@ class LedgerNutritionMixin:
                 goal=setup.plan.goal, reason=setup.plan.reason, intensity=setup.plan.intensity,
                 daily_activity=setup.plan.daily_activity, targets=setup.plan.targets, created_at=now,
                 goal_source_snapshot=setup.plan.goal_source_snapshot,
+                author=setup.plan.author, provenance=setup.plan.provenance,
+                authority_assignment_id=setup.plan.authority_assignment_id,
             ))
 
     def save_nutrition_plan(self, plan: NutritionPlanVersion):
         cursor = self.conn.execute(
-            "INSERT INTO nutrition_plan_versions(author, provenance, goal, goal_reason_data_json, intensity, daily_activity, targets_json, created_at) "
-            "VALUES('Player', 'automatic', ?, ?, ?, ?, ?, ?)",
-            (plan.goal, json.dumps(plan.reason), plan.intensity, plan.daily_activity,
-             json.dumps(plan.targets), plan.created_at or datetime.now(UTC).isoformat()),
+            "INSERT INTO nutrition_plan_versions(author, provenance, goal, goal_reason_data_json, intensity, daily_activity, targets_json, authority_assignment_id, created_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (plan.author, plan.provenance, plan.goal, json.dumps(plan.reason), plan.intensity, plan.daily_activity,
+             json.dumps(plan.targets), plan.authority_assignment_id,
+             plan.created_at or datetime.now(UTC).isoformat()),
         )
         if plan.goal_source_snapshot is not None:
             self.conn.execute(

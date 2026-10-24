@@ -31,6 +31,7 @@ from service import coach_program_drafts as coach_program_drafts_service
 from service import program_import as program_import_service
 from service import program_requests as program_requests_service
 from service import program_templates as program_templates_service
+from service.weight_history import player_local_date
 from service.messages import (
     MessageMetadata,
     http_error_message,
@@ -67,6 +68,7 @@ from svc.schemas import (
     CheckInIn,
     CheckInOut,
     CoachActiveProgramOut,
+    CoachNutritionTargetsIn,
     CoachAssignmentsOut,
     CoachCheckInCreateOut,
     CheckpointReviewListItemOut,
@@ -326,6 +328,44 @@ async def read_assigned_player_active_program(
     if program is None:
         raise _no_active_assignment()
     return CoachActiveProgramOut(**program)
+
+
+@coach_router.get("/{assignment_id}/nutrition")
+async def read_assigned_player_nutrition(
+    assignment_id: str,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    with ledger:
+        from service import nutrition as nutrition_service
+        today = player_local_date(ledger, context["player"]["ledger_id"])
+        return await asyncio.to_thread(nutrition_service.coach_read, ledger, today, assignment_id)
+
+
+@coach_router.put("/{assignment_id}/nutrition")
+async def save_assigned_player_nutrition(
+    assignment_id: str,
+    body: CoachNutritionTargetsIn,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    from service import nutrition as nutrition_service
+    today = player_local_date(ledger, context["player"]["ledger_id"])
+    try:
+        with ledger:
+            return await asyncio.to_thread(
+                nutrition_service.save_coach_targets, ledger, body.model_dump(), assignment_id, today
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
 
 
 @coach_router.post("/invites", response_model=AssignmentInviteIssueOut)

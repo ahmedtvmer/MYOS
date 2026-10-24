@@ -200,8 +200,10 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       padding: const EdgeInsets.all(24),
       children: <Widget>[
         Text(copy.tab, style: text.headlineMedium),
-        if (_plan!.author == 'Coach') Text(copy.setByCoach),
-        if (_plan!.pendingGoal != null && _plan!.author != 'Coach') Card(child: ListTile(
+        if (_plan!.authority == 'coach')
+          Align(alignment: AlignmentDirectional.centerStart,
+            child: Chip(label: Text(copy.setByCoach))),
+        if (_plan!.pendingGoal != null && _plan!.authority != 'coach') Card(child: ListTile(
           title: Text(copy.updateOffer),
           trailing: Wrap(children: <Widget>[
             TextButton(onPressed: _saving ? null : _dismissGoalOffer, child: Text(copy.dismiss)),
@@ -212,7 +214,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             }, child: Text(copy.accept)),
           ]),
         )),
-        if (_plan!.author != 'Coach') Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+        if (_plan!.authority != 'coach') Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
           onPressed: _saving ? null : () async {
             final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
               MaterialPageRoute<NutritionPlanState>(builder: (_) => NutritionPaceDial(plan: _plan!)));
@@ -285,7 +287,8 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
 
   Widget _activityRow(NutritionCopy copy) => ListTile(
     title: Text(copy.dailyActivity), subtitle: Text(copy.activityLabel(_activity)),
-    trailing: const Icon(Icons.edit), onTap: _saving ? null : () => _editActivity(copy));
+    trailing: _plan?.authority == 'coach' ? null : const Icon(Icons.edit),
+    onTap: _saving || _plan?.authority == 'coach' ? null : () => _editActivity(copy));
 
   Widget _plate(Map<String, dynamic> targets,
       List<(String, String, Color)> macroCards, NutritionCopy copy, TextTheme text) {
