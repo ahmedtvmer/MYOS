@@ -376,3 +376,86 @@ _Arabic_: حان موعد المتابعة
 **Set group**:
 An ordered part of an Exercise's working-set prescription with its own set count, rep range, target RIR and optional load. A Program exercise has at least one Set group; a single group preserves the previous prescription. A later group may prescribe its load as a percentage of the first group's resolved load. AMRAP on the last set means reps are open-ended with the prescribed minimum retained.
 _Arabic_: مجموعة تدريب
+
+**Nutrition plan**:
+A Player's current daily eating prescription: their Nutrition targets and, when meals are on, an ordered list of Meal slots with foods and grams for one repeating day (a Coach may add training-day and rest-day variants). Each change creates a new version.
+_Arabic_: خطة تغذية
+_Avoid_: Diet, Meal plan
+
+**Nutrition targets**:
+The daily calories and Macros a Nutrition plan prescribes. They never go below the Calorie floor.
+_Arabic_: الأهداف الغذائية
+
+**Macros**:
+The daily protein, carbohydrate and fat grams in Nutrition targets. Fiber, sugars and sodium are not Macros.
+_Arabic_: الماكروز
+
+**Calorie floor**:
+The lowest daily calorie target a Nutrition plan may set for a Player: the higher of their estimated BMR and a fixed minimum that differs for men and women. Nobody can set targets below it, including a Coach.
+_Arabic_: الحد الأدنى للسعرات
+
+**Daily activity**:
+How active a Player is outside training, as one of mostly sitting, on their feet, or a physical job. It is used with sex, age, height, weight and training frequency to estimate Nutrition targets.
+_Arabic_: النشاط اليومي
+_Avoid_: Activity level, lifestyle
+
+**Nutrition authority**:
+The right to change a Player's Nutrition plan. It stays with the Player until an assigned Coach publishes a Nutrition plan, then belongs to that Coach until the Assignment ends. It is separate from Program authority: publishing a Training program does not move it.
+
+**Nutrition adherence**:
+Whether a Player met their Nutrition targets on a day: on target, roughly, or off. A Player-local day has exactly one at most. When the day has a Food log it is computed from the logged totals once the day ends; the Player's own one-tap answer, when given, always overrides it, and a later answer the same day replaces an earlier one. An active Coach can read it and sees whether it was computed or answered.
+_Arabic_: الالتزام الغذائي
+_Avoid_: Check-in (a Coach-recorded contact), food log
+
+**Food library**:
+The shared reference set of foods with their nutrients per 100 g and portions, drawn from USDA FoodData Central rows plus MYOS-authored rows, including Egyptian dishes built from a recipe of library ingredients. It is the same for every account and holds no personal data; Hidden rows (baby foods, brands, fast food, pork, alcohol) never appear in search.
+_Arabic_: مكتبة الأطعمة
+_Avoid_: Food database, food catalog
+
+**Nutrition goal**:
+The direction of a Player's Nutrition targets: Lose, Maintain or Gain, with an intensity of Light, Moderate or Aggressive as a weekly rate of bodyweight change. It is first read from the Current goal; Target weight decides when the Current goal says nothing about weight or disagrees with it. After that it belongs to the Nutrition plan: later edits to the Current goal or Target weight only offer to change it.
+_Arabic_: هدف التغذية
+_Avoid_: Weight phase, diet phase
+
+**Food log**:
+The foods and amounts a Player records as eaten on a Player-local day, each from the Food library, in grams or a food's local portion. It lives in the Training ledger.
+_Arabic_: سجل الطعام
+_Avoid_: Food diary, meal log
+
+**Meal slot**:
+A named place in a Player's eating day, such as Breakfast, Lunch, Dinner or Snack, with roles for a protein, a carb and a vegetable or fat.
+_Arabic_: وجبة
+
+**Staple food**:
+A food MYOS curates as a default choice for a meal role, such as eggs or ful for a breakfast protein. Each role has an ordered list; the first one the Player's Food restrictions allow is suggested and the next ones are its swaps. It is the food counterpart of a Staple exercise.
+_Arabic_: طعام أساسي
+
+**Food restriction**:
+A food a Player must not be suggested: an allergy, a dislike, or a vegetarian diet. Allergies and vegetarian are strict; a dislike only removes the food from suggestions. Every Food library row shown in MYOS is halal by default.
+_Arabic_: قيود غذائية
+
+**Food swap**:
+A permanent change of one food in the Player's own Nutrition plan, made while they hold Nutrition authority. What a Player actually eats on a day goes in the Food log and never changes the plan.
+_Arabic_: تبديل طعام في الخطة
+
+**Food swap request**:
+A Player's request for their Coach to replace a food in a Coach-authored Nutrition plan. The plan does not change until the Coach applies a replacement.
+_Arabic_: طلب تبديل طعام من المدرب
+
+**Nutrition plan draft**:
+An unpublished Nutrition plan a Coach is writing for a Player on an active Assignment. There is at most one per Assignment, only that Coach sees it, publishing makes it the Player's new Nutrition plan version and moves Nutrition authority, and ending the Assignment discards it.
+_Arabic_: مسودة خطة تغذية
+
+**Nutrition template**:
+A reusable, Coach-owned Nutrition plan saved once and used across Players. Editing it never changes any Player's plan; applying it to a Player fills a Nutrition plan draft.
+_Arabic_: قالب خطة تغذية
+_Avoid_: Diet template, meal template
+
+**Personal food**:
+A food a Player creates when the Food library lacks it, with a name and nutrients per 100 g or per portion. Only its owner can search it; their Coach sees it where it appears in a Food log.
+_Arabic_: طعام خاص
+_Avoid_: Custom food
+
+**Quick add**:
+A Food log entry of calories and optional Macros with no food, for when a Player knows the numbers but not the food. It counts toward totals and Nutrition adherence.
+_Arabic_: إضافة سريعة
