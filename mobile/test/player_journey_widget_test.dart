@@ -100,6 +100,8 @@ void main() {
       'equipment_access': 'Commercial gym',
       'injuries_or_limitations': 'None',
       'stress_and_sleep': 'moderate stress, 7 hours sleep',
+      // The journey completes the optional Weak points step before confirming.
+      'weak_points': <Map<String, String>>[],
     });
     await tester.tap(find.text('I understand'));
     await _pumpUntilFound(tester, find.text('Create my program'));

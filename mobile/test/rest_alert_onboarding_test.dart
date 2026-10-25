@@ -31,6 +31,9 @@ const Map<String, Object> _answers = <String, Object>{
   'equipment_access': 'Commercial gym',
   'injuries_or_limitations': 'None',
   'stress_and_sleep': 'moderate stress, 7 hours sleep',
+  // This flow starts from a completed intake, including the optional #490
+  // Weak points step, so it can focus on the post-onboarding alert prompt.
+  'weak_points': <Map<String, String>>[],
 };
 
 FakeMyosApi _api({String languageCode = 'en'}) {
