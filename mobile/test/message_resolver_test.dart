@@ -145,7 +145,7 @@ void main() {
     );
     expect(
       _resolve('coach_alert.nutrition_off_streak.v1', <String, dynamic>{}),
-      'سجّل اللاعب أنه خارج الهدف الغذائي ثلاثة أيام متتالية.',
+      'سجّل اللاعب أنه بعيد عن الهدف ثلاثة أيام متتالية.',
     );
     expect(
       _resolve('coach_alert.nutrition_unlogged.v1', <String, dynamic>{}),
