@@ -54,5 +54,23 @@ FOCUS_MUSCLE_SLOTS = {
     "abs": {"abs"},
 }
 
+FOCUS_REVIEW_MUSCLES = {
+    "chest": {"chest", "upper chest", "pectorals"},
+    "upper_chest": {"upper chest"},
+    "back": {"lats", "upper back"},
+    "shoulders": {"front delts", "side delts", "rear delts", "delts"},
+    "side_delts": {"side delts"},
+    "biceps": {"biceps"},
+    "triceps": {"triceps"},
+    "forearms": {"forearms"},
+    "quads": {"quads"},
+    "hamstrings": {"hamstrings"},
+    "glutes": {"glutes"},
+    "adductors": {"adductors"},
+    "calves": {"calves"},
+    "abs": {"abs"},
+}
+
 assert set(FOCUS_EXTRA_TABLE) == set(WEAK_POINT_MUSCLES)
 assert set(FOCUS_MUSCLE_SLOTS) == set(WEAK_POINT_MUSCLES)
+assert set(FOCUS_REVIEW_MUSCLES) == set(WEAK_POINT_MUSCLES)
