@@ -438,7 +438,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Arabic phone program offer confirms regeneration and refreshes',
+  testWidgets('Arabic phone program offer weak point step can be skipped',
       (tester) async {
     final FakeMyosApi fake = _signedInFake()
       ..offerProgramDesignRegeneration = true;
@@ -452,13 +452,35 @@ void main() {
     expect(find.text('برنامج تدريبي بتصميم جديد'), findsOneWidget);
     expect(find.text('إنشاء برنامج جديد'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    expect(find.text('أصبح تمرين Push يستهدف أعلى الصدر، ويمكنك الآن تحديد نقاط ضعفك.'), findsOneWidget);
     await tester.tap(find.text('إنشاء برنامج جديد'));
     await tester.pumpAndSettle();
-    expect(find.text('إنشاء نسخة جديدة من البرنامج؟'), findsOneWidget);
-    await tester.tap(find.text('إنشاء برنامج جديد').last);
+    expect(find.text('حدد نقاط ضعفك'), findsOneWidget);
+    await tester.tap(find.text('تخطي'));
     await tester.pumpAndSettle();
     expect(fake.acceptProgramDesignOfferRequests, 1);
     expect(find.text('برنامج تدريبي بتصميم جديد'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('female lifter can accept the offer with the default Weak point',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..gender = 'female'
+      ..offerProgramDesignRegeneration = true;
+    await _pumpProgram(tester, fake, size: const Size(360, 800));
+    await tester.tap(find.text('Regenerate program'));
+    await tester.pumpAndSettle();
+    final FilterChip glutes = tester.widget<FilterChip>(
+      find.byKey(const ValueKey<String>('design_offer_weak_point_glutes')),
+    );
+    expect(glutes.selected, isTrue);
+    await tester.tap(find.text('Regenerate program').last);
+    await tester.pumpAndSettle();
+    expect(fake.lastDesignOfferWeakPoints, <dynamic>[
+      <String, String>{'muscle': 'glutes', 'source': 'default'},
+    ]);
+    expect(fake.acceptProgramDesignOfferRequests, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -501,6 +523,16 @@ void main() {
     await tester.tap(find.text('Dismiss'));
     await tester.pumpAndSettle();
     expect(fake.offerProgramDesignRegeneration, isFalse);
+    expect(find.text('A program with the new design'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('coach-controlled program does not show the design offer',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..offerProgramDesignRegeneration = true
+      ..coachControlsProgram = true;
+    await _pumpProgram(tester, fake);
     expect(find.text('A program with the new design'), findsNothing);
     expect(tester.takeException(), isNull);
   });

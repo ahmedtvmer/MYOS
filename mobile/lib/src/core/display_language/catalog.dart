@@ -113,6 +113,11 @@ class MyosCopy {
   String get focusMusclesRegenerateOfferBody => isArabic
       ? 'تغيّرت نقاط ضعفك. أعد إنشاء برنامجك التدريبي ليركّز عليها؟'
       : 'Your Weak points changed — rebuild your program to focus on them?';
+  String get designV3RegenerateOfferBody => isArabic
+      ? 'أصبح تمرين Push يستهدف أعلى الصدر، ويمكنك الآن تحديد نقاط ضعفك.'
+      : 'Push now trains upper chest; you can now set Weak points.';
+  String get weakPointStepTitle => isArabic ? 'حدد نقاط ضعفك' : 'Set your Weak points';
+  String get skipWeakPoints => isArabic ? 'تخطي' : 'Skip';
   String get regenerateProgramOfferAccept => isArabic
       ? 'إنشاء برنامج جديد'
       : 'Regenerate program';

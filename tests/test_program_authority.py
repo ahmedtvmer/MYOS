@@ -522,7 +522,7 @@ def test_profile_rebuild_allowed_before_publication(api, monkeypatch):
     assert body["program_message"] is None
     assert calls["n"] == 1
     assert _active(db).program_name == "Player Plan"
-    assert _active(db).design_version == 2
+    assert _active(db).design_version == 3
 
 
 def test_profile_rebuild_generates_from_the_edited_profile(api, monkeypatch):
@@ -1601,7 +1601,7 @@ def test_program_design_offer_is_only_for_unstamped_player_controlled_programs(a
     legacy = client.get("/programs/active", headers=headers).json()
     assert legacy["offer_design_regeneration"] is True
 
-    db.ledger.save_training_program({**_program("Current design").model_dump(), "design_version": 2})
+    db.ledger.save_training_program({**_program("Current design").model_dump(), "design_version": 3})
     current = client.get("/programs/active", headers=headers).json()
     assert current["offer_design_regeneration"] is False
 
@@ -1698,7 +1698,7 @@ def test_design_offer_routes_conflict_when_no_offer_exists(api):
     headers = _authed(player["access_token"])
     db.switch_user("no_design_offer")
     db.ledger.save_training_program(
-        {**_program("Current design").model_dump(), "design_version": 2}
+        {**_program("Current design").model_dump(), "design_version": 3}
     )
     accepted = client.post("/programs/design-offer/accept", headers=headers)
     dismissed = client.post("/programs/design-offer/dismiss", headers=headers)
@@ -1754,7 +1754,73 @@ def test_accepting_program_design_offer_creates_version_and_hides_offer(api, uns
     assert accepted.json()["version"] == 2
     assert accepted.json()["offer_design_regeneration"] is False
     assert db.ledger.get_program_by_version(1).program_name == "Legacy"
+    profile = db.ledger.get_player_profile()
+    assert profile is None or profile.get("weak_points") is None
+    rationale = accepted.json().get("program_rationale")
+    assert rationale is None or rationale.get("focus_muscles", []) == []
     assert client.get("/programs/active", headers=headers).json()["offer_design_regeneration"] is False
+
+
+def test_design_version_offer_without_body_uses_saved_weak_points(api, unstamped_program_generation):
+    client, db, _ = api
+    player = _register(client, "accept_design_offer_saved_focus")
+    headers = _authed(player["access_token"])
+    db.switch_user("accept_design_offer_saved_focus")
+    db.ledger.upsert_player_profile({"weak_points": [{"muscle": "chest", "source": "named"}]})
+    db.ledger.save_training_program(_program("Legacy").model_dump())
+
+    accepted = client.post("/programs/design-offer/accept", headers=headers)
+
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["program_rationale"]["focus_muscles"] == [
+        {"muscle": "chest", "source": "named"}
+    ]
+
+
+def test_focus_muscles_changed_offer_without_body_uses_saved_weak_points(
+    api, unstamped_program_generation
+):
+    client, db, _ = api
+    player = _register(client, "accept_changed_focus_offer_saved_focus")
+    headers = _authed(player["access_token"])
+    db.switch_user("accept_changed_focus_offer_saved_focus")
+    from agent.program_generator import PROGRAM_DESIGN_VERSION
+
+    db.ledger.save_training_program({
+        **_program("Current design").model_dump(),
+        "design_version": PROGRAM_DESIGN_VERSION,
+    })
+    changed = client.put("/profile", headers=headers, json={
+        "weak_points": [{"muscle": "chest", "source": "named"}],
+    })
+    assert changed.status_code == 200, changed.text
+    assert client.get("/programs/active", headers=headers).json()["regeneration_offer_reason"] == "focus_muscles_changed"
+
+    accepted = client.post("/programs/design-offer/accept", headers=headers)
+
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["program_rationale"]["focus_muscles"] == [
+        {"muscle": "chest", "source": "named"}
+    ]
+
+
+def test_accepting_design_offer_saves_weak_points_before_generating(api, unstamped_program_generation):
+    client, db, _ = api
+    player = _register(client, "accept_offer_with_focus")
+    headers = _authed(player["access_token"])
+    db.switch_user("accept_offer_with_focus")
+    db.ledger.save_training_program(_program("Legacy").model_dump())
+
+    accepted = client.post("/programs/design-offer/accept", headers=headers, json={
+        "weak_points": [{"muscle": "glutes", "source": "default"}],
+    })
+    assert accepted.status_code == 200, accepted.text
+    assert db.ledger.get_player_profile()["weak_points"] == [
+        {"muscle": "glutes", "source": "default"}
+    ]
+    assert accepted.json()["program_rationale"]["focus_muscles"] == [
+        {"muscle": "glutes", "source": "default"}
+    ]
 
 
 def test_dismissing_program_design_offer_is_permanent(api, unstamped_program_generation):
