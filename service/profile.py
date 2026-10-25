@@ -203,6 +203,7 @@ def update_profile(
             persist_profile()
         if (
             weak_points_changed
+            and program is None
             and player_account_id
             and player_controls_program(db, ledger, player_account_id)
         ):

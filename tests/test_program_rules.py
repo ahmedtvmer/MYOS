@@ -294,7 +294,7 @@ def test_dynamic_split_caps_overfull_day_for_generated_program(monkeypatch, fres
         preference="Custom weekly arrangement with separate emphasis days",
     )
     request = ProgramGenerationRequest(frequency_override=3)
-    generated_days = program_generator._generate_program_days(
+    generated_days, _rationale_days = program_generator._generate_program_days(
         _split_generation_profile(), request, resolved_plan, fresh_store.ledger
     )
     generated = GeneratedProgramSchema(

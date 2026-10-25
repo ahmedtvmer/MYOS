@@ -255,7 +255,7 @@ def _generate_split_program(plan: Any, case: dict[str, Any], store: Any) -> dict
     profile = _split_profile(case, COMMERCIAL_GYM)
     request = ProgramGenerationRequest(rep_preference_override="balanced")
     with store.open_ledger(f"structured_{case['id']}") as ledger:
-        days = _generate_program_days(profile, request, plan, ledger)
+        days, _rationale_days = _generate_program_days(profile, request, plan, ledger)
     program = GeneratedProgramSchema(
         program_name=plan.split_name,
         split_type=plan.split_name,

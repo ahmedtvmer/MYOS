@@ -542,6 +542,32 @@ def test_profile_rebuild_generates_from_the_edited_profile(api, monkeypatch):
     assert calls["profile"]["weekly_frequency"] == 3
 
 
+def test_weak_point_change_during_profile_rebuild_does_not_create_stale_offer(
+    api, monkeypatch
+):
+    client, db, _ = api
+    player = _register(client, "rebuild_weakpoint_offer")
+    headers = _authed(player["access_token"])
+    db.switch_user("rebuild_weakpoint_offer")
+    _, calls = _profile_generation(db, monkeypatch)
+
+    response = client.put(
+        "/profile",
+        headers=headers,
+        json={
+            "weekly_frequency": 3,
+            "weak_points": [{"muscle": "chest", "source": "named"}],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["program_rebuilt"] is True
+    assert response.json()["regeneration_offer_created"] is False
+    assert calls["n"] == 1
+    active = client.get("/programs/active", headers=headers).json()
+    assert active["offer_design_regeneration"] is False
+
+
 def test_profile_rebuild_starts_at_week_one_after_later_program_position(
     shipped_library_api,
 ):

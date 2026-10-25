@@ -1709,7 +1709,9 @@ def test_copy_active_program_to_draft_preserves_the_complete_program(api):
     for day in expected_days:
         for exercise in day["exercises"]:
             exercise["target_rir"] = 10 - exercise.pop("target_rpe")
+            exercise.setdefault("rationale", None)
     expected_draft["generation_options"] = None
+    expected_draft.setdefault("program_rationale", None)
     assert copied.json()["draft"] == expected_draft
     active_after = client.get("/programs/active", headers=player_headers).json()
     assert active_after["version"] == 1
@@ -2859,13 +2861,23 @@ def test_empty_active_program_and_pending_draft_are_returned(api):
 
     empty = client.get(f"/coach/assignments/{assignment_id}/program", headers=coach_headers)
     assert empty.status_code == 200, empty.text
-    assert empty.json() == {"program": None, "has_draft": False}
+    assert empty.json() == {
+        "program": None,
+        "has_draft": False,
+        "weak_points": None,
+        "focus_muscles": [],
+    }
 
     created = client.post(f"/coach/assignments/{assignment_id}/program-draft", headers=coach_headers, json={})
     assert created.status_code == 200, created.text
     pending = client.get(f"/coach/assignments/{assignment_id}/program", headers=coach_headers)
     assert pending.status_code == 200, pending.text
-    assert pending.json() == {"program": None, "has_draft": True}
+    assert pending.json() == {
+        "program": None,
+        "has_draft": True,
+        "weak_points": None,
+        "focus_muscles": [],
+    }
 
 
 def test_active_program_read_uses_generic_assignment_denial(api):
