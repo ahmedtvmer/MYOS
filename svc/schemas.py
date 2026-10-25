@@ -1631,6 +1631,8 @@ class CoachActiveProgramOut(BaseModel):
 
     program: CoachActiveProgramDetailsOut | None = None
     has_draft: bool
+    weak_points: list[dict[str, str]] | None = None
+    focus_muscles: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CoachExerciseCreateIn(BaseModel):
@@ -1724,6 +1726,7 @@ class ActiveProgramOut(PersistedProgramSchema):
 
     player_controls_program: bool
     offer_design_regeneration: bool = False
+    regeneration_offer_reason: str | None = None
     current_week: int = 1
     week_count: int = 1
     next_day_order: int = 1

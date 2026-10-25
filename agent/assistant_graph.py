@@ -1719,6 +1719,123 @@ def _preference_write_intent(
     return _remember_preference(text, ledger, language) if mode == "remember" else _forget_preference(text, ledger, language)
 
 
+_WEAK_POINT_NAMES = {
+    "chest": "chest",
+    "upper chest": "upper_chest",
+    "back": "back",
+    "shoulders": "shoulders",
+    "side delts": "side_delts",
+    "biceps": "biceps",
+    "triceps": "triceps",
+    "forearms": "forearms",
+    "quads": "quads",
+    "hamstrings": "hamstrings",
+    "glutes": "glutes",
+    "adductors": "adductors",
+    "calves": "calves",
+    "abs": "abs",
+    "الصدر": "chest",
+    "أعلى الصدر": "upper_chest",
+    "الظهر": "back",
+    "الأكتاف": "shoulders",
+    "الأكتاف الجانبية": "side_delts",
+    "البايسبس": "biceps",
+    "الترايسبس": "triceps",
+    "الساعد": "forearms",
+    "الفخذ الأمامي": "quads",
+    "الفخذ الخلفي": "hamstrings",
+    "الأرداف": "glutes",
+    "العضلات المقربة": "adductors",
+    "السمانة": "calves",
+    "البطن": "abs",
+}
+
+
+def _weak_point_names_from_statement(query: str) -> list[str] | None:
+    match = re.fullmatch(
+        r"\s*(?:my weak points are|my weak point is|نقاط ضعفي هي|نقطة ضعفي هي)\s+(.+?)\s*[.!؟]?\s*",
+        query,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    return [
+        name.strip().lower()
+        for name in re.split(r"(?:,|،|\s+and\s+|\s+و)", match.group(1))
+    ]
+
+
+def _validated_chat_weak_points(
+    names: list[str], language: str
+) -> tuple[list[dict[str, str]] | None, str | None]:
+    muscles = [_WEAK_POINT_NAMES.get(name) for name in names]
+    if not muscles or any(muscle is None for muscle in muscles):
+        reply = (
+            "Name Weak points from the list: chest, upper chest, back, shoulders, "
+            "side delts, biceps, triceps, forearms, quads, hamstrings, glutes, "
+            "adductors, calves or abs."
+            if language == "en"
+            else "اختار نقاط ضعفك من القائمة المعروفة، مثل الصدر أو الظهر أو البطن."
+        )
+        return None, reply
+    try:
+        from core.weak_points import validate_weak_points
+
+        weak_points = validate_weak_points(
+            [{"muscle": muscle, "source": "named"} for muscle in muscles]
+        )
+    except ValueError:
+        reply = (
+            "You can name up to two different Weak points from the list."
+            if language == "en"
+            else "يمكنك اختيار نقطتي ضعف مختلفتين بحد أقصى من القائمة."
+        )
+        return None, reply
+    return weak_points, None
+
+
+def _weak_point_write_confirmation(
+    names: list[str], result: dict[str, Any], language: str
+) -> str:
+    saved_names = ", ".join(names)
+    reply = (
+        f"I saved your Weak points: {saved_names}."
+        if language == "en"
+        else f"حفظت نقاط ضعفك: {saved_names}."
+    )
+    if result.get("program_blocked"):
+        return reply + (
+            " Your coach controls your program."
+            if language == "en"
+            else " مدربك هو المتحكم في برنامجك التدريبي."
+        )
+    if result.get("regeneration_offer_created"):
+        return reply + (
+            " You can accept a regenerate offer in Program."
+            if language == "en"
+            else " يمكنك قبول عرض إعادة إنشاء البرنامج من صفحة البرنامج."
+        )
+    return reply
+
+
+def _weak_point_write_intent(
+    query: str, ledger: Any, store: Any, account_id: str | None
+) -> dict[str, Any] | None:
+    raw_names = _weak_point_names_from_statement(query)
+    if raw_names is None:
+        return None
+    language = _tool_reply_language({"messages": [HumanMessage(content=query)]})
+    weak_points, invalid_reply = _validated_chat_weak_points(raw_names, language)
+    if invalid_reply is not None:
+        return _response(invalid_reply)
+    from service.profile import update_profile
+
+    result = update_profile(
+        store, ledger.ledger_id, {"weak_points": weak_points}, account_id, ledger
+    )
+    return _response(_weak_point_write_confirmation(raw_names, result, language))
+
+
 def assistant_preference_delete_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
     ledger, _store = _graph_context(config)
     meta = state.get("intent_metadata", {})
@@ -1772,6 +1889,11 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
         return {key: value for key, value in safety_classification.items() if key != "query"}
 
     if ledger is not None:
+        weak_point_intent = _weak_point_write_intent(
+            query, ledger, _graph_context(config)[1], state.get("player_account_id")
+        )
+        if weak_point_intent is not None:
+            return {"intent": "telemetry_intercept", "intent_metadata": {"response_content": weak_point_intent["response_content"]}}
         preference_intent = _preference_write_intent(
             query, ledger, messages, allow_write=False
         )

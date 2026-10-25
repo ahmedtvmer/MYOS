@@ -272,6 +272,18 @@ def test_coach_reads_all_drill_downs_for_active_assignment(api):
     with db.open_ledger("p1") as ledger:
         ledger.create_injury_record("knee", "Knee pain during squats")
 
+    with db.open_ledger("p1") as ledger:
+        ledger.upsert_player_profile({"weak_points": [{"muscle": "glutes", "source": "default"}]})
+        ledger.save_training_program({
+            "program_name": "Focus test", "split_type": "Full Body", "weekly_frequency": 1,
+            "days": [_day_plan().model_dump()],
+            "program_rationale": {"focus_muscles": [{"muscle": "glutes", "source": "default", "status": "unavailable"}]},
+        })
+    program_read = client.get(f"/coach/assignments/{assignment_id}/program", headers=coach_headers)
+    assert program_read.status_code == 200, program_read.text
+    assert program_read.json()["weak_points"] == [{"muscle": "glutes", "source": "default"}]
+    assert program_read.json()["focus_muscles"] == [{"muscle": "glutes", "source": "default", "status": "unavailable"}]
+
     base = f"/coach/assignments/{assignment_id}/player"
     summary = client.get(f"{base}/summary", headers=coach_headers)
     assert summary.status_code == 200, summary.text
@@ -621,6 +633,11 @@ def test_other_coach_and_unknown_and_revoked_are_indistinguishable(api):
     revoked = client.get(f"{base}/summary", headers=coach_headers)
     assert revoked.status_code == 403
     assert revoked.json()["detail"] == coach_history_service.DENIED_ERROR
+    revoked_program = client.get(
+        f"/coach/assignments/{assignment_id}/program", headers=coach_headers
+    )
+    assert revoked_program.status_code == 403
+    assert revoked_program.json()["detail"] == coach_history_service.DENIED_ERROR
     assert "Private knee injury record" not in revoked.text
 
 
@@ -641,6 +658,9 @@ def test_ending_assignment_denies_all_reads_including_earlier_history(api, ended
     _seed_session(db, "p1", 110.0, 5, "2026-09-26T10:00:00+00:00")
 
     base = f"/coach/assignments/{assignment_id}"
+    denied_program = client.get(f"{base}/program", headers=coach_headers)
+    assert denied_program.status_code == 403
+    assert denied_program.json()["detail"] == coach_history_service.DENIED_ERROR
     for suffix in DRILL_DOWN_SUFFIXES:
         denied = client.get(f"{base}{suffix}", headers=coach_headers)
         assert denied.status_code == 403, (suffix, denied.text)

@@ -358,6 +358,7 @@ class FakeMyosApi {
   int acceptProgramDesignOfferRequests = 0;
   bool coachControlsProgram = false;
   bool offerProgramDesignRegeneration = false;
+  String? regenerationOfferReason;
   bool? coachPreparingProgram;
   bool substitutionVersionConflict = false;
   bool programEditVersionConflict = false;
@@ -4529,6 +4530,7 @@ class FakeMyosApi {
           'source_template_name': programSourceTemplateName,
         'player_controls_program': !coachControlsProgram,
         'offer_design_regeneration': offerProgramDesignRegeneration,
+        'regeneration_offer_reason': regenerationOfferReason,
       };
 
   FakeResponse _activeProgram(FakeRequest request) {

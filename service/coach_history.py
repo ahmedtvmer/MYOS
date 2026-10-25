@@ -50,9 +50,16 @@ def active_program(db: Any, coach_account_id: str, assignment_id: Any) -> dict[s
     with ledger:
         program = ledger.get_active_program()
         has_draft = ledger.get_program_draft(str(assignment_id)) is not None
-    return _active_program_response(
+        profile = ledger.get_player_profile() or {}
+    response = _active_program_response(
         db, program, has_draft, context["assignment"]["coach_account_id"]
     )
+    response["weak_points"] = profile.get("weak_points")
+    response["focus_muscles"] = (
+        (program.program_rationale or {}).get("focus_muscles", [])
+        if program is not None else []
+    )
+    return response
 
 
 def volume_review(

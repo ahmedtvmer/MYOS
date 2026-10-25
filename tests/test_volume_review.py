@@ -12,12 +12,15 @@ from service.volume_review import accept_review, dismiss_review, evaluate_review
 from service.workouts import commit_session
 
 
-def _seed_review(fresh_store, trend: str, *, weekly_frequency: int = 1, with_rationale: bool = False):
+def _seed_review(fresh_store, trend: str, *, weekly_frequency: int = 1, with_rationale: bool = False, target_muscle: str | None = None):
     db = fresh_store
     ledger = db.ledger
     muscle_row = db.catalog_conn.execute(
         "SELECT exercise_id, primary_muscle FROM exercise_curated_fields "
-        "WHERE primary_muscle IS NOT NULL ORDER BY exercise_id LIMIT 1"
+        "WHERE primary_muscle IS NOT NULL "
+        + ("AND lower(primary_muscle) = lower(?) " if target_muscle else "")
+        + "ORDER BY exercise_id LIMIT 1",
+        (target_muscle,) if target_muscle else (),
     ).fetchone()
     exercise_id, muscle = str(muscle_row[0]), str(muscle_row[1])
     exercise_row = db.catalog_conn.execute(
@@ -175,6 +178,83 @@ def test_volume_limits_have_distinct_no_change_verdicts(fresh_store, trend, sets
     assert row["verdict"] == verdict
     assert row["set_delta"] == 0
     assert row["edits"] == []
+
+
+@pytest.mark.parametrize(
+    ("trend", "sets", "focus", "expected_verdict", "expected_delta", "minimum_sets"),
+    [
+        ("stalled", 13, True, "at_ceiling", 0, 13),
+        ("regressing", 5, True, "at_floor", 0, 6),
+        ("regressing", 7, True, "under_recovered", -1, 6),
+        ("stalled", 10, False, "at_ceiling", 0, 4),
+        ("regressing", 4, False, "at_floor", 0, 4),
+    ],
+)
+def test_focus_volume_limits_come_from_reviewed_program_version(
+    fresh_store, trend, sets, focus, expected_verdict, expected_delta, minimum_sets
+):
+    ledger, program, profile, today, muscle = _seed_review(fresh_store, trend)
+    program.days[0].exercises[0].set_groups[0].sets = sets
+    profile["training_age_years"] = 3
+    # The reviewed version, rather than a profile setting, carries Focus muscles.
+    program.program_rationale = {
+        "focus_muscles": [{"muscle": muscle, "source": "named", "status": "added"}]
+        if focus else []
+    }
+
+    result = review_facts(ledger, program, profile, today)
+
+    row = next(item for item in result["muscles"] if item["muscle"] == muscle)
+    assert row["verdict"] == expected_verdict
+    assert row["set_delta"] == expected_delta
+    if row["set_delta"] < 0:
+        assert row["weekly_sets"] + row["set_delta"] >= minimum_sets
+
+
+@pytest.mark.parametrize(
+    ("primary_muscle", "weak_point", "sets", "expected_verdict", "expected_delta"),
+    [
+        ("Lats", "back", 11, "stalled", 2),
+        ("Upper Back", "back", 11, "stalled", 2),
+        ("Upper Chest", "upper_chest", 11, "stalled", 2),
+        ("Chest", "upper_chest", 10, "at_ceiling", 0),
+    ],
+)
+def test_review_focus_uses_real_weak_point_to_primary_muscle_mapping(
+    fresh_store, primary_muscle, weak_point, sets, expected_verdict, expected_delta
+):
+    ledger, program, profile, today, muscle = _seed_review(
+        fresh_store, "stalled", target_muscle=primary_muscle
+    )
+    if expected_delta > 0:
+        first = program.days[0].exercises[0]
+        first.set_groups[0].sets = 2
+        additional = fresh_store.catalog_conn.execute(
+            "SELECT e.id, e.name FROM exercise_curated_fields f "
+            "JOIN exercises e ON e.id = f.exercise_id "
+                "WHERE lower(f.primary_muscle) = lower(?) AND e.id != ? ORDER BY e.id LIMIT 4",
+            (primary_muscle, first.exercise_id),
+        ).fetchall()
+        assert len(additional) == 4
+        additional_sets = (2, 2, 3, 2)
+        program.days[0].exercises.extend(
+            PersistedProgramExerciseSchema(
+                exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=additional_sets[index],
+                target_reps_min=8, target_reps_max=12,
+            )
+            for index, row in enumerate(additional)
+        )
+    else:
+        program.days[0].exercises[0].set_groups[0].sets = sets
+    program.program_rationale = {
+        "focus_muscles": [{"muscle": weak_point, "source": "named", "status": "added"}]
+    }
+
+    result = review_facts(ledger, program, profile, today)
+
+    row = next(item for item in result["muscles"] if item["muscle"] == muscle)
+    assert row["verdict"] == expected_verdict
+    assert row["set_delta"] == expected_delta
 
 
 def test_beginner_ceiling_allows_only_the_last_set_up_to_eight(fresh_store):

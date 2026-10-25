@@ -110,6 +110,9 @@ class MyosCopy {
   String get regenerateProgramOfferBody => isArabic
       ? 'يمكنك إنشاء نسخة جديدة من برنامجك باستخدام تصميم البرامج الحالي. سيبقى برنامجك الحالي محفوظًا.'
       : 'You can create a new version of your program with the current design. Your existing program will stay in your history.';
+  String get focusMusclesRegenerateOfferBody => isArabic
+      ? 'تغيّرت نقاط ضعفك. أعد إنشاء برنامجك التدريبي ليركّز عليها؟'
+      : 'Your Weak points changed — rebuild your program to focus on them?';
   String get regenerateProgramOfferAccept => isArabic
       ? 'إنشاء برنامج جديد'
       : 'Regenerate program';

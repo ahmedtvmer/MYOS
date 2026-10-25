@@ -52,25 +52,44 @@ class LedgerTrainingProgramMixin:
         row = self.conn.execute(
             "SELECT decision FROM program_design_offer WHERE id = 1"
         ).fetchone()
-        return str(row[0]) if row else None
+        return str(row[0]) if row and row[0] else None
+
+    def program_design_offer_reason(self) -> str | None:
+        row = self.conn.execute(
+            "SELECT reason FROM program_design_offer WHERE id = 1"
+        ).fetchone()
+        return str(row[0]) if row and row[0] else None
 
     def record_program_design_offer_decision(self, decision: str) -> None:
         self.conn.execute(
-            "INSERT OR IGNORE INTO program_design_offer (id, decision) VALUES (1, ?)",
+            "INSERT INTO program_design_offer (id, decision) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET decision = excluded.decision",
             (decision,),
         )
         self._commit_ledger()
 
+    def record_program_regeneration_offer(self, reason: str) -> None:
+        self.conn.execute(
+            "INSERT INTO program_design_offer (id, decision, reason) VALUES (1, NULL, ?) "
+            "ON CONFLICT(id) DO UPDATE SET reason = excluded.reason, decision = NULL",
+            (reason,),
+        )
+        self._commit_ledger()
+
     def try_claim_program_design_offer(self) -> bool:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO program_design_offer (id, decision, reason) "
+            "VALUES (1, NULL, 'design_version')"
+        )
         cursor = self.conn.execute(
-            "INSERT OR IGNORE INTO program_design_offer (id, decision) VALUES (1, 'accepted')"
+            "UPDATE program_design_offer SET decision = 'accepted' WHERE id = 1 AND decision IS NULL"
         )
         self._commit_ledger()
         return cursor.rowcount == 1
 
     def release_program_design_offer_claim(self) -> None:
         self.conn.execute(
-            "DELETE FROM program_design_offer WHERE id = 1 AND decision = 'accepted'"
+            "UPDATE program_design_offer SET decision = NULL WHERE id = 1 AND decision = 'accepted'"
         )
         self._commit_ledger()
 

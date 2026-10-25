@@ -628,6 +628,20 @@ void main() {
   testWidgets('the player page segments History and Check-ins',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _coachFake();
+    fake.coachActiveProgram = <String, dynamic>{
+      'program': null,
+      'has_draft': false,
+      'weak_points': <Map<String, String>>[
+        <String, String>{'muscle': 'glutes', 'source': 'default'},
+      ],
+      'focus_muscles': <Map<String, String>>[
+        <String, String>{
+          'muscle': 'glutes',
+          'source': 'default',
+          'status': 'unavailable',
+        },
+      ],
+    };
     fake.assignments.add(_assignment('assignment-1', 'bob',
         lastWorkoutOn: '2026-09-20'));
     fake.checkIns.add(_checkInRow('check-in-1', '2026-09-01', 'phone'));
@@ -637,6 +651,12 @@ void main() {
 
     await tester.tap(find.text('bob'));
     await _pumpUntilFound(tester, find.text('History'));
+    await tester.tap(find.text('Program'));
+    await _pumpUntilFound(tester, find.text('Weak points'));
+    expect(find.text('Weak points'), findsOneWidget);
+    expect(find.textContaining('Default'), findsNWidgets(2));
+    expect(find.text('Focus muscles'), findsOneWidget);
+    await tester.tap(find.text('History'));
     await _pumpUntilFound(tester, find.text('Weekly volume'));
 
     // History is the existing CoachPlayerHistoryScreen content, embedded.
