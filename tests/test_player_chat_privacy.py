@@ -532,7 +532,8 @@ def test_unset_profile_fields_return_not_set_without_invented_defaults(api, monk
         assert response.status_code == 200
 
     result = model.calls[1]["messages"][-1].content
-    assert result.count("not set") == 14
+    assert result.count("not set") == 15
+    assert '"weak_points":"not set"' in result
     for invented in ("male", "hypertrophy", "25", "75", "175"):
         assert invented not in result
 

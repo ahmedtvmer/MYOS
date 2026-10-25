@@ -85,6 +85,7 @@ _PROFILE_FIELDS = (
     ("injuries_or_limitations", "injuries_or_limitations"),
     ("weekly_frequency", "weekly_frequency"),
     ("stress_and_sleep", "stress_and_sleep"),
+    ("weak_points", "weak_points"),
 )
 
 

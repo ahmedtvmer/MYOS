@@ -96,6 +96,7 @@ class FakeMyosApi {
   Map<String, dynamic>? coachAiAllowance;
   bool profileExists = false;
   String gender = 'male';
+  List<Map<String, String>>? weakPoints;
   bool nutritionLoadFails = false;
   Map<String, dynamic>? lastNutritionSetupBody;
   String? lastNutritionActivity;
@@ -3640,6 +3641,7 @@ class FakeMyosApi {
 
   Map<String, dynamic> _profileBody() => <String, dynamic>{
         'gender': gender,
+        'weak_points': weakPoints,
         'rep_preference': repPreference,
         'weekly_frequency': weeklyFrequency,
         'equipment_access': equipmentAccess,
@@ -3769,6 +3771,11 @@ class FakeMyosApi {
 
   FakeResponse _updateProfile(FakeRequest request) {
     profileUpdateBodies.add(Map<String, dynamic>.from(request.body));
+    if (request.body.containsKey('weak_points')) {
+      weakPoints = (request.body['weak_points'] as List<dynamic>)
+          .map((dynamic item) => Map<String, String>.from(item as Map))
+          .toList(growable: false);
+    }
     final int? frequency = (request.body['weekly_frequency'] as num?)?.toInt();
     final String? preference = request.body['rep_preference'] as String?;
     final String? access = request.body['equipment_access'] as String?;
@@ -4116,6 +4123,13 @@ class FakeMyosApi {
         'high': 'Higher rep targets: compounds 8-12, isolation 12-20.',
       }
     },
+    <String, dynamic>{
+      'name': 'weak_points',
+      'type': 'weak_points',
+      'required': false,
+      'profile_field': 'weak_points',
+      'allowed_values': <String>['chest', 'upper_chest', 'back', 'shoulders', 'side_delts', 'biceps', 'triceps', 'forearms', 'quads', 'hamstrings', 'glutes', 'adductors', 'calves', 'abs'],
+    },
   ];
 
   Map<String, dynamic> _intakeView() {
@@ -4244,6 +4258,17 @@ class FakeMyosApi {
       final num? max = spec['maximum'] as num?;
       if ((min != null && parsed < min) || (max != null && parsed > max)) {
         return "Invalid value for '$field': out of range.";
+      }
+    } else if (type == 'weak_points') {
+      final List<dynamic> allowed =
+          (spec['allowed_values'] as List<dynamic>?) ?? const <dynamic>[];
+      if (value is! List || value.length > 2 || value.any((dynamic item) {
+        if (item is! Map) return true;
+        final Map<dynamic, dynamic> entry = Map<dynamic, dynamic>.from(item);
+        return !allowed.contains(entry['muscle']) ||
+            !<String>['named', 'default'].contains(entry['source']);
+      })) {
+        return 'Invalid Weak points.';
       }
     } else {
       if (value is! String || value.trim().length < 2) {

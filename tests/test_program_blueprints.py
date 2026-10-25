@@ -661,6 +661,26 @@ def test_five_day_ppl_upper_lower_has_balanced_volume():
 
     assert program.split_type == "PPL × UL"
     assert [day.day_name for day in program.days] == ["Upper", "Lower", "Push", "Pull", "Legs"]
+    slots_by_day = {
+        day.day_name: [exercise.slot_key for exercise in day.exercises]
+        for day in program.days
+    }
+    assert slots_by_day["Push"] == [
+        "side_delts", "incline_press", "shoulder_press", "chest_fly",
+        "triceps_overhead", "triceps_pushdown",
+    ]
+    assert slots_by_day["Upper"] == [
+        "forearm_wrist", "flat_press", "vertical_pull", "biceps_preacher",
+        "triceps_pushdown",
+    ]
+    push_fly = next(exercise for exercise in program.days[2].exercises if exercise.slot_key == "chest_fly")
+    assert push_fly.exercise_id == "596"
+    chest_days = [
+        [exercise for exercise in day.exercises if exercise.slot_key in {"incline_press", "flat_press", "chest_fly"}]
+        for day in program.days
+    ]
+    assert sum(exercise.target_sets for day in chest_days for exercise in day) == 6
+    assert sum(bool(day) for day in chest_days) == 2
     totals = [sum(exercise.target_sets for exercise in day.exercises) for day in program.days]
     assert all(10 <= total <= 15 for total in totals), totals
     assert totals == [10, 12, 12, 10, 12]

@@ -1010,6 +1010,7 @@ class ProfileUpdate(BaseModel):
     weight_kg: float | None = None
     target_weight_kg: float | None = None
     preferred_name: str | None = None
+    weak_points: list[dict[str, str]] | None = None
 
     @field_validator("preferred_name")
     @classmethod
@@ -1023,6 +1024,12 @@ class ProfileUpdate(BaseModel):
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
+        if "weak_points" in normalized and normalized["weak_points"] is not None:
+            from core.weak_points import validate_weak_points
+            try:
+                normalized["weak_points"] = validate_weak_points(normalized["weak_points"])
+            except ValueError as exc:
+                raise ValueError(str(exc)) from None
         for field_name in (
             "current_goal",
             "equipment_access",

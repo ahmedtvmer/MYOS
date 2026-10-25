@@ -2058,6 +2058,8 @@ class ExerciseClearance {
 
 class PlayerProfile {
   const PlayerProfile({
+    this.gender = 'male',
+    this.weakPoints,
     this.repPreference = 'balanced',
     this.weeklyFrequency = 4,
     this.equipmentAccess = equipmentAccessCommercialGym,
@@ -2073,6 +2075,9 @@ class PlayerProfile {
   });
 
   factory PlayerProfile.fromJson(Map<String, dynamic> json) => PlayerProfile(
+        gender: json['gender'] as String? ?? 'male',
+        weakPoints: json['weak_points'] == null ? null :
+            (json['weak_points'] as List<dynamic>).map((dynamic item) => Map<String, String>.from(item as Map)).toList(growable: false),
         repPreference: json['rep_preference'] as String? ?? 'balanced',
         weeklyFrequency: (json['weekly_frequency'] as num?)?.toInt() ?? 4,
         equipmentAccess:
@@ -2093,6 +2098,8 @@ class PlayerProfile {
       );
 
   final String repPreference;
+  final String gender;
+  final List<Map<String, String>>? weakPoints;
   final int weeklyFrequency;
   final String equipmentAccess;
   final String currentGoal;
@@ -2106,6 +2113,8 @@ class PlayerProfile {
   final List<InjuryRecord> injuries;
 
   PlayerProfile copyWith({double? weightKg, double? targetWeightKg}) => PlayerProfile(
+        gender: gender,
+        weakPoints: weakPoints,
         repPreference: repPreference,
         weeklyFrequency: weeklyFrequency,
         equipmentAccess: equipmentAccess,

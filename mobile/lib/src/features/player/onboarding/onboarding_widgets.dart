@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models.dart';
 import '../../../core/display_language/copy_context.dart';
+import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/onboarding_copy.dart';
 import '../../../core/theme/myos_spacing.dart';
 import '../../../core/theme/myos_theme.dart';
@@ -58,6 +59,12 @@ String displayAnswer(IntakeField field, {required OnboardingCopy copy}) {
     return activeCopy.notAnswered;
   }
   switch (field.type) {
+    case 'weak_points':
+      final MyosCopy labels = MyosCopy(copy.languageCode);
+      if (answer is! List) return copy.notAnswered;
+      if (answer.isEmpty) return copy.noWeakPoints;
+      return answer.map((dynamic item) => labels.weakPointMuscle(
+          (item as Map)['muscle'] as String? ?? '')).join(', ');
     case 'enum':
       final String value = answer.toString();
       return onboardingOptionLabel(field, value, copy: activeCopy);
@@ -96,6 +103,11 @@ bool isFieldAnswerValid(IntakeField field, Object? value) {
     return true;
   }
   switch (field.type) {
+    case 'weak_points':
+      return value is List && value.length <= 2 &&
+          value.every((dynamic item) => item is Map &&
+              field.allowedValues.contains(item['muscle']) &&
+              <String>['named', 'default'].contains(item['source']));
     case 'enum':
       return value is String && field.allowedValues.contains(value);
     case 'int':

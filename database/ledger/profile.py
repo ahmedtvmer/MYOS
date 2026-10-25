@@ -5,6 +5,7 @@ Extracted from DatabaseManager; behaviour is unchanged.
 
 from datetime import UTC, datetime
 import json
+from core.weak_points import validate_weak_points
 from typing import Any
 import uuid
 from core.deload_choices import DELOAD_CHOICES
@@ -363,7 +364,14 @@ class LedgerProfileMixin:
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM user_profile WHERE id = ?", (user_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        profile_row = dict(row)
+        raw_weak_points = profile_row.pop("weak_points_json", None)
+        profile_row["weak_points"] = (
+            json.loads(raw_weak_points) if raw_weak_points is not None else None
+        )
+        return profile_row
 
     def get_assistant_memory(self) -> dict[str, str]:
         cursor = self.conn.cursor()
@@ -393,6 +401,11 @@ class LedgerProfileMixin:
     def upsert_player_profile(self, profile_data: dict, user_id: int = 1) -> None:
         now = datetime.now(UTC).isoformat()
         cursor = self.conn.cursor()
+        weak_points_json = None
+        if "weak_points" in profile_data and profile_data["weak_points"] is not None:
+            weak_points_json = json.dumps(
+                validate_weak_points(profile_data["weak_points"]), separators=(",", ":")
+            )
         params = {
             "id": int(profile_data.get("id", user_id)),
             "gender": str(
@@ -462,6 +475,8 @@ class LedgerProfileMixin:
             ),
             "coach_tone": str(profile_data.get("coach_tone", DEFAULT_ASSISTANT_STYLE)),
             "custom_instructions": str(profile_data.get("custom_instructions", "")),
+            "weak_points_json": weak_points_json,
+            "weak_points_present": int("weak_points" in profile_data),
             "created_at": now,
             "updated_at": now,
         }
@@ -471,12 +486,12 @@ class LedgerProfileMixin:
                 id, gender, proportions, age, weight_kg, target_weight_kg, height_cm, rep_preference,
                 current_goal, long_term_goal, weekly_frequency, training_age_years,
                 equipment_access, injuries_or_limitations, stress_and_sleep, coach_tone,
-                custom_instructions, created_at, updated_at
+                custom_instructions, created_at, updated_at, weak_points_json
             ) VALUES (
                 :id, :gender, :proportions, :age, :weight_kg, :target_weight_kg, :height_cm, :rep_preference,
                 :current_goal, :long_term_goal, :weekly_frequency, :training_age_years,
                 :equipment_access, :injuries_or_limitations, :stress_and_sleep, :coach_tone,
-                :custom_instructions, :created_at, :updated_at
+                :custom_instructions, :created_at, :updated_at, :weak_points_json
             )
             ON CONFLICT(id) DO UPDATE SET
                 gender = excluded.gender, proportions = excluded.proportions, age = excluded.age,
@@ -488,7 +503,8 @@ class LedgerProfileMixin:
                 long_term_goal = excluded.long_term_goal, weekly_frequency = excluded.weekly_frequency,
                 training_age_years = excluded.training_age_years, equipment_access = excluded.equipment_access,
                 injuries_or_limitations = excluded.injuries_or_limitations, stress_and_sleep = excluded.stress_and_sleep,
-                updated_at = excluded.updated_at
+                updated_at = excluded.updated_at,
+                weak_points_json = CASE WHEN :weak_points_json IS NOT NULL OR :weak_points_present = 1 THEN excluded.weak_points_json ELSE user_profile.weak_points_json END
         """,
             params,
         )

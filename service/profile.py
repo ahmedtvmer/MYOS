@@ -47,6 +47,7 @@ PROFILE_ANSWER_FIELDS = frozenset(
         "equipment_access",
         "injuries_or_limitations",
         "stress_and_sleep",
+        "weak_points",
     }
 )
 

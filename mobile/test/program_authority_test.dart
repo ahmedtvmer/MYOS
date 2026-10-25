@@ -109,6 +109,40 @@ Future<void> _openSettings(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('female profile Weak points default is removable and editable', (tester) async {
+    final FakeMyosApi fake = _playerFake()..gender = 'female';
+    await _pumpApp(tester, fake);
+    await _openProfile(tester);
+    final Finder scrollable = find.descendant(
+      of: find.byType(ProfileScreen), matching: find.byType(Scrollable));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile_weak_points_section')), 250,
+      scrollable: scrollable.first);
+    await tester.tap(find.byKey(const Key('profile_weak_points_section')));
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile_weak_point_chest')), 150,
+      scrollable: scrollable.first);
+    await tester.ensureVisible(find.byKey(const Key('profile_weak_point_chest')));
+    await tester.pumpAndSettle();
+    final FilterChip glutes = tester.widget<FilterChip>(
+      find.byKey(const Key('profile_weak_point_glutes')),
+    );
+    expect(glutes.selected, isTrue);
+    await tester.tap(find.byKey(const Key('profile_weak_point_chest')));
+    await tester.pump();
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('profile_weak_point_glutes'),
+    )).selected, isFalse);
+    await tester.ensureVisible(find.byKey(const Key('save_weak_points_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save_weak_points_button')));
+    await tester.pumpAndSettle();
+    expect(fake.weakPoints, <Map<String, String>>[
+      <String, String>{'muscle': 'chest', 'source': 'named'},
+    ]);
+  });
+
   testWidgets('blocked profile update shows the coach message, not a rebuild',
       (tester) async {
     final FakeMyosApi fake = _playerFake();
@@ -850,6 +884,8 @@ void main() {
       ),
     );
 
+    await _pumpUntilFound(tester, find.byKey(const Key('onboarding_continue')));
+    await tester.tap(find.byKey(const Key('onboarding_continue')));
     await _pumpUntilFound(tester, find.text('Create my program'));
     await tester.tap(find.text('Create my program'));
     await _pumpUntilFound(tester, find.text('HOME'));
