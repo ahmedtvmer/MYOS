@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from agent.program_rationale import CHANGE_COACH_EDIT
 from agent.ProgramState import (
     MAX_PROGRAM_LOAD_KG,
     MAX_PROGRAM_LOAD_PCT_E1RM,
@@ -200,6 +201,9 @@ def replace_program_draft(
         return None
     ledger, _ = authorized
     with ledger:
+        existing_record = ledger.get_program_draft(assignment_id)
+        if existing_record is not None:
+            draft = _carry_generated_rationale_through_edit(existing_record["draft"], draft)
         if preserve_source_template:
             replaced = ledger.replace_program_draft(assignment_id, draft)
         else:
@@ -218,6 +222,57 @@ def ensure_generated_program_draft_available(
     """Reject an unconfirmed replacement before starting generation."""
     if not replace_existing and ledger.get_program_draft(assignment_id) is not None:
         raise ProgramDraftAlreadyExists("A Program draft already exists for this assignment.")
+
+
+def _carry_generated_rationale_through_edit(
+    previous_draft: dict[str, Any], updated_draft: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep generated rationale and mark every changed exercise at draft save."""
+    from copy import deepcopy
+    from datetime import datetime, timezone
+
+    rationale = deepcopy(previous_draft.get("program_rationale"))
+    if not rationale:
+        return updated_draft
+    updated_draft = dict(updated_draft)
+    updated_draft["program_rationale"] = rationale
+    old_days = {int(day.get("day_order", 0)): day for day in normalize_program_weeks(previous_draft)[0]["days"]}
+    records_by_day = {int(day.get("day_order", 0)): day for day in rationale.get("days", [])}
+    timestamp = datetime.now(timezone.utc).isoformat()
+    for new_day in normalize_program_weeks(updated_draft)[0]["days"]:
+        day_order = int(new_day.get("day_order", 0))
+        old_day = old_days.get(day_order, {"exercises": []})
+        rationale_day = records_by_day.get(day_order)
+        if rationale_day is None:
+            continue
+        old_exercises = old_day.get("exercises", [])
+        new_exercises = new_day.get("exercises", [])
+        old_by_id = {str(ex.get("exercise_id")): ex for ex in old_exercises}
+        rationale_by_id = {str(ex.get("exercise_id")): ex for ex in rationale_day.get("exercises", [])}
+        changed_records = []
+        for position, exercise in enumerate(new_exercises, start=1):
+            exercise_id = str(exercise.get("exercise_id", ""))
+            old_exercise = old_by_id.get(exercise_id)
+            changed = old_exercise is None or _draft_exercise_signature(old_exercise) != _draft_exercise_signature(exercise)
+            record = deepcopy(rationale_by_id.get(exercise_id, {
+                "exercise_id": exercise_id, "position": position, "rationale": {},
+            }))
+            record["position"] = position
+            if changed and not any(change.get("code") == CHANGE_COACH_EDIT for change in record.get("changes", [])):
+                record.setdefault("changes", []).append({"code": CHANGE_COACH_EDIT, "params": {}, "at": timestamp})
+            changed_records.append(record)
+        removed = set(old_by_id) - {str(ex.get("exercise_id")) for ex in new_exercises}
+        if removed:
+            rationale_day["removed"] = rationale_day.get("removed", []) + [
+                {"exercise_id": exercise_id, "code": CHANGE_COACH_EDIT, "at": timestamp}
+                for exercise_id in sorted(removed)
+            ]
+        rationale_day["exercises"] = changed_records
+    return updated_draft
+
+
+def _draft_exercise_signature(exercise: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in exercise.items() if key != "rationale"}
 
 
 def create_generated_program_draft(ledger: Any, assignment_id: str, draft: dict[str, Any]) -> Any:
@@ -352,7 +407,7 @@ def active_program_as_draft(program: PersistedProgramSchema) -> dict[str, Any]:
     from svc.schemas import CoachProgramDraftIn
 
     try:
-        return CoachProgramDraftIn.model_validate(
+        draft = CoachProgramDraftIn.model_validate(
             program.model_dump(
                 exclude={
                     "version",
@@ -364,6 +419,9 @@ def active_program_as_draft(program: PersistedProgramSchema) -> dict[str, Any]:
                 }
             )
         ).model_dump()
+        if program.program_rationale is None:
+            draft.pop("program_rationale", None)
+        return draft
     except ValidationError as error:
         raise ProgramDraftValidationError(
             [_pydantic_issue(issue) for issue in error.errors()]
@@ -430,13 +488,74 @@ def _published_program(
     }
     if issues:
         raise ProgramDraftValidationError(issues)
+    rationale = program.get("program_rationale")
+    if rationale:
+        _record_coach_program_edits(program, rationale)
     return _validate_published_program(program)
+
+
+def _record_coach_program_edits(program: dict[str, Any], rationale: dict[str, Any]) -> None:
+    """Keep generated reasons on untouched draft exercises and mark coach edits."""
+    from datetime import datetime, timezone
+
+    rationale_days = {int(day.get("day_order", 0)): day for day in rationale.get("days", [])}
+    timestamp = datetime.now(timezone.utc).isoformat()
+    for day in program.get("days", []):
+        day_reason = rationale_days.get(int(day.get("day_order", 0)))
+        if day_reason is None:
+            continue
+        old_records = {str(item.get("exercise_id")): item for item in day_reason.get("exercises", [])}
+        updated = []
+        new_ids = []
+        for position, exercise in enumerate(day.get("exercises", []), start=1):
+            exercise_id = str(exercise.get("exercise_id", ""))
+            new_ids.append(exercise_id)
+            record = old_records.get(exercise_id)
+            if record is None:
+                record = {"exercise_id": exercise_id, "position": position, "rationale": {}}
+                changed = True
+            else:
+                record = {**record, "position": position}
+                original_position = int(old_records[exercise_id].get("position", position))
+                generated_reasons = record.get("rationale") or {}
+                prescription = generated_reasons.get("prescription") or {}
+                original_sets = (prescription.get("sets") or {}).get("params", {}).get("count")
+                original_reps = (prescription.get("reps") or {}).get("params", {})
+                original_rir = (prescription.get("rir") or {}).get("params", {}).get("target_rir")
+                original_rest = (prescription.get("rest") or {}).get("params", {}).get("rest_seconds")
+                original_id = ((generated_reasons.get("selection") or {}).get("params") or {}).get("exercise_id")
+                changed = (
+                    original_position != position
+                    or (original_sets is not None and int(original_sets) != int(exercise.get("target_sets", 0)))
+                    or (original_reps and (int(original_reps.get("rep_min", -1)) != int(exercise.get("target_reps_min", -2))
+                        or int(original_reps.get("rep_max", -1)) != int(exercise.get("target_reps_max", -2))))
+                    or (original_rir is not None and float(original_rir) != float(exercise.get("target_rir", -1)))
+                    or (original_rest is not None and int(original_rest) != int(exercise.get("rest_seconds", -1)))
+                    or (original_id is not None and str(original_id) != exercise_id)
+                )
+            if changed:
+                changes = record.setdefault("changes", [])
+                if not any(change.get("code") == CHANGE_COACH_EDIT for change in changes):
+                    changes.append({"code": CHANGE_COACH_EDIT, "params": {}, "at": timestamp})
+            updated.append(record)
+        removed = [exercise_id for exercise_id in old_records if exercise_id not in new_ids]
+        if removed:
+            day_reason["removed"] = day_reason.get("removed", []) + [
+                {"exercise_id": exercise_id, "code": CHANGE_COACH_EDIT, "at": timestamp}
+                for exercise_id in removed
+            ]
+        day_reason["exercises"] = updated
 
 
 def normalize_program_draft(draft: dict[str, Any]) -> dict[str, Any]:
     """Normalizes a Program draft to the stored multiweek shape (weeks + flat days)."""
     weeks = normalize_program_weeks(draft)
-    return {
+    for week in weeks:
+        for day in week["days"]:
+            for exercise in day.get("exercises", []):
+                if exercise.get("rationale") is None:
+                    exercise.pop("rationale", None)
+    normalized = {
         **draft,
         "weekly_frequency": (
             draft.get("weekly_frequency", 1)
@@ -446,6 +565,9 @@ def normalize_program_draft(draft: dict[str, Any]) -> dict[str, Any]:
         "days": flatten_program_days(weeks),
         "weeks": weeks,
     }
+    if normalized.get("program_rationale") is None:
+        normalized.pop("program_rationale", None)
+    return normalized
 
 
 def validate_publishable_program(
@@ -769,6 +891,7 @@ def validate_generated_program_draft(
                 "split_type": generated["split_type"],
                 "weekly_frequency": generated["weekly_frequency"],
                 "instructions": "",
+                "program_rationale": generated.get("program_rationale"),
                 "days": days,
             }
         ).model_dump()

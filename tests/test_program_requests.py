@@ -338,6 +338,33 @@ def test_apply_request_targets_exact_week_and_day_in_two_week_program(api, monke
     assert active.weeks[1].days[0].exercises[0].exercise_id == "ohp"
 
 
+def test_coach_applied_substitution_records_coach_and_keeps_untouched_reason(api, monkeypatch):
+    client, db, _ = api
+    coach_headers, player_headers, assignment_id, coach_account_id, _ = _assigned_player(api)
+    _coach_generation(db, monkeypatch)
+    assert _publish(client, coach_headers, assignment_id).status_code == 200
+    db.switch_user("p1")
+    active = db.ledger.get_active_program()
+    data = active.model_dump()
+    data["program_rationale"] = {"split": {"code": "split.coach_pick", "params": {}},
+        "day_order": {"code": "day_order.template", "params": {}}, "days": [{"day_order": 1, "exercises": [
+            {"position": index + 1, "exercise_id": exercise["exercise_id"], "rationale": {"selection": {"code": f"selection.keep_{exercise['exercise_id']}"}}}
+            for index, exercise in enumerate(data["days"][0]["exercises"])
+        ]}]}
+    db.ledger.save_training_program(data, published_by_coach_account_id=coach_account_id)
+    created = _create(client, player_headers, **_substitution())
+    assert created.status_code == 200, created.text
+    applied = client.post(f"/coach/assignments/{assignment_id}/program-requests/{created.json()['request_id']}/apply", headers=coach_headers)
+    assert applied.status_code == 200, applied.text
+    db.switch_user("p1")
+    rationale = db.ledger.get_active_program().program_rationale["days"][0]["exercises"]
+    by_id = {row["exercise_id"]: row for row in rationale}
+    assert by_id["ohp"]["changes"][0]["code"] == "change.substitution"
+    assert by_id["ohp"]["changes"][0]["params"]["by"] == "coach"
+    assert by_id["bp"]["rationale"]["selection"]["code"] == "selection.keep_bp"
+    assert by_id["bp"].get("changes", []) == []
+
+
 def test_program_request_generation_runs_metered_at_coach_resource_cutoff(
     api, monkeypatch
 ):

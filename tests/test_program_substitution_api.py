@@ -162,6 +162,35 @@ def test_substitution_changes_only_named_slot_and_keeps_old_version(api):
     assert db.ledger.get_program_by_version(1).days[0].exercises[0].exercise_id == "sq"
 
 
+def test_substitution_records_change_and_keeps_untouched_rationale(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    active = db.ledger.get_active_program().model_dump()
+    active["program_rationale"] = {
+        "split": {"code": "split.frequency_default", "params": {}},
+        "day_order": {"code": "day_order.template", "params": {}},
+        "days": [{"day_order": day["day_order"], "exercises": [
+            {"position": index + 1, "exercise_id": ex["exercise_id"], "rationale": {"selection": {"code": "selection.staple"}}
+             } for index, ex in enumerate(day["exercises"])
+        ]} for day in active["days"]],
+    }
+    db.ledger.save_training_program(active)
+    response = client.post("/programs/active/substitutions", headers=headers,
+        json={"day_name": "Full A", "exercise_id": "sq", "replacement_exercise_id": "ohp"})
+    assert response.status_code == 200, response.text
+    rationale = db.ledger.get_active_program().program_rationale
+    changed = rationale["days"][0]["exercises"][0]
+    assert changed["exercise_id"] == "ohp"
+    assert changed["rationale"]["selection"]["code"] == "selection.staple"
+    assert changed["changes"][0]["code"] == "change.substitution"
+    assert changed["changes"][0]["params"] == {
+        "from_exercise_id": "sq", "to_exercise_id": "ohp", "by": "player"
+    }
+    untouched = rationale["days"][0]["exercises"][1]
+    assert untouched["rationale"]["selection"]["code"] == "selection.staple"
+    assert untouched.get("changes", []) == []
+
+
 def test_all_occurrences_undo_restores_exact_snapshot_with_existing_replacement(api):
     client, db = api
     registered = _register(client, "player")

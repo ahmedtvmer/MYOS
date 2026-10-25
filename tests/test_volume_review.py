@@ -12,7 +12,7 @@ from service.volume_review import accept_review, dismiss_review, evaluate_review
 from service.workouts import commit_session
 
 
-def _seed_review(fresh_store, trend: str, *, weekly_frequency: int = 1):
+def _seed_review(fresh_store, trend: str, *, weekly_frequency: int = 1, with_rationale: bool = False):
     db = fresh_store
     ledger = db.ledger
     muscle_row = db.catalog_conn.execute(
@@ -32,13 +32,25 @@ def _seed_review(fresh_store, trend: str, *, weekly_frequency: int = 1):
         target_reps_min=8,
         target_reps_max=12,
     )
-    day = PersistedProgramDaySchema(day_name="Full A", day_order=1, exercises=[exercise])
+    exercises = [exercise]
+    if with_rationale:
+        second_row = db.catalog_conn.execute(
+            "SELECT e.id, e.name FROM exercise_curated_fields f JOIN exercises e ON e.id=f.exercise_id "
+            "WHERE f.primary_muscle IS NOT NULL AND f.primary_muscle != ? ORDER BY e.id LIMIT 1", (muscle,)
+        ).fetchone()
+        exercises.append(PersistedProgramExerciseSchema(exercise_id=str(second_row[0]), exercise_name=str(second_row[1]), target_sets=2, target_reps_min=8, target_reps_max=12))
+    day = PersistedProgramDaySchema(day_name="Full A", day_order=1, exercises=exercises)
     program = PersistedProgramSchema(
         program_name="Review test",
         split_type="Full Body",
         weekly_frequency=weekly_frequency,
         days=[day],
         created_at=started.isoformat(),
+        program_rationale={"split": {"code": "split.frequency_default", "params": {}},
+            "day_order": {"code": "day_order.template", "params": {}}, "days": [{"day_order": 1, "exercises": [
+                {"position": index + 1, "exercise_id": str(item.exercise_id), "rationale": {"selection": {"code": f"selection.generator_{index}"}}}
+                for index, item in enumerate(exercises)
+            ]}]} if with_rationale else None,
     )
     ledger.save_training_program(program.model_dump())
     active = ledger.get_active_program()
@@ -527,6 +539,24 @@ def test_accept_creates_a_new_version_and_resets_the_window(fresh_store):
     after_change = review_facts(ledger, updated, profile, today + timedelta(days=14))
     assert after_change["eligible"] is False
     assert after_change["next_eligible_date"] == (today + timedelta(days=21)).isoformat()
+
+
+def test_accepted_review_records_set_change_and_preserves_other_reasons(fresh_store):
+    ledger, program, profile, today, _ = _seed_review(fresh_store, "stalled", with_rationale=True)
+    program.created_at = (today - timedelta(weeks=5)).isoformat()
+    review = evaluate_review(ledger, program, profile, today)
+    assert review is not None
+    edit = next(edit for muscle in review["muscles"] for edit in muscle["edits"] if "exercise_id" in edit)
+    before = next(ex for day in program.days for ex in day.exercises if ex.exercise_id == edit["exercise_id"]).target_sets
+    accept_review(fresh_store, ledger, "player-one", review["review_id"])
+    record = ledger.get_active_program().program_rationale["days"][0]["exercises"][0]
+    assert record["rationale"]["selection"]["code"] == "selection.generator_0"
+    assert record["changes"][0]["code"] == "change.volume_review"
+    assert record["changes"][0]["params"] == {"from_sets": before, "to_sets": edit["target_sets"], "review_id": review["review_id"]}
+    untouched_id = str(program.days[0].exercises[1].exercise_id)
+    untouched = next(item for item in ledger.get_active_program().program_rationale["days"][0]["exercises"] if item["exercise_id"] == untouched_id)
+    assert untouched["rationale"]["selection"]["code"] == "selection.generator_1"
+    assert untouched.get("changes", []) == []
 
 
 def test_dismiss_records_choice(fresh_store):

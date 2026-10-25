@@ -11,7 +11,10 @@ cardio.fat_loss_finisher, cardio.coach_option; day_order.full_body_distributed,
 day_order.full_body_glute_priority,
 day_order.upper_lower_alternating, day_order.female_upper_lower, day_order.arnold,
 day_order.arnold_x_ul, day_order.anterior_posterior, day_order.ppl,
-day_order.ppl_x_ul_spaces_leg_days. Parameters are stable JSON values; message
+day_order.ppl_x_ul_spaces_leg_days. Change codes: change.substitution,
+change.program_edit_removed, change.program_edit_trimmed,
+change.program_edit_reordered, change.volume_review, change.coach_edit.
+Parameters are stable JSON values; message
 text belongs to the reading assistant.
 """
 
@@ -54,6 +57,14 @@ REST_MOVEMENT_CLASS = "rest.movement_class"
 WARMUP_TEMPLATE = "warmup.template"
 CARDIO_FAT_LOSS_FINISHER = "cardio.fat_loss_finisher"
 CARDIO_COACH_OPTION = "cardio.coach_option"
+
+# Later Program changes (#494)
+CHANGE_SUBSTITUTION = "change.substitution"
+CHANGE_PROGRAM_EDIT_REMOVED = "change.program_edit_removed"
+CHANGE_PROGRAM_EDIT_TRIMMED = "change.program_edit_trimmed"
+CHANGE_PROGRAM_EDIT_REORDERED = "change.program_edit_reordered"
+CHANGE_VOLUME_REVIEW = "change.volume_review"
+CHANGE_COACH_EDIT = "change.coach_edit"
 
 
 @dataclass(frozen=True)

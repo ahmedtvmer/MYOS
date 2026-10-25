@@ -5,6 +5,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from agent.program_rationale import CHANGE_VOLUME_REVIEW
 from agent.progression_engine import set_e1rm
 from agent.ProgramState import program_exercise_working_sets
 from agent.program_blueprints import SLOT_STAPLES, experience_level_for_training_age
@@ -338,6 +339,28 @@ def _decide_review(db: Any, ledger: Any, account_id: str, review_id: str, status
             program_data["days"] = flatten_program_days(weeks)
             _apply_edits(program_data, payload)
             program_data["days"] = flatten_program_days(program_data["weeks"])
+            from service.program_rationale_changes import record_exercise_changes
+            volume_changes = {}
+            for muscle in payload:
+                for edit in muscle["edits"]:
+                    if "add_exercise" in edit:
+                        added = edit["add_exercise"]
+                        volume_changes[str(added["exercise_id"])] = [{"code": CHANGE_VOLUME_REVIEW, "params": {
+                            "from_sets": 0, "to_sets": int(added.get("target_sets", 0)), "review_id": review_id,
+                        }}]
+                        continue
+                    if "exercise_id" not in edit:
+                        continue
+                    exercise_id = str(edit["exercise_id"])
+                    old_ex = next((ex for day in normalize_program_weeks(current)[0]["days"]
+                                   for ex in day["exercises"] if str(ex["exercise_id"]) == exercise_id), None)
+                    if old_ex is not None:
+                        before = int(old_ex.get("target_sets", 0))
+                        after = int(edit["target_sets"])
+                        volume_changes[exercise_id] = [{"code": CHANGE_VOLUME_REVIEW, "params": {
+                            "from_sets": before, "to_sets": after, "review_id": review_id,
+                        }}]
+            record_exercise_changes(current, program_data, volume_changes)
             program_data.pop("created_at", None)
             ledger.save_training_program(program_data, published_by_coach_account_id=None, starting_position=ledger.get_program_position(current))
         ledger.set_volume_review_status(review_id, status, datetime.now().isoformat())
