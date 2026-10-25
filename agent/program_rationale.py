@@ -16,6 +16,8 @@ change.program_edit_removed, change.program_edit_trimmed,
 change.program_edit_reordered, change.volume_review, change.coach_edit.
 Parameters are stable JSON values; message
 text belongs to the reading assistant.
+selection.focus_muscle_extra, position.focus_first, sets.focus_multiplier,
+focus.unavailable are the Focus muscle codes (#492).
 """
 
 from dataclasses import dataclass
@@ -65,6 +67,12 @@ CHANGE_PROGRAM_EDIT_TRIMMED = "change.program_edit_trimmed"
 CHANGE_PROGRAM_EDIT_REORDERED = "change.program_edit_reordered"
 CHANGE_VOLUME_REVIEW = "change.volume_review"
 CHANGE_COACH_EDIT = "change.coach_edit"
+
+# Focus muscle rationale codes (#492).
+SELECTION_FOCUS_MUSCLE_EXTRA = "selection.focus_muscle_extra"
+POSITION_FOCUS_FIRST = "position.focus_first"
+SETS_FOCUS_MULTIPLIER = "sets.focus_multiplier"
+FOCUS_UNAVAILABLE = "focus.unavailable"
 
 
 @dataclass(frozen=True)
