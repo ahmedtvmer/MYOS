@@ -1758,7 +1758,7 @@ def test_v42_lazy_migration_creates_water_log_from_real_v42_schema(temp_db_env):
     assert get_ledger_schema_version(conn) == 42
     assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is None
 
-    apply_lazy_migrations(conn, "water-v42", ledgers_dir, backups_dir)
+    apply_lazy_migrations(conn, "water-v42", ledgers_dir, backups_dir, target_version=43)
 
-    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 43
+    assert get_ledger_schema_version(conn) == 43
     assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is not None
