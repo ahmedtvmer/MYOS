@@ -147,7 +147,7 @@ def test_coach_generation_can_build_a_draft_without_writing_program_or_profile(m
             ],
         )
 
-    monkeypatch.setattr(program_generator, "_assemble_deterministic_day_with_rationale", lambda **kwargs: (build_day(kwargs["day"], None, None), []))
+    monkeypatch.setattr(program_generator, "assemble_program_day", lambda day, *_args, **_kwargs: (build_day(day), []))
 
     generated, _ = program_generator.generate_program_draft_pipeline(
         program_generator.ProgramGenerationRequest(
