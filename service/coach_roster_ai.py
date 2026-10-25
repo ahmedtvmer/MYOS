@@ -84,6 +84,7 @@ _SIGNAL_FIELDS = (
     "effort_rising_same_load_main_lift",
     "days_since_last_check_in",
     "bodyweight_trend",
+    "nutrition_adherence_7d",
     "coaching_subscription_end",
 )
 _URGENCY_INPUT_FIELDS = (

@@ -8,7 +8,8 @@
     "PRIVATE_ROSTER_ASSIGNMENT_ID_8c20",
     "PRIVATE_ROSTER_NOTE_1b7d",
     "PRIVATE_ROSTER_REQUEST_REASON_390a",
-    "PRIVATE_ROSTER_PLAYER_CHAT_7f3a"
+    "PRIVATE_ROSTER_PLAYER_CHAT_7f3a",
+    "PRIVATE_ROSTER_SCREENING_469"
   ],
   "snapshots": {
     "attention": {
@@ -234,6 +235,9 @@
             "on_target": 2,
             "roughly": 3,
             "off": 2
+          },
+          "health_screening_answers": {
+            "pregnant_or_breastfeeding": "PRIVATE_ROSTER_SCREENING_469"
           }
         }
       ]

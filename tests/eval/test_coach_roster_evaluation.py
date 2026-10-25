@@ -74,6 +74,11 @@ def test_dataset_covers_required_topics_in_english_and_arabic(dataset):
 def test_scripted_production_prompts_and_rubric_pass_offline(dataset, results):
     assert len(results) == len(dataset["cases"])
     assert all(result["passed"] for result in results)
+    nutrition_result = next(
+        result for result in results if result["case_id"] == "nutrition_adherence_en"
+    )
+    assert '"nutrition_adherence_7d": {"off": 2, "on_target": 2, "roughly": 3}' in nutrition_result["context"]
+    assert "PRIVATE_ROSTER_SCREENING_469" not in nutrition_result["context"]
     assert all(
         set(result["checks"])
         == {
@@ -89,21 +94,21 @@ def test_scripted_production_prompts_and_rubric_pass_offline(dataset, results):
 
 
 def test_model_payload_is_only_snapshot_question_and_history(dataset, results):
+    cases_by_id = {case["id"]: case for case in runner._cases_for_run(dataset)}
     for case, result in zip(dataset["cases"], results):
-        snapshot = dataset["snapshots"][case["snapshot"]]
-        messages = coach_roster_ai.build_messages(
-            snapshot, case["question"], case.get("history") or []
+        prepared_snapshot, messages = runner._production_prepared_case(
+            cases_by_id[case["id"]]
         )
         prompt = "\n".join(message.content for message in messages)
         assert "[ROSTER SIGNAL SNAPSHOT]" in prompt
-        assert json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")) in prompt
+        assert json.dumps(prepared_snapshot, ensure_ascii=False, separators=(",", ":")) in prompt
         assert case["question"] in prompt
         for turn in case.get("history") or []:
             assert turn["content"] in prompt
         for identifier in dataset["privacy_seeds"]:
             assert identifier not in prompt
         assert result["context"] == json.dumps(
-            snapshot, ensure_ascii=False, sort_keys=True
+            prepared_snapshot, ensure_ascii=False, sort_keys=True
         )
 
 

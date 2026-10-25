@@ -435,6 +435,30 @@ void main() {
     expect(find.text(disclosure), findsNothing);
   });
 
+  testWidgets('version 1 disclosure with an acknowledgement timestamp is renewed',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake(coach: false)
+      ..activeAssignmentId = 'assignment-1'
+      ..activeCoachDisplayName = 'Coach Bob'
+      ..rosterAiDisclosureVersion = '1';
+    await _pumpApp(tester, fake);
+
+    final String disclosure = const AssignmentCopy('en').rosterAiDisclosure;
+    await _pumpUntilFound(tester, find.text(disclosure));
+    expect(fake.rosterAiDisclosureRequests, 0);
+    expect(fake.rosterAiDisclosureVersion, '1');
+
+    await tester.tap(find.text('OK'));
+    for (int attempt = 0;
+        attempt < 40 && fake.rosterAiDisclosureRequests == 0;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(fake.rosterAiDisclosureRequests, 1);
+    expect(fake.rosterAiDisclosureVersion, '2');
+  });
+
   testWidgets('legacy assignment notice shows ack failure and retries',
       (tester) async {
     final FakeMyosApi fake = _signedInFake(coach: false)

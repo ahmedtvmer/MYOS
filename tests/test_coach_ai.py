@@ -26,6 +26,7 @@ from database.database_manager import DatabaseManager
 from database.registry.coach_exercises import CoachExerciseCreate
 from service import coach as coach_service
 from service import coach_ai
+from service import nutrition as nutrition_service
 from service import weight_history
 from svc.app import create_app
 from svc.dependencies import get_db
@@ -139,7 +140,7 @@ def _account_id(db, username):
 
 def test_prompt_version_hash_is_bound_to_name_aware_context():
     assert coach_ai.prompt_version_hash() == (
-        "8084ec3d361328bd8fdf239b01597abc8416d8a6b8656bec21384fb105daf439"
+        "57684bd79a368589f1e8b92ce287f07649320e2b87f8afe4b0efa0c307291886"
     )
 
 
@@ -180,27 +181,97 @@ def test_render_context_includes_coach_visible_nutrition_facts_and_pending_propo
     assert 'pending_pace_proposal: {"suggested_calories": 2100}' in rendered
 
 
-def test_gathered_coach_context_drops_screening_answers(api, monkeypatch):
+def _seed_coach_visible_nutrition(ledger, assignment_id):
+    profile = ledger.get_player_profile() or {}
+    profile.update({
+        "age": 35, "height_cm": 180, "weight_kg": 80,
+        "target_weight_kg": None, "weekly_frequency": 4,
+        "current_goal": "get stronger",
+    })
+    ledger.upsert_player_profile(profile)
+    ledger.append_training_schedule(
+        ledger.ledger_id, [1], "Africa/Cairo", "2026-01-01", "2026-01-01T00:00:00+00:00"
+    )
+    nutrition_service.setup(ledger, {
+        "sex": "male", "daily_activity": "mostly_sitting",
+        "screening": {
+            "pregnant_or_breastfeeding": False,
+            "medical_condition": False,
+            "eating_disorder": False,
+        },
+    })
+
+
+def test_gathered_coach_context_uses_player_local_nutrition_state_and_real_proposal(api):
     _client, db, _ledger_dir = api
     _coach_headers, _player_headers, assignment_id = _assigned_player(api)
-    monkeypatch.setattr(coach_ai.nutrition_service, "coach_read", lambda *args, **kwargs: {
-        "state": "ready",
-        "targets": {"calories": 2000, "protein_g": 150, "carbs_g": 220, "fat_g": 65},
-        "author": "Player", "goal": "maintain", "intensity": None,
-        "adherence_days": [{"value": "on_target"}, {"value": "off"}],
-        "pace_proposal": {"suggested_calories": 2050},
-        "screening": {"medical_condition": "PRIVATE_SCREENING_469"},
-    })
-    facts = coach_ai.gather_player_context(db, _account_id(db, "coach"), assignment_id)
-    rendered = coach_ai.render_context(facts)
+    account = db.get_active_account_by_username("p1")
+    instant = datetime(2026, 10, 25, 22, 30, tzinfo=UTC)
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        _seed_coach_visible_nutrition(ledger, assignment_id)
+        nutrition_service.save_coach_targets(ledger, {
+            "goal": "maintain", "confirm_takeover": True,
+            "training_day_targets": {
+                "calories": 2400, "protein_g": 190, "carbs_g": 240, "fat_g": 80,
+            },
+            "rest_day_targets": {
+                "calories": 2100, "protein_g": 170, "carbs_g": 180, "fat_g": 80,
+            },
+        }, assignment_id, today=date(2026, 10, 26))
+        ledger.upsert_nutrition_adherence("2026-10-12", "on_target")
+        ledger.upsert_nutrition_adherence("2026-10-13", "roughly")
+        ledger.upsert_nutrition_adherence("2026-10-26", "off")
+        plan = ledger.get_active_nutrition_plan()
+        proposal_id = ledger.create_nutrition_pace_proposal(
+            plan["id"], {"suggested_calories": 2250}, "2026-10-26T00:00:00+00:00"
+        )
 
-    assert "PRIVATE_SCREENING_469" not in repr(facts)
+    facts = coach_ai.gather_player_context(
+        db, _account_id(db, "coach"), assignment_id, now=instant
+    )
+    model_payload = coach_ai.build_messages(
+        coach_ai.render_context(facts), "How are the Nutrition targets going?", []
+    )[0].content
+
+    assert facts["as_of"] == "2026-10-26"
+    assert facts["nutrition"]["targets"]["calories"] == 2400
+    assert facts["nutrition"]["target_options"]["training_day"]["calories"] == 2400
+    assert facts["nutrition"]["target_options"]["rest_day"]["calories"] == 2100
+    assert facts["nutrition"]["planned_weekly_rate_pct"] < 0
+    assert facts["nutrition"]["adherence_counts"] == {"on_target": 0, "roughly": 1, "off": 1}
+    assert facts["nutrition"]["pace_proposal"]["id"] == proposal_id
+    assert "planned_weekly_rate_pct:" in model_payload
+    assert "training_day_target_options: calories 2400" in model_payload
+    assert "rest_day_target_options: calories 2100" in model_payload
+    assert "pending_pace_proposal:" in model_payload
+    assert f'"id": {proposal_id}' in model_payload
+
+
+def test_gathered_coach_model_payload_excludes_persisted_screening_answers(api):
+    _client, db, _ledger_dir = api
+    _coach_headers, _player_headers, assignment_id = _assigned_player(api)
+    account = db.get_active_account_by_username("p1")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        profile = ledger.get_player_profile() or {}
+        profile.update({"age": 35, "height_cm": 180, "weight_kg": 80})
+        ledger.upsert_player_profile(profile)
+        nutrition_service.setup(ledger, {
+            "sex": "male", "daily_activity": "mostly_sitting",
+            "screening": {
+                "pregnant_or_breastfeeding": True,
+                "medical_condition": False,
+                "eating_disorder": False,
+            },
+        })
+    facts = coach_ai.gather_player_context(db, _account_id(db, "coach"), assignment_id)
+    model_payload = coach_ai.build_messages(
+        coach_ai.render_context(facts), "What should I know?", []
+    )[0].content
+
     assert "screening" not in facts["nutrition"]
-    assert facts["nutrition"]["adherence_counts"] == {"on_target": 1, "roughly": 0, "off": 1}
-    assert "calories 2000" in rendered
-    assert "adherence_14d: on_target 1, roughly 0, off 1" in rendered
-    assert "pending_pace_proposal" in rendered
-    assert "PRIVATE_SCREENING_469" not in rendered
+    assert "pregnant_or_breastfeeding" not in model_payload
+    assert "medical_condition" not in model_payload
+    assert "eating_disorder" not in model_payload
 
 
 def _make_coach(client, db, username="coach", capacity=5):

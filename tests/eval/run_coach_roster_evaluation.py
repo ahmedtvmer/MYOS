@@ -110,6 +110,30 @@ def _prompt_text(messages: list[Any]) -> str:
     )
 
 
+def _production_prepared_case(case: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    snapshot = case["_snapshot"]
+    source_players = []
+    for signal in snapshot.get("players", []):
+        alias = str(signal["player_id"])
+        source_players.append({
+            **signal,
+            "player_id": alias.removeprefix(roster_ai.PLAYER_ALIAS_PREFIX).ljust(32, "0"),
+        })
+    prepared = roster_ai.prepare_roster_question(
+        {
+            "snapshot": {**snapshot, "players": source_players},
+            "client_mapping": [],
+            "excluded_for_missing_disclosure": 0,
+        },
+        str(case["question"]),
+        list(case.get("history") or []),
+    )
+    content = str(prepared.messages[0].content)
+    marker = "[ROSTER SIGNAL SNAPSHOT]\n"
+    filtered_snapshot = json.loads(content.split(marker, 1)[1])
+    return filtered_snapshot, prepared.messages
+
+
 def _evaluate_case(
     case: dict[str, Any],
     snapshot: dict[str, Any],
@@ -222,12 +246,7 @@ def run_suite(
         model = get_coach_llm()
     results = []
     for case in cases:
-        snapshot = case["_snapshot"]
-        messages = roster_ai.build_messages(
-            snapshot,
-            str(case["question"]),
-            list(case.get("history") or []),
-        )
+        snapshot, messages = _production_prepared_case(case)
         answer = extract_answer(model.invoke(messages))
         results.append(
             _evaluate_case(

@@ -30,6 +30,21 @@ def _signal(player_id, rank):
     }
 
 
+def test_production_roster_prompt_keeps_nutrition_adherence_after_signal_filter():
+    response = coach_roster_ai.prepare_roster_question({
+        "snapshot": {
+            "as_of": "2026-10-26", "stall_threshold_weeks": 3,
+            "players": [{
+                **_signal("aaaaaaaaaaaa11111111111111111111", 1),
+                "nutrition_adherence_7d": {"on_target": 4, "roughly": 2, "off": 1},
+            }],
+        },
+        "client_mapping": [], "excluded_for_missing_disclosure": 0,
+    }, "Who is off Nutrition targets?", [])
+
+    assert '"nutrition_adherence_7d":{"on_target":4,"roughly":2,"off":1}' in response.messages[0].content
+
+
 def test_token_budget_keeps_the_urgency_prefix_and_separate_identity_map():
     first_id = "aaaaaaaaaaaa11111111111111111111"
     second_id = "bbbbbbbbbbbb22222222222222222222"

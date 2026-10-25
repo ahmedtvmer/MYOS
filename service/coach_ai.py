@@ -68,7 +68,7 @@ from service.missed_day_alerts import (
 from service.missed_day_alerts import (
     list_alerts as list_coach_alerts,
 )
-from service.weight_history import WeightTrendQuery, get_weight_trend
+from service.weight_history import WeightTrendQuery, get_weight_trend, player_local_date
 
 logger = logging.getLogger(__name__)
 
@@ -915,12 +915,16 @@ def gather_player_context(
             for record in records
         ]
         attendance = _attendance_facts(ledger, ledger_id, context["assignment"], now)
+        nutrition_today = player_local_date(ledger, ledger_id, now)
         nutrition_state = nutrition_service.coach_read(
-            ledger, now.date(), str(context["assignment"]["assignment_id"]), days=14
+            ledger, nutrition_today, str(context["assignment"]["assignment_id"]), days=14
         )
         nutrition_facts = {
             key: nutrition_state[key]
-            for key in ("targets", "author", "goal", "intensity", "pace_proposal")
+            for key in (
+                "targets", "target_options", "author", "goal", "intensity",
+                "planned_weekly_rate_pct", "pace_proposal",
+            )
             if key in nutrition_state
         }
         adherence_counts = {value: 0 for value in ("on_target", "roughly", "off")}
@@ -1282,13 +1286,16 @@ def _render_schedule(facts: dict[str, Any]) -> list[str]:
 
 
 def _nutrition_targets_line(targets: dict[str, Any]) -> str:
+    return "  targets: " + _nutrition_target_values(targets)
+
+
+def _nutrition_target_values(targets: dict[str, Any]) -> str:
     fields = ("calories", "protein_g", "carbs_g", "fat_g")
-    rendered = [
+    return ", ".join(
         f"{key} {format_number(targets[key])}"
         for key in fields
         if targets.get(key) is not None
-    ]
-    return "  targets: " + ", ".join(rendered)
+    )
 
 
 def _nutrition_adherence_line(nutrition: dict[str, Any]) -> str:
@@ -1305,10 +1312,27 @@ def _render_nutrition(facts: dict[str, Any]) -> list[str]:
     if targets:
         lines.extend([
             f"  goal: {nutrition.get('goal') or 'not set'}",
-            f"  pace: {nutrition.get('intensity') or 'not set'}",
             f"  author: {nutrition.get('author') or 'not set'}",
             _nutrition_targets_line(targets),
         ])
+        pace = nutrition.get("intensity")
+        planned_rate = nutrition.get("planned_weekly_rate_pct")
+        if pace:
+            lines.append(f"  pace: {pace}")
+        elif planned_rate is not None:
+            direction = "loss" if planned_rate < 0 else "gain" if planned_rate > 0 else "no change"
+            lines.append(
+                f"  pace: calculated {format_number(abs(planned_rate))}% weekly {direction}"
+            )
+        else:
+            lines.append("  pace: not set")
+        if planned_rate is not None:
+            lines.append(f"  planned_weekly_rate_pct: {format_number(planned_rate)}")
+        options = nutrition.get("target_options") or {}
+        for day_type in ("training_day", "rest_day"):
+            option = options.get(day_type)
+            if option:
+                lines.append(f"  {day_type}_target_options: {_nutrition_target_values(option)}")
     else:
         lines.append("  no active Nutrition targets")
     lines.append(_nutrition_adherence_line(nutrition))
