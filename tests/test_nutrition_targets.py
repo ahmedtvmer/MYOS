@@ -22,6 +22,18 @@ def test_targets_use_mifflin_st_jeor_and_return_macros(sex, expected_bmr):
     assert result.calories == (2140 if sex == "male" else 1940)
 
 
+@pytest.mark.parametrize("calories,weight,training,expected_fiber,expected_water", [
+    (2140, 80, False, 30, 2750), (2140, 80, True, 30, 3250),
+    (1800, 65, False, 25, 2250),
+])
+def test_fiber_and_water_targets(calories, weight, training, expected_fiber, expected_water):
+    from core.nutrition_targets import calculate_fiber_water_targets
+
+    assert calculate_fiber_water_targets(calories, weight, training) == {
+        "fiber_g": expected_fiber, "water_ml": expected_water,
+    }
+
+
 def test_floor_recomputes_real_weekly_rate():
     result = _calculate(
         sex="female", age=30, height_cm=160, weight_kg=50,

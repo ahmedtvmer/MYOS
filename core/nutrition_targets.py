@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from math import ceil
+from math import floor
 
 
 ACTIVITY_FACTORS = {
@@ -60,6 +61,15 @@ def calculate_targets(inputs: NutritionCalculationInput) -> NutritionTargets:
     protein, carbs, fat = _macros(inputs.goal, inputs.weight_kg, calories)
     return NutritionTargets(int(calories), protein, carbs, fat, bmr, round(maintenance, 1), calorie_floor,
                             floor_applied, round(weekly_rate, 4))
+
+
+def calculate_fiber_water_targets(calories: int, weight_kg: float,
+                                  training_day: bool = False) -> dict[str, int]:
+    """Return the daily Fiber target and Water target in 250 ml glasses."""
+    fiber_g = round(calories * 14 / 1000)
+    raw_water_ml = 35 * weight_kg + (500 if training_day else 0)
+    water_ml = floor(raw_water_ml / 250 + 0.5) * 250
+    return {"fiber_g": fiber_g, "water_ml": water_ml}
 
 
 def _validate(inputs: NutritionCalculationInput) -> None:

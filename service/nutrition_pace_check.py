@@ -180,7 +180,7 @@ def _record_check(ledger: Any, today: date) -> None:
         ledger.record_nutrition_pace_check(today.isoformat())
 
 
-def _recompute_macros(current: dict[str, Any], calories: int, weight: float) -> dict[str, int]:
+def _recompute_macros(current: dict[str, Any], calories: int, weight: float) -> dict[str, Any]:
     protein = int(current["protein_g"])
     fat = int(current["fat_g"])
     if protein * 4 + fat * 9 > calories:
@@ -195,7 +195,8 @@ def _recompute_macros(current: dict[str, Any], calories: int, weight: float) -> 
         while protein * 4 + fat * 9 > calories and protein > 0:
             protein -= 1
     carbs = max(0, (calories - protein * 4 - fat * 9) // 4)
-    return {"calories": calories, "protein_g": protein, "carbs_g": carbs, "fat_g": fat}
+    return {**current, "calories": calories, "protein_g": protein,
+            "carbs_g": carbs, "fat_g": fat}
 
 
 def _planned_rate_and_floor(ledger: Any, context: PaceCheckContext) -> PaceCheckContext:

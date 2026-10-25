@@ -28,6 +28,16 @@ class NutritionCopy {
   String get protein => isArabic ? 'البروتين' : 'Protein';
   String get carbs => isArabic ? 'الكربوهيدرات' : 'Carbohydrates';
   String get fat => isArabic ? 'الدهون' : 'Fat';
+  String get fiberTarget => isArabic ? 'هدف الألياف' : 'Fiber target';
+  String get waterTarget => isArabic ? 'هدف الماء' : 'Water target';
+  String fiberValue(Object value) => isArabic ? '$value جم' : '$value g';
+  String get fiberUnit => isArabic ? 'جم' : 'g';
+  String get waterUnit => isArabic ? 'مل' : 'ml';
+  String waterValue(int ml) => isArabic
+      ? '${(ml / 1000).toStringAsFixed(2)} لتر · ${ml ~/ 250} كوبًا'
+      : '${(ml / 1000).toStringAsFixed(2)} L · ${ml ~/ 250} glasses';
+  String get coachFiber => isArabic ? 'الألياف' : 'Fiber';
+  String get coachWater => isArabic ? 'الماء' : 'Water';
   String get macrosTitle => isArabic ? 'الماكروز' : 'Macros';
   String get howTodayWent => isArabic ? 'كيف كان يومك؟' : 'How did today go?';
   String get onTarget => isArabic ? 'على الهدف' : 'On target';
@@ -158,6 +168,8 @@ class NutritionCopy {
   };
   String get coachNutritionSaved => isArabic ? 'تم حفظ أهداف التغذية.' : 'Nutrition targets saved.';
   String? coachValidationError(String message) {
+    if (message.contains('fiber_g')) return isArabic ? 'الألياف: من 10 إلى 80 جم.' : 'Fiber must be between 10 and 80 g.';
+    if (message.contains('water_ml')) return isArabic ? 'الماء: من 1,000 إلى 6,000 مل بخطوات 250 مل.' : 'Water must be 1,000–6,000 ml in 250 ml steps.';
     if (message.contains('Training profile')) {
       return isArabic ? 'أكمل الملف التدريبي للاعب قبل إعداد الأهداف الغذائية.'
           : "Complete the Player's Training profile before setting Nutrition targets.";

@@ -226,6 +226,8 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         const SizedBox(height: 12),
         Text(copy.macrosTitle, style: text.titleMedium),
         _macroCards(targets, macroCards),
+        const SizedBox(height: 8),
+        _fiberWaterCards(targets, copy),
         const SizedBox(height: 12),
         Text(copy.howTodayWent, style: text.titleMedium),
         const SizedBox(height: 8),
@@ -335,6 +337,31 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             ]),
           ))),
         ],
+      ]);
+
+  Widget _fiberWaterCards(Map<String, dynamic> targets, NutritionCopy copy) =>
+      Row(children: <Widget>[
+        Expanded(child: Card(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(children: <Widget>[
+            Text(copy.fiberTarget, textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(copy.fiberValue(targets['fiber_g'] ?? 0)),
+          ]),
+        ))),
+        const SizedBox(width: 8),
+        Expanded(child: Card(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(children: <Widget>[
+            Text(copy.waterTarget, textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(copy.waterValue((targets['water_ml'] as num?)?.toInt() ?? 0),
+                textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ]),
+        ))),
       ]);
 
   Widget _loadError(BuildContext context, NutritionCopy copy) => Center(child: Padding(

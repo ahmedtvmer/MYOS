@@ -179,6 +179,33 @@ def test_nutrition_patterns_are_deduplicated_and_resolve_on_a_good_day(api):
     assert unlogged_alerts[0]["details"]["episode_start_date"] == (today - timedelta(days=9)).isoformat()
 
 
+def test_fiber_water_targets_do_not_change_adherence_or_create_alerts(api):
+    client, db = api
+    _, player_headers, assignment_id, coach_account_id = _assign(api)
+    assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
+    player = db.get_account(assignment["player_account_id"])
+    today = date(2026, 10, 25)
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_nutrition_plan(NutritionPlanVersion(
+            "maintain", {"code": "default"}, None, "mostly_sitting",
+            {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67,
+             "fiber_g": 80, "fiber_g_source": "coach", "water_ml": 6000,
+             "water_ml_source": "coach", "training_day_water_ml": 6000,
+             "training_day_water_ml_source": "coach"},
+            created_at=(today - timedelta(days=10)).isoformat() + "T00:00:00+00:00",
+        ))
+        for offset in range(10, -1, -1):
+            ledger.upsert_nutrition_adherence((today - timedelta(days=offset)).isoformat(), "on_target")
+    response = client.get("/nutrition", headers=player_headers)
+    assert response.status_code == 200
+    assert response.json()["today_adherence"] == "on_target"
+    assert nutrition_alerts.evaluate_assignment(
+        db, assignment, datetime(2026, 10, 25, 12, tzinfo=UTC)
+    )["alerts_created"] == 0
+    assert not [row for row in db.list_coach_alerts(coach_account_id, ("new",))
+                if row["kind"] in (nutrition_alerts.OFF_KIND, nutrition_alerts.UNLOGGED_KIND)]
+
+
 def test_unlogged_episode_ignores_the_unfinished_player_local_day(api):
     _, db = api
     _, _, assignment_id, coach_account_id = _assign(api)

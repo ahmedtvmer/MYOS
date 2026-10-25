@@ -71,6 +71,7 @@ async def setup_nutrition(
         setup_state = await asyncio.to_thread(
             nutrition_service.setup, ledger,
             {**body.model_dump(), "screening": body.screening.model_dump(), "language": language},
+            today,
         )
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None

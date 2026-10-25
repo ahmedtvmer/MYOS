@@ -258,6 +258,51 @@ void main() {
     expect(find.text('Player page'), findsOneWidget);
   });
 
+  testWidgets('Coach Nutrition shows defaults, saves overrides, and reports limits',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+      'authority': 'coach', 'goal': 'maintain', 'daily_activity': 'mostly_sitting',
+      'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250,
+        'fat_g': 67, 'fiber_g': 32, 'water_ml': 2500},
+      'target_options': <String, dynamic>{'daily': <String, dynamic>{'calories': 2000,
+        'protein_g': 100, 'carbs_g': 250, 'fat_g': 67, 'fiber_g': 32, 'water_ml': 2500}},
+      'calorie_floor': 1500,
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(),
+        home: ListView(children: const <Widget>[
+          CoachNutritionSegment(assignmentId: 'assignment'),
+        ])));
+    await tester.pumpAndSettle();
+    expect(find.text('32'), findsOneWidget);
+    expect(find.text('2500'), findsOneWidget);
+    await tester.enterText(_coachField(tester, 'Fiber'), '40');
+    await tester.enterText(_coachField(tester, 'Water'), '4000');
+    await tester.tap(find.text('Save targets'));
+    await tester.pumpAndSettle();
+    expect(fake.coachNutritionSaveRequests.last['targets'], containsPair('fiber_g', 40));
+    expect(fake.coachNutritionSaveRequests.last['targets'], containsPair('water_ml', 4000));
+    await tester.enterText(_coachField(tester, 'Fiber'), '81');
+    fake.coachNutritionSaveError = 'fiber_g must be between 10 and 80.';
+    await tester.tap(find.text('Save targets'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fiber must be between 10 and 80 g.'), findsOneWidget);
+  });
+
+  testWidgets('Arabic Coach Nutrition fields use Arabic units', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+      'authority': 'coach', 'goal': 'maintain',
+      'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250,
+        'fat_g': 67, 'fiber_g': 32, 'water_ml': 3000},
+    };
+    await tester.pumpWidget(_app(fake, 'ar', ThemeData.light(),
+        home: ListView(children: const <Widget>[
+          CoachNutritionSegment(assignmentId: 'assignment'),
+        ])));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(_coachField(tester, 'الألياف')).decoration!.suffixText, 'جم');
+    expect(tester.widget<TextField>(_coachField(tester, 'الماء')).decoration!.suffixText, 'مل');
+  });
+
   for (final ThemeData theme in <ThemeData>[ThemeData.light(), ThemeData.dark()]) {
     testWidgets('adherence control and seven-day strip render in both themes', (WidgetTester tester) async {
       final FakeMyosApi fake = _fake()
@@ -316,7 +361,8 @@ void main() {
     for (final String language in <String>['en', 'ar']) {
       final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
         'state': 'ready', 'goal': 'maintain',
-        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
+        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220,
+          'fat_g': 70, 'fiber_g': 32, 'water_ml': 3000},
       };
       await tester.pumpWidget(_app(fake, language, ThemeData.light()));
       await tester.pumpAndSettle();
@@ -325,6 +371,10 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(language == 'en' ? 'Protein' : 'البروتين'), findsOneWidget);
       expect(find.text(language == 'en' ? 'Fat' : 'الدهون'), findsOneWidget);
+      await tester.ensureVisible(find.text(language == 'en' ? 'Fiber target' : 'هدف الألياف'));
+      expect(find.text(language == 'en' ? 'Water target' : 'هدف الماء'), findsOneWidget);
+      expect(find.text(language == 'en' ? '32 g' : '32 جم'), findsOneWidget);
+      expect(find.text(language == 'en' ? '3.00 L · 12 glasses' : '3.00 لتر · 12 كوبًا'), findsOneWidget);
     }
   });
 
@@ -464,6 +514,9 @@ void main() {
     expect(direction.textDirection, TextDirection.rtl);
   });
 }
+
+Finder _coachField(WidgetTester tester, String label) => find.byWidgetPredicate(
+    (Widget widget) => widget is TextField && widget.decoration?.labelText == label);
 
 FakeMyosApi _fake() => FakeMyosApi()
   ..issuedToken = 'nutrition-token'

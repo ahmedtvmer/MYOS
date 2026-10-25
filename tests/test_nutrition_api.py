@@ -41,6 +41,11 @@ def test_setup_persists_targets_and_returns_goal_reason(api):
     registered = client.post("/auth/register", json={"trainee_id": "nutrition-player", "password": "correct-horse-1"}).json()
     headers = {"Authorization": f"Bearer {registered['access_token']}"}
     _seed_profile(db, "nutrition-player", age=30, target=60)
+    account = db.get_active_account_by_username("nutrition-player")
+    today = _player_today(db, "nutrition-player")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.append_training_schedule(str(ledger.ledger_id), [today.isoweekday()], "UTC",
+                                        today.isoformat(), "2026-10-25T00:00:00+00:00")
     response = client.post("/nutrition/setup", headers=headers, json={
         "sex": "female", "sex_confirmed": True,
         "daily_activity": "mostly_sitting",
@@ -53,17 +58,26 @@ def test_setup_persists_targets_and_returns_goal_reason(api):
     assert body["goal_reason"]["code"] == "target_weight"
     assert body["goal_reason"]["target_weight_kg"] == 60
     assert body["targets"]["calories"] > 0
-    account = db.get_active_account_by_username("nutrition-player")
+    assert body["targets"]["water_ml"] == 3000
+    assert body["targets"]["fiber_g"] == round(body["targets"]["calories"] * 14 / 1000)
+    assert body["targets"]["water_ml"] % 250 == 0
     with db.open_ledger(account["ledger_id"]) as ledger:
         with pytest.raises(sqlite3.IntegrityError, match="immutable"):
             ledger.conn.execute("UPDATE nutrition_plan_versions SET goal='gain'")
     active = client.get("/nutrition", headers=headers)
     assert active.json()["targets"] == body["targets"]
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        stored_targets = json.loads(ledger.get_active_nutrition_plan()["targets_json"])
+    assert stored_targets["water_ml"] == 2500
+    assert stored_targets["training_day_water_ml"] == 3000
+    assert stored_targets["fiber_g_source"] == "default"
+    training_read = client.get("/nutrition", headers=headers).json()
+    assert training_read["targets"]["water_ml"] == 3000
     arabic = client.get("/nutrition", headers={**headers, "Accept-Language": "ar"}).json()
     assert arabic["goal_reason"]["code"] == "target_weight"
     weight = client.post("/profile/weight", headers=headers, json={"weight_kg": 71})
     assert weight.status_code == 200
-    assert client.get("/nutrition", headers=headers).json()["targets"] == body["targets"]
+    assert client.get("/nutrition", headers=headers).json()["targets"]["water_ml"] == 3000
 
 
 def test_weight_history_creates_version_pinned_pace_proposal(api, recording_analytics):
@@ -251,8 +265,12 @@ def test_accepting_pace_proposal_preserves_training_and_rest_targets(api):
         ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
         ledger.conn.execute("UPDATE nutrition_plan_versions SET targets_json=? WHERE id=1", (json.dumps({
             "daily": {"calories": 2600, "protein_g": 140, "carbs_g": 335, "fat_g": 80},
-            "training_day": {"calories": 2600, "protein_g": 140, "carbs_g": 335, "fat_g": 80},
-            "rest_day": {"calories": 2000, "protein_g": 140, "carbs_g": 185, "fat_g": 80},
+            "training_day": {"calories": 2600, "protein_g": 140, "carbs_g": 335, "fat_g": 80,
+                              "fiber_g": 40, "fiber_g_source": "coach", "water_ml": 4000,
+                              "water_ml_source": "coach"},
+            "rest_day": {"calories": 2000, "protein_g": 140, "carbs_g": 185, "fat_g": 80,
+                         "fiber_g": 40, "fiber_g_source": "coach", "water_ml": 4000,
+                         "water_ml_source": "coach"},
         }),))
         ledger.conn.execute(
             "CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions "
@@ -266,6 +284,8 @@ def test_accepting_pace_proposal_preserves_training_and_rest_targets(api):
     delta = proposal["payload"]["calorie_change"]
     assert split["training_day"]["calories"] == 2600 + delta
     assert split["rest_day"]["calories"] == 2000 + delta
+    assert split["training_day"]["fiber_g"] == 40
+    assert split["training_day"]["water_ml"] == 4000
     response = client.post(f"/nutrition/pace-proposals/{proposal['id']}/decision",
                            headers=headers, json={"decision": "accepted"})
     assert response.status_code == 200, response.text
@@ -273,6 +293,8 @@ def test_accepting_pace_proposal_preserves_training_and_rest_targets(api):
         targets = json.loads(ledger.get_active_nutrition_plan()["targets_json"])
     assert targets["training_day"]["calories"] == 2600 + delta
     assert targets["rest_day"]["calories"] == 2000 + delta
+    assert targets["training_day"]["fiber_g"] == 40
+    assert targets["training_day"]["water_ml"] == 4000
 
 
 def test_pace_history_window_starts_on_player_local_plan_date(api):
@@ -570,7 +592,8 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
                             headers=coach_headers, json={"expected_active_version": 1})
     assert published.status_code == 200, published.text
     assert client.get("/nutrition", headers=player_headers).json()["authority"] == "player"
-    payload = {"goal":"lose", "targets":{"calories":2000, "protein_g":126, "carbs_g":248, "fat_g":56}}
+    payload = {"goal":"lose", "targets":{"calories":2000, "protein_g":126, "carbs_g":248,
+                                              "fat_g":56, "fiber_g":35, "water_ml":4000}}
     path = f"/coach/assignments/{assignment_id}/nutrition"
     initial_read = client.get(path, headers=coach_headers)
     assert initial_read.json()["authority"] == "player"
@@ -601,6 +624,43 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     saved = client.put(path, headers=coach_headers, json=payload)
     assert saved.status_code == 200, saved.text
     assert saved.json()["authority"] == "coach"
+    assert saved.json()["targets"]["fiber_g"] == 35
+    assert saved.json()["targets"]["water_ml"] == 4000
+    assert saved.json()["targets"]["water_ml_source"] == "coach"
+    assert saved.json()["targets"]["training_day_water_ml"] == 4000
+    assert saved.json()["targets"]["training_day_water_ml_source"] == "coach"
+    invalid = client.put(path, headers=coach_headers, json={**payload,
+        "targets": {**payload["targets"], "fiber_g": 81}})
+    assert invalid.status_code == 400
+    assert "fiber_g" in invalid.json()["detail"] and "80" in invalid.json()["detail"]
+    invalid_water = client.put(path, headers=coach_headers, json={**payload,
+        "targets": {**payload["targets"], "water_ml": 3125}})
+    assert invalid_water.status_code == 400
+    assert "water_ml" in invalid_water.json()["detail"]
+    for amount, boundary in ((999, "1000"), (6250, "6000")):
+        invalid_water = client.put(path, headers=coach_headers, json={**payload,
+            "targets": {**payload["targets"], "water_ml": amount}})
+        assert invalid_water.status_code == 400
+        assert "water_ml" in invalid_water.json()["detail"]
+        assert boundary in invalid_water.json()["detail"]
+    blank_payload = {**payload, "targets": {key: value for key, value in payload["targets"].items()
+                                            if key not in ("fiber_g", "water_ml")}}
+    blank_saved = client.put(path, headers=coach_headers, json=blank_payload)
+    assert blank_saved.status_code == 200, blank_saved.text
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        persisted = json.loads(ledger.get_active_nutrition_plan()["targets_json"])["daily"]
+    assert persisted["fiber_g"] == round(2000 * 14 / 1000)
+    assert persisted["water_ml"] == 2500
+    assert persisted["fiber_g_source"] == "default"
+    assert persisted["water_ml_source"] == "default"
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET weight_kg=80 WHERE id=1")
+        ledger.conn.commit()
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        persisted_after_weight_change = json.loads(ledger.get_active_nutrition_plan()["targets_json"])["daily"]
+        assert persisted_after_weight_change["water_ml"] == 2500
+        ledger.conn.execute("UPDATE user_profile SET weight_kg=70 WHERE id=1")
+        ledger.conn.commit()
     with db.open_ledger(player_account["ledger_id"]) as ledger:
         active_plan = ledger.get_active_nutrition_plan()
         proposal_targets = {key: setup.json()["targets"][key]
@@ -647,10 +707,12 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     string_targets = {key: str(value) for key, value in payload["targets"].items()}
     normalized = client.put(path, headers=coach_headers, json={**payload, "targets": string_targets})
     assert normalized.status_code == 200, normalized.text
-    assert all(isinstance(value, int) for value in normalized.json()["targets"].values())
+    assert all(isinstance(normalized.json()["targets"][key], int) for key in
+               ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "water_ml"))
     with db.open_ledger(db.get_active_account_by_username("nutrition-client")["ledger_id"]) as ledger:
         saved_targets = json.loads(ledger.get_active_nutrition_plan()["targets_json"])["daily"]
-    assert all(isinstance(value, int) for value in saved_targets.values())
+    assert all(isinstance(saved_targets[key], int) for key in
+               ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "water_ml"))
     with db.open_ledger(db.get_active_account_by_username("nutrition-client")["ledger_id"]) as ledger:
         ledger.save_training_program(program.model_dump(), published_by_coach_account_id=coach_account_id)
     assert client.get(path, headers=coach_headers).json()["authority"] == "coach"

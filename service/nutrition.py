@@ -7,7 +7,8 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from agent.program_blueprints import classify_goal
-from core.nutrition_targets import ACTIVITY_FACTORS, NutritionCalculationInput, NutritionTargets, calculate_targets
+from core.nutrition_targets import (ACTIVITY_FACTORS, NutritionCalculationInput, NutritionTargets,
+                                    calculate_fiber_water_targets, calculate_targets)
 from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
 from service import nutrition_pace_check
 
@@ -63,6 +64,38 @@ def _target_json(targets: NutritionTargets) -> dict[str, Any]:
         "calorie_floor": targets.calorie_floor, "floor_applied": targets.floor_applied,
         "weekly_rate_pct": targets.weekly_rate_pct,
     }
+
+
+def _fill_fiber_water_defaults(state: dict[str, Any], weight_kg: float) -> None:
+    options = state.get("target_options") or {"daily": state.get("targets") or {}}
+    selected = state.get("targets")
+    target_options = [(day, target) for day, target in options.items()
+                      if isinstance(target, dict)]
+    if isinstance(selected, dict) and all(target is not selected for _, target in target_options):
+        target_options.append((state.get("target_day_type", "daily"), selected))
+    for day_type, target in target_options:
+        _fill_target_fiber_water(target, day_type, weight_kg, state)
+
+
+def _fill_target_fiber_water(target: dict[str, Any], day_type: str, weight_kg: float,
+                             state: dict[str, Any]) -> None:
+    had_fiber = "fiber_g" in target
+    had_water = "water_ml" in target
+    defaults = calculate_fiber_water_targets(int(target.get("calories", 0)), weight_kg,
+                                              day_type == "training_day")
+    target.setdefault("fiber_g", defaults["fiber_g"])
+    target.setdefault("water_ml", defaults["water_ml"])
+    target.setdefault("fiber_g_source", "coach" if had_fiber and state.get("author") == "Coach" else "default")
+    target.setdefault("water_ml_source", "coach" if had_water and state.get("author") == "Coach" else "default")
+    if "training_day_water_ml" not in target:
+        training_default = calculate_fiber_water_targets(
+            int(target.get("calories", 0)), weight_kg, True)["water_ml"]
+        target["training_day_water_ml"] = (
+            training_default if target["water_ml_source"] == "default" else target["water_ml"])
+        target["training_day_water_ml_source"] = target["water_ml_source"]
+    if (day_type == "daily" and state.get("target_day_type") == "training_day"
+            and target["water_ml_source"] == "default"):
+        target["water_ml"] = target["training_day_water_ml"]
 
 
 def _goal_source(profile: dict[str, Any]) -> dict[str, Any]:
@@ -235,7 +268,44 @@ def _validate_coach_target(day_type: str, target: Any, profile: dict[str, Any],
     cap = .5 if calorie_change > 0 else 1.0 if calorie_change < 0 else 0
     if weekly_rate > cap:
         raise ValueError(f"Implied weekly rate must not exceed {cap:g}% per week.")
-    return {"calories": calories, "protein_g": macros[0], "carbs_g": macros[1], "fat_g": macros[2]}
+    normalized = {"calories": calories, "protein_g": macros[0], "carbs_g": macros[1], "fat_g": macros[2]}
+    normalized.update(_coach_fiber_water_targets(target, day_type, calories, profile))
+    return normalized
+
+
+def _coach_fiber_water_targets(target: dict[str, Any], day_type: str, calories: int,
+                               profile: dict[str, Any]) -> dict[str, Any]:
+    day_label = ("training_day" if day_type == "training_day_targets" else
+                 "rest_day" if day_type == "rest_day_targets" else "daily")
+    defaults = calculate_fiber_water_targets(calories, float(profile["weight_kg"]),
+                                              day_label == "training_day")
+    normalized = {}
+    for field in ("fiber_g", "water_ml"):
+        normalized[field], source = _coach_fiber_water_amount(
+            field, target, day_type, defaults[field])
+        normalized[f"{field}_source"] = source
+    training_default = calculate_fiber_water_targets(calories, float(profile["weight_kg"]), True)["water_ml"]
+    if normalized["water_ml_source"] == "coach":
+        normalized["training_day_water_ml"] = normalized["water_ml"]
+        normalized["training_day_water_ml_source"] = "coach"
+    else:
+        normalized["training_day_water_ml"] = training_default
+        normalized["training_day_water_ml_source"] = "default"
+    return normalized
+
+
+def _coach_fiber_water_amount(field: str, target: dict[str, Any], day_type: str,
+                              default: int) -> tuple[int, str]:
+    minimum, maximum = (10, 80) if field == "fiber_g" else (1000, 6000)
+    value = target.get(field)
+    if value in (None, ""):
+        return default, "default"
+    amount = _coach_target_amount(target, field, day_type, minimum=minimum)
+    if amount > maximum:
+        raise ValueError(f"{field} must be between {minimum} and {maximum}.")
+    if field == "water_ml" and amount % 250:
+        raise ValueError("water_ml must be in 250 ml steps between 1,000 and 6,000.")
+    return amount, "coach"
 
 
 def _coach_target_amount(target: dict[str, Any], field: str, day_type: str, *, minimum: int) -> int:
@@ -251,12 +321,12 @@ def _coach_target_amount(target: dict[str, Any], field: str, day_type: str, *, m
     return int(number)
 
 
-def setup(ledger: Any, body: dict[str, Any]) -> dict[str, Any]:
+def setup(ledger: Any, body: dict[str, Any], today: date | None = None) -> dict[str, Any]:
     with ledger.ledger_transaction():
-        return _save_setup(ledger, body)
+        return _save_setup(ledger, body, today or date.today())
 
 
-def _save_setup(ledger: Any, body: dict[str, Any]) -> dict[str, Any]:
+def _save_setup(ledger: Any, body: dict[str, Any], today: date) -> dict[str, Any]:
     training_profile = ledger.get_nutrition_profile()
     if not _profile_is_complete(training_profile):
         return {"state": "incomplete", "targets": None,
@@ -274,7 +344,7 @@ def _save_setup(ledger: Any, body: dict[str, Any]) -> dict[str, Any]:
         return {"state": "under_18", "targets": None,
                 "message": _message("under_18", body.get("language", "en"))}
     return _save_first_plan(ledger, training_profile,
-                            NutritionSetup(sex, activity, answers, plan=None))
+                            NutritionSetup(sex, activity, answers, plan=None), today)
 
 
 def _profile_is_complete(training_profile: dict[str, Any] | None) -> bool:
@@ -283,7 +353,8 @@ def _profile_is_complete(training_profile: dict[str, Any] | None) -> bool:
     )
 
 
-def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_request: NutritionSetup) -> dict[str, Any]:
+def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_request: NutritionSetup,
+                     today: date) -> dict[str, Any]:
     weight = training_profile["weight_kg"]
     goal, reason = resolve_goal(training_profile.get("current_goal"), training_profile.get("long_term_goal"),
                                 float(weight), training_profile.get("target_weight_kg"))
@@ -294,8 +365,7 @@ def _save_first_plan(ledger: Any, training_profile: dict[str, Any], setup_reques
                                 goal_source_snapshot=_goal_source(training_profile))
     ledger.save_nutrition_setup(NutritionSetup(setup_request.sex, setup_request.daily_activity,
                                                setup_request.screening, plan))
-    return {"state": "ready", "goal": goal, "goal_reason": reason,
-            "intensity": intensity, "daily_activity": setup_request.daily_activity, "targets": targets}
+    return read(ledger, today=today)
 
 
 def read(
@@ -315,6 +385,8 @@ def read(
         training_day = _is_training_day(ledger, today)
         nutrition_state = _read_active_plan(active_plan, answers, training_day)
         profile = ledger.get_nutrition_profile()
+        if profile and _profile_is_complete(profile):
+            _fill_fiber_water_defaults(nutrition_state, float(profile["weight_kg"]))
         if profile and _profile_is_complete(profile):
             resolved, reason = resolve_goal(profile.get("current_goal"), profile.get("long_term_goal"),
                                             float(profile["weight_kg"]), profile.get("target_weight_kg"))
@@ -552,11 +624,19 @@ def dismiss_goal_offer(ledger: Any, today: date) -> dict[str, Any]:
 
 def _calculate_for(ledger: Any, profile: dict[str, Any], sex: str, activity: str,
                    goal: str, intensity: str) -> dict[str, Any]:
-    return _target_json(calculate_targets(NutritionCalculationInput(
+    targets = calculate_targets(NutritionCalculationInput(
         sex=sex, age=int(profile["age"]), height_cm=float(profile["height_cm"]),
         weight_kg=float(profile["weight_kg"]), daily_activity=activity,
         training_days=ledger.get_nutrition_training_days(profile.get("weekly_frequency") or 0),
-        goal=goal, intensity=intensity)))
+        goal=goal, intensity=intensity))
+    result = _target_json(targets)
+    result.update(calculate_fiber_water_targets(result["calories"], float(profile["weight_kg"])))
+    result["fiber_g_source"] = "default"
+    result["water_ml_source"] = "default"
+    result["training_day_water_ml"] = calculate_fiber_water_targets(
+        result["calories"], float(profile["weight_kg"]), True)["water_ml"]
+    result["training_day_water_ml_source"] = "default"
+    return result
 
 
 def _read_without_plan(ledger: Any, answers: dict[str, bool] | None,

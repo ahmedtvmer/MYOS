@@ -24,6 +24,8 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
     'protein_g',
     'carbs_g',
     'fat_g',
+    'fiber_g',
+    'water_ml',
   ];
   final Map<String, TextEditingController> _controllers =
       <String, TextEditingController>{
@@ -97,7 +99,8 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
 
   Map<String, dynamic> _targetValue(String day) => <String, dynamic>{
         for (final String key in _targetFields)
-          key: int.tryParse(_controllers['${day}_$key']!.text.trim()) ?? 0,
+          if (_controllers['${day}_$key']!.text.trim().isNotEmpty)
+            key: int.tryParse(_controllers['${day}_$key']!.text.trim()) ?? 0,
       };
 
   Future<void> _save(NutritionCopy copy) async {
@@ -308,6 +311,8 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
           ('protein_g', copy.protein),
           ('carbs_g', copy.carbs),
           ('fat_g', copy.fat),
+          ('fiber_g', copy.coachFiber),
+          ('water_ml', copy.coachWater),
         ];
         return Wrap(
             spacing: 8,
@@ -321,8 +326,8 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                           labelText: field.$2,
-                          suffixText:
-                              field.$1 == 'calories' ? copy.calories : 'g'),
+                          suffixText: field.$1 == 'calories' ? copy.calories
+                              : field.$1 == 'water_ml' ? copy.waterUnit : copy.fiberUnit),
                     )))
                 .toList());
       });

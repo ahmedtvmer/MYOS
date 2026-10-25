@@ -506,6 +506,7 @@ class FakeMyosApi {
     'calorie_floor': 1500, 'adherence_days': <dynamic>[], 'weight_trend': <dynamic>[],
   };
   final List<Map<String, dynamic>> coachNutritionSaveRequests = <Map<String, dynamic>>[];
+  String? coachNutritionSaveError;
   Map<String, dynamic> coachVolumeReview = <String, dynamic>{'review': null};
   List<Map<String, dynamic>> coachPlayerRecords = _defaultCoachRecords();
   List<Map<String, dynamic>> coachPlayerExercises = _defaultCoachExercises();
@@ -724,6 +725,9 @@ class FakeMyosApi {
     if (path.startsWith('/coach/assignments/') && path.endsWith('/nutrition')) {
       if (request.method == 'PUT') {
         coachNutritionSaveRequests.add(Map<String, dynamic>.from(request.body));
+        if (coachNutritionSaveError != null) {
+          return FakeResponse(400, <String, dynamic>{'detail': coachNutritionSaveError});
+        }
         coachPlayerNutrition = <String, dynamic>{...coachPlayerNutrition,
           'authority': 'coach', 'goal': request.body['goal'],
           'daily_activity': request.body['daily_activity'],
