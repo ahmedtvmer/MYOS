@@ -32,6 +32,7 @@ from svc.schemas import (
     ProgramEditIn,
     ProgramEditOut,
     ProgramGenerateIn,
+    ProgramDesignOfferAcceptIn,
     ProgramRepeatIn,
     ProgramSubstitutionIn,
     ProgramSubstitutionOut,
@@ -102,6 +103,7 @@ async def accept_design_regeneration_offer(
     player: Annotated[Any, Depends(get_verified_player)],
     ledger: Annotated[Any, Depends(get_ledger)],
     db: Annotated[Any, Depends(get_db)],
+    body: ProgramDesignOfferAcceptIn = ProgramDesignOfferAcceptIn(),
 ):
     register_ai_analytics_background_tasks(request, background_tasks)
 
@@ -114,6 +116,7 @@ async def accept_design_regeneration_offer(
                 ProgramAnalyticsActor(account_id, "player"),
                 analytics.client_context(request),
                 background_tasks,
+                body.weak_points,
             )
         except PermissionError as exc:
             raise message_http_exception(

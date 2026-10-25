@@ -140,6 +140,7 @@ def accept_design_regeneration_offer(
     actor: ProgramAnalyticsActor,
     client: analytics.ClientContext,
     background_tasks: Any,
+    weak_points: list[dict[str, str]] | None = None,
 ) -> Any:
     if not player_controls_program(db, ledger, actor.account_id):
         raise PermissionError(COACH_CONTROLLED_ERROR)
@@ -149,6 +150,10 @@ def accept_design_regeneration_offer(
     if not ledger.try_claim_program_design_offer():
         raise ValueError("This program no longer has a regeneration offer.")
     try:
+        if weak_points is not None:
+            profile = ledger.get_player_profile() or {}
+            profile["weak_points"] = weak_points
+            ledger.upsert_player_profile(profile)
         return generate_program_version(
             db,
             ledger,

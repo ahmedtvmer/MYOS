@@ -425,24 +425,17 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
 
   Future<void> _acceptProgramDesignOffer() async {
     if (_programActionBusy) return;
-    final bool? confirmed = await showDialog<bool>(
+    final PlayerProfile profile = await ref.read(apiClientProvider).profile();
+    if (!mounted) return;
+    final List<Map<String, String>>? weakPoints =
+        await showDialog<List<Map<String, String>>>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text(displayCopyOf(context).regenerateProgramOfferConfirmTitle),
-        content: Text(displayCopyOf(context).regenerateProgramOfferConfirmBody),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(displayCopyOf(context).cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(displayCopyOf(context).regenerateProgramOfferAccept),
-          ),
-        ],
+      builder: (BuildContext context) => _DesignOfferWeakPointsDialog(
+        female: profile.gender == 'female',
+        existing: profile.weakPoints,
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (weakPoints == null || !mounted) return;
     setState(() {
       _programActionBusy = true;
       _actionError = null;
@@ -450,7 +443,9 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     try {
       final TrainingProgram updated = await ref
           .read(apiClientProvider)
-          .acceptProgramDesignOffer();
+          .acceptProgramDesignOffer(
+            weakPoints: weakPoints.isEmpty ? null : weakPoints,
+          );
       if (!mounted) return;
       setState(() => _programActionBusy = false);
       _updateProgram(updated, _accountId, fromCache: false);
@@ -1177,7 +1172,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                   Text(
                     program.regenerationOfferReason == 'focus_muscles_changed'
                         ? displayCopyOf(context).focusMusclesRegenerateOfferBody
-                        : displayCopyOf(context).regenerateProgramOfferBody,
+                        : displayCopyOf(context).designV3RegenerateOfferBody,
                     style: MyosTypography.of(context)
                         .bodySecondary
                         .copyWith(color: c.textSecondary),
@@ -1454,6 +1449,76 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _DesignOfferWeakPointsDialog extends StatefulWidget {
+  const _DesignOfferWeakPointsDialog({required this.female, this.existing});
+
+  final bool female;
+  final List<Map<String, String>>? existing;
+
+  @override
+  State<_DesignOfferWeakPointsDialog> createState() =>
+      _DesignOfferWeakPointsDialogState();
+}
+
+class _DesignOfferWeakPointsDialogState
+    extends State<_DesignOfferWeakPointsDialog> {
+  static const List<String> _muscles = <String>[
+    'chest', 'upper_chest', 'back', 'shoulders', 'side_delts', 'biceps',
+    'triceps', 'forearms', 'quads', 'hamstrings', 'glutes', 'adductors',
+    'calves', 'abs',
+  ];
+  late final List<String> _selected = widget.existing?.map(
+        (Map<String, String> point) => point['muscle'] ?? '',
+      ).where((String muscle) => muscle.isNotEmpty).toList() ??
+      (widget.female ? <String>['glutes'] : <String>[]);
+
+  @override
+  Widget build(BuildContext context) {
+    final MyosCopy copy = MyosCopy(Localizations.localeOf(context).languageCode);
+    return AlertDialog(
+      title: Text(displayCopyOf(context).weakPointStepTitle),
+      content: SingleChildScrollView(
+        child: Wrap(spacing: MyosSpacing.xs, runSpacing: MyosSpacing.xs,
+          children: <Widget>[
+            for (final String muscle in _muscles)
+              FilterChip(
+                key: ValueKey<String>('design_offer_weak_point_$muscle'),
+                label: Text(copy.weakPointMuscle(muscle)),
+                selected: _selected.contains(muscle),
+                onSelected: (bool value) => setState(() {
+                  if (value && _selected.length < 2) _selected.add(muscle);
+                  if (!value) _selected.remove(muscle);
+                }),
+              ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () =>
+              Navigator.of(context).pop(<Map<String, String>>[]),
+          child: Text(displayCopyOf(context).skipWeakPoints)),
+        FilledButton(
+          onPressed: _selected.isEmpty ? null : () => Navigator.of(context).pop(
+            _selected.map((String muscle) => <String, String>{
+              'muscle': muscle,
+              'source': widget.existing?.firstWhere(
+                    (Map<String, String> point) => point['muscle'] == muscle,
+                    orElse: () => <String, String>{},
+                  )['source'] ??
+                  (muscle == 'glutes' && widget.female &&
+                          widget.existing == null
+                      ? 'default'
+                      : 'named'),
+            }).toList(growable: false),
+          ),
+          child: Text(displayCopyOf(context).regenerateProgramOfferAccept),
+        ),
+      ],
     );
   }
 }

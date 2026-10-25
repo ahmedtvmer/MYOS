@@ -80,7 +80,7 @@ from utils.logger import MyosLogger
 load_dotenv()
 logger = MyosLogger().get_logger("program_generator")
 
-PROGRAM_DESIGN_VERSION = 2
+PROGRAM_DESIGN_VERSION = 3
 
 MECHANIC_CUES = {
     "compound_press": "Control the 2-3s eccentric, pause briefly at full stretch, drive without locking out aggressively.",

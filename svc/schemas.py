@@ -1193,6 +1193,20 @@ class ProgramGenerateIn(BaseModel):
     user_split_override: str | None = None
 
 
+class ProgramDesignOfferAcceptIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    weak_points: list[dict[str, str]] | None = None
+
+    @field_validator("weak_points")
+    @classmethod
+    def validate_weak_point_answer(cls, value: list[dict[str, str]] | None):
+        if value is None:
+            return None
+        from core.weak_points import validate_weak_points
+        return validate_weak_points(value)
+
+
 class CoachProgramGenerateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

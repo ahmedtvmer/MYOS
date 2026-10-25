@@ -356,6 +356,7 @@ class FakeMyosApi {
   int activeProgramRequests = 0;
   int generateProgramRequests = 0;
   int acceptProgramDesignOfferRequests = 0;
+  List<dynamic>? lastDesignOfferWeakPoints;
   bool coachControlsProgram = false;
   bool offerProgramDesignRegeneration = false;
   String? regenerationOfferReason;
@@ -4591,6 +4592,8 @@ class FakeMyosApi {
       });
     }
     acceptProgramDesignOfferRequests++;
+    lastDesignOfferWeakPoints =
+        (request.body['weak_points'] as List<dynamic>?)?.toList();
     offerProgramDesignRegeneration = false;
     return _generateProgram(request);
   }

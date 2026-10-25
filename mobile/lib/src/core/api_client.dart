@@ -2446,9 +2446,13 @@ class ApiClient {
     );
   }
 
-  Future<TrainingProgram> acceptProgramDesignOffer() async {
+  Future<TrainingProgram> acceptProgramDesignOffer({
+    List<Map<String, String>>? weakPoints,
+  }) async {
     final response = await _send(
-      () => _dio.post<dynamic>('/programs/design-offer/accept'),
+      () => _dio.post<dynamic>('/programs/design-offer/accept', data: <String, dynamic>{
+        if (weakPoints != null) 'weak_points': weakPoints,
+      }),
     );
     return _parseBody(
       response.data,
