@@ -443,6 +443,12 @@ QUESTION = {
 def test_prompt_carries_only_necessary_telemetry_and_deterministic_figures(api, monkeypatch):
     client, db, tmp_path = api
     coach_headers, player_headers, assignment_id = _assigned_player(api)
+    unrelated = _register(client, "other_player_private_rationale_495")
+    assert client.put(
+        "/profile",
+        headers=_authed(unrelated["access_token"]),
+        json={"weekly_frequency": 4, "current_goal": "UNRELATED_PLAYER_RATIONALE_495"},
+    ).status_code == 200
     started_at = _seed_identifiers(client, db, coach_headers, player_headers, assignment_id)
     _enable(monkeypatch, tmp_path)
     stub = _capturing_coach_llm(monkeypatch)
@@ -517,6 +523,8 @@ def test_prompt_carries_only_necessary_telemetry_and_deterministic_figures(api, 
     assert len(CHECK_IN_NOTE) <= 300
     # The program-request reason is excluded; only its state is.
     assert "exercise_substitution" in rendered
+    assert "other_player_private_rationale_495" not in rendered
+    assert "UNRELATED_PLAYER_RATIONALE_495" not in rendered
 
 
 def test_model_prompt_limits_real_check_in_notes_to_five_and_300_characters(api, monkeypatch):

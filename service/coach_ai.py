@@ -68,6 +68,7 @@ from service.missed_day_alerts import (
     list_alerts as list_coach_alerts,
 )
 from service.weight_history import WeightTrendQuery, get_weight_trend
+from agent.player_tools import ProgramRationaleArgs, _read_program_rationale
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,10 @@ Rules:
   say so plainly and defer to them.
 - Never discuss the player's private chat with the MYOS assistant; it is not
   supplied and must not be inferred.
+- Answer questions about why the player's Training program looks the way it does
+  only from the Program rationale supplied below. If a reason is unavailable,
+  say so. For coach-authored items, say the Coach chose them; never invent a
+  reason.
 - Reply in the language shown for this turn below. A clearly English latest
   question gets an English answer, even when names or data are in Arabic. Arabic
   or mixed input with clear Arabic gets a reply in polite everyday Egyptian
@@ -923,6 +928,9 @@ def gather_player_context(
                 "status": context["assignment"].get("status", "active"),
             },
             "program": _program_facts(program, db, ledger, program_flags),
+            "program_rationale": _read_program_rationale(
+                ledger, ProgramRationaleArgs()
+            ),
             "training_profile": _training_profile_facts(ledger),
             "injuries": injuries,
             "volume": {
@@ -1379,6 +1387,12 @@ def render_context(facts: dict[str, Any]) -> str:
     for section in _SECTIONS:
         lines.append("")
         lines.extend(section(facts))
+    rationale = facts.get("program_rationale")
+    lines.extend(["", "[PROGRAM RATIONALE]"])
+    if rationale:
+        lines.append(json.dumps(rationale, ensure_ascii=False, separators=(",", ":")))
+    else:
+        lines.append("unavailable")
     lines.extend(["", *_render_coach(facts)])
     return "\n".join(lines)
 

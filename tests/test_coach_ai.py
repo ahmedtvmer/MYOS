@@ -139,7 +139,7 @@ def _account_id(db, username):
 
 def test_prompt_version_hash_is_bound_to_name_aware_context():
     assert coach_ai.prompt_version_hash() == (
-        "64793e4ea8cc8933b05cca6fea69359dfc502d3e8a2b420a2e0f69e2db17ae27"
+        "73a53abe3799ecfb09cb8623d420892eeb764ca313d0950b882b64c1addb017b"
     )
 
 
@@ -149,6 +149,25 @@ def test_prompt_states_arabic_numeric_glossary_and_trend_change_rules():
     assert "write kg, never كجم" in prompt
     assert "إجمالي الوزن المرفوع" in coach_ai.SYSTEM_PROMPT
     assert "state the change amount as well as the endpoints" in coach_ai.SYSTEM_PROMPT
+    assert "only from the Program rationale supplied below" in coach_ai.SYSTEM_PROMPT
+    assert "never invent a\n  reason" in coach_ai.SYSTEM_PROMPT
+
+
+def test_render_context_includes_only_the_supplied_program_rationale():
+    facts = {"program_rationale": {
+        "status": "ok", "source": "automatic", "reason_available": True,
+        "split": {"code": "frequency_default"},
+        "days": [{"day": "Push", "exercises": [{"exercise": "Incline Press",
+            "rationale": {"selection": {"code": "staple_rank", "rank": 1}}}]}],
+    }}
+
+    rendered = coach_ai.render_context(facts)
+
+    assert "[PROGRAM RATIONALE]" in rendered
+    assert '"code":"frequency_default"' in rendered
+    assert '"exercise":"Incline Press"' in rendered
+    rationale_section = rendered.split("[PROGRAM RATIONALE]\n", 1)[1]
+    assert rationale_section.startswith('{"status":"ok"')
 
 
 def test_canonical_fixture_contains_python_computed_record_and_follow_up_figures():
