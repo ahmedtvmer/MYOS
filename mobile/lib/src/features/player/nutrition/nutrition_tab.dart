@@ -25,6 +25,8 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
   bool _eatingDisorder = false;
   bool _loading = true;
   bool _saving = false;
+  bool _waterSaving = false;
+  int _waterGlasses = 0;
   String? _error;
 
   @override
@@ -38,7 +40,8 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       final NutritionPlanState plan = await ref.read(apiClientProvider).nutrition();
       if (mounted) {
         setState(() { _plan = plan; _sex = plan.sex ?? 'male';
-          _activity = plan.dailyActivity ?? _activity; _loading = false; _error = null; });
+          _activity = plan.dailyActivity ?? _activity; _waterGlasses = plan.todayWaterGlasses;
+          _loading = false; _error = null; });
       }
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; _loading = false; });
@@ -103,6 +106,23 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       if (mounted) setState(() { _plan = plan; _saving = false; });
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
+  Future<void> _changeWater(bool undo, NutritionCopy copy) async {
+    if (_waterSaving || (!undo && _waterGlasses >= 30) || (undo && _waterGlasses == 0)) return;
+    setState(() => _waterSaving = true);
+    try {
+      final int count = await ref.read(apiClientProvider).changeWaterGlasses(undo: undo);
+      if (mounted) setState(() => _waterGlasses = count);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${copy.waterUpdateFailed}: ${error.message}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _waterSaving = false);
     }
   }
 
@@ -360,6 +380,14 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             Text(copy.waterValue((targets['water_ml'] as num?)?.toInt() ?? 0),
                 textAlign: TextAlign.center, maxLines: 2,
                 overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
+            Text('${copy.waterLog}: ${copy.waterGlasses} $_waterGlasses'),
+            Wrap(alignment: WrapAlignment.center, children: <Widget>[
+              TextButton(onPressed: _saving || _waterSaving || _waterGlasses >= 30
+                  ? null : () => _changeWater(false, copy), child: Text(copy.addGlass)),
+              TextButton(onPressed: _saving || _waterSaving || _waterGlasses == 0
+                  ? null : () => _changeWater(true, copy), child: Text(copy.undoGlass)),
+            ]),
           ]),
         ))),
       ]);

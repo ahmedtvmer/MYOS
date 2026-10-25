@@ -28,7 +28,8 @@ const int maxProgramRequestReasonChars = 500;
 class NutritionPlanState {
   const NutritionPlanState({required this.state, this.goal, this.goalReason,
     this.intensity, this.dailyActivity, this.targets, this.message,
-    this.screening, this.sex, this.todayAdherence, this.adherenceDays = const <Map<String, dynamic>>[],
+    this.screening, this.sex, this.todayAdherence, this.todayWaterGlasses = 0,
+    this.adherenceDays = const <Map<String, dynamic>>[],
     this.latestWeight, this.targetWeight, this.coachSeesAdherence = false,
     this.pendingGoal, this.author, this.authority = 'player', this.paceProposal});
 
@@ -47,6 +48,7 @@ class NutritionPlanState {
       screening: rawScreening is Map<String, dynamic> ? rawScreening : null,
       sex: json['sex'] as String?,
       todayAdherence: json['today_adherence'] as String?,
+      todayWaterGlasses: (json['today_water_glasses'] as num?)?.toInt() ?? 0,
       adherenceDays: (json['adherence_days'] as List<dynamic>? ?? <dynamic>[])
           .whereType<Map<String, dynamic>>().toList(),
       latestWeight: (json['latest_weight'] as num?)?.toDouble(),
@@ -70,6 +72,7 @@ class NutritionPlanState {
   final Map<String, dynamic>? screening;
   final String? sex;
   final String? todayAdherence;
+  final int todayWaterGlasses;
   final List<Map<String, dynamic>> adherenceDays;
   final double? latestWeight;
   final double? targetWeight;
@@ -83,7 +86,8 @@ class NutritionPlanState {
 class CoachNutritionState {
   const CoachNutritionState({required this.authority, this.goal, this.dailyActivity,
     this.targets, this.targetOptions, this.calorieFloor, this.adherenceDays = const <Map<String, dynamic>>[],
-    this.weightTrend = const <Map<String, dynamic>>[], this.targetWeight, this.nextPaceCheck,
+    this.weightTrend = const <Map<String, dynamic>>[], this.waterDays = const <Map<String, dynamic>>[],
+    this.todayWaterGlasses = 0, this.fiberEatenDays, this.targetWeight, this.nextPaceCheck,
     this.plannedWeeklyRatePct, this.paceProposal});
 
   factory CoachNutritionState.fromJson(Map<String, dynamic> json) => CoachNutritionState(
@@ -98,6 +102,10 @@ class CoachNutritionState {
         .whereType<Map<String, dynamic>>().toList(growable: false),
     weightTrend: (json['weight_trend'] as List<dynamic>? ?? <dynamic>[])
         .whereType<Map<String, dynamic>>().toList(growable: false),
+    waterDays: (json['water_days'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    todayWaterGlasses: (json['today_water_glasses'] as num?)?.toInt() ?? 0,
+    fiberEatenDays: json['fiber_eaten_days'] as List<dynamic>?,
     targetWeight: (json['target_weight'] as num?)?.toDouble(),
     nextPaceCheck: json['next_pace_check'] as String?,
     plannedWeeklyRatePct: (json['planned_weekly_rate_pct'] as num?)?.toDouble(),
@@ -113,6 +121,9 @@ class CoachNutritionState {
   final int? calorieFloor;
   final List<Map<String, dynamic>> adherenceDays;
   final List<Map<String, dynamic>> weightTrend;
+  final List<Map<String, dynamic>> waterDays;
+  final int todayWaterGlasses;
+  final List<dynamic>? fiberEatenDays;
   final double? targetWeight;
   final String? nextPaceCheck;
   final double? plannedWeeklyRatePct;

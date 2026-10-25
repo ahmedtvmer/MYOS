@@ -10,6 +10,7 @@ import 'package:myos_mobile/src/features/coach/coach_charts_segment.dart';
 import 'package:myos_mobile/src/providers.dart';
 
 import 'support/fake_myos_api.dart';
+import 'support/fake_api_adapter.dart';
 
 void main() {
   testWidgets('setup saves activity and shows plate targets', (WidgetTester tester) async {
@@ -303,6 +304,109 @@ void main() {
     expect(tester.widget<TextField>(_coachField(tester, 'الماء')).decoration!.suffixText, 'مل');
   });
 
+  testWidgets('Player water log adds and undoes a glass in Arabic RTL', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
+      'state': 'ready', 'goal': 'maintain', 'targets': <String, dynamic>{
+        'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70,
+        'fiber_g': 28, 'water_ml': 2500}, 'today_water_glasses': 1,
+    };
+    await tester.pumpWidget(_app(fake, 'ar', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('سجل الماء: أكواب اليوم 1'), findsOneWidget);
+    expect(find.text('+ كوب'), findsOneWidget);
+    expect(tester.widgetList<Directionality>(find.byType(Directionality))
+        .map((Directionality value) => value.textDirection), contains(TextDirection.rtl));
+    await tester.ensureVisible(find.text('+ كوب'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+ كوب'));
+    await tester.pumpAndSettle();
+    expect(find.text('سجل الماء: أكواب اليوم 2'), findsOneWidget);
+    await tester.tap(find.text('تراجع'));
+    await tester.pumpAndSettle();
+    expect(find.text('سجل الماء: أكواب اليوم 1'), findsOneWidget);
+  });
+
+  testWidgets('Player water requests cannot overlap', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
+      'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
+        'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
+      'today_water_glasses': 1,
+    };
+    bool holdFirstWaterRequest = true;
+    fake.adapter.beforeRespond = (FakeRequest request) async {
+      if (request.path == '/nutrition/water' && holdFirstWaterRequest) {
+        holdFirstWaterRequest = false;
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('+1 glass'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+1 glass'));
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(tester.widget<TextButton>(find.ancestor(
+      of: find.text('+1 glass'), matching: find.byType(TextButton))).onPressed, isNull);
+    await tester.pumpAndSettle();
+    expect(find.text('Water log: Glasses today 2'), findsOneWidget);
+    expect(fake.adapter.requests.where((FakeRequest request) => request.path == '/nutrition/water'), hasLength(1));
+  });
+
+  testWidgets('Player water increment is disabled at thirty without hiding targets', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..waterGlasses = 30..nutritionState = <String, dynamic>{
+      'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
+        'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
+      'today_water_glasses': 30,
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('+1 glass'));
+    final TextButton addButton = tester.widget(find.ancestor(
+      of: find.text('+1 glass'), matching: find.byType(TextButton)));
+    expect(addButton.onPressed, isNull);
+    expect(find.textContaining('Water target'), findsOneWidget);
+    expect(find.text('Water log: Glasses today 30'), findsOneWidget);
+  });
+
+  testWidgets('Water API conflict keeps Nutrition targets visible', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..waterGlasses = 29..waterChangeFails = true
+      ..nutritionState = <String, dynamic>{
+        'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
+          'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
+        'today_water_glasses': 29,
+      };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('+1 glass'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+1 glass'));
+    await tester.pumpAndSettle();
+    expect(find.text('Water log: Glasses today 29'), findsOneWidget);
+    expect(find.text('Water target'), findsOneWidget);
+    expect(find.text('Could not update the Water log: Water glass count limit.'), findsOneWidget);
+  });
+
+  testWidgets('Coach Nutrition shows today water and the fourteen day strip', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+      'authority': 'player', 'targets': <String, dynamic>{'fiber_g': 28, 'water_ml': 2500},
+      'today_water_glasses': 3,
+      'water_days': List<Map<String, dynamic>>.generate(14, (int index) => <String, dynamic>{
+        'date': '2026-10-${index + 1}', 'glasses': index % 5}),
+      'fiber_eaten_days': null,
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(),
+        home: ListView(children: const <Widget>[
+          CoachNutritionSegment(assignmentId: 'assignment'),
+        ])));
+    await tester.pumpAndSettle();
+    expect(find.text('Glasses today: 3'), findsOneWidget);
+    expect(find.text('Water · last 14 days'), findsOneWidget);
+    final List<Tooltip> history = tester.widgetList<Tooltip>(find.byType(Tooltip))
+        .where((Tooltip tip) => tip.message?.startsWith('2026-10-') == true).toList();
+    expect(history, hasLength(14));
+    expect(find.text('Fiber eaten'), findsNothing);
+  });
+
   for (final ThemeData theme in <ThemeData>[ThemeData.light(), ThemeData.dark()]) {
     testWidgets('adherence control and seven-day strip render in both themes', (WidgetTester tester) async {
       final FakeMyosApi fake = _fake()
@@ -536,4 +640,3 @@ Widget _app(FakeMyosApi fake, String language, ThemeData theme, {Widget? home}) 
       ],
       child: MaterialApp(theme: theme, home: Scaffold(body: home ?? const NutritionTab())),
     );
-

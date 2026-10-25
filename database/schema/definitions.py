@@ -173,6 +173,11 @@ class SchemaMixin:
                 source TEXT NOT NULL DEFAULT 'answered' CHECK(source IN ('answered', 'computed')),
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS water_log (
+                entry_date TEXT PRIMARY KEY,
+                glass_count INTEGER NOT NULL CHECK(glass_count BETWEEN 0 AND 30),
+                updated_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals (
                 id INTEGER PRIMARY KEY CHECK(id=1),
                 offer_key TEXT NOT NULL,

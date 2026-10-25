@@ -106,6 +106,8 @@ class FakeMyosApi {
   Map<String, dynamic> nutritionState = <String, dynamic>{
     'state': 'not_started', 'targets': null,
   };
+  int waterGlasses = 0;
+  bool waterChangeFails = false;
   final List<Map<String, dynamic>> injuries = <Map<String, dynamic>>[];
   int _injuryId = 0;
   int injuryCreateRequests = 0;
@@ -895,6 +897,12 @@ class FakeMyosApi {
             : nutritionLoadFails
                 ? const FakeResponse(503, <String, dynamic>{'detail': 'Nutrition unavailable.'})
                 : FakeResponse(200, <String, dynamic>{...nutritionState, 'sex': gender});
+      case '/nutrition/water':
+        if (waterChangeFails) {
+          return const FakeResponse(409, <String, dynamic>{'detail': 'Water glass count limit.'});
+        }
+        waterGlasses += request.method == 'DELETE' ? -1 : 1;
+        return FakeResponse(200, <String, dynamic>{'today_water_glasses': waterGlasses});
       case '/nutrition/setup':
         if (!_authorized(request)) {
           return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});

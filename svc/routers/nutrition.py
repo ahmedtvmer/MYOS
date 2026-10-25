@@ -85,6 +85,7 @@ async def setup_nutrition(
             ),
         )
     state = await asyncio.to_thread(nutrition_service.read, ledger, language, today=today)
+    state["today_water_glasses"] = ledger.get_water_glasses(today)
     state["coach_sees_adherence"] = assignment is not None
     _apply_authority_view(state, assignment)
     return state
@@ -99,6 +100,7 @@ async def read_nutrition(
 ):
     today, assignment, language = _player_context(player, ledger, db, request)
     state = await asyncio.to_thread(nutrition_service.read, ledger, language, today=today)
+    state["today_water_glasses"] = ledger.get_water_glasses(today)
     state["coach_sees_adherence"] = assignment is not None
     _apply_authority_view(state, assignment)
     return state
@@ -134,6 +136,46 @@ async def log_adherence(
         properties={"value": body.value},
     ))
     return state
+
+
+@router.post("/water")
+async def add_water_glass(
+    request: Request,
+    player: Annotated[Any, Depends(get_verified_player)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    today, assignment, _language = _player_context(player, ledger, db)
+    try:
+        count, updated_at = await asyncio.to_thread(nutrition_service.change_water, ledger, today, 1)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    analytics.capture_for_request(request, analytics.AnalyticsEvent(
+        account_id=account_id_of(player), event="water_log_changed",
+        domain_key=f"{player}:{today.isoformat()}:{count}:{updated_at}", role="player",
+        properties={"count": count},
+    ))
+    return {"today_water_glasses": count}
+
+
+@router.delete("/water")
+async def undo_water_glass(
+    request: Request,
+    player: Annotated[Any, Depends(get_verified_player)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    today, _assignment, _language = _player_context(player, ledger, db)
+    try:
+        count, updated_at = await asyncio.to_thread(nutrition_service.change_water, ledger, today, -1)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    analytics.capture_for_request(request, analytics.AnalyticsEvent(
+        account_id=account_id_of(player), event="water_log_changed",
+        domain_key=f"{player}:{today.isoformat()}:{count}:{updated_at}", role="player",
+        properties={"count": count},
+    ))
+    return {"today_water_glasses": count}
 
 
 @router.put("/activity")

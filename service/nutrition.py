@@ -109,6 +109,9 @@ def _offer_key(profile: dict[str, Any]) -> str:
 
 def coach_read(ledger: Any, today: date, assignment_id: str, days: int = 14) -> dict[str, Any]:
     state = read(ledger, today=today)
+    state.update(_coach_water_log(ledger, today, days))
+    # Food log data is not available yet; this is the read seam for Spec B1.
+    state["fiber_eaten_days"] = None
     state["adherence_days"] = _coach_adherence_days(ledger, today, days)
     state["weight_trend"] = _coach_weight_trend(ledger, today, days)
     state["authority"] = (
@@ -124,6 +127,22 @@ def coach_read(ledger: Any, today: date, assignment_id: str, days: int = 14) -> 
             state["planned_weekly_rate_pct"] = _coach_planned_rate(ledger, profile, state)
     state["next_pace_check"] = "after_21_days_of_weigh_ins"
     return state
+
+
+def _coach_water_log(ledger: Any, today: date, days: int) -> dict[str, Any]:
+    water_days = ledger.get_water_log_days(today - timedelta(days=days - 1), today)
+    return {
+        "today_water_glasses": ledger.get_water_glasses(today),
+        "water_days": [
+            {"date": (today - timedelta(days=offset)).isoformat(),
+             "glasses": water_days.get((today - timedelta(days=offset)).isoformat(), 0)}
+            for offset in range(days - 1, -1, -1)
+        ],
+    }
+
+
+def change_water(ledger: Any, today: date, change: int) -> tuple[int, str]:
+    return ledger.change_water_glasses(today, change)
 
 
 def _coach_planned_rate(ledger: Any, profile: dict[str, Any], state: dict[str, Any]) -> float:

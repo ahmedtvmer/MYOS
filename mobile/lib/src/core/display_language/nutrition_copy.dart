@@ -96,6 +96,13 @@ class NutritionCopy {
   String get coachTakeoverPrompt => isArabic ? 'سيصبح لك حق تعديل أهداف التغذية لهذا اللاعب طوال مدة التعيين.' : 'You will control this Player’s Nutrition targets while the Assignment is active.';
   String get coachConfirmTakeover => isArabic ? 'تولي الأهداف' : 'Take over targets';
   String get coachTargets => isArabic ? 'أهداف التغذية' : 'Nutrition targets';
+  String get waterLog => isArabic ? 'سجل الماء' : 'Water log';
+  String get waterGlasses => isArabic ? 'أكواب اليوم' : 'Glasses today';
+  String get addGlass => isArabic ? '+ كوب' : '+1 glass';
+  String get undoGlass => isArabic ? 'تراجع' : 'Undo';
+  String get waterUpdateFailed => isArabic ? 'تعذر تحديث سجل الماء' : 'Could not update the Water log';
+  String get coachWaterHistory => isArabic ? 'الماء · آخر 14 يومًا' : 'Water · last 14 days';
+  String get fiberEaten => isArabic ? 'الألياف المتناولة' : 'Fiber eaten';
   String get coachSaveTargets => isArabic ? 'حفظ الأهداف' : 'Save targets';
   String get coachCalorieFloor => isArabic ? 'الحد الأدنى للسعرات' : 'Calorie floor';
   String get coachTargetCalories => isArabic ? 'السعرات' : 'Calories';

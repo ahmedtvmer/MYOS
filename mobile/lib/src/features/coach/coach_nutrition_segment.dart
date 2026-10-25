@@ -258,6 +258,21 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _adherenceStrip(copy),
+        const SizedBox(height: 16),
+        Card(child: ListTile(
+          leading: const Icon(Icons.water_drop_outlined),
+          title: Text(copy.waterLog),
+          subtitle: Text('${copy.waterGlasses}: ${_state!.todayWaterGlasses}'),
+        )),
+        Text(copy.coachWaterHistory, style: Theme.of(context).textTheme.titleSmall),
+        Wrap(spacing: 5, children: <Widget>[
+          for (final Map<String, dynamic> day in _state!.waterDays)
+            Tooltip(message: '${day['date']}: ${day['glasses']}',
+              child: CircleAvatar(radius: 10,
+                child: Text('${day['glasses']}', style: const TextStyle(fontSize: 9)))),
+        ]),
+        if (_state!.fiberEatenDays != null)
+          Text(copy.fiberEaten),
           const SizedBox(height: 16),
           _weightTrend(copy),
           const SizedBox(height: 12),

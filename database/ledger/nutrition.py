@@ -28,6 +28,41 @@ class NutritionSetup:
 
 
 class LedgerNutritionMixin:
+    def change_water_glasses(self, entry_date, change):
+        now = datetime.now(UTC).isoformat(timespec="microseconds")
+        if change > 0:
+            row = self.conn.execute(
+                "INSERT INTO water_log(entry_date, glass_count, updated_at) VALUES(?, 1, ?) "
+                "ON CONFLICT(entry_date) DO UPDATE SET glass_count=glass_count+1, "
+                "updated_at=excluded.updated_at WHERE glass_count < 30 "
+                "RETURNING glass_count",
+                (str(entry_date), now),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "UPDATE water_log SET glass_count=glass_count-1, updated_at=? "
+                "WHERE entry_date=? AND glass_count > 0 RETURNING glass_count",
+                (now, str(entry_date)),
+            ).fetchone()
+        if row is None:
+            raise ValueError("Water glass count must be between 0 and 30.")
+        updated = int(row[0])
+        self._commit_ledger()
+        return updated, now
+
+    def get_water_glasses(self, entry_date):
+        row = self.conn.execute(
+            "SELECT glass_count FROM water_log WHERE entry_date=?", (str(entry_date),)
+        ).fetchone()
+        return int(row[0]) if row else 0
+
+    def get_water_log_days(self, start_date, end_date):
+        rows = self.conn.execute(
+            "SELECT entry_date, glass_count FROM water_log WHERE entry_date BETWEEN ? AND ?",
+            (str(start_date), str(end_date)),
+        ).fetchall()
+        return {str(row[0]): int(row[1]) for row in rows}
+
     def upsert_nutrition_adherence(self, entry_date, value):
         updated_at = datetime.now(UTC).isoformat(timespec="microseconds")
         self.conn.execute(

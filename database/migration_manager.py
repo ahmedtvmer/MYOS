@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 42
+CURRENT_LEDGER_SCHEMA_VERSION: int = 43
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -1068,6 +1068,16 @@ def _migrate_v41_to_v42(conn: sqlite3.Connection) -> None:
                  "ON nutrition_pace_proposals(plan_version_id) WHERE status='pending'")
 
 
+def _migrate_v42_to_v43(conn: sqlite3.Connection) -> None:
+    """Stores one bounded water glass count per Player-local day (#503)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS water_log ("
+        "entry_date TEXT PRIMARY KEY, "
+        "glass_count INTEGER NOT NULL CHECK(glass_count BETWEEN 0 AND 30), "
+        "updated_at TEXT NOT NULL)"
+    )
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1195,6 +1205,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     39: _migrate_v39_to_v40,
     40: _migrate_v40_to_v41,
     41: _migrate_v41_to_v42,
+    42: _migrate_v42_to_v43,
 }
 
 

@@ -353,6 +353,9 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
     "nutrition_adherence_logged": EventContract(
         "server", {**_COMMON_PROPERTIES, "value": PROPERTY_TYPES["value"]}
     ),
+    "water_log_changed": EventContract(
+        "server", {**_COMMON_PROPERTIES, "count": _bounded_int(30)}
+    ),
     "nutrition_goal_saved": EventContract(
         "server", {**_COMMON_PROPERTIES, "goal": PROPERTY_TYPES["goal"],
                    "intensity": PROPERTY_TYPES["intensity"], "floor_applied": PROPERTY_TYPES["floor_applied"]}

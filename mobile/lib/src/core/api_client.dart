@@ -2122,6 +2122,13 @@ class ApiClient {
         'The service returned invalid Nutrition data.');
   }
 
+  Future<int> changeWaterGlasses({required bool undo}) async {
+    final response = await _send(() => undo
+        ? _dio.delete<dynamic>('/nutrition/water')
+        : _dio.post<dynamic>('/nutrition/water'));
+    return ((response.data as Map<String, dynamic>)['today_water_glasses'] as num).toInt();
+  }
+
   Future<Map<String, dynamic>> previewNutrition(String goal, String intensity) async {
     final response = await _send(() => _dio.post<dynamic>('/nutrition/preview', data: {
       'goal': goal, 'intensity': intensity,

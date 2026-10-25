@@ -619,7 +619,7 @@ def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     set_ledger_schema_version(conn, 38)
     conn.commit()
     apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 42
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 43
     assert conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='nutrition_pace_proposals'"
     ).fetchone() is not None
@@ -1710,3 +1710,20 @@ def test_ledger_upgrade_from_v33_adds_optional_program_load(tmp_path: Path):
         assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION
     finally:
         conn.close()
+
+
+def test_v42_lazy_migration_creates_water_log_from_real_v42_schema(temp_db_env):
+    from database.migration_manager import CURRENT_LEDGER_SCHEMA_VERSION, get_ledger_schema_version
+
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE water_log")
+    set_ledger_schema_version(conn, 42)
+    conn.commit()
+    assert get_ledger_schema_version(conn) == 42
+    assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is None
+
+    apply_lazy_migrations(conn, "water-v42", ledgers_dir, backups_dir)
+
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 43
+    assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is not None

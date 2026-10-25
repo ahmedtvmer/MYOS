@@ -1311,3 +1311,117 @@ def test_setup_and_activity_return_complete_assigned_nutrition_state(api, monkey
         assert state["latest_weight"] == 70
         assert state["target_weight"] == 65
         assert state["coach_sees_adherence"] is True
+
+
+def test_water_log_increments_undoes_and_emits_count_only_events(api, recording_analytics):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "water-player", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "water-player", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    first = client.post("/nutrition/water", headers=headers)
+    assert first.status_code == 200, first.text
+    assert first.json()["today_water_glasses"] == 1
+    assert client.post("/nutrition/water", headers=headers).json()["today_water_glasses"] == 2
+    assert client.delete("/nutrition/water", headers=headers).json()["today_water_glasses"] == 1
+    assert client.delete("/nutrition/water", headers=headers).json()["today_water_glasses"] == 0
+    assert client.delete("/nutrition/water", headers=headers).status_code == 409
+    events = [event for event in recording_analytics.events if event["event"] == "water_log_changed"]
+    assert [event["properties"]["count"] for event in events] == [1, 2, 1, 0]
+    assert all(set(event["properties"]) == {"role", "platform", "app_version", "env", "count"}
+               for event in events)
+
+
+def test_water_log_stops_at_thirty(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "water-bound", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "water-bound", age=30, target=None)
+    account = db.get_active_account_by_username("water-bound")
+    today = _player_today(db, "water-bound")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute(
+            "INSERT INTO water_log(entry_date, glass_count, updated_at) VALUES(?, 29, 'seed')",
+            (today.isoformat(),),
+        )
+        ledger.conn.commit()
+    assert client.post("/nutrition/water", headers=headers).json()["today_water_glasses"] == 30
+    assert client.post("/nutrition/water", headers=headers).status_code == 409
+
+
+def test_water_rolls_over_in_player_timezone_and_is_assignment_gated(api, monkeypatch):
+    from datetime import UTC, datetime
+    from svc.routers import assignments as assignments_router
+    from svc.routers import nutrition as nutrition_router
+    from service.weight_history import player_local_date as resolve_player_local_date
+
+    client, db = api
+    coach = client.post("/auth/register", json={"trainee_id": "water-rollover-coach", "password": "correct-horse-1"}).json()
+    coach_headers = {"Authorization": f"Bearer {coach['access_token']}"}
+    from service import coach as coach_service
+    coach_invite = coach_service.issue_coach_invite(db, "water-rollover-coach", actor="cli")
+    assert client.post("/coach/invite/redeem", headers=coach_headers, json={"token": coach_invite["token"]}).status_code == 200
+    assert client.put("/coach/profile", headers=coach_headers, json={
+        "display_name": "Coach", "bio": "b", "specialization": "s", "capacity": 5,
+    }).status_code == 200
+    player = client.post("/auth/register", json={"trainee_id": "water-rollover-player", "password": "correct-horse-1"}).json()
+    player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+    assignment_token = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    assignment = client.post("/assignments/invites/redeem", headers=player_headers,
+        json={"token": assignment_token, "consent": True}).json()["assignment"]
+    peer = client.post("/auth/register", json={"trainee_id": "water-rollover-peer", "password": "correct-horse-1"}).json()
+    peer_headers = {"Authorization": f"Bearer {peer['access_token']}"}
+    peer_invite = client.post("/coach/assignments/invites", headers=coach_headers).json()["token"]
+    client.post("/assignments/invites/redeem", headers=peer_headers,
+        json={"token": peer_invite, "consent": True})
+    _seed_profile(db, "water-rollover-player", age=30, target=None)
+    _seed_profile(db, "water-rollover-peer", age=30, target=None)
+    player_account = db.get_active_account_by_username("water-rollover-player")
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        ledger.append_training_schedule(str(ledger.ledger_id), [1], "Pacific/Kiritimati",
+            "2026-10-24", "2026-10-24T00:00:00+00:00")
+        assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_adherence").fetchone()[0] == 0
+    now = [datetime(2026, 10, 25, 9, 59, tzinfo=UTC)]
+    def local_date(ledger, ledger_id):
+        return resolve_player_local_date(ledger, ledger_id, now=now[0])
+    monkeypatch.setattr(nutrition_router, "player_local_date", local_date)
+    monkeypatch.setattr(assignments_router, "player_local_date", local_date)
+
+    assert client.post("/nutrition/water", headers=player_headers).json()["today_water_glasses"] == 1
+    now[0] = datetime(2026, 10, 25, 10, 1, tzinfo=UTC)
+    assert client.get("/nutrition", headers=player_headers).json()["today_water_glasses"] == 0
+    assert client.post("/nutrition/water", headers=player_headers).json()["today_water_glasses"] == 1
+    player_state = client.get("/nutrition", headers=player_headers).json()
+    coach_state = client.get(f"/coach/assignments/{assignment['assignment_id']}/nutrition", headers=coach_headers).json()
+    counts = {day["date"]: day["glasses"] for day in coach_state["water_days"]}
+    assert counts["2026-10-25"] == 1
+    assert counts["2026-10-26"] == 1
+    assert player_state["today_water_glasses"] == coach_state["today_water_glasses"] == 1
+    outsider = client.post("/auth/register", json={"trainee_id": "water-outsider", "password": "correct-horse-1"}).json()
+    outsider_headers = {"Authorization": f"Bearer {outsider['access_token']}"}
+    outsider_invite = coach_service.issue_coach_invite(db, "water-outsider", actor="cli")
+    assert client.post("/coach/invite/redeem", headers=outsider_headers,
+        json={"token": outsider_invite["token"]}).status_code == 200
+    assert client.get(f"/coach/assignments/{assignment['assignment_id']}/nutrition",
+        headers=outsider_headers).status_code == 403
+
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_adherence").fetchone()[0] == 0
+    alerts_before = db.catalog_conn.execute("SELECT COUNT(*) FROM coach_alerts").fetchone()[0]
+    snapshot_before = client.get("/coach/roster/snapshot", headers=coach_headers).json()["snapshot"]
+    mapping_before = client.get("/coach/roster/snapshot", headers=coach_headers).json()["client_mapping"]
+    order_before = [item["player_display_name"] for item in mapping_before]
+    assert len(order_before) == 2
+    for _ in range(2):
+        client.post("/nutrition/water", headers=player_headers)
+    alerts_after = db.catalog_conn.execute("SELECT COUNT(*) FROM coach_alerts").fetchone()[0]
+    snapshot_after = client.get("/coach/roster/snapshot", headers=coach_headers).json()["snapshot"]
+    mapping_after = client.get("/coach/roster/snapshot", headers=coach_headers).json()["client_mapping"]
+    assert alerts_after == alerts_before
+    assert [item["player_display_name"] for item in mapping_after] == order_before
+    assert [row["urgency_rank"] for row in snapshot_after["players"]] == [
+        row["urgency_rank"] for row in snapshot_before["players"]]
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        assert ledger.conn.execute("SELECT COUNT(*) FROM nutrition_adherence").fetchone()[0] == 0
