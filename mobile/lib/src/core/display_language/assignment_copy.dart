@@ -2,7 +2,7 @@ import 'arabic_count.dart';
 import 'catalog.dart' show exerciseNameOrFallback;
 
 // Keep in sync with service.assignments.ROSTER_AI_DISCLOSURE_VERSION.
-const String rosterAiDisclosureVersion = '1';
+const String rosterAiDisclosureVersion = '2';
 
 /// App-owned labels for the player side of a coaching assignment and program
 /// requests. Coach and service prose is rendered directly by the screen.
@@ -113,9 +113,10 @@ class AssignmentCopy {
   String get acceptAssignment =>
       isArabic ? 'قبول علاقة التدريب' : 'Accept assignment';
   String get rosterAiDisclosure => isArabic
-      ? 'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل بيانات تدريبك مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال الخاصة بك.'
-      : 'Your coach may ask a hosted AI about your training figures alongside '
-          'other players’ figures. The AI does not receive your name or contact details.';
+      ? 'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.'
+      : 'Your coach may ask a hosted AI about your training signals and your '
+          'Nutrition adherence over the last 7 days alongside other players’ figures. '
+          'The AI does not receive your name, contact details, or health-screening answers.';
   String get rosterAiDisclosureOk => isArabic ? 'حسنًا' : 'OK';
   String get enterInviteCode => isArabic
       ? 'أدخل رمز دعوة للتدريب مع مدرب.'

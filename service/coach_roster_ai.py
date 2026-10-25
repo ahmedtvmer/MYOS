@@ -115,6 +115,7 @@ CANONICAL_SNAPSHOT: dict[str, Any] = {
             "missed_expected_days_7d": 3,
             "missed_expected_days_14d": 4,
             "adherence_pct_28d": 72.0,
+            "nutrition_adherence_7d": {"on_target": 4, "roughly": 2, "off": 1},
             "weeks_without_personal_record": 1,
             "stall_threshold_met": False,
             "effort_rising_same_load_main_lift": False,

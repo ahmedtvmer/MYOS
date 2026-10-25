@@ -41,7 +41,7 @@ def results(dataset):
 
 
 def test_dataset_covers_required_topics_in_english_and_arabic(dataset):
-    assert len(dataset["cases"]) == 16
+    assert len(dataset["cases"]) == 17
     assert {
         "attention_en",
         "attention_ar",
@@ -59,8 +59,9 @@ def test_dataset_covers_required_topics_in_english_and_arabic(dataset):
         "weight_target_ar",
         "weight_no_target_en",
         "weight_no_history_en",
+        "nutrition_adherence_en",
     } == {case["id"] for case in dataset["cases"]}
-    assert {"attention", "adherence", "insufficient", "weight", "weight_no_target"} == set(
+    assert {"attention", "adherence", "insufficient", "weight", "weight_no_target", "nutrition_adherence"} == set(
         dataset["snapshots"]
     )
     assert all(

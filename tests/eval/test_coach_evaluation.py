@@ -168,7 +168,6 @@ def test_dataset_covers_injury_and_clearance_questions_in_both_languages(cases):
         assert "IDENTIFY_INJURY_DESCRIPTION_2c9e" in rendered
         assert "IDENTIFY_CLEARANCE_NOTE_6f14" in rendered
         assert "resolved_count: 1" in rendered
-
         # The declared marker-fidelity expectations must match the rendered
         # context, so the checked markers cannot drift from the graded facts.
         entries = {entry["exercise"]: entry for entry in case["expect"]["marker_fidelity"]}
@@ -177,6 +176,14 @@ def test_dataset_covers_injury_and_clearance_questions_in_both_languages(cases):
         for entry in entries.values():
             assert any(name in rendered for name in entry["names"]), entry
 
+
+def test_dataset_covers_a_player_nutrition_question(cases):
+    case = next(case for case in cases if case["id"] == "coach_nutrition_en_01")
+    assert "nutrition" in case["question"].lower()
+    rendered = coach_ai.render_context(case["facts"])
+    assert "goal: lose" in rendered
+    assert "calories 2200" in rendered
+    assert case["expect"]["figures"]
 
 def test_dataset_covers_name_pronoun_client_and_contact_questions_in_both_languages(cases):
     ids = {case["id"] for case in cases}

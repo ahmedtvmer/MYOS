@@ -416,6 +416,7 @@ class CoachRosterSignalOut(BaseModel):
     effort_rising_same_load_main_lift: bool
     days_since_last_check_in: int | None
     bodyweight_trend: None = None
+    nutrition_adherence_7d: dict[str, int] | None = None
     coaching_subscription_end: None = None
 
 

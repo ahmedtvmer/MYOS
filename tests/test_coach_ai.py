@@ -139,7 +139,7 @@ def _account_id(db, username):
 
 def test_prompt_version_hash_is_bound_to_name_aware_context():
     assert coach_ai.prompt_version_hash() == (
-        "64793e4ea8cc8933b05cca6fea69359dfc502d3e8a2b420a2e0f69e2db17ae27"
+        "8084ec3d361328bd8fdf239b01597abc8416d8a6b8656bec21384fb105daf439"
     )
 
 
@@ -158,6 +158,49 @@ def test_canonical_fixture_contains_python_computed_record_and_follow_up_figures
     assert "days_since_last_check_in: 11" in rendered
     assert "days_overdue: 4" in rendered
     assert "days_since_last_missed: 11" in rendered
+    assert "adherence_14d: on_target 8, roughly 3, off 3" in rendered
+    assert "pending_pace_proposal:" in rendered
+
+
+def test_render_context_includes_coach_visible_nutrition_facts_and_pending_proposal():
+    facts = coach_ai.CANONICAL_FIXTURE.copy()
+    facts["nutrition"] = {
+        "targets": {"calories": 2200, "protein_g": 160, "carbs_g": 230, "fat_g": 70},
+        "author": "Coach", "goal": "lose", "intensity": "moderate",
+        "adherence_counts": {"on_target": 1, "roughly": 1, "off": 1},
+        "pace_proposal": {"suggested_calories": 2100},
+    }
+    rendered = coach_ai.render_context(facts)
+
+    assert "goal: lose" in rendered
+    assert "pace: moderate" in rendered
+    assert "author: Coach" in rendered
+    assert "calories 2200" in rendered and "protein_g 160" in rendered
+    assert "adherence_14d: on_target 1, roughly 1, off 1" in rendered
+    assert 'pending_pace_proposal: {"suggested_calories": 2100}' in rendered
+
+
+def test_gathered_coach_context_drops_screening_answers(api, monkeypatch):
+    _client, db, _ledger_dir = api
+    _coach_headers, _player_headers, assignment_id = _assigned_player(api)
+    monkeypatch.setattr(coach_ai.nutrition_service, "coach_read", lambda *args, **kwargs: {
+        "state": "ready",
+        "targets": {"calories": 2000, "protein_g": 150, "carbs_g": 220, "fat_g": 65},
+        "author": "Player", "goal": "maintain", "intensity": None,
+        "adherence_days": [{"value": "on_target"}, {"value": "off"}],
+        "pace_proposal": {"suggested_calories": 2050},
+        "screening": {"medical_condition": "PRIVATE_SCREENING_469"},
+    })
+    facts = coach_ai.gather_player_context(db, _account_id(db, "coach"), assignment_id)
+    rendered = coach_ai.render_context(facts)
+
+    assert "PRIVATE_SCREENING_469" not in repr(facts)
+    assert "screening" not in facts["nutrition"]
+    assert facts["nutrition"]["adherence_counts"] == {"on_target": 1, "roughly": 0, "off": 1}
+    assert "calories 2000" in rendered
+    assert "adherence_14d: on_target 1, roughly 0, off 1" in rendered
+    assert "pending_pace_proposal" in rendered
+    assert "PRIVATE_SCREENING_469" not in rendered
 
 
 def _make_coach(client, db, username="coach", capacity=5):

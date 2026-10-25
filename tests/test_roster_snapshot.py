@@ -218,6 +218,26 @@ def _snapshot(db, coach_id, now):
     return roster_snapshot_service.roster_signal_snapshot(db, coach_id, now=now)
 
 
+def test_roster_snapshot_includes_seven_day_nutrition_adherence_and_excludes_screening(api, monkeypatch):
+    client, db = api
+    coach_headers, coach_id = _make_coach(client, db)
+    _assign(client, db, coach_headers, "nutritionroster")
+    monkeypatch.setattr(roster_snapshot_service.nutrition_service, "coach_read", lambda *args, **kwargs: {
+        "state": "ready",
+        "adherence_days": [
+            {"value": "on_target"}, {"value": "on_target"},
+            {"value": "roughly"}, {"value": "off"},
+        ],
+        "screening": {"medical_condition": "PRIVATE_SCREENING_469"},
+    })
+
+    snapshot = _snapshot(db, coach_id, datetime(2026, 10, 25, 12, tzinfo=UTC))
+    signal = snapshot["snapshot"]["players"][0]
+
+    assert signal["nutrition_adherence_7d"] == {"on_target": 2, "roughly": 1, "off": 1}
+    assert "PRIVATE_SCREENING_469" not in json.dumps(snapshot)
+
+
 def test_legacy_assignment_enters_snapshot_only_after_disclosure_and_revokes(
     api, monkeypatch
 ):

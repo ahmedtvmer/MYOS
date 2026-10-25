@@ -213,6 +213,8 @@ void main() {
     expect(disclosure, contains('آخر 5 ملاحظات'));
     expect(disclosure, contains('300 حرف'));
     expect(disclosure, contains('الإصابات النشطة وتوصيات الطبيب بشأن التمرين'));
+    expect(disclosure, contains('أهدافه الغذائية وهدف التغذية والوتيرة'));
+    expect(disclosure, contains('إجابات الفحص الصحي'));
     expect(disclosure, contains('الملاحظات والإصابات والنبذة'));
   });
 
@@ -243,12 +245,7 @@ void main() {
 
     expect(
       find.text(
-        "The hosted model receives bob's name (preferred name if set), "
-        "your coach display name and bio, bob's goal, Experience level, Equipment access, "
-        "bodyweight and e1RM trends, active injuries and the player's reports of physician advice on exercise clearances "
-        '(descriptions and notes up to 300 characters each), and your last 5 check-in notes '
-        '(up to 300 characters each). Notes, injury details, and your bio may contain '
-        "identifying details. This exchange isn't saved.",
+        const CoachCopy('en').assistantNote('bob'),
       ),
       findsOneWidget,
     );
