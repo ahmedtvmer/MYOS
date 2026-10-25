@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 38
+CURRENT_LEDGER_SCHEMA_VERSION: int = 39
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -35,7 +35,8 @@ VOLUME_REVIEWS_DDL: tuple[str, ...] = (
 PROGRAM_DESIGN_OFFER_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS program_design_offer ("
     " id INTEGER PRIMARY KEY CHECK (id = 1),"
-    " decision TEXT NOT NULL CHECK (decision IN ('accepted', 'dismissed'))"
+    " decision TEXT CHECK (decision IN ('accepted', 'dismissed'))"
+    ", reason TEXT"
     ")",
 )
 
@@ -955,6 +956,23 @@ def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE user_profile ADD COLUMN weak_points_json TEXT")
 
 
+def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
+    """Stores the reason for the single pending regenerate offer (#497)."""
+    if not _ledger_table_exists(conn, "program_design_offer"):
+        for statement in PROGRAM_DESIGN_OFFER_DDL:
+            conn.execute(statement)
+        return
+    conn.execute("ALTER TABLE program_design_offer RENAME TO program_design_offer_v38")
+    conn.execute(PROGRAM_DESIGN_OFFER_DDL[0])
+    old_columns = {row[1] for row in conn.execute("PRAGMA table_info(program_design_offer_v38)")}
+    reason_expr = "reason" if "reason" in old_columns else "NULL"
+    conn.execute(
+        "INSERT INTO program_design_offer (id, decision, reason) "
+        f"SELECT id, decision, {reason_expr} FROM program_design_offer_v38"
+    )
+    conn.execute("DROP TABLE program_design_offer_v38")
+
+
 def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
     """Adds immutable Nutrition plan versions and Player-only screening (#461)."""
     conn.execute(
@@ -1116,6 +1134,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     35: _migrate_v35_to_v36,
     36: _migrate_v36_to_v37,
     37: _migrate_v37_to_v38,
+    38: _migrate_v38_to_v39,
 }
 
 

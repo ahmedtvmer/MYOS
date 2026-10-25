@@ -1724,6 +1724,7 @@ class ActiveProgramOut(PersistedProgramSchema):
 
     player_controls_program: bool
     offer_design_regeneration: bool = False
+    regeneration_offer_reason: str | None = None
     current_week: int = 1
     week_count: int = 1
     next_day_order: int = 1

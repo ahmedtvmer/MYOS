@@ -121,6 +121,11 @@ def update_profile(
             != normalize_profile_value(key, profile.get(key, defaults.get(key)))
             for key in PROFILE_REBUILD_FIELDS
         )
+        weak_points_changed = (
+            "weak_points" in payload
+            and normalize_profile_value("weak_points", payload["weak_points"])
+            != normalize_profile_value("weak_points", profile.get("weak_points"))
+        )
         updated = {**profile, **payload}
 
         def persist_profile() -> None:
@@ -156,6 +161,7 @@ def update_profile(
         )
         program = None
         program_blocked = False
+        regeneration_offer_created = False
         if rebuild_requested:
             if player_controls_program(db, ledger, player_account_id):
                 from svc.llm import InferenceScope, inference_turn, run_inference_sync
@@ -195,6 +201,20 @@ def update_profile(
                 persist_profile()
         else:
             persist_profile()
+        if (
+            weak_points_changed
+            and player_account_id
+            and player_controls_program(db, ledger, player_account_id)
+        ):
+            active = ledger.get_active_program()
+            if (
+                active is not None
+                and active.published_by_coach_account_id is None
+                and active.source_template_id is None
+            ):
+                # Keep the single offer pending and show the latest change reason.
+                ledger.record_program_regeneration_offer("focus_muscles_changed")
+                regeneration_offer_created = True
         if "weight_kg" in payload and player_account_id:
             evaluate_for_player(db, player_account_id, ledger=ledger)
         if program is not None and player_account_id:
@@ -218,6 +238,7 @@ def update_profile(
             "program_rebuilt": program is not None,
             "program": program,
             "program_blocked": program_blocked,
+            "regeneration_offer_created": regeneration_offer_created,
             "program_message": COACH_CONTROLLED_ERROR if program_blocked else None,
         }
 

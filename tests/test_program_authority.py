@@ -1580,6 +1580,79 @@ def test_program_design_offer_is_only_for_unstamped_player_controlled_programs(a
     assert current["offer_design_regeneration"] is False
 
 
+def test_weak_point_change_offers_regeneration_without_rebuilding(api):
+    client, db, _ = api
+    player = _register(client, "weakpoint_offer")
+    headers = _authed(player["access_token"])
+    db.switch_user("weakpoint_offer")
+    from agent.program_generator import PROGRAM_DESIGN_VERSION
+
+    db.ledger.save_training_program(
+        {**_program("Current design").model_dump(), "design_version": PROGRAM_DESIGN_VERSION}
+    )
+    response = client.put(
+        "/profile", headers=headers,
+        json={"weak_points": [{"muscle": "chest", "source": "named"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["program_rebuilt"] is False
+    assert response.json()["regeneration_offer_created"] is True
+    active = client.get("/programs/active", headers=headers).json()
+    assert active["offer_design_regeneration"] is True
+    assert active["regeneration_offer_reason"] == "focus_muscles_changed"
+
+
+def test_weak_point_change_does_not_offer_for_coach_controlled_program(api):
+    client, db, _ = api
+    _, player_headers, _, coach_id, _ = _assigned_player(api, "weakpoint_coach")
+    db.switch_user("weakpoint_coach")
+    db.ledger.save_training_program(
+        _program("Coach plan").model_dump(), published_by_coach_account_id=coach_id
+    )
+    response = client.put(
+        "/profile", headers=player_headers,
+        json={"weak_points": [{"muscle": "chest", "source": "named"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["program_blocked"] is False
+    active = client.get("/programs/active", headers=player_headers).json()
+    assert active["offer_design_regeneration"] is False
+    assert active["version"] == 1
+
+
+def test_accepting_weak_point_offer_creates_a_new_program_version(
+    api, unstamped_program_generation
+):
+    client, db, _ = api
+    player = _register(client, "accept_weakpoint_offer")
+    headers = _authed(player["access_token"])
+    db.switch_user("accept_weakpoint_offer")
+    from agent.program_generator import PROGRAM_DESIGN_VERSION
+
+    db.ledger.save_training_program(
+        {
+            **_program("Current design").model_dump(),
+            "design_version": PROGRAM_DESIGN_VERSION,
+        }
+    )
+    changed = client.put(
+        "/profile", headers=headers,
+        json={"weak_points": [{"muscle": "chest", "source": "named"}]},
+    )
+    assert changed.status_code == 200, changed.text
+    accepted = client.post("/programs/design-offer/accept", headers=headers)
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["version"] == 2
+    assert accepted.json()["program_rationale"]["focus_muscles"] == [
+        {"muscle": "chest", "source": "named"}
+    ]
+    assert db.ledger.get_program_by_version(1).program_name == "Current design"
+    assert (
+        client.get("/programs/active", headers=headers).json()["offer_design_regeneration"]
+        is False
+    )
+
+
 def test_template_derived_program_does_not_receive_design_offer(api):
     client, db, _ = api
     player = _register(client, "template_offer")
@@ -1609,7 +1682,12 @@ def test_design_offer_routes_conflict_when_no_offer_exists(api):
 @pytest.fixture
 def unstamped_program_generation(monkeypatch):
     def generate(**kwargs):
-        kwargs["ledger"].save_training_program(_program("Generated").model_dump())
+        ledger = kwargs["ledger"]
+        program = _program("Generated").model_dump()
+        weak_points = (ledger.get_player_profile() or {}).get("weak_points") or []
+        if weak_points:
+            program["program_rationale"] = {"focus_muscles": weak_points}
+        ledger.save_training_program(program)
         return kwargs["ledger"].get_active_program(), ""
 
     monkeypatch.setattr(programs_service, "generate_program_pipeline", generate)

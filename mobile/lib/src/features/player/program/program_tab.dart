@@ -1175,7 +1175,9 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                   ),
                   const SizedBox(height: MyosSpacing.xs),
                   Text(
-                    displayCopyOf(context).regenerateProgramOfferBody,
+                    program.regenerationOfferReason == 'focus_muscles_changed'
+                        ? displayCopyOf(context).focusMusclesRegenerateOfferBody
+                        : displayCopyOf(context).regenerateProgramOfferBody,
                     style: MyosTypography.of(context)
                         .bodySecondary
                         .copyWith(color: c.textSecondary),

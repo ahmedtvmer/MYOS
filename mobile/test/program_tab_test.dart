@@ -462,6 +462,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Weak point regenerate offer shows its localized reason',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..offerProgramDesignRegeneration = true
+      ..regenerationOfferReason = 'focus_muscles_changed';
+    await _pumpProgram(tester, fake, size: const Size(360, 800));
+    expect(
+      find.text('Your Weak points changed — rebuild your program to focus on them?'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Arabic Weak point regenerate offer uses Arabic reason copy',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..offerProgramDesignRegeneration = true
+      ..regenerationOfferReason = 'focus_muscles_changed';
+    await _pumpProgram(
+      tester, fake,
+      languageCode: 'ar',
+      size: const Size(360, 800),
+    );
+    expect(
+      find.text('تغيّرت نقاط ضعفك. أعد إنشاء برنامجك التدريبي ليركّز عليها؟'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('dismissing the program design offer hides its card',
       (tester) async {
     final FakeMyosApi fake = _signedInFake()

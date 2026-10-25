@@ -133,6 +133,37 @@ def _force_free_form_coaching_intent(monkeypatch):
     )
 
 
+def test_chat_writes_weak_points_in_english_and_arabic_without_guessing(api, monkeypatch):
+    client, db = api
+    headers = _authed(_register(client, "chat-weakpoints")["access_token"])
+    for request_text, expected in (
+        ("My weak points are chest and upper chest", ["chest", "upper_chest"]),
+        ("نقاط ضعفي هي الصدر والظهر", ["chest", "back"]),
+    ):
+        response = client.post(
+            "/chat/messages", headers=headers, json={"content": request_text}
+        )
+        assert response.status_code == 200, response.text
+        reply = _done_content(response.text)
+        assert "saved your Weak points" in reply or "حفظت نقاط ضعفك" in reply
+        profile = client.get("/profile", headers=headers).json()
+        assert [point["muscle"] for point in profile["weak_points"]] == expected
+
+    for invalid_request in (
+        "My weak points are traps",
+        "My weak points are chest and chest",
+        "My weak points are chest, back and quads",
+    ):
+        response = client.post(
+            "/chat/messages",
+            headers=headers,
+            json={"content": invalid_request},
+        )
+        assert response.status_code == 200, response.text
+        profile = client.get("/profile", headers=headers).json()
+        assert [point["muscle"] for point in profile["weak_points"]] == ["chest", "back"]
+
+
 def test_structured_intake_confirmation_does_not_call_hosted_model(api, monkeypatch):
     client, _db = api
     headers = _authed(_register(client, "private-intake")["access_token"])

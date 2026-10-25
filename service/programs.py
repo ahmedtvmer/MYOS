@@ -97,6 +97,10 @@ def active_program_response(
     payload["offer_design_regeneration"] = should_offer_design_regeneration(
         db, ledger, player_account_id, program
     )
+    payload["regeneration_offer_reason"] = (
+        ledger.program_design_offer_reason()
+        or ("design_version" if program.design_version != PROGRAM_DESIGN_VERSION else None)
+    )
     return {
         **payload,
         "player_controls_program": player_controls_program(db, ledger, player_account_id),
@@ -114,8 +118,11 @@ def should_offer_design_regeneration(
         player_controls_program(db, ledger, player_account_id)
         and program.published_by_coach_account_id is None
         and program.source_template_id is None
-        and program.design_version != PROGRAM_DESIGN_VERSION
         and ledger.program_design_offer_decision() is None
+        and (
+            program.design_version != PROGRAM_DESIGN_VERSION
+            or ledger.program_design_offer_reason() == "focus_muscles_changed"
+        )
     )
 
 

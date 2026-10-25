@@ -2980,6 +2980,7 @@ class TrainingProgram {
     this.sourceTemplateName,
     this.playerControlsProgram = false,
     this.offerDesignRegeneration = false,
+    this.regenerationOfferReason,
   });
 
   factory TrainingProgram.fromJson(Map<String, dynamic> json) {
@@ -3014,6 +3015,7 @@ class TrainingProgram {
             json['player_controls_program'] as bool? ?? false,
         offerDesignRegeneration:
             json['offer_design_regeneration'] as bool? ?? false,
+        regenerationOfferReason: json['regeneration_offer_reason'] as String?,
       );
   }
 
@@ -3046,6 +3048,8 @@ class TrainingProgram {
   /// The legacy program design can be regenerated once when the server offers it.
   final bool offerDesignRegeneration;
 
+  final String? regenerationOfferReason;
+
   bool get isCoachPublished => publishedByCoachAccountId != null;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -3069,6 +3073,7 @@ class TrainingProgram {
         'source_template_name': sourceTemplateName,
         'player_controls_program': playerControlsProgram,
         'offer_design_regeneration': offerDesignRegeneration,
+        'regeneration_offer_reason': regenerationOfferReason,
       };
 }
 
