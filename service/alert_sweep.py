@@ -99,7 +99,7 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
                 "Follow-up evaluation failed for assignment %s", assignment.get("assignment_id")
             )
     for account in db.list_accounts():
-        if not account.get("is_player"):
+        if not account.get("is_player") or not db.ledger_exists(account["ledger_id"]):
             continue
         try:
             _evaluate_nutrition_pace_check(db, account, now)
