@@ -376,6 +376,7 @@ def test_tool_bound_chat_fetches_profile_and_program_only_after_parallel_calls(
     assert [name for name in model.calls[0]["tools"]] == [
         "get_player_profile",
         "get_active_program",
+        "get_program_rationale",
         "get_player_weight_trend",
         "get_player_injuries",
         "get_assistant_preferences",
@@ -497,6 +498,7 @@ def test_turn_without_tool_call_sends_no_profile_telemetry_or_program_data(api, 
     assert model.calls[0]["tools"] == (
         "get_player_profile",
         "get_active_program",
+        "get_program_rationale",
         "get_player_weight_trend",
         "get_player_injuries",
         "get_assistant_preferences",
