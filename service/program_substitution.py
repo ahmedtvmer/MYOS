@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from agent.program_rationale import CHANGE_SUBSTITUTION
 from agent.program_blueprints import SLOT_SPECS, rest_seconds_for_exercise_class
 from agent.program_weeks import (
     ProgramPosition,
@@ -97,6 +98,15 @@ def substitute_program_exercise(
     for exercise in replaced_exercises:
         _adjust_class_prescription(exercise, replacement, profile)
     replaced_count = len(replaced_exercises)
+    from service.program_rationale_changes import record_exercise_changes
+    replaced_ids = {str(exercise["exercise_id"]) for exercise in replaced_exercises}
+    record_exercise_changes(active_program, program_data, {
+        str(exercise["exercise_id"]): [{"code": CHANGE_SUBSTITUTION, "params": {
+            "from_exercise_id": str(request.exercise_id),
+            "to_exercise_id": str(exercise["exercise_id"]),
+            "by": "coach" if request.published_by_coach_account_id else "player",
+        }}] for exercise in replaced_exercises
+    }, source_ids={exercise_id: str(request.exercise_id) for exercise_id in replaced_ids})
     program_data.pop("created_at", None)
     ledger.save_training_program(
         program_data,

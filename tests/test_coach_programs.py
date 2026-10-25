@@ -254,7 +254,15 @@ def _coach_generation(monkeypatch):
             for index in range(1, frequency + 1)
         ]
         program = source.model_copy(
-            update={"weekly_frequency": frequency, "days": days}
+            update={"weekly_frequency": frequency, "days": days,
+                "program_rationale": {"split": {"code": "split.frequency_default", "params": {}},
+                    "day_order": {"code": "day_order.template", "params": {}}, "days": [
+                        {"day_order": day.day_order, "exercises": [
+                            {"position": index + 1, "exercise_id": exercise.exercise_id,
+                             "rationale": {"selection": {"code": "selection.staple"}, "prescription": {"sets": {"code": "sets.coach_dose", "params": {"count": exercise.target_sets}}}}}
+                            for index, exercise in enumerate(day.exercises)
+                        ]} for day in days
+                    ]}}
         )
         return program, "md"
 
@@ -1096,6 +1104,42 @@ def test_generated_draft_can_be_edited_and_published(api, monkeypatch):
     assert published.status_code == 200, published.text
     assert published.json()["version"] == 1
     assert published.json()["days"][0]["day_name"] == "Coach edited day"
+
+
+def test_coach_edits_generated_draft_marks_changed_and_preserves_other_reasons(api, monkeypatch):
+    client, db, _ = api
+    coach_headers, _, assignment_id, _, _ = _assigned_player(api)
+    _coach_generation(monkeypatch)
+    generated = _generate_draft(client, coach_headers, assignment_id, split_id="upper_lower", frequency_override=3)
+    assert generated.status_code == 200, generated.text
+    draft = generated.json()["draft"]
+    rationale = draft["program_rationale"]
+    first_day = draft["days"][0]
+    assert len(first_day["exercises"]) >= 2
+    changed_id = first_day["exercises"][0]["exercise_id"]
+    untouched_id = first_day["exercises"][1]["exercise_id"]
+    original_reason = next(row for row in rationale["days"][0]["exercises"] if row["exercise_id"] == untouched_id)["rationale"]
+    first_day["exercises"][0]["notes"] = "Coach changed this exercise note."
+    saved = client.put(_program_draft_path(assignment_id), headers=coach_headers, json=draft)
+    assert saved.status_code == 200, saved.text
+    published = client.post(f"{_program_draft_path(assignment_id)}/publish", headers=coach_headers)
+    assert published.status_code == 200, published.text
+    result = published.json()["program_rationale"]["days"][0]["exercises"]
+    by_id = {row["exercise_id"]: row for row in result}
+    assert by_id[changed_id]["changes"][0]["code"] == "change.coach_edit"
+    assert by_id[untouched_id]["rationale"] == original_reason
+    assert by_id[untouched_id].get("changes", []) == []
+
+
+def test_publishing_draft_without_rationale_does_not_create_one(api):
+    client, _, _ = api
+    coach_headers, _, assignment_id, _, _ = _assigned_player(api)
+    path = _program_draft_path(assignment_id)
+    created = client.post(path, headers=coach_headers, json=_one_day_draft())
+    assert created.status_code == 200, created.text
+    published = client.post(f"{path}/publish", headers=coach_headers)
+    assert published.status_code == 200, published.text
+    assert published.json()["program_rationale"] is None
 
 
 def test_single_week_publish_preserves_frequency_and_day_orders(api, monkeypatch):

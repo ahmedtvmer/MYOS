@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
+from agent.program_rationale import CHANGE_PROGRAM_EDIT_REMOVED, CHANGE_PROGRAM_EDIT_REORDERED, CHANGE_PROGRAM_EDIT_TRIMMED
 from agent.program_weeks import (
     flatten_program_days,
     find_program_day,
@@ -88,6 +89,38 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     if _is_unchanged(prepared.day["exercises"], edit_request.exercises):
         return _updated_program_result(ledger, previous_version)
     _apply_program_edit(prepared, edit_request.exercises)
+    from service.program_rationale_changes import record_exercise_changes
+    old_day = next((day for day in active.days if int(day.day_order) == int(edit_request.day_order or 1)
+                    and int(getattr(day, "week_order", 1)) == int(edit_request.week_order or 1)), None)
+    old_exercises = [exercise.model_dump() for exercise in old_day.exercises] if old_day else []
+    new_exercises = prepared.day.get("exercises", [])
+    changes = {}
+    old_order = [str(ex["exercise_id"]) for ex in old_exercises]
+    new_order = [str(ex["exercise_id"]) for ex in new_exercises]
+    for position, exercise_id in enumerate(new_order):
+        old = next((item for item in old_exercises if str(item["exercise_id"]) == exercise_id), None)
+        new = next(item for item in new_exercises if str(item["exercise_id"]) == exercise_id)
+        if old is None:
+            continue
+        before, after = int(old.get("target_sets", 0)), int(new.get("target_sets", 0))
+        if before != after:
+            changes[exercise_id] = [{"code": CHANGE_PROGRAM_EDIT_TRIMMED, "params": {"from_sets": before, "to_sets": after}}]
+        old_pos = old_order.index(exercise_id)
+        if old_pos != position:
+            changes.setdefault(exercise_id, []).append({"code": CHANGE_PROGRAM_EDIT_REORDERED, "params": {"from_position": old_pos + 1, "to_position": position + 1}})
+    record_exercise_changes(active, prepared.program_copy, changes)
+    rationale = prepared.program_copy.get("program_rationale")
+    if rationale:
+        day_record = next((item for item in rationale.get("days", []) if int(item.get("day_order", 0)) == int(edit_request.day_order or 1)), None)
+        if day_record is not None:
+            removed_ids = [exercise_id for exercise_id in old_order if exercise_id not in new_order]
+            if removed_ids:
+                from datetime import datetime, timezone
+                at = datetime.now(timezone.utc).isoformat()
+                day_record["removed"] = day_record.get("removed", []) + [
+                    {"exercise_id": exercise_id, "code": CHANGE_PROGRAM_EDIT_REMOVED, "at": at}
+                    for exercise_id in removed_ids
+                ]
     prepared.program_copy.pop("created_at", None)
     ledger.save_training_program(
         prepared.program_copy,

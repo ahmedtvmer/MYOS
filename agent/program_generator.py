@@ -2,6 +2,7 @@ import re
 import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
+from math import ceil
 from typing import Any, Callable
 
 from dotenv import load_dotenv
@@ -41,6 +42,7 @@ from agent.program_rules import (
     resolve_split,
 )
 from agent.program_cardio import CoachCardioOptions, apply_program_cardio
+from agent.focus_muscles import FOCUS_EXTRA_TABLE, FOCUS_MUSCLE_SLOTS, FOCUS_MULTIPLIER
 from agent.program_rationale import (
     SELECTION_ALREADY_USED_TODAY,
     SELECTION_EQUIPMENT_ACCESS_STAPLE,
@@ -49,6 +51,10 @@ from agent.program_rationale import (
     SELECTION_LIMITATION_SUBSTITUTE,
     SETS_COACH_DOSE,
     SETS_RECOVERY_CUT,
+    SELECTION_FOCUS_MUSCLE_EXTRA,
+    POSITION_FOCUS_FIRST,
+    SETS_FOCUS_MULTIPLIER,
+    FOCUS_UNAVAILABLE,
     SPLIT_COACH_PICK,
     SPLIT_FREQUENCY_DEFAULT,
     SPLIT_LIFTER_REQUEST,
@@ -868,6 +874,7 @@ def _build_program(
 ) -> tuple[GeneratedProgramSchema, str]:
     split_plan = _resolve_split_plan(profile, request, weekly_frequency, inference_call)
     days, rationale_days = _generate_program_days(profile, request, split_plan, ledger)
+    focus_muscles = list(profile.get("weak_points") or [])
     program = GeneratedProgramSchema(
         program_name=split_plan.split_name,
         split_type=split_plan.split_name,
@@ -877,7 +884,141 @@ def _build_program(
     program.program_rationale = build_program_rationale(program, split_plan, request.coach_cardio)
     for day_rationale, exercise_reasons in zip(program.program_rationale["days"], rationale_days):
         day_rationale["exercises"] = exercise_reasons["exercises"]
+    _apply_focus_muscles(program, focus_muscles, profile, ledger)
     return program, render_program_markdown(program)
+
+
+def _apply_focus_muscles(program, focus_muscles, profile, ledger):
+    """Adds the version-pinned Focus muscle exercise and rationale for each Weak point."""
+    context = DayGenerationContext(
+        equipment_access=map_equipment_access(profile.get("equipment_access", COMMERCIAL_GYM)),
+        limitations=profile.get("injuries_or_limitations", NO_LIMITATIONS),
+        rep_preference=profile.get("rep_preference", "balanced"),
+        recovery_cut=False,
+        experience_level=experience_level_for_training_age(profile.get("training_age_years", 0.0)),
+    )
+    focus_reasons = []
+    baseline_exercises = {
+        day.day_order: tuple(day.exercises)
+        for day in program.days
+    }
+    for focus in focus_muscles:
+        muscle, source = focus["muscle"], focus.get("source", "named")
+        focus_policy = FOCUS_EXTRA_TABLE[muscle]
+        week_exercises = [exercise for day in program.days for exercise in day.exercises]
+        used_slots = {exercise.slot_key for exercise in week_exercises}
+        used_ids = {exercise.exercise_id for exercise in week_exercises}
+        candidate, chosen_slot = _focus_extra_candidate(
+            focus_policy, used_slots, used_ids, context, ledger
+        )
+        if candidate is None:
+            focus_reasons.append({
+                "muscle": muscle, "source": source, "status": "unavailable",
+                "reason": {"code": FOCUS_UNAVAILABLE, "params": {
+                    "muscle": muscle, "equipment_access": context.equipment_access,
+                }},
+            })
+            continue
+
+        muscle_slots = FOCUS_MUSCLE_SLOTS[muscle]
+        training_days = [
+            day for day in program.days
+            if any(ex.slot_key in muscle_slots for ex in baseline_exercises[day.day_order])
+        ]
+        eligible_days = training_days or program.days
+        target_day = min(
+            eligible_days,
+            key=lambda day: (
+                sum(ex.target_sets for ex in baseline_exercises[day.day_order]),
+                day.day_order,
+            ),
+        )
+        baseline = sum(
+            exercise.target_sets
+            for exercises in baseline_exercises.values()
+            for exercise in exercises
+            if exercise.slot_key in muscle_slots
+        )
+        target_weekly_sets = ceil(baseline * FOCUS_MULTIPLIER / 2) * 2
+        spec = SLOT_SPECS[chosen_slot]
+        prescription = ExercisePrescription(
+            movement_slot=chosen_slot, spec=spec, working_sets=max(2, slot_working_sets(chosen_slot, spec.archetype, "coach", ())),
+            rep_preference=context.rep_preference, experience_level=context.experience_level,
+        )
+        new_exercise = _build_program_exercise(candidate, prescription, [])
+        focus_openers = 0
+        while focus_openers < len(target_day.exercises):
+            current = target_day.exercises[focus_openers]
+            if not any(
+                reason.get("status") == "added"
+                and reason.get("exercise_id") == current.exercise_id
+                for reason in focus_reasons
+            ):
+                break
+            focus_openers += 1
+        target_day.exercises.insert(focus_openers, new_exercise)
+        actual_weekly_sets = baseline + new_exercise.target_sets
+        rationale_day = next(item for item in program.program_rationale["days"] if item["day_order"] == target_day.day_order)
+        rationale_day["exercises"].insert(focus_openers, {
+            "position": focus_openers + 1, "exercise_id": new_exercise.exercise_id,
+            "rationale": {
+                "selection": {"code": SELECTION_FOCUS_MUSCLE_EXTRA, "params": {"muscle": muscle, "slot": chosen_slot, "exercise_id": new_exercise.exercise_id}},
+                "position": {"code": POSITION_FOCUS_FIRST, "params": {"muscle": muscle, "slot": chosen_slot}},
+                "prescription": exercise_rationale(
+                    candidate, prescription,
+                    ExerciseRationaleOptions(day_slots=(chosen_slot,), experience_level=context.experience_level),
+                )["prescription"],
+            },
+        })
+        rationale_day["exercises"][focus_openers]["rationale"]["prescription"]["sets"] = {
+            "code": SETS_FOCUS_MULTIPLIER, "params": {
+                "count": new_exercise.target_sets, "baseline_weekly_sets": baseline,
+                "target_weekly_sets": target_weekly_sets,
+                "actual_weekly_sets": actual_weekly_sets,
+                "multiplier": FOCUS_MULTIPLIER,
+            },
+        }
+        focus_reasons.append({"muscle": muscle, "source": source, "status": "added",
+                              "exercise_id": new_exercise.exercise_id, "slot": chosen_slot,
+                              "day_order": target_day.day_order})
+        for index, reason in enumerate(rationale_day["exercises"], start=1):
+            reason["position"] = index
+            reason["rationale"]["position"]["params"]["index"] = index
+    program.program_rationale["focus_muscles"] = focus_reasons
+
+
+def _focus_extra_candidate(focus_policy, used_slots, used_ids, context, ledger):
+    for slot_key in focus_policy["candidate_slots"]:
+        if slot_key not in used_slots:
+            candidate = _eligible_focus_candidate(focus_policy, slot_key, used_ids, context, ledger)
+            if candidate:
+                return candidate, slot_key
+    main_slot = focus_policy["main_slot"]
+    candidate = _eligible_focus_candidate(focus_policy, main_slot, used_ids, context, ledger)
+    return candidate, main_slot if candidate else None
+
+
+def _eligible_focus_candidate(focus_policy, slot_key, used_ids, context, ledger):
+    candidates, _ = _fetch_generation_candidates(slot_key, context, used_ids, ledger=ledger)
+    excluded_equipment = {
+        equipment.casefold() for equipment in focus_policy.get("excluded_equipment", ())
+    }
+    candidates = [
+        candidate for candidate in candidates
+        if str(candidate.get("equipment") or "").strip().casefold() not in excluded_equipment
+    ]
+    preferred_ids = focus_policy.get("preferred_exercise_ids_by_slot", {}).get(slot_key)
+    if preferred_ids:
+        by_id = {str(candidate["id"]): candidate for candidate in candidates}
+        preferred_candidates = [
+            by_id[exercise_id]
+            for exercise_id in preferred_ids
+            if exercise_id in by_id and exercise_id not in used_ids
+        ]
+        if preferred_candidates:
+            return preferred_candidates[0]
+        return None
+    return _pick_candidate(candidates, slot_key, used_ids)
 
 
 def _tag_split_plan(plan: DynamicSplitPlan, requested_reason: str) -> DynamicSplitPlan:
