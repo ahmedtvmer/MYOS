@@ -707,7 +707,15 @@ class FakeMyosApi {
           },
         };
       }
-      return FakeResponse(200, coachPlayerNutrition);
+      final Map<String, dynamic> chartState = <String, dynamic>{...coachPlayerNutrition};
+      if (request.query['days'] == 28 &&
+          (chartState['adherence_days'] as List<dynamic>? ?? <dynamic>[]).isEmpty) {
+        chartState['adherence_days'] = List<Map<String, dynamic>>.generate(28, (int index) => <String, dynamic>{
+          'date': DateTime.now().subtract(Duration(days: 27 - index)).toIso8601String().substring(0, 10),
+          'value': null,
+        });
+      }
+      return FakeResponse(200, chartState);
     }
     if (path.startsWith('/coach/assignments/') &&
         path.endsWith('/program/approve')) {

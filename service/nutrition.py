@@ -76,8 +76,32 @@ def coach_read(ledger: Any, today: date, assignment_id: str, days: int = 14) -> 
     profile = ledger.get_nutrition_profile()
     if profile and _profile_is_complete(profile):
         state["calorie_floor"] = _player_calorie_floor(ledger, profile, state)
+        if state.get("state") == "ready":
+            state["planned_weekly_rate_pct"] = _coach_planned_rate(ledger, profile, state)
     state["next_pace_check"] = "after_21_days_of_weigh_ins"
     return state
+
+
+def _coach_planned_rate(ledger: Any, profile: dict[str, Any], state: dict[str, Any]) -> float:
+    targets = state.get("targets") or {}
+    if state.get("author") != "Coach":
+        rate = float(targets.get("weekly_rate_pct", 0))
+        direction = -1 if state.get("goal") == "lose" else 1 if state.get("goal") == "gain" else 0
+        return direction * rate
+    baseline = _coach_target_baseline(
+        ledger, profile, state.get("goal", "maintain"),
+        state.get("daily_activity") or "mostly_sitting",
+    )
+    options = state.get("target_options") or {"daily": targets}
+    training = options.get("training_day") or options.get("daily") or targets
+    rest = options.get("rest_day") or options.get("daily") or targets
+    training_days = ledger.get_nutrition_training_days(profile.get("weekly_frequency") or 0)
+    average_calories = (
+        float(training["calories"]) * training_days
+        + float(rest["calories"]) * (7 - training_days)
+    ) / 7
+    weight = float(profile["weight_kg"])
+    return (average_calories - baseline.maintenance) * 7 / (weight * 7700) * 100
 
 
 def _coach_adherence_days(ledger: Any, today: date, days: int) -> list[dict[str, Any]]:

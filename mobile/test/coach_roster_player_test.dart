@@ -669,4 +669,19 @@ void main() {
     );
     expect(find.text('Weekly volume'), findsNothing);
   });
+
+  testWidgets('Charts renders inside the Coach player page scroll view',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _coachFake();
+    fake.assignments.add(_assignment('assignment-chart', 'charts_player'));
+    fake.coachPlayerNutrition['adherence_days'] = List<Map<String, dynamic>>.generate(
+      28, (int index) => <String, dynamic>{'date': _iso(DateTime.now().subtract(Duration(days: 27 - index))), 'value': index == 27 ? 'off' : null});
+    await _pumpApp(tester, fake, InMemoryAppModeStore());
+    await tester.tap(find.text('charts_player'));
+    await _pumpUntilFound(tester, find.text('History'));
+    await tester.tap(find.text('Charts'));
+    await _pumpUntilFound(tester, find.textContaining('off'));
+    expect(find.text('Weight and Nutrition adherence · last 28 days'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

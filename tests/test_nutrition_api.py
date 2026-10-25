@@ -83,7 +83,7 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     assignment_id = redeemed["assignment"]["assignment_id"]
     _seed_profile(db, "nutrition-client", age=30, target=None)
     setup = client.post("/nutrition/setup", headers=player_headers, json={
-        "sex":"female", "sex_confirmed":True, "daily_activity":"mostly_sitting",
+        "sex":"male", "sex_confirmed":True, "daily_activity":"mostly_sitting",
         "screening":{"pregnant_or_breastfeeding":False,"medical_condition":False,"eating_disorder":False}})
     assert setup.status_code == 200
     from agent.ProgramState import GeneratedProgramSchema, ProgramDaySchema, ProgramExerciseSchema
@@ -95,7 +95,7 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     )
     db.catalog_conn.commit()
     program = GeneratedProgramSchema(
-        program_name="Published training program", split_type="Full Body", weekly_frequency=1,
+        program_name="Published training program", split_type="Full Body", weekly_frequency=4,
         days=[ProgramDaySchema(day_name="Full A", day_order=1, exercises=[
                 ProgramExerciseSchema(exercise_id="sq", exercise_name="Squat", target_reps_min=5, target_reps_max=8),
                 ProgramExerciseSchema(exercise_id="bp", exercise_name="Bench Press", target_reps_min=5, target_reps_max=8),
@@ -108,9 +108,16 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
                             headers=coach_headers, json={"expected_active_version": 1})
     assert published.status_code == 200, published.text
     assert client.get("/nutrition", headers=player_headers).json()["authority"] == "player"
-    payload = {"goal":"maintain", "targets":setup.json()["targets"]}
+    payload = {"goal":"lose", "targets":{"calories":2000, "protein_g":126, "carbs_g":248, "fat_g":56}}
     path = f"/coach/assignments/{assignment_id}/nutrition"
-    assert client.get(path, headers=coach_headers).json()["authority"] == "player"
+    initial_read = client.get(path, headers=coach_headers)
+    assert initial_read.json()["authority"] == "player"
+    assert len(initial_read.json()["adherence_days"]) == 14
+    charts_read = client.get(f"{path}?days=28", headers=coach_headers).json()
+    assert len(charts_read["adherence_days"]) == 28
+    assert isinstance(charts_read["weight_trend"], list)
+    assert isinstance(initial_read.json()["weight_trend"], list)
+    assert "weekly_rate_pct" in initial_read.json()["targets"]
     missing_confirmation = client.put(path, headers=coach_headers, json=payload)
     assert missing_confirmation.status_code == 400
     assert "confirm" in missing_confirmation.json()["detail"].lower()
@@ -125,6 +132,9 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     repeated = client.put(path, headers=coach_headers, json=payload)
     assert repeated.status_code == 200, repeated.text
     assert repeated.json()["authority"] == "coach"
+    planned_read = client.get(f"{path}?days=28", headers=coach_headers).json()
+    assert planned_read["planned_weekly_rate_pct"] < 0
+    assert planned_read["planned_weekly_rate_pct"] == pytest.approx(-0.39, abs=0.03)
     string_targets = {key: str(value) for key, value in payload["targets"].items()}
     normalized = client.put(path, headers=coach_headers, json={**payload, "targets": string_targets})
     assert normalized.status_code == 200, normalized.text

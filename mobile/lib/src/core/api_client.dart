@@ -818,9 +818,10 @@ class ApiClient {
         response.data, CoachPlayerSummary.fromJson, _invalidCoachHistory);
   }
 
-  Future<CoachNutritionState> coachPlayerNutrition(String assignmentId) async {
+  Future<CoachNutritionState> coachPlayerNutrition(String assignmentId, {int days = 14}) async {
     final response = await _send(() => _dio.get<dynamic>(
       '/coach/assignments/$assignmentId/nutrition',
+      queryParameters: <String, dynamic>{'days': days},
     ));
     return _parseBody(response.data, CoachNutritionState.fromJson,
         _invalidCoachHistory);

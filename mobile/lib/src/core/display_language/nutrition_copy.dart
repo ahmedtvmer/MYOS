@@ -96,6 +96,23 @@ class NutritionCopy {
   String get coachRestDay => isArabic ? 'يوم الراحة' : 'Rest day';
   String get coachAdherence14 => isArabic ? 'الالتزام الغذائي · آخر 14 يومًا' : 'Nutrition adherence · last 14 days';
   String get coachWeightTrend => isArabic ? 'اتجاه الوزن' : 'Weight trend';
+  String get coachCharts => isArabic ? 'الرسوم البيانية' : 'Charts';
+  String get coachWeightAdherence => isArabic ? 'الوزن والالتزام الغذائي · آخر 28 يومًا' : 'Weight and Nutrition adherence · last 28 days';
+  String get coachChartAdherence => isArabic ? 'الالتزام الغذائي · آخر 28 يومًا' : 'Nutrition adherence · last 28 days';
+  String get coachChartStart => isArabic ? 'منذ 27 يومًا' : '27 days ago';
+  String get coachToday => isArabic ? 'اليوم' : 'Today';
+  String coachWeightChange(double first, double last) => isArabic
+      ? 'تغير الوزن من ${first.toStringAsFixed(1)} إلى ${last.toStringAsFixed(1)} كجم.'
+      : 'Weight changed from ${first.toStringAsFixed(1)} to ${last.toStringAsFixed(1)} kg.';
+  String coachPlannedRate(double rate, String date) => isArabic
+      ? 'الوتيرة المخططة ${rate.toStringAsFixed(2)}٪ أسبوعيًا بدءًا من $date.'
+      : 'Planned pace ${rate.toStringAsFixed(2)}% per week from $date.';
+  String coachAdherenceSummary(int onTarget, int roughly, int off) => isArabic
+      ? 'الالتزام الغذائي: $onTarget يوم على الهدف، و$roughly يوم تقريبًا، و$off يوم بعيد عن الهدف.'
+      : 'Nutrition adherence: $onTarget ${onTarget == 1 ? 'day' : 'days'} on target, $roughly ${roughly == 1 ? 'day' : 'days'} roughly on target and $off ${off == 1 ? 'day' : 'days'} off.';
+  String get coachPlannedPace => isArabic ? 'الوتيرة المخططة' : 'Planned pace';
+  String get coachNoChartData => isArabic ? 'لا توجد بيانات وزن أو التزام لهذه الفترة.' : 'No weight or adherence data for this period.';
+  String get coachChartLoadError => isArabic ? 'تعذر تحميل بيانات الرسم البياني.' : 'Could not load chart data.';
   String get coachNextPaceCheck => isArabic ? 'فحص الوتيرة القادم' : 'Next pace check';
   String get coachPaceCheckPending => isArabic ? 'بعد 21 يومًا من تسجيل الوزن' : 'After 21 days of weigh-ins';
   String coachPaceCheckValue(String? value) => switch (value) {

@@ -27,6 +27,7 @@ import 'coach_assistant_screen.dart';
 import 'coach_check_in_sheet.dart';
 import 'coach_history_segment.dart';
 import 'coach_nutrition_segment.dart';
+import 'coach_charts_segment.dart';
 import 'coach_program_card.dart';
 import 'coach_program_draft_screen.dart';
 import 'program_import_files.dart';
@@ -1508,6 +1509,10 @@ class _CoachPlayerHistoryScreenState
               label: displayCopyOf(context).nutritionTab,
             ),
             MyosSegment<_PlayerSegment>(
+              value: _PlayerSegment.charts,
+              label: displayCopyOf(context).nutrition.coachCharts,
+            ),
+            MyosSegment<_PlayerSegment>(
               value: _PlayerSegment.history,
               label: copy.history,
             ),
@@ -1530,6 +1535,8 @@ class _CoachPlayerHistoryScreenState
           _programCard(context)
         else if (_segment == _PlayerSegment.nutrition)
           CoachNutritionSegment(assignmentId: _entry.assignmentId)
+        else if (_segment == _PlayerSegment.charts)
+          CoachChartsSegment(assignmentId: _entry.assignmentId)
         else if (_segment == _PlayerSegment.history)
           _historySegment(context)
         else if (_segment == _PlayerSegment.checkIns)
@@ -1574,6 +1581,7 @@ class _CoachPlayerHistoryScreenState
 enum _PlayerSegment {
   program,
   nutrition,
+  charts,
   history,
   checkIns,
   requests,

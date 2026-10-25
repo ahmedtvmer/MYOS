@@ -341,7 +341,7 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                     children:
-                        _state!.adherenceDays.map((Map<String, dynamic> day) {
+                        _state!.adherenceDays.skip(_state!.adherenceDays.length > 14 ? _state!.adherenceDays.length - 14 : 0).map((Map<String, dynamic> day) {
                   final String? value = day['value'] as String?;
                   final Color color = switch (value) {
                     'on_target' => colors.primary,

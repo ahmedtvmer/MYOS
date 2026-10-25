@@ -80,7 +80,8 @@ class NutritionPlanState {
 class CoachNutritionState {
   const CoachNutritionState({required this.authority, this.goal, this.dailyActivity,
     this.targets, this.targetOptions, this.calorieFloor, this.adherenceDays = const <Map<String, dynamic>>[],
-    this.weightTrend = const <Map<String, dynamic>>[], this.targetWeight, this.nextPaceCheck});
+    this.weightTrend = const <Map<String, dynamic>>[], this.targetWeight, this.nextPaceCheck,
+    this.plannedWeeklyRatePct});
 
   factory CoachNutritionState.fromJson(Map<String, dynamic> json) => CoachNutritionState(
     authority: json['authority'] as String? ?? 'player',
@@ -96,6 +97,7 @@ class CoachNutritionState {
         .whereType<Map<String, dynamic>>().toList(growable: false),
     targetWeight: (json['target_weight'] as num?)?.toDouble(),
     nextPaceCheck: json['next_pace_check'] as String?,
+    plannedWeeklyRatePct: (json['planned_weekly_rate_pct'] as num?)?.toDouble(),
   );
 
   final String authority;
@@ -108,6 +110,7 @@ class CoachNutritionState {
   final List<Map<String, dynamic>> weightTrend;
   final double? targetWeight;
   final String? nextPaceCheck;
+  final double? plannedWeeklyRatePct;
 }
 
 class Capabilities {

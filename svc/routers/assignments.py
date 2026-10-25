@@ -16,7 +16,7 @@ selects an account, and no raw invite code is ever logged.
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 
 from agent.program_cardio import CoachCardioOptions
@@ -335,6 +335,7 @@ async def read_assigned_player_nutrition(
     assignment_id: str,
     coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
     db: Annotated[Any, Depends(get_db)],
+    days: Annotated[int, Query(ge=1, le=28)] = 14,
 ):
     authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
     if authorized is None:
@@ -343,7 +344,7 @@ async def read_assigned_player_nutrition(
     with ledger:
         from service import nutrition as nutrition_service
         today = player_local_date(ledger, context["player"]["ledger_id"])
-        return await asyncio.to_thread(nutrition_service.coach_read, ledger, today, assignment_id)
+        return await asyncio.to_thread(nutrition_service.coach_read, ledger, today, assignment_id, days)
 
 
 @coach_router.put("/{assignment_id}/nutrition")
