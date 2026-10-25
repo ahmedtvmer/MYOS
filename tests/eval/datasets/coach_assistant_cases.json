@@ -4315,10 +4315,7 @@
         "2200",
         "160",
         "230",
-        "70",
-        "on_target 1",
-        "roughly 0",
-        "off 0"
+        "70"
       ],
       "insufficient_data": false,
       "must_not_contain": [

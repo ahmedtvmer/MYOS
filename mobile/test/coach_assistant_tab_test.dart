@@ -262,7 +262,7 @@ void main() {
 
     expect(find.textContaining('Player chat'), findsOneWidget);
     expect(
-      find.textContaining('The hosted model receives only the Roster signal snapshot'),
+      find.textContaining('The hosted model receives the Roster signal snapshot'),
       findsOneWidget,
     );
     final Finder questionField =

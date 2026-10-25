@@ -187,11 +187,8 @@ class CoachCopy {
       ? 'اسأل عن اللاعبين الذين يحتاجون إلى متابعة، أو التوقف، أو الالتزام بالتدريب.'
       : 'Ask which players need attention, have stalled, or are keeping up with training.';
   String get rosterAssistantPrivacyNote => isArabic
-      ? 'يتلقى النموذج المستضاف لقطة إشارات قائمة اللاعبين، بما فيها أعداد الالتزام بالأهداف الغذائية خلال آخر 7 أيام، وسؤالك وسجل هذه المحادثة فقط. لا تتضمن اللقطة أسماء اللاعبين أو بيانات التواصل أو أرقام الحسابات وعلاقات التدريب أو إجابات الفحص الصحي أو الملاحظات أو النصوص الحرة أو محادثات اللاعب. لا تُحفظ المحادثة.'
-      : 'The hosted model receives only the Roster signal snapshot, including '
-          '7-day Nutrition adherence counts, your question, and this conversation history. '
-          'The snapshot excludes player names, contact details, Account or Assignment ids, '
-          'health-screening answers, notes, free text, and Player chat. This conversation is not saved.';
+      ? 'يتلقى النموذج المستضاف لقطة إشارات القائمة، ومنها الالتزام الغذائي خلال 7 أيام، وسؤالك وسجل المحادثة. لا تتضمن اللقطة الأسماء أو بيانات التواصل أو أرقام الحسابات والتكليفات أو إجابات الفحص الصحي أو الملاحظات أو النصوص الحرة أو محادثات اللاعب. لا تُحفظ المحادثة.'
+      : 'The hosted model receives the Roster signal snapshot, including 7-day Nutrition adherence, your question, and chat history. It excludes names, contact details, Account and Assignment ids, health-screening answers, notes, free text, and Player chat. The conversation is not saved.';
   String get rosterQuestionHint => isArabic
       ? 'مثال: من يحتاج إلى متابعة اليوم؟'
       : 'For example: Who needs my attention today?';
