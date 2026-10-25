@@ -21,34 +21,34 @@ from database.migration_manager import (
 )
 
 
-def test_v37_adds_nullable_weak_points_to_player_profile():
+def test_v44_adds_nullable_weak_points_to_player_profile():
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE user_profile (id INTEGER PRIMARY KEY)")
 
-    MIGRATION_REGISTRY[36](conn)
-    MIGRATION_REGISTRY[36](conn)
+    MIGRATION_REGISTRY[43](conn)
+    MIGRATION_REGISTRY[43](conn)
 
     columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
     assert "weak_points_json" in columns
 
 
-def test_v38_adds_nullable_program_rationale_to_training_programs():
+def test_v45_adds_nullable_program_rationale_to_training_programs():
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE training_programs (id INTEGER PRIMARY KEY)")
 
-    MIGRATION_REGISTRY[37](conn)
-    MIGRATION_REGISTRY[37](conn)
+    MIGRATION_REGISTRY[44](conn)
+    MIGRATION_REGISTRY[44](conn)
 
     columns = {column[1] for column in conn.execute("PRAGMA table_info(training_programs)")}
     assert "program_rationale_json" in columns
 
 
-def test_v40_scopes_existing_regeneration_decisions_to_design_v2():
+def test_v47_scopes_existing_regeneration_decisions_to_design_v2():
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE program_design_offer (id INTEGER PRIMARY KEY, decision TEXT, reason TEXT)")
     conn.execute("INSERT INTO program_design_offer VALUES (1, 'dismissed', 'design_version')")
 
-    MIGRATION_REGISTRY[39](conn)
+    MIGRATION_REGISTRY[46](conn)
 
     row = conn.execute(
         "SELECT decision, reason, offered_design_version FROM program_design_offer WHERE id = 1"
@@ -647,23 +647,48 @@ def test_existing_ledger_gets_assistant_memory_idempotently(temp_db_env, version
     assert get_ledger_schema_version(db.conn) == CURRENT_LEDGER_SCHEMA_VERSION
 
 
-def test_v35_to_v36_lazy_migration_adds_nutrition_ledger_schema(temp_db_env):
+def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     db, ledgers_dir, backups_dir = temp_db_env
     conn = db.conn
-    conn.execute("DROP TABLE nutrition_screening")
-    conn.execute("DROP TABLE nutrition_plan_versions")
-    conn.execute("ALTER TABLE user_profile DROP COLUMN daily_activity")
-    conn.execute("ALTER TABLE user_profile DROP COLUMN sex_confirmed")
-    set_ledger_schema_version(conn, 35)
+    conn.execute("ALTER TABLE nutrition_plan_versions DROP COLUMN authority_assignment_id")
+    set_ledger_schema_version(conn, 38)
     conn.commit()
-    apply_lazy_migrations(
-        conn, "nutrition-v35", ledgers_dir, backups_dir, target_version=36
-    )
-    assert get_ledger_schema_version(conn) == 36
+    apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir, target_version=43)
+    assert get_ledger_schema_version(conn) == 43
+    assert conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='nutrition_pace_proposals'"
+    ).fetchone() is not None
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"nutrition_plan_versions", "nutrition_screening"} <= tables
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profile)")}
-    assert {"sex_confirmed", "daily_activity"} <= columns
+    assert "nutrition_adherence" in tables
+    assert "authority_assignment_id" in {
+        row[1] for row in conn.execute("PRAGMA table_info(nutrition_plan_versions)")
+    }
+    assert [row[2] for row in conn.execute(
+        "PRAGMA index_info(idx_nutrition_pace_pending)")
+    ] == ["plan_version_id"]
+    db.ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
+    assert db.ledger.list_nutrition_adherence("2026-10-24", "2026-10-24") == [
+        {"date": "2026-10-24", "value": "roughly", "source": "answered"}
+    ]
+    conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
+                 "VALUES('2026-10-25', 'off', 'computed', 'now')")
+    assert conn.execute("SELECT source FROM nutrition_adherence WHERE entry_date='2026-10-25'").fetchone()[0] == "computed"
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("INSERT INTO nutrition_adherence(entry_date, value, source, created_at) "
+                     "VALUES('2026-10-25', 'unknown', 'answered', 'now')")
+
+
+def test_v37_to_v38_lazy_migration_adds_nutrition_goal_offer_dismissals(temp_db_env):
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE nutrition_goal_offer_dismissals")
+    conn.execute("DROP TABLE nutrition_goal_offer_snapshots")
+    set_ledger_schema_version(conn, 37)
+    conn.commit()
+    apply_lazy_migrations(conn, "nutrition-offer-v36", ledgers_dir, backups_dir, target_version=38)
+    assert get_ledger_schema_version(conn) == 38
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"nutrition_goal_offer_dismissals", "nutrition_goal_offer_snapshots"} <= tables
 
 
 def test_latest_session_summary_uses_real_working_sets(temp_db_env):
@@ -1720,3 +1745,20 @@ def test_ledger_upgrade_from_v33_adds_optional_program_load(tmp_path: Path):
         assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION
     finally:
         conn.close()
+
+
+def test_v42_lazy_migration_creates_water_log_from_real_v42_schema(temp_db_env):
+    from database.migration_manager import CURRENT_LEDGER_SCHEMA_VERSION, get_ledger_schema_version
+
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE water_log")
+    set_ledger_schema_version(conn, 42)
+    conn.commit()
+    assert get_ledger_schema_version(conn) == 42
+    assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is None
+
+    apply_lazy_migrations(conn, "water-v42", ledgers_dir, backups_dir)
+
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 43
+    assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is not None

@@ -24,6 +24,7 @@ from typing import Any, Callable
 from database.registry.assignments import EndedAssignmentSnapshot
 from service import missed_day_alerts
 from service import analytics as analytics_service
+from service import nutrition_alerts
 from service._base import ledger_scope
 from service._tokens import hash_token
 from service.check_ins import next_follow_up_on
@@ -42,7 +43,7 @@ DEFAULT_INVITE_TTL_MINUTES = 3 * 24 * 60
 MIN_INVITE_TTL_MINUTES = 5
 MAX_INVITE_TTL_MINUTES = 43200
 MAX_NOTICES = 50
-ROSTER_AI_DISCLOSURE_VERSION = "1"
+ROSTER_AI_DISCLOSURE_VERSION = "2"
 
 GENERIC_INVITE_ERROR = "Invalid or expired invite code."
 SELF_ASSIGNMENT_ERROR = "You cannot assign yourself as your own coach."
@@ -539,12 +540,13 @@ def end_assignment(
             return _refusal("This assignment has already ended.", "assignment.already_ended.v1")
         return _refusal("Assignment not found.", "assignment.not_found.v1")
     assignment = result["ended_assignment"]
-    try:
-        db.resolve_open_coach_alerts_for_assignment(
-            assignment_id, datetime.now(UTC).isoformat(), "volume_review"
-        )
-    except Exception:
-        logger.exception("Volume review alert resolution failed after assignment end")
+    for alert_kind in ("volume_review", nutrition_alerts.OFF_KIND, nutrition_alerts.UNLOGGED_KIND):
+        try:
+            db.resolve_open_coach_alerts_for_assignment(
+                assignment_id, datetime.now(UTC).isoformat(), alert_kind
+            )
+        except Exception:
+            logger.exception("%s alert resolution failed after assignment end", alert_kind)
     discard_assignment_program_draft(
         db, assignment_id, assignment.player_account_id, best_effort=True
     )

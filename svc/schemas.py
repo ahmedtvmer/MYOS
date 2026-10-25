@@ -417,6 +417,7 @@ class CoachRosterSignalOut(BaseModel):
     effort_rising_same_load_main_lift: bool
     days_since_last_check_in: int | None
     bodyweight_trend: None = None
+    nutrition_adherence_7d: dict[str, int] | None = None
     coaching_subscription_end: None = None
 
 
@@ -1086,6 +1087,32 @@ class NutritionSetupIn(BaseModel):
 
 class NutritionActivityIn(BaseModel):
     daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"]
+
+
+class NutritionAdherenceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: Literal["on_target", "roughly", "off"]
+
+class NutritionPaceIn(BaseModel):
+    goal: Literal["lose", "maintain", "gain"]
+    intensity: Literal["light", "moderate", "aggressive"]
+
+
+class NutritionGoalSaveIn(NutritionPaceIn):
+    screening: NutritionScreeningIn | None = None
+
+
+class NutritionPaceProposalDecisionIn(BaseModel):
+    decision: Literal["accepted", "kept"]
+
+class CoachNutritionTargetsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    goal: Literal["lose", "maintain", "gain"]
+    daily_activity: Literal["mostly_sitting", "on_feet", "physical_job"] | None = None
+    confirm_takeover: bool = False
+    targets: dict[str, Any] | None = None
+    training_day_targets: dict[str, Any] | None = None
+    rest_day_targets: dict[str, Any] | None = None
 
 class WeightEntryOut(BaseModel):
     entry_date: str

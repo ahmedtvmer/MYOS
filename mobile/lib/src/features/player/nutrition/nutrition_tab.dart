@@ -6,6 +6,8 @@ import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/nutrition_copy.dart';
 import '../../../core/models.dart';
 import '../../../providers.dart';
+import '../../nutrition/pace_proposal_card.dart';
+import 'nutrition_pace_dial.dart';
 
 class NutritionTab extends ConsumerStatefulWidget {
   const NutritionTab({super.key});
@@ -17,13 +19,14 @@ class NutritionTab extends ConsumerStatefulWidget {
 class _NutritionTabState extends ConsumerState<NutritionTab> {
   NutritionPlanState? _plan;
   String _sex = 'male';
-  bool _sexConfirmed = false;
   String _activity = 'mostly_sitting';
   bool _pregnancy = false;
   bool _condition = false;
   bool _eatingDisorder = false;
   bool _loading = true;
   bool _saving = false;
+  bool _waterSaving = false;
+  int _waterGlasses = 0;
   String? _error;
 
   @override
@@ -37,7 +40,8 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       final NutritionPlanState plan = await ref.read(apiClientProvider).nutrition();
       if (mounted) {
         setState(() { _plan = plan; _sex = plan.sex ?? 'male';
-          _activity = plan.dailyActivity ?? _activity; _loading = false; _error = null; });
+          _activity = plan.dailyActivity ?? _activity; _waterGlasses = plan.todayWaterGlasses;
+          _loading = false; _error = null; });
       }
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; _loading = false; });
@@ -49,7 +53,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     try {
       final NutritionPlanState plan = await ref.read(apiClientProvider).setupNutrition(
         sex: _sex,
-        sexConfirmed: _sexConfirmed,
+        sexConfirmed: true,
         dailyActivity: _activity,
         screening: <String, bool>{
           'pregnant_or_breastfeeding': _pregnancy,
@@ -92,6 +96,33 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       if (mounted) setState(() { _activity = activity; _plan = plan; _saving = false; });
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
+  Future<void> _logAdherence(String value) async {
+    setState(() { _saving = true; _error = null; });
+    try {
+      final NutritionPlanState plan = await ref.read(apiClientProvider).logNutritionAdherence(value);
+      if (mounted) setState(() { _plan = plan; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
+  Future<void> _changeWater(bool undo, NutritionCopy copy) async {
+    if (_waterSaving || (!undo && _waterGlasses >= 30) || (undo && _waterGlasses == 0)) return;
+    setState(() => _waterSaving = true);
+    try {
+      final int count = await ref.read(apiClientProvider).changeWaterGlasses(undo: undo);
+      if (mounted) setState(() => _waterGlasses = count);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${copy.waterUpdateFailed}: ${error.message}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _waterSaving = false);
     }
   }
 
@@ -138,9 +169,6 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         DropdownMenuItem(value: 'male', child: Text(copy.male)),
         DropdownMenuItem(value: 'female', child: Text(copy.female)),
       ], onChanged: (String? value) { if (value != null) setState(() => _sex = value); }),
-    CheckboxListTile(value: _sexConfirmed,
-      onChanged: (bool? value) => setState(() => _sexConfirmed = value ?? false),
-      title: Text(copy.confirm)),
   ]);
 
   Widget _activityQuestion(NutritionCopy copy) => Column(children: <Widget>[
@@ -167,7 +195,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
   ]);
 
   Widget _setupButton(NutritionCopy copy) => FilledButton(
-    onPressed: _saving || !_sexConfirmed ? null : _save,
+    onPressed: _saving ? null : _save,
     child: Text(_saving ? copy.saving : copy.showTargets));
 
   Widget _blocked(BuildContext context, NutritionCopy copy) => Center(
@@ -186,25 +214,113 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       (copy.fat, 'fat_g', colors.secondary),
     ];
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       children: <Widget>[
         Text(copy.tab, style: text.headlineMedium),
+        if (_plan!.authority == 'coach')
+          Align(alignment: AlignmentDirectional.centerStart,
+            child: Chip(label: Text(copy.setByCoach))),
+        if (_plan!.pendingGoal != null && _plan!.authority != 'coach') Card(child: ListTile(
+          title: Text(copy.updateOffer),
+          trailing: Wrap(children: <Widget>[
+            TextButton(onPressed: _saving ? null : _dismissGoalOffer, child: Text(copy.dismiss)),
+            FilledButton(onPressed: _saving ? null : () async {
+              final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
+                MaterialPageRoute<NutritionPlanState>(builder: (_) => NutritionPaceDial(plan: _plan!, initialGoal: _plan!.pendingGoal)));
+              if (saved != null && mounted) setState(() => _plan = saved);
+            }, child: Text(copy.accept)),
+          ]),
+        )),
+        if (_plan!.paceProposal != null) PaceProposalCard(proposal: _plan!.paceProposal!,
+          canDecide: _plan!.authority != 'coach', busy: _saving,
+          onDecision: _decidePaceProposal),
+        if (_plan!.authority != 'coach') Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+          onPressed: _saving ? null : () async {
+            final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
+              MaterialPageRoute<NutritionPlanState>(builder: (_) => NutritionPaceDial(plan: _plan!)));
+            if (saved != null && mounted) setState(() => _plan = saved);
+          }, icon: const Icon(Icons.tune), label: Text(copy.adjust))),
         _activityRow(copy),
         const SizedBox(height: 20),
         _plate(targets, macroCards, copy, text),
         const SizedBox(height: 12),
         Text(copy.macrosTitle, style: text.titleMedium),
-        ..._macroCards(targets, macroCards),
+        _macroCards(targets, macroCards),
+        const SizedBox(height: 8),
+        _fiberWaterCards(targets, copy),
         const SizedBox(height: 12),
-        Text(copy.reason(_plan!.goalReason, _plan!.goal ?? 'maintain'), textAlign: TextAlign.center),
+        Text(copy.howTodayWent, style: text.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: <Widget>[
+          _adherenceButton(copy.onTarget, 'on_target', copy),
+          _adherenceButton(copy.roughly, 'roughly', copy),
+          _adherenceButton(copy.off, 'off', copy),
+        ]),
+        const SizedBox(height: 16),
+        Text(copy.lastSevenDays, style: text.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 12, children: <Widget>[
+          for (final Map<String, dynamic> day in _plan!.adherenceDays)
+            Tooltip(message: '${day['date']}: ${copy.adherenceLabel(day['value'] as String?)}',
+              child: _adherenceMark(day['value'] as String?, Theme.of(context).colorScheme)),
+        ]),
+        const SizedBox(height: 16),
+        Text('${copy.latestWeight}: ${_plan!.latestWeight == null ? '—' : '${_plan!.latestWeight} ${copy.kilograms}'}', style: text.bodyLarge),
+        Text('${copy.targetWeight}: ${_plan!.targetWeight == null ? '—' : '${_plan!.targetWeight} ${copy.kilograms}'}', style: text.bodyMedium),
         if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ],
     );
   }
 
+  Future<void> _decidePaceProposal(String decision) async {
+    final Object? rawId = _plan?.paceProposal?['id'];
+    final int? proposalId = rawId is num ? rawId.toInt() : int.tryParse('$rawId');
+    if (proposalId == null || _saving) return;
+    setState(() { _saving = true; _error = null; });
+    try {
+      final NutritionPlanState plan = await ref.read(apiClientProvider)
+          .decideNutritionPaceProposal(proposalId, decision);
+      if (mounted) setState(() { _plan = plan; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
+  Widget _adherenceButton(String label, String value, NutritionCopy copy) =>
+      ChoiceChip(label: Text(label), selected: _plan?.todayAdherence == value,
+        onSelected: _saving ? null : (_) => _logAdherence(value));
+
+  Widget _adherenceMark(String? value, ColorScheme colors) {
+    final Color color = switch (value) {
+      'on_target' => colors.primary,
+      'roughly' => colors.tertiary,
+      'off' => colors.error,
+      _ => colors.outlineVariant,
+    };
+    final Widget mark = switch (value) {
+      'on_target' => Icon(Icons.circle, color: color, size: 18),
+      'roughly' => Icon(Icons.change_history, color: color, size: 20),
+      'off' => Icon(Icons.square, color: color, size: 16),
+      _ => Icon(Icons.circle_outlined, color: color, size: 18),
+    };
+    return SizedBox(width: 24, height: 24, child: Center(child: mark));
+  }
+
+
+  Future<void> _dismissGoalOffer() async {
+    setState(() => _saving = true);
+    try {
+      final NutritionPlanState dismissed = await ref.read(apiClientProvider).dismissNutritionGoalOffer();
+      if (mounted) setState(() { _plan = dismissed; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
+  }
+
   Widget _activityRow(NutritionCopy copy) => ListTile(
     title: Text(copy.dailyActivity), subtitle: Text(copy.activityLabel(_activity)),
-    trailing: const Icon(Icons.edit), onTap: _saving ? null : () => _editActivity(copy));
+    trailing: _plan?.authority == 'coach' ? null : const Icon(Icons.edit),
+    onTap: _saving || _plan?.authority == 'coach' ? null : () => _editActivity(copy));
 
   Widget _plate(Map<String, dynamic> targets,
       List<(String, String, Color)> macroCards, NutritionCopy copy, TextTheme text) {
@@ -224,12 +340,57 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     )));
   }
 
-  List<Widget> _macroCards(Map<String, dynamic> targets,
-      List<(String, String, Color)> macroCards) => <Widget>[
-    for (final (String label, String key, Color color) in macroCards)
-      Card(child: ListTile(leading: CircleAvatar(backgroundColor: color, radius: 8),
-        title: Text(label), trailing: Text('${targets[key] ?? 0} g'))),
-  ];
+  Widget _macroCards(Map<String, dynamic> targets,
+      List<(String, String, Color)> macroCards) => Row(crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (int index = 0; index < macroCards.length; index++) ...<Widget>[
+          if (index > 0) const SizedBox(width: 8),
+          Expanded(child: Card(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[
+              CircleAvatar(backgroundColor: macroCards[index].$3, radius: 6),
+              const SizedBox(height: 6),
+              Text(macroCards[index].$1, textAlign: TextAlign.center,
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Text('${targets[macroCards[index].$2] ?? 0} g'),
+            ]),
+          ))),
+        ],
+      ]);
+
+  Widget _fiberWaterCards(Map<String, dynamic> targets, NutritionCopy copy) =>
+      Row(children: <Widget>[
+        Expanded(child: Card(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(children: <Widget>[
+            Text(copy.fiberTarget, textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(copy.fiberValue(targets['fiber_g'] ?? 0)),
+          ]),
+        ))),
+        const SizedBox(width: 8),
+        Expanded(child: Card(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(children: <Widget>[
+            Text(copy.waterTarget, textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(copy.waterValue((targets['water_ml'] as num?)?.toInt() ?? 0),
+                textAlign: TextAlign.center, maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
+            Text('${copy.waterLog}: ${copy.waterGlasses} $_waterGlasses'),
+            Wrap(alignment: WrapAlignment.center, children: <Widget>[
+              TextButton(onPressed: _saving || _waterSaving || _waterGlasses >= 30
+                  ? null : () => _changeWater(false, copy), child: Text(copy.addGlass)),
+              TextButton(onPressed: _saving || _waterSaving || _waterGlasses == 0
+                  ? null : () => _changeWater(true, copy), child: Text(copy.undoGlass)),
+            ]),
+          ]),
+        ))),
+      ]);
 
   Widget _loadError(BuildContext context, NutritionCopy copy) => Center(child: Padding(
     padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[

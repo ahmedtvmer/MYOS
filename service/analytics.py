@@ -218,6 +218,8 @@ _COACH_ALERT_KINDS = frozenset(
         "program_final_week_started",
         "program_final_week_completed",
         "volume_review",
+        "nutrition_off_streak",
+        "nutrition_unlogged",
     }
 )
 _PROGRAM_REQUEST_KINDS = frozenset({"exercise_substitution", "split_change"})
@@ -319,6 +321,13 @@ PROPERTY_TYPES: dict[str, PropertyType] = {
     "cost_usd": _bounded_number(100_000),
     "estimated": _boolean(),
     "blocked": _boolean(),
+    "goal": _enum({"lose", "maintain", "gain"}),
+    "water_glasses": _bounded_int(30),
+    "intensity": _enum({"light", "moderate", "aggressive", "none"}),
+    "floor_applied": _boolean(),
+    "proposal_decision": _enum(frozenset({"accepted", "kept"})),
+    "decision_actor": _enum(frozenset({"player", "coach"})),
+    "value": _enum({"on_target", "roughly", "off"}),
     "latency_ms": _bounded_int(31_557_600),
     "finish_reason": _enum(AI_FINISH_REASONS),
     "turns_today": _bounded_int(1_000_000),
@@ -341,6 +350,21 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
     "onboarding_started": EventContract("server", dict(_COMMON_PROPERTIES)),
     "nutrition_setup_completed": EventContract(
         "server", {**_COMMON_PROPERTIES, "blocked": PROPERTY_TYPES["blocked"]}
+    ),
+    "nutrition_adherence_logged": EventContract(
+        "server", {**_COMMON_PROPERTIES, "value": PROPERTY_TYPES["value"]}
+    ),
+    "water_log_changed": EventContract(
+        "server", {**_COMMON_PROPERTIES, "water_glasses": PROPERTY_TYPES["water_glasses"]}
+    ),
+    "nutrition_goal_saved": EventContract(
+        "server", {**_COMMON_PROPERTIES, "goal": PROPERTY_TYPES["goal"],
+                   "intensity": PROPERTY_TYPES["intensity"], "floor_applied": PROPERTY_TYPES["floor_applied"]}
+    ),
+    "nutrition_pace_proposal_decided": EventContract(
+        "server", {**_COMMON_PROPERTIES,
+                   "proposal_decision": PROPERTY_TYPES["proposal_decision"],
+                   "decision_actor": PROPERTY_TYPES["decision_actor"]}
     ),
     "onboarding_completed": EventContract(
         "server",

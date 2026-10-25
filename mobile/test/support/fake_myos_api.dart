@@ -100,9 +100,15 @@ class FakeMyosApi {
   bool nutritionLoadFails = false;
   Map<String, dynamic>? lastNutritionSetupBody;
   String? lastNutritionActivity;
+  final List<String> nutritionAdherenceValues = <String>[];
+  Map<String, dynamic>? lastNutritionGoal;
+  int nutritionOfferDismissals = 0;
+  final List<String> nutritionPaceDecisions = <String>[];
   Map<String, dynamic> nutritionState = <String, dynamic>{
     'state': 'not_started', 'targets': null,
   };
+  int waterGlasses = 0;
+  bool waterChangeFails = false;
   final List<Map<String, dynamic>> injuries = <Map<String, dynamic>>[];
   int _injuryId = 0;
   int injuryCreateRequests = 0;
@@ -216,7 +222,7 @@ class FakeMyosApi {
   String? activeAssignmentId;
   String? activeCoachDisplayName;
   String? activeCoachSpecialization;
-  String? rosterAiDisclosureVersion = '1';
+  String? rosterAiDisclosureVersion = '2';
   int rosterAiDisclosureRequests = 0;
   int rosterAiDisclosureFailuresRemaining = 0;
   bool myAssignmentFails = false;
@@ -498,6 +504,14 @@ class FakeMyosApi {
     'has_draft': false,
   };
   Map<String, dynamic> coachPlayerSummary = _defaultCoachSummary();
+  Map<String, dynamic> coachPlayerNutrition = <String, dynamic>{
+    'authority': 'player', 'goal': 'maintain', 'daily_activity': 'mostly_sitting',
+    'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250, 'fat_g': 67},
+    'target_options': <String, dynamic>{'daily': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250, 'fat_g': 67}},
+    'calorie_floor': 1500, 'adherence_days': <dynamic>[], 'weight_trend': <dynamic>[],
+  };
+  final List<Map<String, dynamic>> coachNutritionSaveRequests = <Map<String, dynamic>>[];
+  String? coachNutritionSaveError;
   Map<String, dynamic> coachVolumeReview = <String, dynamic>{'review': null};
   List<Map<String, dynamic>> coachPlayerRecords = _defaultCoachRecords();
   List<Map<String, dynamic>> coachPlayerExercises = _defaultCoachExercises();
@@ -557,6 +571,33 @@ class FakeMyosApi {
 
   FakeResponse _handle(FakeRequest request) {
     final String path = request.path;
+    if (path.startsWith('/coach/assignments/') &&
+        path.contains('/nutrition/pace-proposals/')) {
+      final String decision = request.body['decision'] as String;
+      nutritionPaceDecisions.add(decision);
+      final Map<String, dynamic>? proposal = coachPlayerNutrition['pace_proposal'] as Map<String, dynamic>?;
+      final Map<String, dynamic> payload = proposal?['payload'] is Map<String, dynamic>
+          ? proposal!['payload'] as Map<String, dynamic> : <String, dynamic>{};
+      coachPlayerNutrition = <String, dynamic>{...coachPlayerNutrition,
+        if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
+          'targets': payload['targets'],
+        'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
+          'status': decision, 'stale': decision == 'accepted', 'decided_by': 'coach'}};
+      return FakeResponse(200, coachPlayerNutrition);
+    }
+    if (path.startsWith('/nutrition/pace-proposals/')) {
+      final String decision = request.body['decision'] as String;
+      nutritionPaceDecisions.add(decision);
+      final Map<String, dynamic>? proposal = nutritionState['pace_proposal'] as Map<String, dynamic>?;
+      final Map<String, dynamic> payload = proposal?['payload'] is Map<String, dynamic>
+          ? proposal!['payload'] as Map<String, dynamic> : <String, dynamic>{};
+      nutritionState = <String, dynamic>{...nutritionState,
+        if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
+          'targets': payload['targets'],
+        'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
+          'status': decision, 'stale': decision == 'accepted', 'decided_by': 'player'}};
+      return FakeResponse(200, nutritionState);
+    }
     if (path == '/app/version-policy') {
       appVersionPolicyRequests++;
       if (appVersionPolicyFails) {
@@ -685,6 +726,33 @@ class FakeMyosApi {
     }
     if (path.startsWith('/coach/assignments/') && path.endsWith('/check-ins')) {
       return _coachCheckIns(request);
+    }
+    if (path.startsWith('/coach/assignments/') && path.endsWith('/nutrition')) {
+      if (request.method == 'PUT') {
+        coachNutritionSaveRequests.add(Map<String, dynamic>.from(request.body));
+        if (coachNutritionSaveError != null) {
+          return FakeResponse(400, <String, dynamic>{'detail': coachNutritionSaveError});
+        }
+        coachPlayerNutrition = <String, dynamic>{...coachPlayerNutrition,
+          'authority': 'coach', 'goal': request.body['goal'],
+          'daily_activity': request.body['daily_activity'],
+          'targets': request.body['targets'] ?? request.body['training_day_targets'],
+          'target_options': <String, dynamic>{
+            'daily': request.body['targets'],
+            'training_day': request.body['training_day_targets'],
+            'rest_day': request.body['rest_day_targets'],
+          },
+        };
+      }
+      final Map<String, dynamic> chartState = <String, dynamic>{...coachPlayerNutrition};
+      if (request.query['days'] == 28 &&
+          (chartState['adherence_days'] as List<dynamic>? ?? <dynamic>[]).isEmpty) {
+        chartState['adherence_days'] = List<Map<String, dynamic>>.generate(28, (int index) => <String, dynamic>{
+          'date': DateTime.now().subtract(Duration(days: 27 - index)).toIso8601String().substring(0, 10),
+          'value': null,
+        });
+      }
+      return FakeResponse(200, chartState);
     }
     if (path.startsWith('/coach/assignments/') &&
         path.endsWith('/program/approve')) {
@@ -832,6 +900,12 @@ class FakeMyosApi {
             : nutritionLoadFails
                 ? const FakeResponse(503, <String, dynamic>{'detail': 'Nutrition unavailable.'})
                 : FakeResponse(200, <String, dynamic>{...nutritionState, 'sex': gender});
+      case '/nutrition/water':
+        if (waterChangeFails) {
+          return const FakeResponse(409, <String, dynamic>{'detail': 'Water glass count limit.'});
+        }
+        waterGlasses += request.method == 'DELETE' ? -1 : 1;
+        return FakeResponse(200, <String, dynamic>{'today_water_glasses': waterGlasses});
       case '/nutrition/setup':
         if (!_authorized(request)) {
           return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
@@ -843,7 +917,7 @@ class FakeMyosApi {
         nutritionState = blocked
             ? <String, dynamic>{'state': 'blocked', 'targets': null,
                 'message': 'Please speak with a registered dietitian.'}
-            : <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+            : <String, dynamic>{...nutritionState, 'state': 'ready', 'goal': 'maintain',
                 'goal_reason': <String, dynamic>{'code': 'default'},
                 'intensity': 'moderate', 'daily_activity': request.body['daily_activity'],
                 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140,
@@ -852,6 +926,39 @@ class FakeMyosApi {
       case '/nutrition/activity':
         lastNutritionActivity = request.body['daily_activity'] as String;
         nutritionState = <String, dynamic>{...nutritionState, 'daily_activity': request.body['daily_activity']};
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/adherence':
+        nutritionAdherenceValues.add(request.body['value'] as String);
+        nutritionState = <String, dynamic>{...nutritionState,
+          'today_adherence': request.body['value'],
+          'adherence_days': <Map<String, dynamic>>[
+            <String, dynamic>{'date': '2026-10-24', 'value': request.body['value']},
+            ...List<Map<String, dynamic>>.generate(6, (int index) => <String, dynamic>{
+              'date': '2026-10-${23 - index}', 'value': index == 0 ? 'roughly' : null,
+            }),
+          ],
+        };
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/preview':
+        final String goal = request.body['goal'] as String;
+        final String intensity = request.body['intensity'] as String;
+        final bool gainingLight = goal == 'gain' && intensity == 'light';
+        return FakeResponse(200, <String, dynamic>{'state': 'ready', 'goal': goal, 'intensity': intensity,
+          'targets': <String, dynamic>{'calories': gainingLight ? 2200 : 1800,
+            'protein_g': gainingLight ? 130 : 145, 'carbs_g': gainingLight ? 250 : 160,
+            'fat_g': gainingLight ? 60 : 65, 'weekly_rate_pct': gainingLight ? 0.1 : 0.4,
+            'floor_applied': intensity == 'aggressive'},
+          'weekly_change_kg': gainingLight ? 0.2 : -0.4,
+          'reach_target_date': '2027-02-01', 'gain_target_warning': goal == 'gain'});
+      case '/nutrition/goal':
+        lastNutritionGoal = Map<String, dynamic>.from(request.body);
+        nutritionState = <String, dynamic>{...nutritionState, 'goal': request.body['goal'],
+          'intensity': request.body['intensity'], 'goal_reason': <String, dynamic>{'code': 'player_choice'},
+          'pending_goal': null, 'author': 'Player'};
+        return FakeResponse(200, nutritionState);
+      case '/nutrition/goal-offer/dismiss':
+        nutritionOfferDismissals++;
+        nutritionState = <String, dynamic>{...nutritionState, 'pending_goal': null};
         return FakeResponse(200, nutritionState);
       case '/profile':
         return _profile(request);
@@ -1507,7 +1614,7 @@ class FakeMyosApi {
       return const FakeResponse(
           503, <String, dynamic>{'detail': 'The service is unavailable.'});
     }
-    rosterAiDisclosureVersion = '1';
+    rosterAiDisclosureVersion = '2';
     return FakeResponse(200, <String, dynamic>{
       'roster_ai_disclosure_version': rosterAiDisclosureVersion,
       'roster_ai_disclosed_at': '2026-10-11T10:00:00Z',

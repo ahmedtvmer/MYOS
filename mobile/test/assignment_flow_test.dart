@@ -86,6 +86,17 @@ Future<void> _openSettings(WidgetTester tester) async {
 }
 
 void main() {
+  test('Roster disclosure names Nutrition adherence and excludes screening answers', () {
+    const AssignmentCopy english = AssignmentCopy('en');
+    const AssignmentCopy arabic = AssignmentCopy('ar');
+
+    expect(english.rosterAiDisclosure, contains('Nutrition adherence'));
+    expect(english.rosterAiDisclosure, contains('health-screening answers'));
+    expect(arabic.rosterAiDisclosure, contains('الأهداف الغذائية'));
+    expect(arabic.rosterAiDisclosure, contains('إجابات الفحص الصحي'));
+    expect(rosterAiDisclosureVersion, '2');
+  });
+
   testWidgets('player notice reader re-renders cached metadata and keeps legacy text',
       (tester) async {
     const String fallback =
@@ -370,8 +381,9 @@ void main() {
     expect(find.text('Strength'), findsOneWidget);
     expect(
       find.text(
-        'Your coach may ask a hosted AI about your training figures alongside '
-        'other players’ figures. The AI does not receive your name or contact details.',
+        'Your coach may ask a hosted AI about your training signals and your '
+        'Nutrition adherence over the last 7 days alongside other players’ figures. '
+        'The AI does not receive your name, contact details, or health-screening answers.',
       ),
       findsOneWidget,
     );
@@ -400,8 +412,9 @@ void main() {
     await _pumpApp(tester, fake);
 
     const String disclosure =
-        'Your coach may ask a hosted AI about your training figures alongside '
-        'other players’ figures. The AI does not receive your name or contact details.';
+        'Your coach may ask a hosted AI about your training signals and your '
+        'Nutrition adherence over the last 7 days alongside other players’ figures. '
+        'The AI does not receive your name, contact details, or health-screening answers.';
     await _pumpUntilFound(tester, find.text(disclosure));
     expect(find.text('OK'), findsOneWidget);
     expect(fake.rosterAiDisclosureRequests, 0);
@@ -413,13 +426,37 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(fake.rosterAiDisclosureRequests, 1);
-    expect(fake.rosterAiDisclosureVersion, '1');
+    expect(fake.rosterAiDisclosureVersion, '2');
     for (int attempt = 0;
         attempt < 40 && find.text(disclosure).evaluate().isNotEmpty;
         attempt++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text(disclosure), findsNothing);
+  });
+
+  testWidgets('version 1 disclosure with an acknowledgement timestamp is renewed',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake(coach: false)
+      ..activeAssignmentId = 'assignment-1'
+      ..activeCoachDisplayName = 'Coach Bob'
+      ..rosterAiDisclosureVersion = '1';
+    await _pumpApp(tester, fake);
+
+    final String disclosure = const AssignmentCopy('en').rosterAiDisclosure;
+    await _pumpUntilFound(tester, find.text(disclosure));
+    expect(fake.rosterAiDisclosureRequests, 0);
+    expect(fake.rosterAiDisclosureVersion, '1');
+
+    await tester.tap(find.text('OK'));
+    for (int attempt = 0;
+        attempt < 40 && fake.rosterAiDisclosureRequests == 0;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(fake.rosterAiDisclosureRequests, 1);
+    expect(fake.rosterAiDisclosureVersion, '2');
   });
 
   testWidgets('legacy assignment notice shows ack failure and retries',
@@ -432,8 +469,9 @@ void main() {
     await _pumpApp(tester, fake);
 
     const String disclosure =
-        'Your coach may ask a hosted AI about your training figures alongside '
-        'other players’ figures. The AI does not receive your name or contact details.';
+        'Your coach may ask a hosted AI about your training signals and your '
+        'Nutrition adherence over the last 7 days alongside other players’ figures. '
+        'The AI does not receive your name, contact details, or health-screening answers.';
     await _pumpUntilFound(tester, find.text(disclosure));
 
     await tester.tap(find.text('OK'));
@@ -450,7 +488,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(fake.rosterAiDisclosureRequests, 2);
-    expect(fake.rosterAiDisclosureVersion, '1');
+    expect(fake.rosterAiDisclosureVersion, '2');
     for (int attempt = 0;
         attempt < 40 && find.text(disclosure).evaluate().isNotEmpty;
         attempt++) {
@@ -468,8 +506,9 @@ void main() {
     await _pumpApp(tester, fake);
 
     const String disclosure =
-        'Your coach may ask a hosted AI about your training figures alongside '
-        'other players’ figures. The AI does not receive your name or contact details.';
+        'Your coach may ask a hosted AI about your training signals and your '
+        'Nutrition adherence over the last 7 days alongside other players’ figures. '
+        'The AI does not receive your name, contact details, or health-screening answers.';
     await _pumpUntilFound(tester, find.text(disclosure));
 
     await tester.tapAt(const Offset(12, 12));
@@ -501,14 +540,14 @@ void main() {
     await _pumpUntilFound(
       tester,
       find.text(
-        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل بيانات تدريبك مع بيانات '
-        'لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال الخاصة بك.',
+        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية '
+        'خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.',
       ),
     );
     expect(
       find.text(
-        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل بيانات تدريبك مع بيانات '
-        'لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال الخاصة بك.',
+        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية '
+        'خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.',
       ),
       findsOneWidget,
     );

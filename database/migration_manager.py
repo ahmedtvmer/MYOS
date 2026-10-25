@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 40
+CURRENT_LEDGER_SCHEMA_VERSION: int = 47
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -947,7 +947,7 @@ def _migrate_v34_to_v35(conn: sqlite3.Connection) -> None:
         )
 
 
-def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
+def _migrate_v43_to_v44(conn: sqlite3.Connection) -> None:
     """Adds the nullable Player Weak point list (#490)."""
     if not _ledger_table_exists(conn, "user_profile"):
         return
@@ -956,7 +956,7 @@ def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE user_profile ADD COLUMN weak_points_json TEXT")
 
 
-def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
+def _migrate_v45_to_v46(conn: sqlite3.Connection) -> None:
     """Stores the reason for the single pending regenerate offer (#497)."""
     if not _ledger_table_exists(conn, "program_design_offer"):
         for statement in PROGRAM_DESIGN_OFFER_DDL:
@@ -973,7 +973,7 @@ def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE program_design_offer_v38")
 
 
-def _migrate_v39_to_v40(conn: sqlite3.Connection) -> None:
+def _migrate_v46_to_v47(conn: sqlite3.Connection) -> None:
     """Pins regenerate-offer decisions to the design version offered (#487)."""
     if not _ledger_table_exists(conn, "program_design_offer"):
         for statement in PROGRAM_DESIGN_OFFER_DDL:
@@ -1018,12 +1018,114 @@ def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE user_profile ADD COLUMN daily_activity TEXT")
 
 
-def _migrate_v37_to_v38(conn: sqlite3.Connection) -> None:
+def _migrate_v44_to_v45(conn: sqlite3.Connection) -> None:
     """Adds nullable, version-pinned Program rationale (#491)."""
     if _ledger_table_exists(conn, "training_programs"):
         columns = {column[1] for column in conn.execute("PRAGMA table_info(training_programs)")}
         if "program_rationale_json" not in columns:
             conn.execute("ALTER TABLE training_programs ADD COLUMN program_rationale_json TEXT")
+
+
+def _migrate_v36_to_v37(conn: sqlite3.Connection) -> None:
+    """Stores one replaceable Player answer per local day (#463)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_adherence ("
+        "entry_date TEXT PRIMARY KEY, value TEXT NOT NULL "
+        "CHECK(value IN ('on_target', 'roughly', 'off')), "
+        "source TEXT NOT NULL DEFAULT 'answered' CHECK(source IN ('answered', 'computed')), "
+        "created_at TEXT NOT NULL)"
+    )
+
+def _migrate_v37_to_v38(conn: sqlite3.Connection) -> None:
+    """Stores Nutrition goal offer decisions and the profile resolved per plan."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals ("
+        "id INTEGER PRIMARY KEY CHECK(id=1), offer_key TEXT NOT NULL, dismissed_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_goal_offer_snapshots ("
+        "plan_version_id INTEGER PRIMARY KEY, profile_json TEXT NOT NULL,"
+        "FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id))"
+    )
+    if _ledger_table_exists(conn, "user_profile") and _ledger_table_exists(conn, "nutrition_plan_versions"):
+        profile_columns = {column[1] for column in conn.execute("PRAGMA table_info(user_profile)")}
+        current_goal = "profile.current_goal" if "current_goal" in profile_columns else "NULL"
+        long_term_goal = "profile.long_term_goal" if "long_term_goal" in profile_columns else "NULL"
+        target_weight = "profile.target_weight_kg" if "target_weight_kg" in profile_columns else "NULL"
+        conn.execute(
+            "INSERT OR IGNORE INTO nutrition_goal_offer_snapshots(plan_version_id, profile_json) "
+            f"SELECT plan.id, json_object('current_goal', {current_goal}, "
+            f"'long_term_goal', {long_term_goal}, 'target_weight_kg', {target_weight}) "
+            "FROM nutrition_plan_versions AS plan CROSS JOIN user_profile AS profile "
+            "WHERE plan.id=(SELECT MAX(id) FROM nutrition_plan_versions) AND profile.id=1"
+        )
+
+
+
+def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
+    """Binds Coach Nutrition authority to the Assignment that granted it (#464)."""
+    if not _ledger_table_exists(conn, "nutrition_plan_versions"):
+        return
+    columns = {column[1] for column in conn.execute("PRAGMA table_info(nutrition_plan_versions)")}
+    if "authority_assignment_id" not in columns:
+        conn.execute("ALTER TABLE nutrition_plan_versions ADD COLUMN authority_assignment_id TEXT")
+
+
+def _migrate_v39_to_v40(conn: sqlite3.Connection) -> None:
+    """Stores version-pinned Nutrition pace proposals and weekly evaluation state (#467)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_pace_proposals ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, plan_version_id INTEGER NOT NULL, "
+        "payload_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' "
+        "CHECK(status IN ('pending','accepted','kept')), created_at TEXT NOT NULL, "
+        "decided_at TEXT, decided_by TEXT, FOREIGN KEY(plan_version_id) "
+        "REFERENCES nutrition_plan_versions(id))"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_nutrition_pace_pending "
+        "ON nutrition_pace_proposals(status) WHERE status='pending'"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nutrition_pace_check_state ("
+        "id INTEGER PRIMARY KEY CHECK(id=1), last_evaluated_on TEXT NOT NULL)"
+    )
+
+
+def _migrate_v40_to_v41(conn: sqlite3.Connection) -> None:
+    """Allow one pending Nutrition pace proposal per plan version (#467)."""
+    conn.execute("DROP INDEX IF EXISTS idx_nutrition_pace_pending")
+    conn.execute(
+        "CREATE UNIQUE INDEX idx_nutrition_pace_pending "
+        "ON nutrition_pace_proposals(plan_version_id) WHERE status='pending'"
+    )
+
+
+def _migrate_v41_to_v42(conn: sqlite3.Connection) -> None:
+    """Allow a pending pace proposal to be marked stale when its plan is superseded."""
+    conn.execute("DROP INDEX IF EXISTS idx_nutrition_pace_pending")
+    conn.execute("ALTER TABLE nutrition_pace_proposals RENAME TO nutrition_pace_proposals_v41")
+    conn.execute(
+        "CREATE TABLE nutrition_pace_proposals ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, plan_version_id INTEGER NOT NULL, "
+        "payload_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' "
+        "CHECK(status IN ('pending','accepted','kept','stale')), created_at TEXT NOT NULL, "
+        "decided_at TEXT, decided_by TEXT, FOREIGN KEY(plan_version_id) "
+        "REFERENCES nutrition_plan_versions(id))"
+    )
+    conn.execute("INSERT INTO nutrition_pace_proposals SELECT * FROM nutrition_pace_proposals_v41")
+    conn.execute("DROP TABLE nutrition_pace_proposals_v41")
+    conn.execute("CREATE UNIQUE INDEX idx_nutrition_pace_pending "
+                 "ON nutrition_pace_proposals(plan_version_id) WHERE status='pending'")
+
+
+def _migrate_v42_to_v43(conn: sqlite3.Connection) -> None:
+    """Stores one bounded water glass count per Player-local day (#503)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS water_log ("
+        "entry_date TEXT PRIMARY KEY, "
+        "glass_count INTEGER NOT NULL CHECK(glass_count BETWEEN 0 AND 30), "
+        "updated_at TEXT NOT NULL)"
+    )
 
 
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
@@ -1151,6 +1253,13 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     37: _migrate_v37_to_v38,
     38: _migrate_v38_to_v39,
     39: _migrate_v39_to_v40,
+    40: _migrate_v40_to_v41,
+    41: _migrate_v41_to_v42,
+    42: _migrate_v42_to_v43,
+    43: _migrate_v43_to_v44,
+    44: _migrate_v44_to_v45,
+    45: _migrate_v45_to_v46,
+    46: _migrate_v46_to_v47,
 }
 
 

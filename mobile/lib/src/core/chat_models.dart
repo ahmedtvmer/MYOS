@@ -2,15 +2,6 @@
 
 import 'models.dart';
 
-/// The hosted-processing disclosure shown before the first chat use (#37).
-///
-/// Kept short and honest per ADR 016: it names the hosted provider and admits
-/// that user-written free text may contain identifying information.
-const String hostedChatDisclosure = 'Chat uses a hosted AI model. It receives your '
-    'message, last 10 chat messages, preferred name and assistant settings. '
-    'Profile or program details it looks up are sent too. Free text can identify '
-    'you; avoid details you do not want processed there.';
-
 /// One persisted turn in the player's chat history (`GET /chat/history`).
 class ChatMessage {
   const ChatMessage({

@@ -160,12 +160,50 @@ class SchemaMixin:
                 intensity TEXT,
                 daily_activity TEXT NOT NULL,
                 targets_json TEXT NOT NULL,
+                authority_assignment_id TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS nutrition_screening (
                 id INTEGER PRIMARY KEY CHECK(id=1),
                 answers_json TEXT NOT NULL,
                 answered_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_adherence (
+                entry_date TEXT PRIMARY KEY,
+                value TEXT NOT NULL CHECK(value IN ('on_target', 'roughly', 'off')),
+                source TEXT NOT NULL DEFAULT 'answered' CHECK(source IN ('answered', 'computed')),
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS water_log (
+                entry_date TEXT PRIMARY KEY,
+                glass_count INTEGER NOT NULL CHECK(glass_count BETWEEN 0 AND 30),
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_goal_offer_dismissals (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                offer_key TEXT NOT NULL,
+                dismissed_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_goal_offer_snapshots (
+                plan_version_id INTEGER PRIMARY KEY,
+                profile_json TEXT NOT NULL,
+                FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id)
+            );
+            CREATE TABLE IF NOT EXISTS nutrition_pace_proposals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_version_id INTEGER NOT NULL,
+                payload_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','kept','stale')),
+                created_at TEXT NOT NULL,
+                decided_at TEXT,
+                decided_by TEXT,
+                FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_nutrition_pace_pending
+                ON nutrition_pace_proposals(plan_version_id) WHERE status='pending';
+            CREATE TABLE IF NOT EXISTS nutrition_pace_check_state (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                last_evaluated_on TEXT NOT NULL
             );
             CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update
                 BEFORE UPDATE ON nutrition_plan_versions BEGIN

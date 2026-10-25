@@ -16,7 +16,7 @@ selects an account, and no raw invite code is ever logged.
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 
 from agent.program_cardio import CoachCardioOptions
@@ -31,6 +31,7 @@ from service import coach_program_drafts as coach_program_drafts_service
 from service import program_import as program_import_service
 from service import program_requests as program_requests_service
 from service import program_templates as program_templates_service
+from service.weight_history import player_local_date
 from service.messages import (
     MessageMetadata,
     http_error_message,
@@ -67,6 +68,8 @@ from svc.schemas import (
     CheckInIn,
     CheckInOut,
     CoachActiveProgramOut,
+    CoachNutritionTargetsIn,
+    NutritionPaceProposalDecisionIn,
     CoachAssignmentsOut,
     CoachCheckInCreateOut,
     CheckpointReviewListItemOut,
@@ -326,6 +329,85 @@ async def read_assigned_player_active_program(
     if program is None:
         raise _no_active_assignment()
     return CoachActiveProgramOut(**program)
+
+
+@coach_router.get("/{assignment_id}/nutrition")
+async def read_assigned_player_nutrition(
+    assignment_id: str,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+    days: Annotated[int, Query(ge=1, le=28)] = 14,
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    with ledger:
+        from service import nutrition as nutrition_service
+        today = player_local_date(ledger, context["player"]["ledger_id"])
+        return await asyncio.to_thread(nutrition_service.coach_read, ledger, today, assignment_id, days)
+
+
+@coach_router.put("/{assignment_id}/nutrition")
+async def save_assigned_player_nutrition(
+    assignment_id: str,
+    body: CoachNutritionTargetsIn,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    from service import nutrition as nutrition_service
+    today = player_local_date(ledger, context["player"]["ledger_id"])
+    try:
+        with ledger:
+            return await asyncio.to_thread(
+                nutrition_service.save_coach_targets, ledger, body.model_dump(), assignment_id, today
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+
+
+@coach_router.post("/{assignment_id}/nutrition/pace-proposals/{proposal_id}/decision")
+async def decide_assigned_player_pace_proposal(
+    request: Request,
+    assignment_id: str,
+    proposal_id: int,
+    body: NutritionPaceProposalDecisionIn,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    from service import nutrition as nutrition_service
+    with ledger:
+        plan = await asyncio.to_thread(ledger.get_active_nutrition_plan)
+        if (plan is None or plan["author"] != "Coach"
+                or plan["authority_assignment_id"] != assignment_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Only the Nutrition authority holder can decide this proposal.")
+        today = player_local_date(ledger, context["player"]["ledger_id"])
+        try:
+            result = await asyncio.to_thread(
+                nutrition_service.decide_pace_proposal, ledger,
+                nutrition_service.PaceProposalDecision(
+                    proposal_id, body.decision, "coach", assignment_id, today),
+            )
+            result = await asyncio.to_thread(
+                nutrition_service.coach_read, ledger, today, assignment_id
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
+    analytics.capture_for_request(request, analytics.AnalyticsEvent(
+        account_id=coach.account_id, event="nutrition_pace_proposal_decided",
+        domain_key=f"{assignment_id}:pace:{proposal_id}:{body.decision}:coach", role="coach",
+        properties={"proposal_decision": body.decision, "decision_actor": "coach"},
+    ))
+    return result
 
 
 @coach_router.post("/invites", response_model=AssignmentInviteIssueOut)

@@ -56,6 +56,7 @@ from service import check_ins as check_ins_service
 from service import coach_history as coach_history_service
 from service import dashboard as dashboard_service
 from service import program_requests as program_requests_service
+from service import nutrition as nutrition_service
 from service.exercise_context import describe_exercises
 from agent.program_weeks import normalize_program_weeks
 from service.assignments import authorized_player_ledger
@@ -67,7 +68,7 @@ from service.missed_day_alerts import (
 from service.missed_day_alerts import (
     list_alerts as list_coach_alerts,
 )
-from service.weight_history import WeightTrendQuery, get_weight_trend
+from service.weight_history import WeightTrendQuery, get_weight_trend, player_local_date
 from agent.program_rationale_reader import read_program_rationale
 
 logger = logging.getLogger(__name__)
@@ -365,6 +366,14 @@ CANONICAL_FIXTURE: dict[str, Any] = {
         "adherence_pct": 83.3,
         "trailing_missed_streak": 0,
         "last_missed_on": "2026-09-17",
+    },
+    "nutrition": {
+        "targets": {"calories": 2200, "protein_g": 160, "carbs_g": 230, "fat_g": 70},
+        "author": "Coach",
+        "goal": "lose",
+        "intensity": "moderate",
+        "adherence_counts": {"on_target": 8, "roughly": 3, "off": 3},
+        "pace_proposal": {"suggested_calories": 2100},
     },
     "schedule": {"weekdays": [1, 3, 5], "timezone": "Europe/Berlin"},
     "pauses": [{"starts_on": "2026-10-01", "ends_on": "2026-10-07"}],
@@ -1048,6 +1057,23 @@ def gather_player_context(
             for record in records
         ]
         attendance = _attendance_facts(ledger, ledger_id, context["assignment"], now)
+        nutrition_today = player_local_date(ledger, ledger_id, now)
+        nutrition_state = nutrition_service.coach_read(
+            ledger, nutrition_today, str(context["assignment"]["assignment_id"]), days=14
+        )
+        nutrition_facts = {
+            key: nutrition_state[key]
+            for key in (
+                "targets", "target_options", "author", "goal", "intensity",
+                "planned_weekly_rate_pct", "pace_proposal",
+            )
+            if key in nutrition_state
+        }
+        adherence_counts = {value: 0 for value in ("on_target", "roughly", "off")}
+        for day in nutrition_state.get("adherence_days", []):
+            if day.get("value") in adherence_counts:
+                adherence_counts[day["value"]] += 1
+        nutrition_facts["adherence_counts"] = adherence_counts
         volumes = dashboard_service.working_set_volume(db, ledger_id, days_lookback=(7, 28), ledger=ledger)
         facts: dict[str, Any] = {
             "as_of": (attendance or {}).get("local_today") or now.date().isoformat(),
@@ -1080,6 +1106,7 @@ def gather_player_context(
             "recent_sessions_totals": session_totals,
             "personal_records": personal_records,
             "attendance": attendance,
+            "nutrition": nutrition_facts,
             "schedule": schedule,
             "pauses": pauses,
         }
@@ -1401,6 +1428,63 @@ def _render_schedule(facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _nutrition_targets_line(targets: dict[str, Any]) -> str:
+    return "  targets: " + _nutrition_target_values(targets)
+
+
+def _nutrition_target_values(targets: dict[str, Any]) -> str:
+    fields = ("calories", "protein_g", "carbs_g", "fat_g")
+    return ", ".join(
+        f"{key} {format_number(targets[key])}"
+        for key in fields
+        if targets.get(key) is not None
+    )
+
+
+def _nutrition_adherence_line(nutrition: dict[str, Any]) -> str:
+    counts = nutrition.get("adherence_counts") or {}
+    return "  adherence_14d: " + ", ".join(
+        f"{key} {counts.get(key, 0)}" for key in ("on_target", "roughly", "off")
+    )
+
+
+def _render_nutrition(facts: dict[str, Any]) -> list[str]:
+    nutrition = facts.get("nutrition") or {}
+    targets = nutrition.get("targets")
+    lines = ["nutrition:"]
+    if targets:
+        lines.extend([
+            f"  goal: {nutrition.get('goal') or 'not set'}",
+            f"  author: {nutrition.get('author') or 'not set'}",
+            _nutrition_targets_line(targets),
+        ])
+        pace = nutrition.get("intensity")
+        planned_rate = nutrition.get("planned_weekly_rate_pct")
+        if pace:
+            lines.append(f"  pace: {pace}")
+        elif planned_rate is not None:
+            direction = "loss" if planned_rate < 0 else "gain" if planned_rate > 0 else "no change"
+            lines.append(
+                f"  pace: calculated {format_number(abs(planned_rate))}% weekly {direction}"
+            )
+        else:
+            lines.append("  pace: not set")
+        if planned_rate is not None:
+            lines.append(f"  planned_weekly_rate_pct: {format_number(planned_rate)}")
+        options = nutrition.get("target_options") or {}
+        for day_type in ("training_day", "rest_day"):
+            option = options.get(day_type)
+            if option:
+                lines.append(f"  {day_type}_target_options: {_nutrition_target_values(option)}")
+    else:
+        lines.append("  no active Nutrition targets")
+    lines.append(_nutrition_adherence_line(nutrition))
+    proposal = nutrition.get("pace_proposal")
+    if proposal:
+        lines.append("  pending_pace_proposal: " + json.dumps(proposal, ensure_ascii=False, sort_keys=True))
+    return lines
+
+
 def _render_alerts(facts: dict[str, Any]) -> list[str]:
     alerts = facts.get("alerts") or []
     if not alerts:
@@ -1494,6 +1578,7 @@ _SECTIONS = (
     _render_records,
     _render_e1rm_trends,
     _render_attendance,
+    _render_nutrition,
     _render_schedule,
     _render_alerts,
     _render_check_ins,

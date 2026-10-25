@@ -3,12 +3,17 @@ import 'package:myos_mobile/src/core/display_language/message_copy.dart';
 import 'package:myos_mobile/src/core/display_language/message_resolver.dart';
 import 'package:myos_mobile/src/core/models.dart';
 
-String _resolve(String code, Map<String, dynamic> params) =>
+String _resolve(
+  String code,
+  Map<String, dynamic> params, {
+  String language = 'ar',
+  String fallback = 'Safe English fallback.',
+}) =>
     resolveStructuredMessage(
       messageCode: code,
       messageParams: params,
-      englishFallback: 'Safe English fallback.',
-      displayLanguage: 'ar',
+      englishFallback: fallback,
+      displayLanguage: language,
     )
         .replaceAll('\u2066', '')
         .replaceAll('\u2068', '')
@@ -121,6 +126,30 @@ void main() {
         ],
       }),
       'تغير الملف التدريبي: الإصابات أو القيود، المعدات المتاحة',
+    );
+  });
+
+  test('Nutrition adherence alerts render in English and Arabic', () {
+    expect(
+      _resolve('coach_alert.nutrition_off_streak.v1', <String, dynamic>{},
+          language: 'en',
+          fallback: 'Player recorded Off for three days in a row.'),
+      'Player recorded Off for three days in a row.',
+    );
+    expect(
+      _resolve('coach_alert.nutrition_unlogged.v1', <String, dynamic>{},
+          language: 'en',
+          fallback:
+              'Player has not logged Nutrition adherence for three days.'),
+      'Player has not logged Nutrition adherence for three days.',
+    );
+    expect(
+      _resolve('coach_alert.nutrition_off_streak.v1', <String, dynamic>{}),
+      'سجّل اللاعب أنه بعيد عن الهدف ثلاثة أيام متتالية.',
+    );
+    expect(
+      _resolve('coach_alert.nutrition_unlogged.v1', <String, dynamic>{}),
+      'لم يسجّل اللاعب الالتزام الغذائي منذ ثلاثة أيام.',
     );
   });
 

@@ -1,6 +1,7 @@
 """Profile and coach-persona endpoints. Identity comes from the JWT, never the body."""
 
 import asyncio
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
@@ -33,6 +34,7 @@ from svc.schemas import (
 )
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("")
@@ -230,6 +232,11 @@ async def record_weight(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+    try:
+        from service import nutrition as nutrition_service
+        await asyncio.to_thread(nutrition_service.evaluate_pace_check, ledger, point.date)
+    except Exception:
+        logger.exception("Nutrition pace check failed after Weight history update")
     return WeightEntryOut(entry_date=point.date.isoformat(), weight_kg=point.weight_kg)
 
 

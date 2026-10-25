@@ -818,6 +818,48 @@ class ApiClient {
         response.data, CoachPlayerSummary.fromJson, _invalidCoachHistory);
   }
 
+  Future<CoachNutritionState> coachPlayerNutrition(String assignmentId, {int days = 14}) async {
+    final response = await _send(() => _dio.get<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition',
+      queryParameters: <String, dynamic>{'days': days},
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
+  Future<CoachNutritionState> saveCoachPlayerNutrition(String assignmentId, {
+    required String goal,
+    required String dailyActivity,
+    required bool confirmTakeover,
+    Map<String, dynamic>? targets,
+    Map<String, dynamic>? trainingDayTargets,
+    Map<String, dynamic>? restDayTargets,
+  }) async {
+    final response = await _send(() => _dio.put<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition',
+      data: <String, dynamic>{
+        'goal': goal,
+        'daily_activity': dailyActivity,
+        'confirm_takeover': confirmTakeover,
+        if (targets != null) 'targets': targets,
+        if (trainingDayTargets != null) 'training_day_targets': trainingDayTargets,
+        if (restDayTargets != null) 'rest_day_targets': restDayTargets,
+      },
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
+  Future<CoachNutritionState> decideCoachPaceProposal(String assignmentId,
+      int proposalId, String decision) async {
+    final response = await _send(() => _dio.post<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition/pace-proposals/$proposalId/decision',
+      data: <String, dynamic>{'decision': decision},
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
   Future<VolumeReview?> coachPlayerVolumeReview(String assignmentId) async {
     final response = await _send(
       () => _dio.get<dynamic>(
@@ -2072,6 +2114,53 @@ class ApiClient {
         'The service returned invalid Nutrition data.');
   }
 
+  Future<NutritionPlanState> logNutritionAdherence(String value) async {
+    final response = await _send(() => _dio.put<dynamic>('/nutrition/adherence', data: {
+      'value': value,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<int> changeWaterGlasses({required bool undo}) async {
+    final response = await _send(() => undo
+        ? _dio.delete<dynamic>('/nutrition/water')
+        : _dio.post<dynamic>('/nutrition/water'));
+    return ((response.data as Map<String, dynamic>)['today_water_glasses'] as num).toInt();
+  }
+
+  Future<Map<String, dynamic>> previewNutrition(String goal, String intensity) async {
+    final response = await _send(() => _dio.post<dynamic>('/nutrition/preview', data: {
+      'goal': goal, 'intensity': intensity,
+    }));
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<NutritionPlanState> saveNutritionGoal(String goal, String intensity,
+      {Map<String, bool>? screening}) async {
+    final response = await _send(() => _dio.put<dynamic>('/nutrition/goal', data: {
+      'goal': goal, 'intensity': intensity,
+      if (screening != null) 'screening': screening,
+    }));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> dismissNutritionGoalOffer() async {
+    final response = await _send(() => _dio.post<dynamic>('/nutrition/goal-offer/dismiss'));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> decideNutritionPaceProposal(
+      int proposalId, String decision) async {
+    final response = await _send(() => _dio.post<dynamic>(
+      '/nutrition/pace-proposals/$proposalId/decision',
+      data: <String, dynamic>{'decision': decision},
+    ));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
   Future<InjuryRecord> createInjury({
     required String? bodyArea,
     required String description,

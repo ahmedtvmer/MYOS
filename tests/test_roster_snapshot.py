@@ -17,6 +17,7 @@ from agent.ProgramState import (
 from database.database_manager import DatabaseManager
 from service import assignments as assignment_service
 from service import coach as coach_service
+from service import coach_roster_ai
 from service import roster_snapshot as roster_snapshot_service
 from service import stall_alerts
 from svc.app import create_app
@@ -218,6 +219,55 @@ def _snapshot(db, coach_id, now):
     return roster_snapshot_service.roster_signal_snapshot(db, coach_id, now=now)
 
 
+def test_roster_snapshot_includes_persisted_adherence_and_excludes_screening(api):
+    client, db = api
+    coach_headers, coach_id = _make_coach(client, db)
+    player = _assign(client, db, coach_headers, "nutritionroster")
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        profile = ledger.get_player_profile() or {}
+        profile.update({"age": 35, "height_cm": 180, "weight_kg": 80})
+        ledger.upsert_player_profile(profile)
+        roster_snapshot_service.nutrition_service.setup(ledger, {
+            "sex": "male", "daily_activity": "mostly_sitting",
+            "screening": {
+                "pregnant_or_breastfeeding": False,
+                "medical_condition": False,
+                "eating_disorder": False,
+            },
+        })
+        for on, adherence in (
+            ("2026-10-18", "off"),
+            ("2026-10-20", "on_target"),
+            ("2026-10-21", "on_target"),
+            ("2026-10-22", "roughly"),
+            ("2026-10-25", "off"),
+        ):
+            ledger.upsert_nutrition_adherence(on, adherence)
+        ledger.conn.execute(
+            "UPDATE nutrition_screening SET answers_json=? WHERE id=1",
+            (json.dumps({
+                "pregnant_or_breastfeeding": True,
+                "medical_condition": False,
+                "eating_disorder": False,
+            }),),
+        )
+        ledger.conn.commit()
+
+    snapshot_response = client.get("/coach/roster/snapshot", headers=coach_headers)
+    assert snapshot_response.status_code == 200, snapshot_response.text
+    snapshot = snapshot_response.json()
+    signal = snapshot["snapshot"]["players"][0]
+    model_payload = coach_roster_ai.prepare_roster_question(
+        snapshot, "Who is struggling with Nutrition adherence?", []
+    ).messages[0].content
+
+    assert signal["nutrition_adherence_7d"] == {"on_target": 2, "roughly": 1, "off": 1}
+    assert "nutrition_adherence_7d" in model_payload
+    assert "pregnant_or_breastfeeding" not in model_payload
+    assert "medical_condition" not in model_payload
+    assert "eating_disorder" not in model_payload
+
+
 def test_legacy_assignment_enters_snapshot_only_after_disclosure_and_revokes(
     api, monkeypatch
 ):
@@ -265,6 +315,36 @@ def test_legacy_assignment_enters_snapshot_only_after_disclosure_and_revokes(
     ended = client.post("/assignments/me/end", headers=player["headers"])
     assert ended.status_code == 200, ended.text
     assert _snapshot(db, coach_id, instant)["snapshot"]["players"] == []
+
+
+def test_version_one_disclosure_with_timestamp_requires_new_acknowledgement(api):
+    client, db = api
+    coach_headers, coach_id = _make_coach(client, db)
+    player = _assign(client, db, coach_headers, "versiononeplayer")
+    old_ack = "2026-10-11T10:00:00+00:00"
+    with db._catalog_lock:
+        db.catalog_conn.execute(
+            "UPDATE assignments SET roster_ai_disclosure_version='1', roster_ai_disclosed_at=? "
+            "WHERE assignment_id=?",
+            (old_ack, player["assignment_id"]),
+        )
+        db.catalog_conn.commit()
+
+    before = client.get("/coach/roster/snapshot", headers=coach_headers)
+    assert before.status_code == 200, before.text
+    assert before.json()["snapshot"]["players"] == []
+    assert client.get("/assignments/me", headers=player["headers"]).json()[
+        "roster_ai_disclosure_version"
+    ] == "1"
+
+    recorded = client.post(
+        "/assignments/me/roster-ai-disclosure", headers=player["headers"]
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["roster_ai_disclosure_version"] == "2"
+    assert recorded.json()["roster_ai_disclosed_at"] != old_ack
+    after = client.get("/coach/roster/snapshot", headers=coach_headers)
+    assert len(after.json()["snapshot"]["players"]) == 1
 
 
 def test_deleted_assignment_player_is_not_snapshot_eligible(api):

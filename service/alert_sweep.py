@@ -13,6 +13,7 @@ from typing import Any
 
 from service import account_deletion as account_deletion_service
 from service import coach_analytics
+from service import nutrition_alerts
 from service.check_ins import evaluate_follow_up
 from service.missed_day_alerts import evaluate_assignment
 from service.weight_trend_alerts import evaluate_assignment as evaluate_weight_trend
@@ -49,6 +50,7 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
     except Exception:
         counts["errors"] += 1
         logger.exception("Deletion replay failed during the sweep")
+    roster_alerts: dict[str, list[dict[str, Any]]] = {}
     for assignment in db.list_all_active_assignments():
         result: dict[str, Any] | None = None
         try:
@@ -74,6 +76,21 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
                 assignment.get("assignment_id"),
             )
         try:
+            coach_id = assignment["coach_account_id"]
+            if coach_id not in roster_alerts:
+                roster_alerts[coach_id] = db.list_coach_alerts(
+                    coach_id, ("new", "acknowledged")
+                )
+            nutrition_result = nutrition_alerts.evaluate_assignment(
+                db, assignment, now, open_alerts=roster_alerts[coach_id]
+            )
+            counts["alerts_created"] += nutrition_result["alerts_created"]
+            counts["alerts_resolved"] += nutrition_result["alerts_resolved"]
+        except Exception:
+            counts["errors"] += 1
+            logger.exception("Nutrition alert evaluation failed for assignment %s",
+                             assignment.get("assignment_id"))
+        try:
             follow_up = evaluate_follow_up(db, assignment, now=now)
             counts["follow_ups_created"] += int(follow_up.get("created", 0))
         except Exception:
@@ -81,6 +98,14 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
             logger.exception(
                 "Follow-up evaluation failed for assignment %s", assignment.get("assignment_id")
             )
+    for account in db.list_accounts():
+        if not account.get("is_player") or not db.ledger_exists(account["ledger_id"]):
+            continue
+        try:
+            _evaluate_nutrition_pace_check(db, account, now)
+        except Exception:
+            counts["errors"] += 1
+            logger.exception("Nutrition pace check failed for player %s", account["account_id"])
     # The model spend alert rides this existing sweep rather than adding a loop
     # (ADR 038, AC3). It is deduped per UTC month and never raises.
     try:
@@ -97,3 +122,14 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
         counts["errors"] += 1
         logger.exception("Analytics deletion retry failed during the sweep")
     return counts
+
+
+def _evaluate_nutrition_pace_check(db: Any, account: dict[str, Any], now: datetime) -> None:
+    from service import nutrition as nutrition_service
+    from service.weight_history import player_local_date
+
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        if ledger.get_active_nutrition_plan() is None:
+            return
+        local_today = player_local_date(ledger, account["ledger_id"], now)
+        nutrition_service.evaluate_pace_check(ledger, local_today)

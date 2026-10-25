@@ -28,7 +28,10 @@ const int maxProgramRequestReasonChars = 500;
 class NutritionPlanState {
   const NutritionPlanState({required this.state, this.goal, this.goalReason,
     this.intensity, this.dailyActivity, this.targets, this.message,
-    this.screening, this.sex});
+    this.screening, this.sex, this.todayAdherence, this.todayWaterGlasses = 0,
+    this.adherenceDays = const <Map<String, dynamic>>[],
+    this.latestWeight, this.targetWeight, this.coachSeesAdherence = false,
+    this.pendingGoal, this.author, this.authority = 'player', this.paceProposal});
 
   factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
     final Object? rawTargets = json['targets'];
@@ -44,6 +47,18 @@ class NutritionPlanState {
       message: json['message'] as String?,
       screening: rawScreening is Map<String, dynamic> ? rawScreening : null,
       sex: json['sex'] as String?,
+      todayAdherence: json['today_adherence'] as String?,
+      todayWaterGlasses: (json['today_water_glasses'] as num?)?.toInt() ?? 0,
+      adherenceDays: (json['adherence_days'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>().toList(),
+      latestWeight: (json['latest_weight'] as num?)?.toDouble(),
+      targetWeight: (json['target_weight'] as num?)?.toDouble(),
+      coachSeesAdherence: json['coach_sees_adherence'] == true,
+      pendingGoal: json['pending_goal'] as String?,
+      author: json['author'] as String?,
+      authority: json['authority'] as String? ?? 'player',
+      paceProposal: json['pace_proposal'] is Map<String, dynamic>
+          ? json['pace_proposal'] as Map<String, dynamic> : null,
     );
   }
 
@@ -56,6 +71,63 @@ class NutritionPlanState {
   final String? message;
   final Map<String, dynamic>? screening;
   final String? sex;
+  final String? todayAdherence;
+  final int todayWaterGlasses;
+  final List<Map<String, dynamic>> adherenceDays;
+  final double? latestWeight;
+  final double? targetWeight;
+  final bool coachSeesAdherence;
+  final String? pendingGoal;
+  final String? author;
+  final String authority;
+  final Map<String, dynamic>? paceProposal;
+}
+
+class CoachNutritionState {
+  const CoachNutritionState({required this.authority, this.goal, this.dailyActivity,
+    this.targets, this.targetOptions, this.calorieFloor, this.adherenceDays = const <Map<String, dynamic>>[],
+    this.weightTrend = const <Map<String, dynamic>>[], this.waterDays = const <Map<String, dynamic>>[],
+    this.todayWaterGlasses = 0, this.fiberEatenDays, this.targetWeight, this.nextPaceCheck,
+    this.plannedWeeklyRatePct, this.paceProposal});
+
+  factory CoachNutritionState.fromJson(Map<String, dynamic> json) => CoachNutritionState(
+    authority: json['authority'] as String? ?? 'player',
+    goal: json['goal'] as String?,
+    dailyActivity: json['daily_activity'] as String?,
+    targets: json['targets'] is Map<String, dynamic> ? json['targets'] as Map<String, dynamic> : null,
+    targetOptions: json['target_options'] is Map<String, dynamic>
+        ? json['target_options'] as Map<String, dynamic> : null,
+    calorieFloor: (json['calorie_floor'] as num?)?.toInt(),
+    adherenceDays: (json['adherence_days'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    weightTrend: (json['weight_trend'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    waterDays: (json['water_days'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>().toList(growable: false),
+    todayWaterGlasses: (json['today_water_glasses'] as num?)?.toInt() ?? 0,
+    fiberEatenDays: json['fiber_eaten_days'] as List<dynamic>?,
+    targetWeight: (json['target_weight'] as num?)?.toDouble(),
+    nextPaceCheck: json['next_pace_check'] as String?,
+    plannedWeeklyRatePct: (json['planned_weekly_rate_pct'] as num?)?.toDouble(),
+    paceProposal: json['pace_proposal'] is Map<String, dynamic>
+        ? json['pace_proposal'] as Map<String, dynamic> : null,
+  );
+
+  final String authority;
+  final String? goal;
+  final String? dailyActivity;
+  final Map<String, dynamic>? targets;
+  final Map<String, dynamic>? targetOptions;
+  final int? calorieFloor;
+  final List<Map<String, dynamic>> adherenceDays;
+  final List<Map<String, dynamic>> weightTrend;
+  final List<Map<String, dynamic>> waterDays;
+  final int todayWaterGlasses;
+  final List<dynamic>? fiberEatenDays;
+  final double? targetWeight;
+  final String? nextPaceCheck;
+  final double? plannedWeeklyRatePct;
+  final Map<String, dynamic>? paceProposal;
 }
 
 class Capabilities {
@@ -1074,6 +1146,8 @@ class CoachAlert {
   static const String programFinalWeekStartedKind = 'program_final_week_started';
   static const String programFinalWeekCompletedKind =
       'program_final_week_completed';
+  static const String nutritionOffStreakKind = 'nutrition_off_streak';
+  static const String nutritionUnloggedKind = 'nutrition_unlogged';
 
   bool get isNew => state == 'new';
   bool get isAcknowledged => state == 'acknowledged';
@@ -1086,6 +1160,8 @@ class CoachAlert {
   bool get isStall => kind == stallKind;
   bool get isProfileChange => kind == profileChangeKind;
   bool get isWeightOffTargetTrend => kind == weightOffTargetTrendKind;
+  bool get isNutritionOffStreak => kind == nutritionOffStreakKind;
+  bool get isNutritionUnlogged => kind == nutritionUnloggedKind;
 
   static const Map<String, String> _messageCodeByKind = <String, String>{
     missedExpectedDaysKind: 'coach_alert.missed_expected_days.v1',
@@ -1100,6 +1176,8 @@ class CoachAlert {
     programFinalWeekCompletedKind:
         'coach_alert.program_final_week_completed.v1',
     volumeReviewKind: 'coach_alert.volume_review.v1',
+    nutritionOffStreakKind: 'coach_alert.nutrition_off_streak.v1',
+    nutritionUnloggedKind: 'coach_alert.nutrition_unlogged.v1',
   };
 
   String? get supportedMessageCode {

@@ -11,6 +11,7 @@ from service import attendance as attendance_service
 from service import assignments as assignments_service
 from service import coach_ai
 from service import missed_day_alerts
+from service import nutrition as nutrition_service
 from service import stalling
 from service import weight_history
 from service.coach_settings import DEFAULT_STALL_THRESHOLD_WEEKS
@@ -197,6 +198,7 @@ def _empty_ledger_signals() -> dict[str, Any]:
         "weeks_without_personal_record": None,
         "effort_rising_same_load_main_lift": False,
         "bodyweight_trend": None,
+        "nutrition_adherence_7d": None,
     }
 
 
@@ -218,6 +220,14 @@ def _ledger_signals(
             context.db, ledger, str(player["ledger_id"]), local_today
         )
         preferred_name = ledger.get_assistant_memory().get("preferred_name")
+        nutrition_state = nutrition_service.coach_read(
+            ledger, local_today, str(assignment["assignment_id"]), days=7
+        )
+        nutrition_counts = {value: 0 for value in ("on_target", "roughly", "off")}
+        for day in nutrition_state.get("adherence_days", []):
+            value = day.get("value")
+            if value in nutrition_counts:
+                nutrition_counts[value] += 1
     return {
         "missed_expected_days_7d": missed_7,
         "missed_expected_days_14d": missed_14,
@@ -227,6 +237,7 @@ def _ledger_signals(
             program, context.active_alerts, str(assignment["assignment_id"])
         ),
         "bodyweight_trend": bodyweight_trend,
+        "nutrition_adherence_7d": nutrition_counts,
     }, local_today, str(preferred_name).strip() if preferred_name else None
 
 
