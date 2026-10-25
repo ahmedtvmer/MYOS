@@ -153,7 +153,7 @@ async def add_water_glass(
     analytics.capture_for_request(request, analytics.AnalyticsEvent(
         account_id=account_id_of(player), event="water_log_changed",
         domain_key=f"{player}:{today.isoformat()}:{count}:{updated_at}", role="player",
-        properties={"count": count},
+        properties={"water_glasses": count},
     ))
     return {"today_water_glasses": count}
 
@@ -173,7 +173,7 @@ async def undo_water_glass(
     analytics.capture_for_request(request, analytics.AnalyticsEvent(
         account_id=account_id_of(player), event="water_log_changed",
         domain_key=f"{player}:{today.isoformat()}:{count}:{updated_at}", role="player",
-        properties={"count": count},
+        properties={"water_glasses": count},
     ))
     return {"today_water_glasses": count}
 

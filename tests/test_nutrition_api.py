@@ -1329,8 +1329,8 @@ def test_water_log_increments_undoes_and_emits_count_only_events(api, recording_
     assert client.delete("/nutrition/water", headers=headers).json()["today_water_glasses"] == 0
     assert client.delete("/nutrition/water", headers=headers).status_code == 409
     events = [event for event in recording_analytics.events if event["event"] == "water_log_changed"]
-    assert [event["properties"]["count"] for event in events] == [1, 2, 1, 0]
-    assert all(set(event["properties"]) == {"role", "platform", "app_version", "env", "count"}
+    assert [event["properties"]["water_glasses"] for event in events] == [1, 2, 1, 0]
+    assert all(set(event["properties"]) == {"role", "platform", "app_version", "env", "water_glasses"}
                for event in events)
 
 
