@@ -976,16 +976,16 @@ def generation_db(tmp_path: Path, monkeypatch):
 def _stub_day_assembly(program_generator, monkeypatch) -> list[dict[str, Any]]:
     seen: list[dict[str, Any]] = []
 
-    def fake_day(**kwargs):
+    def assemble(**kwargs):
         seen.append(kwargs)
+        day = kwargs["day"]
         return ProgramDaySchema(
-            day_name=kwargs["day"].day_name,
-            day_order=1,
+            day_name=day.day_name,
+            day_order=day.day_order,
             exercises=[_exercise(1), _exercise(2), _exercise(3)],
         ), []
 
-    # Generation assembles each day together with its Program rationale (#491).
-    monkeypatch.setattr(program_generator, "_assemble_deterministic_day_with_rationale", fake_day)
+    monkeypatch.setattr(program_generator, "assemble_program_day", assemble)
     return seen
 
 

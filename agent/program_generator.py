@@ -727,6 +727,13 @@ def _assemble_deterministic_day_with_rationale(
     ]
 
 
+def assemble_program_day(
+    day: CustomDayPlan, context: DayGenerationContext, excluded_ids: set[str], *, ledger: Any
+) -> tuple[ProgramDaySchema, list[dict[str, Any]]]:
+    """Public assembly seam used by the generation pipeline."""
+    return _assemble_deterministic_day_with_rationale(day, context, excluded_ids, ledger=ledger)
+
+
 def extract_frequency_from_text(text: str | None) -> int | None:
     if not text:
         return None
@@ -1101,7 +1108,7 @@ def _generate_program_days(
             day = day.model_copy(
                 update={"target_slots": ["vertical_pull", *day.target_slots]}
             )
-        built = _assemble_deterministic_day_with_rationale(day=day, context=context, excluded_ids=set(), ledger=ledger)
+        built = assemble_program_day(day=day, context=context, excluded_ids=set(), ledger=ledger)
         if isinstance(built, tuple):
             program_day, exercise_reasons = built
         else:

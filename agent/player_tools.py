@@ -50,6 +50,8 @@ class ProgramRationaleArgs(BaseModel):
     day_order: int | None = None
     exercise_name: str | None = None
     exercise_id: str | None = None
+    week_order: int | None = None
+    page: int = 0
 
 
 @dataclass(frozen=True)
@@ -59,9 +61,10 @@ class PlayerReadTool:
     name: str
     description: str
     args_schema: type[BaseModel]
-    reader: Callable[[Any], dict[str, Any]]
+    reader: Callable[..., dict[str, Any]]
     status_en: str
     status_ar: str
+    args_reader: Callable[[Any, BaseModel], dict[str, Any]] | None = None
     timeout_seconds: float = TOOL_TIMEOUT_SECONDS
 
 
@@ -236,100 +239,8 @@ def _read_program_rationale(ledger: Any, args: ProgramRationaleArgs) -> dict[str
     program = ledger.get_active_program()
     if program is None:
         return {"status": "not_set", "reason_available": False, "source": "none"}
-
-    rationale = getattr(program, "program_rationale", None)
-    published_by = getattr(program, "published_by_coach_account_id", None)
-    template_id = getattr(program, "source_template_id", None)
-    if template_id:
-        source = "template_derived"
-    elif rationale:
-        source = "automatic"
-    elif published_by:
-        source = "coach_authored"
-    else:
-        source = "imported_or_legacy"
-
-    days = []
-    rationale_days = {
-        int(item.get("day_order", -1)): item
-        for item in (rationale or {}).get("days", [])
-        if isinstance(item, dict)
-    }
-    for day in getattr(program, "days", ()) or ():
-        order = int(getattr(day, "day_order", 0))
-        name = str(getattr(day, "day_name", "not set"))
-        if args.day_order is not None and order != args.day_order:
-            continue
-        if args.day_name and name.casefold() != args.day_name.strip().casefold():
-            continue
-        stored_day = rationale_days.get(order, {})
-        stored_exercises = stored_day.get("exercises", [])
-        by_position = {
-            int(item.get("position", -1)): item
-            for item in stored_exercises
-            if isinstance(item, dict)
-        }
-        exercises = []
-        for position, exercise in enumerate(getattr(day, "exercises", ()) or (), start=1):
-            exercise_id = str(getattr(exercise, "exercise_id", ""))
-            exercise_name = str(getattr(exercise, "exercise_name", "not set"))
-            if args.exercise_id and exercise_id != args.exercise_id:
-                continue
-            if args.exercise_name and exercise_name.casefold() != (
-                args.exercise_name.strip().casefold()
-            ):
-                continue
-            item = by_position.get(position, {})
-            if item and item.get("exercise_id") not in (None, exercise_id):
-                item = {}
-            exercise_reason = item.get("rationale", item)
-            record = {
-                "position": position,
-                "exercise_id": exercise_id,
-                "exercise": exercise_name,
-                "rationale": exercise_reason or None,
-            }
-            note = getattr(exercise, "note", None)
-            if source in {"coach_authored", "template_derived", "imported_or_legacy"} and note:
-                record["coach_note"] = note
-            exercises.append(record)
-        day_reason_fields = ("day_order", "day_order_reason", "warmup", "cardio")
-        days.append(
-            {
-                "day": name,
-                "day_order": order,
-                "rationale": {
-                    key: stored_day[key] for key in day_reason_fields if key in stored_day
-                } or None,
-                "exercises": exercises,
-            }
-        )
-
-    result = {
-        "status": "ok",
-        "source": source,
-        "reason_available": bool(rationale),
-        "split": (rationale or {}).get("split"),
-        "day_order": (rationale or {}).get("day_order"),
-        "days": days,
-    }
-    result_bytes = len(
-        json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    )
-    if result_bytes > MAX_TOOL_RESULT_BYTES:
-        if args.day_name or args.day_order is not None or args.exercise_id or args.exercise_name:
-            return {"status": "unavailable", "reason_available": False}
-        result["days"] = [
-            {
-                "day": day["day"],
-                "day_order": day["day_order"],
-                "exercise_count": len(day["exercises"]),
-            }
-            for day in days
-        ]
-        result["status"] = "summary"
-        result["message"] = "Whole-program rationale is large; ask for one day or exercise."
-    return result
+    from agent.program_rationale_reader import read_program_rationale
+    return read_program_rationale(program, args)
 
 
 PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
@@ -360,10 +271,12 @@ PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
         description=(
             "Read recorded reasons for the active Training program. Use this for every why-question "
             "about the Split, day order, exercises or prescriptions. Scope by day_name/day_order or "
-            "exercise_name/exercise_id. If reason_available is false, no recorded generator reason exists."
+            "exercise_name/exercise_id and week_order; use page/next_page to read large results. "
+            "If reason_available is false, no recorded generator reason exists."
         ),
         args_schema=ProgramRationaleArgs,
-        reader=lambda ledger: _read_program_rationale(ledger, ProgramRationaleArgs()),
+        reader=lambda ledger, args=None: _read_program_rationale(ledger, args or ProgramRationaleArgs()),
+        args_reader=lambda ledger, args: _read_program_rationale(ledger, args),
         status_en="Checking why your program is arranged this way…",
         status_ar="ببص على أسباب ترتيب برنامجك…",
     ),
@@ -456,20 +369,10 @@ def build_player_read_tools(ledger: Any) -> tuple[list[StructuredTool], dict[str
     tools: list[StructuredTool] = []
     definitions = {definition.name: definition for definition in PLAYER_READ_TOOL_REGISTRY}
     for definition in PLAYER_READ_TOOL_REGISTRY:
-        if definition.name == "get_program_rationale":
-            def reader(
-                day_name: str | None = None,
-                day_order: int | None = None,
-                exercise_name: str | None = None,
-                exercise_id: str | None = None,
-            ) -> str:
-                args = ProgramRationaleArgs(
-                    day_name=day_name,
-                    day_order=day_order,
-                    exercise_name=exercise_name,
-                    exercise_id=exercise_id,
-                )
-                return _encode_tool_result(_read_program_rationale(ledger, args))
+        if definition.args_reader is not None:
+            def reader(_definition=definition, **kwargs: Any) -> str:
+                args = _definition.args_schema(**kwargs)
+                return _encode_tool_result(_definition.args_reader(ledger, args))
         else:
             def reader(_definition=definition) -> str:
                 return _encode_tool_result(_definition.reader(ledger))
