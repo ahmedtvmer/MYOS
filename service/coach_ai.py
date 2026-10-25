@@ -572,6 +572,8 @@ def _program_facts(
 def coach_program_rationale_context(program: Any) -> dict[str, Any]:
     """Build a byte-bounded rationale with a selection and position code per lift."""
     header = read_program_rationale(program)
+    if program is None:
+        return header
     days = [
         _coach_rationale_day(program, week, day)
         for week in _program_week_structure(program)
