@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 41
+CURRENT_LEDGER_SCHEMA_VERSION: int = 42
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -1050,6 +1050,24 @@ def _migrate_v40_to_v41(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v41_to_v42(conn: sqlite3.Connection) -> None:
+    """Allow a pending pace proposal to be marked stale when its plan is superseded."""
+    conn.execute("DROP INDEX IF EXISTS idx_nutrition_pace_pending")
+    conn.execute("ALTER TABLE nutrition_pace_proposals RENAME TO nutrition_pace_proposals_v41")
+    conn.execute(
+        "CREATE TABLE nutrition_pace_proposals ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, plan_version_id INTEGER NOT NULL, "
+        "payload_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' "
+        "CHECK(status IN ('pending','accepted','kept','stale')), created_at TEXT NOT NULL, "
+        "decided_at TEXT, decided_by TEXT, FOREIGN KEY(plan_version_id) "
+        "REFERENCES nutrition_plan_versions(id))"
+    )
+    conn.execute("INSERT INTO nutrition_pace_proposals SELECT * FROM nutrition_pace_proposals_v41")
+    conn.execute("DROP TABLE nutrition_pace_proposals_v41")
+    conn.execute("CREATE UNIQUE INDEX idx_nutrition_pace_pending "
+                 "ON nutrition_pace_proposals(plan_version_id) WHERE status='pending'")
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1176,6 +1194,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     38: _migrate_v38_to_v39,
     39: _migrate_v39_to_v40,
     40: _migrate_v40_to_v41,
+    41: _migrate_v41_to_v42,
 }
 
 

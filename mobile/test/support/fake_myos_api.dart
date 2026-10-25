@@ -576,7 +576,7 @@ class FakeMyosApi {
         if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
           'targets': payload['targets'],
         'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
-          'status': decision, 'decided_by': 'coach'}};
+          'status': decision, 'stale': decision == 'accepted', 'decided_by': 'coach'}};
       return FakeResponse(200, coachPlayerNutrition);
     }
     if (path.startsWith('/nutrition/pace-proposals/')) {
@@ -589,7 +589,7 @@ class FakeMyosApi {
         if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
           'targets': payload['targets'],
         'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
-          'status': decision, 'decided_by': 'player'}};
+          'status': decision, 'stale': decision == 'accepted', 'decided_by': 'player'}};
       return FakeResponse(200, nutritionState);
     }
     if (path == '/app/version-policy') {

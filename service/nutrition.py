@@ -346,7 +346,8 @@ def decide_pace_proposal(ledger: Any, command: PaceProposalDecision) -> dict[str
         raise ValueError("Decision must be accepted or kept.")
     proposal = ledger.get_nutrition_pace_proposal()
     if (proposal is None or int(proposal["id"]) != command.proposal_id
-            or proposal["status"] != "pending"):
+            or proposal["status"] not in ("pending", "stale")
+            or (proposal["status"] == "stale" and command.decision != "kept")):
         raise ValueError("Pace proposal is no longer pending.")
     with ledger.ledger_transaction():
         if command.decision == "accepted":
@@ -361,21 +362,49 @@ def decide_pace_proposal(ledger: Any, command: PaceProposalDecision) -> dict[str
 
 def _accept_pace_proposal(ledger: Any, proposal: dict[str, Any],
                           command: PaceProposalDecision) -> None:
+    from service.nutrition_pace_check import (PaceCheckContext, _capped_calories,
+                                              _recompute_macros, _with_rate_metadata)
     active = ledger.get_active_nutrition_plan()
     if active is None or int(active["id"]) != int(proposal["plan_version_id"]):
         raise ValueError("This pace proposal is stale because the Nutrition plan changed.")
     payload = proposal["payload"]
     profile = ledger.get_nutrition_profile() or {}
-    floor = math.ceil(_calculate_for(ledger, profile, profile.get("gender") or "male",
-                                     active["daily_activity"], "maintain", "moderate")["calorie_floor"])
+    baseline = _calculate_for(ledger, profile, profile.get("gender") or "male",
+                              active["daily_activity"], "maintain", "moderate")
+    floor = math.ceil(baseline["calorie_floor"])
     targets = payload.get("target_options") or {"daily": payload["targets"]}
+    weight = float(profile["weight_kg"])
+    context = PaceCheckContext({**dict(active), "goal": payload["goal"]}, profile, {}, weight, 0,
+                               calorie_floor=float(baseline["calorie_floor"]),
+                               maintenance=float(baseline["maintenance"]))
+    if payload.get("target_options"):
+        source = json.loads(active["targets_json"])
+        source_options = {key: source[key] for key in ("training_day", "rest_day")}
+        training_days = ledger.get_nutrition_training_days(profile.get("weekly_frequency") or 0)
+        average = (int(source_options["training_day"]["calories"]) * training_days
+                   + int(source_options["rest_day"]["calories"]) * (7 - training_days)) / 7
+        average_target = int(round(average))
+        common_delta = _capped_calories(context, average_target + int(payload["calorie_change"])) - average_target
+        common_delta = max(common_delta, max(floor - int(item["calories"])
+                                             for item in source_options.values()))
+        for key, day_targets in source_options.items():
+            calories = int(day_targets["calories"]) + common_delta
+            updated = _recompute_macros(day_targets, calories, weight)
+            targets[key] = _with_rate_metadata(updated, context, calories)
+    else:
+        for key, day_targets in list(targets.items()):
+            calories = int(day_targets["calories"])
+            if calories < floor:
+                raise ValueError(f"Pace proposal is below the current Calorie floor of {floor} kcal.")
+            calories = _capped_calories(context, calories)
+            updated = _recompute_macros(day_targets, calories, weight)
+            updated = _with_rate_metadata(updated, context, calories)
+            targets[key] = updated
     for day_targets in targets.values():
         calories = int(day_targets["calories"])
-        macro_calories = (int(day_targets["protein_g"]) * 4
-                          + int(day_targets["carbs_g"]) * 4
-                          + int(day_targets["fat_g"]) * 9)
         if calories < floor:
             raise ValueError(f"Pace proposal is below the current Calorie floor of {floor} kcal.")
+        macro_calories = int(day_targets["protein_g"]) * 4 + int(day_targets["carbs_g"]) * 4 + int(day_targets["fat_g"]) * 9
         if abs(macro_calories - calories) > calories * 0.05:
             raise ValueError("Pace proposal Macros do not match the calorie target within 5%.")
     coach_authored = command.actor_role == "coach"
@@ -384,7 +413,7 @@ def _accept_pace_proposal(ledger: Any, proposal: dict[str, Any],
         intensity=payload["intensity"], daily_activity=active["daily_activity"],
         targets=targets, goal_source_snapshot=_goal_source(profile),
         author="Coach" if coach_authored else "Player",
-        provenance="coach" if coach_authored else "automatic",
+        provenance="coach_consented" if coach_authored else "player_consented",
         authority_assignment_id=command.assignment_id if coach_authored else None,
     ))
 

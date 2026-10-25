@@ -117,11 +117,25 @@ class NutritionCopy {
   String get coachPaceCheckPending => isArabic ? 'بعد 21 يومًا من تسجيل الوزن' : 'After 21 days of weigh-ins';
   String get paceProposal => isArabic ? 'اقتراح فحص الوتيرة' : 'Pace check proposal';
   String paceProposalRates(Object? actual, Object? planned) => isArabic
-      ? 'الوتيرة الفعلية: $actual٪ · المخططة: $planned٪'
-      : 'Actual pace: $actual% · planned: $planned%';
+      ? 'الوتيرة الفعلية: ${_signedRate(actual)}٪ · المخططة: ${_signedRate(planned)}٪'
+      : 'Actual pace: ${_signedRate(actual)}% · planned: ${_signedRate(planned)}%';
   String paceProposalCalories(Object? calories, Object? change) => isArabic
-      ? '$calories سعرة حرارية ($change سعرة)'
-      : '$calories kcal ($change kcal)';
+      ? '$calories سعرة حرارية (${_signedCalories(change)} سعرة)'
+      : '$calories kcal (${_signedCalories(change)} kcal)';
+
+  String _signedRate(Object? value) {
+    final double? number = value is num ? value.toDouble() : double.tryParse('$value');
+    if (number == null) return '$value';
+    final String rounded = number.abs().toStringAsFixed(1);
+    final String compact = rounded.endsWith('.0') ? rounded.substring(0, rounded.length - 2) : rounded;
+    return '${number > 0 ? '+' : number < 0 ? '−' : ''}$compact';
+  }
+
+  String _signedCalories(Object? value) {
+    final int? number = value is num ? value.toInt() : int.tryParse('$value');
+    if (number == null) return '$value';
+    return '${number > 0 ? '+' : number < 0 ? '−' : ''}${number.abs()}';
+  }
   String get proposalAccept => isArabic ? 'تطبيق' : 'Apply';
   String get proposalKeep => isArabic ? 'الإبقاء على الأهداف' : 'Keep targets';
   String proposalDecision(String? value) => switch (value) {

@@ -119,7 +119,7 @@ class LedgerNutritionMixin:
     def decide_nutrition_pace_proposal(self, proposal_id, decision, decided_by, decided_at):
         cursor = self.conn.execute(
             "UPDATE nutrition_pace_proposals SET status=?, decided_by=?, decided_at=? "
-            "WHERE id=? AND status='pending'",
+            "WHERE id=? AND status IN ('pending','stale')",
             (decision, decided_by, str(decided_at), proposal_id),
         )
         return cursor.rowcount == 1
@@ -151,6 +151,8 @@ class LedgerNutritionMixin:
             ))
 
     def save_nutrition_plan(self, plan: NutritionPlanVersion):
+        self.conn.execute("UPDATE nutrition_pace_proposals SET status='stale' "
+                          "WHERE status='pending'")
         cursor = self.conn.execute(
             "INSERT INTO nutrition_plan_versions(author, provenance, goal, goal_reason_data_json, intensity, daily_activity, targets_json, authority_assignment_id, created_at) "
             "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",

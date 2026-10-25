@@ -14,6 +14,12 @@ PACE_RATES = {
     "maintain": {"light": 0.0, "moderate": 0.0, "aggressive": 0.0},
     "gain": {"light": 0.001, "moderate": 0.0025, "aggressive": 0.005},
 }
+RATE_CAP_PCT = {"lose": 1.0, "gain": 0.5}
+PACE_MIN_HISTORY_DAYS = 21
+PACE_MIN_SEPARATE_WEEKS = 3
+PACE_DIFFERENCE_THRESHOLD_PCT = 0.15
+PACE_MAX_CALORIE_CHANGE = 250
+CALORIES_PER_KG = 7700
 
 
 @dataclass(frozen=True)

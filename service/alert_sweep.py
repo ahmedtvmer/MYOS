@@ -129,5 +129,7 @@ def _evaluate_nutrition_pace_check(db: Any, account: dict[str, Any], now: dateti
     from service.weight_history import player_local_date
 
     with db.open_ledger(account["ledger_id"]) as ledger:
+        if ledger.get_active_nutrition_plan() is None:
+            return
         local_today = player_local_date(ledger, account["ledger_id"], now)
         nutrition_service.evaluate_pace_check(ledger, local_today)

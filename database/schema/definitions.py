@@ -187,7 +187,7 @@ class SchemaMixin:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 plan_version_id INTEGER NOT NULL,
                 payload_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','kept')),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','kept','stale')),
                 created_at TEXT NOT NULL,
                 decided_at TEXT,
                 decided_by TEXT,

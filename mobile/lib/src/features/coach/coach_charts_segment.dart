@@ -9,7 +9,7 @@ import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/nutrition_copy.dart';
 import '../../core/models.dart';
 import '../../providers.dart';
-import 'coach_pace_check_card.dart';
+import '../nutrition/pace_proposal_card.dart';
 
 class CoachChartsSegment extends ConsumerStatefulWidget {
   const CoachChartsSegment({super.key, required this.assignmentId});
@@ -72,8 +72,8 @@ class _CoachChartsSegmentState extends ConsumerState<CoachChartsSegment> {
         state.plannedWeeklyRatePct ?? 0, firstWeightDate);
     return Directionality(textDirection: copy.isArabic ? TextDirection.rtl : TextDirection.ltr, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
       if (state.paceProposal != null) ...<Widget>[
-        CoachPaceCheckCard(proposal: state.paceProposal!, authority: state.authority,
-          onDecision: _decidePaceProposal),
+        PaceProposalCard(proposal: state.paceProposal!, canDecide: state.authority == 'coach',
+          busy: _deciding, onDecision: _decidePaceProposal),
         if (_decisionError != null) Text(_decisionError!,
             style: TextStyle(color: Theme.of(context).colorScheme.error)),
         const SizedBox(height: 12),

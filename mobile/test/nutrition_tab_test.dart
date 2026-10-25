@@ -161,6 +161,10 @@ void main() {
     expect(find.text('Pace check proposal'), findsOneWidget);
     expect(find.text('Apply'), findsOneWidget);
     expect(find.text('Keep targets'), findsOneWidget);
+    expect(find.textContaining('−0.1%'), findsOneWidget);
+    expect(find.textContaining('−0.5%'), findsOneWidget);
+    expect(find.textContaining('−250 kcal'), findsOneWidget);
+    await tester.tap(find.text('Keep targets'));
     await tester.tap(find.text('Keep targets'));
     await tester.pumpAndSettle();
     expect(fake.nutritionPaceDecisions, <String>['kept']);
@@ -204,6 +208,16 @@ void main() {
     expect(fake.coachPlayerNutrition['targets']?['calories'], 1550);
     expect(find.text('Accepted by Coach'), findsOneWidget);
     fake.coachPlayerNutrition = <String, dynamic>{...fake.coachPlayerNutrition,
+      'authority': 'coach', 'pace_proposal': <String, dynamic>{'id': 4, 'status': 'pending', 'stale': false,
+        'payload': <String, dynamic>{'actual_rate_pct': 0.1, 'planned_rate_pct': 0.5,
+          'calorie_change': 250, 'targets': <String, dynamic>{'calories': 2050}}}};
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(), home: const CoachChartsSegment(key: ValueKey<String>('coach-keep-chart'), assignmentId: 'assignment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keep targets'));
+    await tester.pumpAndSettle();
+    expect(fake.nutritionPaceDecisions, <String>['accepted', 'kept']);
+    expect(find.text('Kept by Coach'), findsOneWidget);
+    fake.coachPlayerNutrition = <String, dynamic>{...fake.coachPlayerNutrition,
       'authority': 'player', 'pace_proposal': <String, dynamic>{'id': 3, 'status': 'kept', 'stale': false,
         'payload': <String, dynamic>{'actual_rate_pct': -0.1, 'planned_rate_pct': -0.5,
           'targets': <String, dynamic>{'calories': 1800}}}};
@@ -211,6 +225,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Kept by Player'), findsOneWidget);
     expect(find.text('Apply'), findsNothing);
+  });
+
+  testWidgets('Arabic pace proposal uses signed compact rates and calories', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+      'state': 'ready', 'goal': 'gain', 'goal_reason': <String, dynamic>{'code': 'default'},
+      'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
+      'pace_proposal': <String, dynamic>{'id': 7, 'status': 'pending', 'stale': false,
+        'payload': <String, dynamic>{'actual_rate_pct': 0.34, 'planned_rate_pct': 0.5,
+          'calorie_change': 250, 'targets': <String, dynamic>{'calories': 2250}}},
+    };
+    await tester.pumpWidget(_app(fake, 'ar', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('+0.3٪'), findsOneWidget);
+    expect(find.textContaining('+250 سعرة'), findsOneWidget);
   });
 
   testWidgets('Coach Nutrition content fits inside the Player page scroll view', (WidgetTester tester) async {
