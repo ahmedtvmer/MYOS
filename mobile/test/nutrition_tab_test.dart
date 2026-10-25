@@ -20,9 +20,13 @@ void main() {
         'latest_weight': 70.0, 'target_weight': 65.0, 'coach_sees_adherence': true};
     await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
-    expect(find.text('Confirm your sex for Nutrition targets.'), findsOneWidget);
+    expect(find.text('Choose your sex for Nutrition targets.'), findsOneWidget);
     expect(find.text('What is your Daily activity?'), findsOneWidget);
-    await tester.tap(find.text('I confirm'));
+    expect(find.text('I confirm'), findsNothing);
+    expect(find.byType(CheckboxListTile), findsNWidgets(3));
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Male').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show my targets'));
     await tester.pumpAndSettle();
@@ -31,13 +35,12 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(tester.widgetList<Tooltip>(find.byType(Tooltip)), hasLength(7));
-    expect(find.text('Your coach sees your Nutrition adherence.'), findsOneWidget);
+    expect(find.text('Your coach sees your Nutrition adherence.'), findsNothing);
+    expect(find.textContaining('Set to '), findsNothing);
     expect(find.textContaining('70.0'), findsOneWidget);
     expect(find.textContaining('65.0'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Training profile'), findsOneWidget);
-    expect(fake.lastNutritionSetupBody?['sex'], 'female');
+    expect(find.textContaining('Training profile'), findsNothing);
+    expect(fake.lastNutritionSetupBody?['sex'], 'male');
     expect(fake.lastNutritionSetupBody?['sex_confirmed'], isTrue);
   });
 
@@ -45,8 +48,7 @@ void main() {
     final FakeMyosApi fake = _fake();
     await tester.pumpWidget(_app(fake, 'en', ThemeData.dark()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('I confirm'));
-    await tester.pumpAndSettle();
+    expect(find.text('I confirm'), findsNothing);
     await tester.tap(find.text('Are you pregnant or breastfeeding?'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show my targets'));
@@ -54,6 +56,7 @@ void main() {
     expect(fake.lastNutritionSetupBody?['screening'], containsPair('pregnant_or_breastfeeding', true));
     expect(find.textContaining('registered dietitian'), findsOneWidget);
     expect(find.text('2000'), findsNothing);
+    expect(fake.lastNutritionSetupBody?['sex_confirmed'], isTrue);
   });
 
   testWidgets('under-18 state displays no targets', (WidgetTester tester) async {
@@ -85,9 +88,9 @@ void main() {
     expect(find.text('التغذية'), findsOneWidget);
     expect(find.text('البروتين'), findsOneWidget);
     expect(find.text('الماكروز'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('هدف التغذية'), findsOneWidget);
+    expect(find.textContaining('هدف التغذية'), findsNothing);
+    expect(find.textContaining('تم اختيار هدف التغذية'), findsNothing);
+    expect(find.textContaining('اخترت هدف التغذية'), findsNothing);
     expect(find.textContaining('1800'), findsOneWidget);
   });
 
@@ -297,11 +300,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(fake.nutritionAdherenceValues, <String>['off', 'on_target']);
       expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'On target')).selected, isTrue);
-      expect(find.text('Your coach sees your Nutrition adherence.'), findsOneWidget);
+      expect(find.text('Your coach sees your Nutrition adherence.'), findsNothing);
+      expect(find.textContaining('Set to '), findsNothing);
+      expect(find.textContaining('You chose '), findsNothing);
       expect(find.textContaining('70.5'), findsOneWidget);
       expect(find.textContaining('65'), findsOneWidget);
     });
   }
+
+  testWidgets('macro cards fit at 360 dp in English and Arabic', (WidgetTester tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final String language in <String>['en', 'ar']) {
+      final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+        'state': 'ready', 'goal': 'maintain',
+        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
+      };
+      await tester.pumpWidget(_app(fake, language, ThemeData.light()));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(language == 'en' ? 'Macros' : 'الماكروز'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(language == 'en' ? 'Protein' : 'البروتين'), findsOneWidget);
+      expect(find.text(language == 'en' ? 'Fat' : 'الدهون'), findsOneWidget);
+    }
+  });
 
   testWidgets('Arabic adherence uses glossary copy and RTL', (WidgetTester tester) async {
     final FakeMyosApi fake = _fake()

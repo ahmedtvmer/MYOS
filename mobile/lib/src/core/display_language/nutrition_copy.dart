@@ -4,8 +4,7 @@ class NutritionCopy {
   bool get isArabic => languageCode == 'ar';
   String get tab => isArabic ? 'التغذية' : 'Nutrition';
   String get setup => isArabic ? 'إعداد الأهداف الغذائية' : 'Set up Nutrition targets';
-  String get confirmSex => isArabic ? 'أكد الجنس لحساب الأهداف الغذائية.' : 'Confirm your sex for Nutrition targets.';
-  String get confirm => isArabic ? 'أؤكد' : 'I confirm';
+  String get confirmSex => isArabic ? 'اختر الجنس لحساب الأهداف الغذائية.' : 'Choose your sex for Nutrition targets.';
   String get male => isArabic ? 'ذكر' : 'Male';
   String get female => isArabic ? 'أنثى' : 'Female';
   String get dailyActivity => isArabic ? 'النشاط اليومي' : 'Daily activity';
@@ -37,7 +36,6 @@ class NutritionCopy {
   String get lastSevenDays => isArabic ? 'آخر 7 أيام' : 'Last 7 days';
   String get latestWeight => isArabic ? 'أحدث وزن' : 'Latest weight';
   String get targetWeight => isArabic ? 'الوزن المستهدف' : 'Target weight';
-  String get coachSees => isArabic ? 'مدربك يرى الالتزام الغذائي.' : 'Your coach sees your Nutrition adherence.';
   String get setByCoach => isArabic ? 'حدّدها مدربك' : 'Set by your coach';
   String get kilograms => isArabic ? 'كجم' : 'kg';
   String adherenceLabel(String? value) => switch (value) {
@@ -208,22 +206,4 @@ class NutritionCopy {
   String goal(String value) => isArabic
       ? <String, String>{'lose': 'خسارة الوزن', 'gain': 'زيادة الوزن', 'maintain': 'الحفاظ على الوزن'}[value] ?? value
       : value[0].toUpperCase() + value.substring(1);
-  String reason(Map<String, dynamic>? data, String goalValue) {
-    final String label = goal(goalValue);
-    switch (data?['code']) {
-      case 'target_weight':
-        return isArabic
-            ? 'تم اختيار هدف التغذية $label لأن الوزن المستهدف هو ${data?['target_weight_kg']} كجم.'
-            : 'Set to $label because your Target weight is ${data?['target_weight_kg']} kg.';
-      case 'current_goal':
-        return isArabic
-            ? 'تم اختيار هدف التغذية $label لأن هدفك يقول «${data?['goal_text']}».'
-            : 'Set to $label because your goal says “${data?['goal_text']}”.';
-      case 'player_choice':
-        return isArabic ? 'اخترت هدف التغذية $label.' : 'You chose $label as your Nutrition goal.';
-      default:
-        return isArabic ? 'هدف التغذية $label لأن الملف التدريبي لا يحدد هدفًا للوزن.'
-            : 'Set to $label because your Training profile has no weight goal.';
-    }
-  }
 }

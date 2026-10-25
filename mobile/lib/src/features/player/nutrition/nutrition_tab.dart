@@ -19,7 +19,6 @@ class NutritionTab extends ConsumerStatefulWidget {
 class _NutritionTabState extends ConsumerState<NutritionTab> {
   NutritionPlanState? _plan;
   String _sex = 'male';
-  bool _sexConfirmed = false;
   String _activity = 'mostly_sitting';
   bool _pregnancy = false;
   bool _condition = false;
@@ -51,7 +50,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     try {
       final NutritionPlanState plan = await ref.read(apiClientProvider).setupNutrition(
         sex: _sex,
-        sexConfirmed: _sexConfirmed,
+        sexConfirmed: true,
         dailyActivity: _activity,
         screening: <String, bool>{
           'pregnant_or_breastfeeding': _pregnancy,
@@ -150,9 +149,6 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         DropdownMenuItem(value: 'male', child: Text(copy.male)),
         DropdownMenuItem(value: 'female', child: Text(copy.female)),
       ], onChanged: (String? value) { if (value != null) setState(() => _sex = value); }),
-    CheckboxListTile(value: _sexConfirmed,
-      onChanged: (bool? value) => setState(() => _sexConfirmed = value ?? false),
-      title: Text(copy.confirm)),
   ]);
 
   Widget _activityQuestion(NutritionCopy copy) => Column(children: <Widget>[
@@ -179,7 +175,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
   ]);
 
   Widget _setupButton(NutritionCopy copy) => FilledButton(
-    onPressed: _saving || !_sexConfirmed ? null : _save,
+    onPressed: _saving ? null : _save,
     child: Text(_saving ? copy.saving : copy.showTargets));
 
   Widget _blocked(BuildContext context, NutritionCopy copy) => Center(
@@ -198,7 +194,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       (copy.fat, 'fat_g', colors.secondary),
     ];
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       children: <Widget>[
         Text(copy.tab, style: text.headlineMedium),
         if (_plan!.authority == 'coach')
@@ -229,7 +225,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         _plate(targets, macroCards, copy, text),
         const SizedBox(height: 12),
         Text(copy.macrosTitle, style: text.titleMedium),
-        ..._macroCards(targets, macroCards),
+        _macroCards(targets, macroCards),
         const SizedBox(height: 12),
         Text(copy.howTodayWent, style: text.titleMedium),
         const SizedBox(height: 8),
@@ -249,10 +245,6 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         const SizedBox(height: 16),
         Text('${copy.latestWeight}: ${_plan!.latestWeight == null ? '—' : '${_plan!.latestWeight} ${copy.kilograms}'}', style: text.bodyLarge),
         Text('${copy.targetWeight}: ${_plan!.targetWeight == null ? '—' : '${_plan!.targetWeight} ${copy.kilograms}'}', style: text.bodyMedium),
-        if (_plan!.coachSeesAdherence) Padding(
-          padding: const EdgeInsets.only(top: 12), child: Text(copy.coachSees, textAlign: TextAlign.center)),
-        const SizedBox(height: 12),
-        Text(copy.reason(_plan!.goalReason, _plan!.goal ?? 'maintain'), textAlign: TextAlign.center),
         if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ],
     );
@@ -326,12 +318,24 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     )));
   }
 
-  List<Widget> _macroCards(Map<String, dynamic> targets,
-      List<(String, String, Color)> macroCards) => <Widget>[
-    for (final (String label, String key, Color color) in macroCards)
-      Card(child: ListTile(leading: CircleAvatar(backgroundColor: color, radius: 8),
-        title: Text(label), trailing: Text('${targets[key] ?? 0} g'))),
-  ];
+  Widget _macroCards(Map<String, dynamic> targets,
+      List<(String, String, Color)> macroCards) => Row(crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (int index = 0; index < macroCards.length; index++) ...<Widget>[
+          if (index > 0) const SizedBox(width: 8),
+          Expanded(child: Card(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[
+              CircleAvatar(backgroundColor: macroCards[index].$3, radius: 6),
+              const SizedBox(height: 6),
+              Text(macroCards[index].$1, textAlign: TextAlign.center,
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Text('${targets[macroCards[index].$2] ?? 0} g'),
+            ]),
+          ))),
+        ],
+      ]);
 
   Widget _loadError(BuildContext context, NutritionCopy copy) => Center(child: Padding(
     padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
