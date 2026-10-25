@@ -1539,6 +1539,8 @@ class CoachActiveProgram {
     required this.editedByPlayer,
     required this.hasDraft,
     this.sourceTemplateName,
+    this.weakPoints = const <Map<String, dynamic>>[],
+    this.focusMuscles = const <Map<String, dynamic>>[],
   });
 
   factory CoachActiveProgram.fromJson(Map<String, dynamic> json) {
@@ -1553,6 +1555,12 @@ class CoachActiveProgram {
       editedByPlayer: json['edited_by_player'] as bool? ?? false,
       hasDraft: json['has_draft'] as bool? ?? false,
       sourceTemplateName: programJson?['source_template_name'] as String?,
+      weakPoints: (json['weak_points'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
+      focusMuscles: (json['focus_muscles'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
     );
   }
 
@@ -1562,6 +1570,8 @@ class CoachActiveProgram {
   final bool editedByPlayer;
   final bool hasDraft;
   final String? sourceTemplateName;
+  final List<Map<String, dynamic>> weakPoints;
+  final List<Map<String, dynamic>> focusMuscles;
 }
 
 /// One server-catalogued Split choice for a Coach's generation options.

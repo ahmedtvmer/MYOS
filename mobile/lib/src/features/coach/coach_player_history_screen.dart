@@ -1026,27 +1026,54 @@ class _CoachPlayerHistoryScreenState
   }
 
   Widget _programCard(BuildContext context) {
-    return CoachProgramCard(
-      active: _activeProgram!,
-      busyState: (
-        generatingDraft: _generatingDraft,
-        copyingActiveProgram: _copyingActiveProgram,
-        approvingActiveProgram: _approvingActiveProgram,
-        downloadingProgramTemplate: _downloadingProgramTemplate,
-        savingProgramTemplate: _savingProgramTemplate,
-      ),
-      actionError: _programActionError == null
-          ? null
-          : displayCopyOf(context).failureMessage(_programActionError!),
-      callbacks: (
-        writeProgram: _openProgramDraft,
-        generateDraft: _openGenerateDraftDialog,
-        importProgram: _openProgramImport,
-        downloadTemplate: _downloadProgramTemplate,
-        editActiveProgram: _editActiveProgram,
-        approveActiveProgram: _approveActiveProgramAsIs,
-        saveAsTemplate: _saveProgramAsTemplate,
-      ),
+    final CoachActiveProgram active = _activeProgram!;
+    final copy = coachCopyOf(context);
+    final List<Widget> emphasis = <Widget>[
+      MyosSectionHeader(title: copy.weakPoints),
+      if (active.weakPoints.isEmpty) Text(copy.noWeakPoints),
+      for (final Map<String, dynamic> point in active.weakPoints)
+        Text(
+          '${copy.muscleName(point['muscle'] as String? ?? '')} · '
+          '${copy.weakPointSource(point['source'] as String? ?? '')}',
+        ),
+      const SizedBox(height: MyosSpacing.sm),
+      MyosSectionHeader(title: copy.focusMuscles),
+      if (active.focusMuscles.isEmpty) Text(copy.noFocusMuscles),
+      for (final Map<String, dynamic> focus in active.focusMuscles)
+        Text(
+          '${copy.muscleName(focus['muscle'] as String? ?? '')} · '
+          '${copy.weakPointSource(focus['source'] as String? ?? '')}'
+          '${focus['status'] == 'unavailable' ? ' · ${copy.noExtraExerciseAvailable}' : ''}',
+        ),
+      const SizedBox(height: MyosSpacing.md),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ...emphasis,
+        CoachProgramCard(
+          active: active,
+          busyState: (
+            generatingDraft: _generatingDraft,
+            copyingActiveProgram: _copyingActiveProgram,
+            approvingActiveProgram: _approvingActiveProgram,
+            downloadingProgramTemplate: _downloadingProgramTemplate,
+            savingProgramTemplate: _savingProgramTemplate,
+          ),
+          actionError: _programActionError == null
+              ? null
+              : displayCopyOf(context).failureMessage(_programActionError!),
+          callbacks: (
+            writeProgram: _openProgramDraft,
+            generateDraft: _openGenerateDraftDialog,
+            importProgram: _openProgramImport,
+            downloadTemplate: _downloadProgramTemplate,
+            editActiveProgram: _editActiveProgram,
+            approveActiveProgram: _approveActiveProgramAsIs,
+            saveAsTemplate: _saveProgramAsTemplate,
+          ),
+        ),
+      ],
     );
   }
 
