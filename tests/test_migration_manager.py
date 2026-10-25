@@ -43,6 +43,19 @@ def test_v38_adds_nullable_program_rationale_to_training_programs():
     assert "program_rationale_json" in columns
 
 
+def test_v40_scopes_existing_regeneration_decisions_to_design_v2():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE program_design_offer (id INTEGER PRIMARY KEY, decision TEXT, reason TEXT)")
+    conn.execute("INSERT INTO program_design_offer VALUES (1, 'dismissed', 'design_version')")
+
+    MIGRATION_REGISTRY[39](conn)
+
+    row = conn.execute(
+        "SELECT decision, reason, offered_design_version FROM program_design_offer WHERE id = 1"
+    ).fetchone()
+    assert row == ("dismissed", "design_version", 2)
+
+
 @pytest.fixture
 def temp_db_env(tmp_path: Path, monkeypatch):
     catalog_path = tmp_path / "catalog.db"

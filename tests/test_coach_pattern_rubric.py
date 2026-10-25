@@ -5,8 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from agent.program_generator import generate_program_pipeline
+from agent.program_generator import (
+    ProgramGenerationRequest,
+    generate_program_draft_pipeline,
+    generate_program_pipeline,
+)
 from agent.program_blueprints import SLOT_SPECS, SLOT_STAPLES
+from agent.program_rules import SPLIT_OPTIONS_BY_FREQUENCY
+from agent.focus_muscles import FOCUS_MUSCLE_SLOTS
 
 
 MUSCLE_GROUPS = {
@@ -206,6 +212,11 @@ def test_focus_chest_adds_a_new_variant_first_on_lightest_training_day(fresh_sto
     )
     assert set_params["actual_weekly_sets"] == actual_weekly_sets
     assert set_params["actual_weekly_sets"] >= set_params["target_weekly_sets"]
+    day_reasons = program.program_rationale["days"][focus["day_order"] - 1]["exercises"]
+    assert all(
+        item["rationale"]["position"]["code"] != "position.small_muscle_opener"
+        for item in day_reasons[1:]
+    )
 
 
 @pytest.mark.parametrize(("muscle", "source", "equipment", "expected_status"), [
@@ -343,6 +354,169 @@ def test_focus_chest_generation_supports_every_frequency_and_equipment(
             if exercise.slot_key in {"incline_press", "flat_press", "chest_fly"}
         )
         assert actual_weekly_sets >= set_reason["target_weekly_sets"]
+
+
+def _focus_draft(db, split_type, frequency, muscles=()):
+    profile = {
+        "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 175.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": frequency,
+        "training_age_years": 3.0, "equipment_access": "Commercial gym",
+        "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": [{"muscle": muscle, "source": "named"} for muscle in muscles],
+    }
+    request = ProgramGenerationRequest(
+        user_split_override=split_type,
+        frequency_override=frequency,
+    )
+    return generate_program_draft_pipeline(request, ledger=db.ledger, profile=profile)[0]
+
+
+def _focus_extra_records(program):
+    return [
+        (day, item)
+        for day, day_reason in zip(program.days, program.program_rationale["days"])
+        for item in day_reason["exercises"]
+        if item["rationale"]["selection"]["code"] == "selection.focus_muscle_extra"
+    ]
+
+
+def _weekly_slot_sets(program, slots):
+    return sum(
+        exercise.target_sets
+        for day in program.days
+        for exercise in day.exercises
+        if exercise.slot_key in slots
+    )
+
+
+def test_focus_dose_reaches_rounded_targets_with_multiple_extras(
+    fresh_store, monkeypatch
+):
+    import agent.program_generator as generator
+
+    fresh_store.switch_user("focus_dose_multi_extra")
+    ppl_back = _focus_draft(fresh_store, "ppl", 3, ("back",))
+    back = FOCUS_MUSCLE_SLOTS["back"]
+    assert len(_focus_extra_records(ppl_back)) == 1
+    reason = ppl_back.program_rationale["days"]
+    back_dose = next(
+        item["rationale"]["prescription"]["sets"]["params"]
+        for day in reason for item in day["exercises"]
+        if item["rationale"]["selection"]["code"] == "selection.focus_muscle_extra"
+    )
+    assert back_dose["baseline_weekly_sets"] == 8
+    assert back_dose["target_weekly_sets"] == 10
+    assert back_dose["actual_weekly_sets"] >= 10
+
+    arnold_chest = _focus_draft(fresh_store, "arnold_x_ul", 5, ("chest",))
+    chest_dose = next(
+        item["rationale"]["prescription"]["sets"]["params"]
+        for day in arnold_chest.program_rationale["days"] for item in day["exercises"]
+        if item["rationale"]["selection"]["code"] == "selection.focus_muscle_extra"
+    )
+    assert chest_dose["actual_weekly_sets"] >= chest_dose["target_weekly_sets"]
+
+    original_generate_days = generator._generate_program_days
+
+    def baseline_ten(profile, request, split_plan, ledger):
+        days, rationale = original_generate_days(profile, request, split_plan, ledger)
+        back_exercises = [
+            exercise for day in days for exercise in day.exercises
+            if exercise.slot_key in back
+        ]
+        current = sum(exercise.target_sets for exercise in back_exercises)
+        delta = 10 - current
+        first = back_exercises[0]
+        first.target_sets += delta
+        assert first.target_sets >= 1
+        return days, rationale
+
+    monkeypatch.setattr(generator, "_generate_program_days", baseline_ten)
+    synthetic = _focus_draft(fresh_store, "ppl", 3, ("back",))
+    synthetic_records = _focus_extra_records(synthetic)
+    synthetic_dose = synthetic_records[0][1]["rationale"]["prescription"]["sets"]["params"]
+    assert synthetic_dose["baseline_weekly_sets"] == 10
+    assert synthetic_dose["target_weekly_sets"] == 14
+    assert synthetic_dose["actual_weekly_sets"] >= 14
+    assert len(synthetic_records) == 2
+
+    original_candidate_search = generator.fetch_slot_candidates
+    generation_complete = False
+
+    def only_one_extra_variant(slot_key, equipment, limitations, limit=6, *, ledger):
+        if generation_complete:
+            if slot_key != "pullover":
+                return []
+            return original_candidate_search(
+                slot_key, equipment, limitations, limit, ledger=ledger
+            )[:1]
+        return original_candidate_search(
+            slot_key, equipment, limitations, limit, ledger=ledger
+        )
+
+    def mark_generation_complete(*args, **kwargs):
+        nonlocal generation_complete
+        result = baseline_ten(*args, **kwargs)
+        generation_complete = True
+        return result
+
+    monkeypatch.setattr(generator, "_generate_program_days", mark_generation_complete)
+    monkeypatch.setattr(generator, "fetch_slot_candidates", only_one_extra_variant)
+    limited = _focus_draft(fresh_store, "ppl", 3, ("back",))
+    focus_reason = limited.program_rationale["focus_muscles"][0]
+    assert focus_reason["status"] == "added"
+    assert focus_reason["reason"]["code"] == "focus.unavailable"
+    assert focus_reason["reason"]["params"]["missing_weekly_sets"] == 2
+
+
+def test_focus_rubric_covers_every_selectable_split_and_frequency(fresh_store):
+    fresh_store.switch_user("focus_split_muscle_rubric")
+    pairs = (("chest", "quads"), ("upper_chest", "glutes"), ("back", "side_delts"))
+    for frequency, options in SPLIT_OPTIONS_BY_FREQUENCY.items():
+        for split_type, _display_name in options:
+            baseline = _focus_draft(fresh_store, split_type, frequency)
+            baseline_ids = {
+                exercise.exercise_id for day in baseline.days for exercise in day.exercises
+            }
+            for pair in pairs:
+                focused = _focus_draft(fresh_store, split_type, frequency, pair)
+                extra_records = _focus_extra_records(focused)
+                extra_ids = {item["exercise_id"] for _, item in extra_records}
+                assert len(extra_ids) == len(extra_records)
+                assert not extra_ids.intersection(baseline_ids)
+                for muscle in pair:
+                    focus = next(
+                        item for item in focused.program_rationale["focus_muscles"]
+                        if item["muscle"] == muscle
+                    )
+                    assert focus["status"] == "added", (split_type, frequency, muscle)
+                    dose = next(
+                        item["rationale"]["prescription"]["sets"]["params"]
+                        for _, item in extra_records
+                        if item["rationale"]["selection"]["params"]["muscle"] == muscle
+                    )
+                    actual = _weekly_slot_sets(focused, FOCUS_MUSCLE_SLOTS[muscle])
+                    assert dose["actual_weekly_sets"] == actual
+                    assert actual >= dose["target_weekly_sets"]
+                for day, item in extra_records:
+                    focus_ids_on_day = {
+                        candidate["exercise_id"]
+                        for extra_day, candidate in extra_records if extra_day.day_order == day.day_order
+                    }
+                    prescribed_ids = [exercise.exercise_id for exercise in day.exercises]
+                    assert prescribed_ids[:len(focus_ids_on_day)] == [
+                        exercise_id for exercise_id in prescribed_ids
+                        if exercise_id in focus_ids_on_day
+                    ]
+                focused_slots = set().union(*(FOCUS_MUSCLE_SLOTS[muscle] for muscle in pair))
+                for muscle in set(FOCUS_MUSCLE_SLOTS) - set(pair):
+                    unchanged_slots = FOCUS_MUSCLE_SLOTS[muscle] - focused_slots
+                    if not unchanged_slots:
+                        continue
+                    assert _weekly_slot_sets(focused, unchanged_slots) == _weekly_slot_sets(
+                        baseline, unchanged_slots
+                    ), (split_type, frequency, muscle)
 
 
 def test_bodyweight_quad_isolation_uses_curated_sissy_squat(

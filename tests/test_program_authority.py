@@ -1809,6 +1809,7 @@ def test_accepting_design_offer_saves_weak_points_before_generating(api, unstamp
     player = _register(client, "accept_offer_with_focus")
     headers = _authed(player["access_token"])
     db.switch_user("accept_offer_with_focus")
+    db.ledger.upsert_player_profile({"gender": "female"})
     db.ledger.save_training_program(_program("Legacy").model_dump())
 
     accepted = client.post("/programs/design-offer/accept", headers=headers, json={
@@ -1823,6 +1824,26 @@ def test_accepting_design_offer_saves_weak_points_before_generating(api, unstamp
     ]
 
 
+def test_accepting_design_offer_with_empty_weak_points_clears_saved_answer(
+    api, unstamped_program_generation
+):
+    client, db, _ = api
+    player = _register(client, "accept_offer_clear_focus")
+    headers = _authed(player["access_token"])
+    db.switch_user("accept_offer_clear_focus")
+    db.ledger.upsert_player_profile({
+        "gender": "female", "weak_points": [{"muscle": "glutes", "source": "default"}],
+    })
+    db.ledger.save_training_program(_program("Legacy").model_dump())
+
+    accepted = client.post(
+        "/programs/design-offer/accept", headers=headers, json={"weak_points": []}
+    )
+
+    assert accepted.status_code == 200, accepted.text
+    assert db.ledger.get_player_profile()["weak_points"] == []
+
+
 def test_dismissing_program_design_offer_is_permanent(api, unstamped_program_generation):
     client, db, _ = api
     player = _register(client, "dismiss_offer")
@@ -1831,10 +1852,23 @@ def test_dismissing_program_design_offer_is_permanent(api, unstamped_program_gen
     db.ledger.save_training_program(_program().model_dump())
     assert client.post("/programs/design-offer/dismiss", headers=headers).status_code == 204
     assert client.get("/programs/active", headers=headers).json()["offer_design_regeneration"] is False
-
     regenerated = client.post("/programs/generate", headers=headers, json={})
     assert regenerated.status_code == 200, regenerated.text
     assert client.get("/programs/active", headers=headers).json()["offer_design_regeneration"] is False
+
+
+def test_v2_offer_decision_does_not_hide_v3_offer(api):
+    client, db, _ = api
+    player = _register(client, "offer_version_scope")
+    headers = _authed(player["access_token"])
+    db.switch_user("offer_version_scope")
+    db.ledger.save_training_program({**_program("Design v2").model_dump(), "design_version": 2})
+    db.ledger.record_program_design_offer_decision("accepted", 2, "design_version")
+
+    active = client.get("/programs/active", headers=headers)
+
+    assert active.status_code == 200
+    assert active.json()["offer_design_regeneration"] is True
 
 
 def test_accepting_offer_without_program_authority_matches_generate_refusal(api):

@@ -60,11 +60,21 @@ class LedgerTrainingProgramMixin:
         ).fetchone()
         return str(row[0]) if row and row[0] else None
 
-    def record_program_design_offer_decision(self, decision: str) -> None:
+    def program_design_offer_version(self) -> int | None:
+        row = self.conn.execute(
+            "SELECT offered_design_version FROM program_design_offer WHERE id = 1"
+        ).fetchone()
+        return int(row[0]) if row and row[0] is not None else None
+
+    def record_program_design_offer_decision(
+        self, decision: str, design_version: int, reason: str
+    ) -> None:
         self.conn.execute(
-            "INSERT INTO program_design_offer (id, decision) VALUES (1, ?) "
-            "ON CONFLICT(id) DO UPDATE SET decision = excluded.decision",
-            (decision,),
+            "INSERT INTO program_design_offer (id, decision, reason, offered_design_version) "
+            "VALUES (1, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET decision = excluded.decision, "
+            "reason = excluded.reason, offered_design_version = excluded.offered_design_version",
+            (decision, reason, design_version),
         )
         self._commit_ledger()
 
@@ -76,13 +86,15 @@ class LedgerTrainingProgramMixin:
         )
         self._commit_ledger()
 
-    def try_claim_program_design_offer(self) -> bool:
+    def try_claim_program_design_offer(self, design_version: int) -> bool:
         self.conn.execute(
             "INSERT OR IGNORE INTO program_design_offer (id, decision, reason) "
             "VALUES (1, NULL, 'design_version')"
         )
         cursor = self.conn.execute(
-            "UPDATE program_design_offer SET decision = 'accepted' WHERE id = 1 AND decision IS NULL"
+            "UPDATE program_design_offer SET decision = 'accepted', offered_design_version = ? "
+            "WHERE id = 1 AND decision IS NULL",
+            (design_version,),
         )
         self._commit_ledger()
         return cursor.rowcount == 1

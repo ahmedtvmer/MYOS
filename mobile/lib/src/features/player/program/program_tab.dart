@@ -427,15 +427,15 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     if (_programActionBusy) return;
     final PlayerProfile profile = await ref.read(apiClientProvider).profile();
     if (!mounted) return;
-    final List<Map<String, String>>? weakPoints =
-        await showDialog<List<Map<String, String>>>(
+    final ({bool skipped, List<Map<String, String>> weakPoints})? answer =
+        await showDialog<({bool skipped, List<Map<String, String>> weakPoints})>(
       context: context,
       builder: (BuildContext context) => _DesignOfferWeakPointsDialog(
         female: profile.gender == 'female',
         existing: profile.weakPoints,
       ),
     );
-    if (weakPoints == null || !mounted) return;
+    if (answer == null || !mounted) return;
     setState(() {
       _programActionBusy = true;
       _actionError = null;
@@ -444,7 +444,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
       final TrainingProgram updated = await ref
           .read(apiClientProvider)
           .acceptProgramDesignOffer(
-            weakPoints: weakPoints.isEmpty ? null : weakPoints,
+            weakPoints: answer.skipped ? null : answer.weakPoints,
           );
       if (!mounted) return;
       setState(() => _programActionBusy = false);
@@ -1499,12 +1499,15 @@ class _DesignOfferWeakPointsDialogState
       ),
       actions: <Widget>[
         TextButton(
-          onPressed: () =>
-              Navigator.of(context).pop(<Map<String, String>>[]),
+          onPressed: () => Navigator.of(context).pop((
+            skipped: true,
+            weakPoints: <Map<String, String>>[],
+          )),
           child: Text(displayCopyOf(context).skipWeakPoints)),
         FilledButton(
-          onPressed: _selected.isEmpty ? null : () => Navigator.of(context).pop(
-            _selected.map((String muscle) => <String, String>{
+          onPressed: () => Navigator.of(context).pop((
+            skipped: false,
+            weakPoints: _selected.map((String muscle) => <String, String>{
               'muscle': muscle,
               'source': widget.existing?.firstWhere(
                     (Map<String, String> point) => point['muscle'] == muscle,
@@ -1515,7 +1518,7 @@ class _DesignOfferWeakPointsDialogState
                       ? 'default'
                       : 'named'),
             }).toList(growable: false),
-          ),
+          )),
           child: Text(displayCopyOf(context).regenerateProgramOfferAccept),
         ),
       ],

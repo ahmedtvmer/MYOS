@@ -117,12 +117,12 @@ def test_weak_points_profile_round_trip_and_validation(api):
     headers = _register(client, "weakpoint-player")
     assert client.get("/profile", headers=headers).status_code == 404
     saved = client.put("/profile", headers=headers, json={"weak_points": [
-        {"muscle": "glutes", "source": "default"},
+        {"muscle": "glutes", "source": "named"},
         {"muscle": "chest", "source": "named"},
     ]})
     assert saved.status_code == 200, saved.text
     assert client.get("/profile", headers=headers).json()["weak_points"] == [
-        {"muscle": "glutes", "source": "default"},
+        {"muscle": "glutes", "source": "named"},
         {"muscle": "chest", "source": "named"},
     ]
     assert client.put("/profile", headers=headers, json={"weak_points": []}).status_code == 200
@@ -132,13 +132,22 @@ def test_weak_points_profile_round_trip_and_validation(api):
         [{"muscle": "chest", "source": "named"}, {"muscle": "chest", "source": "named"}],
         [{"muscle": "pecs", "source": "named"}],
         [{"muscle": "chest", "source": "bad"}],
+        [{"muscle": "glutes", "source": "default"}, {"muscle": "chest", "source": "named"}],
+        [{"muscle": "glutes", "source": "migrated"}, {"muscle": "back", "source": "named"}],
     ):
         assert client.put("/profile", headers=headers, json={"weak_points": value}).status_code == 422
+    rejected_default = client.put("/profile", headers=headers, json={
+        "weak_points": [{"muscle": "glutes", "source": "default"}],
+    })
+    assert rejected_default.status_code == 422
+    assert "female profiles" in rejected_default.json()["detail"]
 
 
 def test_weak_points_are_optional_intake_answers_and_can_be_cleared(api):
-    client, _, _ = api
+    client, db, _ = api
     headers = _register(client, "weakpoint-intake")
+    db.switch_user("weakpoint-intake")
+    db.ledger.upsert_player_profile({"gender": "female"})
     initial = client.get("/onboarding/intake", headers=headers).json()
     field = next(item for item in initial["fields"] if item["name"] == "weak_points")
     assert field["required"] is False and field["answered"] is False

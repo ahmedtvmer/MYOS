@@ -556,6 +556,12 @@ def save_answer(
                 "Acknowledge the onboarding privacy notice before saving answers."
             )
         value = validate_answer(field_name, raw)
+        if field_name == "weak_points" and any(
+            point.get("source") == "default" for point in value
+        ) and (ledger.get_player_profile() or {}).get("gender") != "female":
+            raise IntakeValidationError(
+                "The default glutes Weak point is only available for female profiles."
+            )
         with ledger.ledger_transaction():
             ledger.save_intake_answer(field_name, value, prefilled=False)
             if field_name == "injuries_or_limitations":

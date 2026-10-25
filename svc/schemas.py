@@ -4,6 +4,7 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
+from core.weak_points import validate_weak_points
 from service import plans as plans_service
 from service.analytics import PROPERTY_TYPES, WORKOUT_SYNC_FAILURE_REASONS
 from service.display_language import DisplayLanguage
@@ -1025,7 +1026,6 @@ class ProfileUpdate(BaseModel):
             return value
         normalized = dict(value)
         if "weak_points" in normalized and normalized["weak_points"] is not None:
-            from core.weak_points import validate_weak_points
             try:
                 normalized["weak_points"] = validate_weak_points(normalized["weak_points"])
             except ValueError as exc:
@@ -1203,7 +1203,6 @@ class ProgramDesignOfferAcceptIn(BaseModel):
     def validate_weak_point_answer(cls, value: list[dict[str, str]] | None):
         if value is None:
             return None
-        from core.weak_points import validate_weak_points
         return validate_weak_points(value)
 
 

@@ -39,7 +39,7 @@ FOCUS_EXTRA_TABLE = {
 
 FOCUS_MUSCLE_SLOTS = {
     "chest": {"incline_press", "flat_press", "chest_fly"},
-    "upper_chest": {"incline_press"},
+    "upper_chest": {"incline_press", "chest_fly"},
     "back": {"vertical_pull", "horizontal_row", "upper_back_pull", "pullover", "shrug"},
     "shoulders": {"shoulder_press", "side_delts", "rear_delts"},
     "side_delts": {"side_delts"},

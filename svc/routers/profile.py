@@ -63,6 +63,13 @@ async def update_profile(
 ):
     register_ai_analytics_background_tasks(request, background_tasks)
     payload = {key: value for key, value in body.model_dump().items() if value is not None}
+    if "weak_points" in payload and any(
+        point.get("source") == "default" for point in payload["weak_points"] or []
+    ) and (ledger.get_player_profile() or {}).get("gender") != "female":
+        raise HTTPException(
+            status_code=422,
+            detail="The default glutes Weak point is only available for female profiles.",
+        )
     if "preferred_name" in body.model_fields_set:
         payload["preferred_name"] = body.preferred_name
     if "target_weight_kg" in body.model_fields_set:

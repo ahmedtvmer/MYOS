@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 39
+CURRENT_LEDGER_SCHEMA_VERSION: int = 40
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -36,7 +36,7 @@ PROGRAM_DESIGN_OFFER_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS program_design_offer ("
     " id INTEGER PRIMARY KEY CHECK (id = 1),"
     " decision TEXT CHECK (decision IN ('accepted', 'dismissed'))"
-    ", reason TEXT"
+    ", reason TEXT, offered_design_version INTEGER"
     ")",
 )
 
@@ -973,6 +973,21 @@ def _migrate_v38_to_v39(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE program_design_offer_v38")
 
 
+def _migrate_v39_to_v40(conn: sqlite3.Connection) -> None:
+    """Pins regenerate-offer decisions to the design version offered (#487)."""
+    if not _ledger_table_exists(conn, "program_design_offer"):
+        for statement in PROGRAM_DESIGN_OFFER_DDL:
+            conn.execute(statement)
+        return
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(program_design_offer)")}
+    if "offered_design_version" not in columns:
+        conn.execute("ALTER TABLE program_design_offer ADD COLUMN offered_design_version INTEGER")
+    conn.execute(
+        "UPDATE program_design_offer SET offered_design_version = 2 "
+        "WHERE decision IS NOT NULL AND offered_design_version IS NULL"
+    )
+
+
 def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
     """Adds immutable Nutrition plan versions and Player-only screening (#461)."""
     conn.execute(
@@ -1135,6 +1150,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     36: _migrate_v36_to_v37,
     37: _migrate_v37_to_v38,
     38: _migrate_v38_to_v39,
+    39: _migrate_v39_to_v40,
 }
 
 

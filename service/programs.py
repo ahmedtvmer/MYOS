@@ -118,10 +118,16 @@ def should_offer_design_regeneration(
         player_controls_program(db, ledger, player_account_id)
         and program.published_by_coach_account_id is None
         and program.source_template_id is None
-        and ledger.program_design_offer_decision() is None
+        and (
+            ledger.program_design_offer_decision() is None
+            or ledger.program_design_offer_version() != PROGRAM_DESIGN_VERSION
+        )
         and (
             program.design_version != PROGRAM_DESIGN_VERSION
-            or ledger.program_design_offer_reason() == "focus_muscles_changed"
+            or (
+                ledger.program_design_offer_reason() == "focus_muscles_changed"
+                and ledger.program_design_offer_version() != PROGRAM_DESIGN_VERSION
+            )
         )
     )
 
@@ -130,7 +136,11 @@ def dismiss_design_regeneration_offer(db: Any, ledger: Any, player_account_id: s
     active = ledger.get_active_program()
     if active is None or not should_offer_design_regeneration(db, ledger, player_account_id, active):
         return False
-    ledger.record_program_design_offer_decision("dismissed")
+    ledger.record_program_design_offer_decision(
+        "dismissed",
+        PROGRAM_DESIGN_VERSION,
+        ledger.program_design_offer_reason() or "design_version",
+    )
     return True
 
 
@@ -147,11 +157,13 @@ def accept_design_regeneration_offer(
     active = ledger.get_active_program()
     if active is None or not should_offer_design_regeneration(db, ledger, actor.account_id, active):
         raise ValueError("This program no longer has a regeneration offer.")
-    if not ledger.try_claim_program_design_offer():
+    if not ledger.try_claim_program_design_offer(PROGRAM_DESIGN_VERSION):
         raise ValueError("This program no longer has a regeneration offer.")
     try:
         if weak_points is not None:
             profile = ledger.get_player_profile() or {}
+            if any(point.get("source") == "default" for point in weak_points) and profile.get("gender") != "female":
+                raise ValueError("The default glutes Weak point is only available for female profiles.")
             profile["weak_points"] = weak_points
             ledger.upsert_player_profile(profile)
         return generate_program_version(

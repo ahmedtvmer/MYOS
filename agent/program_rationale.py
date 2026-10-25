@@ -71,6 +71,7 @@ CHANGE_COACH_EDIT = "change.coach_edit"
 # Focus muscle rationale codes (#492).
 SELECTION_FOCUS_MUSCLE_EXTRA = "selection.focus_muscle_extra"
 POSITION_FOCUS_FIRST = "position.focus_first"
+POSITION_AFTER_FOCUS_EXTRA = "position.after_focus_extra"
 SETS_FOCUS_MULTIPLIER = "sets.focus_multiplier"
 FOCUS_UNAVAILABLE = "focus.unavailable"
 
@@ -102,7 +103,7 @@ def _selection_reason(candidate: dict[str, Any], slot_key: str) -> dict[str, Any
 def _position_code(slot_key: str, day_slots: tuple[str, ...]) -> str:
     from agent.program_blueprints import SLOT_SPECS, _SMALL_MUSCLE_OPENERS
     spec = SLOT_SPECS[slot_key]
-    if slot_key in _SMALL_MUSCLE_OPENERS:
+    if slot_key in _SMALL_MUSCLE_OPENERS and day_slots and day_slots[0] == slot_key:
         return POSITION_SMALL_MUSCLE_OPENER
     if spec.archetype == "isolation":
         later_slots = day_slots[day_slots.index(slot_key) + 1:] if slot_key in day_slots else ()

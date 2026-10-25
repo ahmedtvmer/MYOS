@@ -28,4 +28,8 @@ def validate_weak_points(value: Any) -> list[dict[str, str]]:
             raise ValueError("Weak points must be unique and have a valid source.")
         seen_muscles.add(muscle)
         validated_entries.append({"muscle": muscle, "source": source})
+    if len(validated_entries) > 1 and any(
+        item["source"] in ("default", "migrated") for item in validated_entries
+    ):
+        raise ValueError("Default and migrated Weak points must be the only entry.")
     return validated_entries
