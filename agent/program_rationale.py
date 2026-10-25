@@ -13,6 +13,8 @@ day_order.upper_lower_alternating, day_order.female_upper_lower, day_order.arnol
 day_order.arnold_x_ul, day_order.anterior_posterior, day_order.ppl,
 day_order.ppl_x_ul_spaces_leg_days. Parameters are stable JSON values; message
 text belongs to the reading assistant.
+selection.focus_muscle_extra, position.focus_first, sets.focus_multiplier,
+focus.unavailable are the Focus muscle codes (#492).
 """
 
 from dataclasses import dataclass
@@ -54,6 +56,12 @@ REST_MOVEMENT_CLASS = "rest.movement_class"
 WARMUP_TEMPLATE = "warmup.template"
 CARDIO_FAT_LOSS_FINISHER = "cardio.fat_loss_finisher"
 CARDIO_COACH_OPTION = "cardio.coach_option"
+
+# Focus muscle rationale codes (#492).
+SELECTION_FOCUS_MUSCLE_EXTRA = "selection.focus_muscle_extra"
+POSITION_FOCUS_FIRST = "position.focus_first"
+SETS_FOCUS_MULTIPLIER = "sets.focus_multiplier"
+FOCUS_UNAVAILABLE = "focus.unavailable"
 
 
 @dataclass(frozen=True)

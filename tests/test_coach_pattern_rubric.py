@@ -177,6 +177,178 @@ def test_bodyweight_only_does_not_relabel_ham_curl_as_ham_hinge(fresh_store, day
     assert curls and all(exercise.exercise_id == "1766" for exercise in curls)
 
 
+def test_focus_chest_adds_a_new_variant_first_on_lightest_training_day(fresh_store):
+    db = fresh_store
+    user = "focus_chest_rubric"
+    db.switch_user(user)
+    profile = {
+        "gender": "male", "proportions": "balanced", "age": 28,
+        "weight_kg": 70.0, "height_cm": 175.0, "rep_preference": "balanced",
+        "current_goal": "hypertrophy", "long_term_goal": "progressive overload",
+        "weekly_frequency": 5, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None",
+        "stress_and_sleep": "normal", "weak_points": [{"muscle": "chest", "source": "named"}],
+    }
+    db.ledger.upsert_player_profile(profile)
+    program = generate_program_pipeline(ledger=db.ledger)[0]
+
+    focus = program.program_rationale["focus_muscles"][0]
+    assert focus["muscle"] == "chest" and focus["source"] == "named"
+    assert focus["status"] == "added"
+    assert focus["exercise_id"] in {exercise.exercise_id for day in program.days for exercise in day.exercises}
+    target_day = next(day for day in program.days if day.day_order == focus["day_order"])
+    assert target_day.exercises[0].exercise_id == focus["exercise_id"]
+    assert focus["exercise_id"] not in {exercise.exercise_id for day in program.days for exercise in day.exercises[1:]}
+    reason = next(item["rationale"] for item in program.program_rationale["days"][focus["day_order"] - 1]["exercises"] if item["exercise_id"] == focus["exercise_id"])
+    assert reason["selection"]["code"] == "selection.focus_muscle_extra"
+    assert reason["position"]["code"] == "position.focus_first"
+    assert reason["prescription"]["sets"]["code"] == "sets.focus_multiplier"
+    set_params = reason["prescription"]["sets"]["params"]
+    actual_weekly_sets = sum(
+        exercise.target_sets for day in program.days for exercise in day.exercises
+        if exercise.slot_key in {"incline_press", "flat_press", "chest_fly"}
+    )
+    assert set_params["actual_weekly_sets"] == actual_weekly_sets
+    assert set_params["actual_weekly_sets"] >= set_params["target_weekly_sets"]
+
+
+@pytest.mark.parametrize(("muscle", "source", "equipment", "expected_status"), [
+    ("glutes", "default", "Commercial gym", "added"),
+    ("calves", "named", "Commercial gym", "added"),
+    ("forearms", "named", "Bodyweight only", "unavailable"),
+])
+def test_focus_source_and_unavailable_equipment_are_recorded(
+    fresh_store, seed_bodyweight_curation, muscle, source, equipment, expected_status
+):
+    if equipment == "Bodyweight only":
+        seed_bodyweight_curation(fresh_store)
+    fresh_store.switch_user(f"focus_{muscle}_{equipment}")
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "female", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 165.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": 3, "training_age_years": 3.0,
+        "equipment_access": equipment, "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": [{"muscle": muscle, "source": source}],
+    })
+    program = generate_program_pipeline(user_split_override="PPL", ledger=fresh_store.ledger)[0]
+    focus = program.program_rationale["focus_muscles"][0]
+    assert (focus["muscle"], focus["source"], focus["status"]) == (muscle, source, expected_status)
+    if muscle == "calves":
+        assert focus["exercise_id"] == "1371"
+    if expected_status == "unavailable":
+        assert focus["reason"]["code"] == "focus.unavailable"
+        assert focus["reason"]["params"]["equipment_access"] == equipment
+
+
+def test_two_focus_muscles_keep_named_order_when_opening_same_day(fresh_store):
+    fresh_store.switch_user("focus_two_same_day")
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 175.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": 1, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": [{"muscle": "upper_chest", "source": "named"}, {"muscle": "chest", "source": "named"}],
+    })
+    program = generate_program_pipeline(ledger=fresh_store.ledger)[0]
+    focus = program.program_rationale["focus_muscles"]
+    assert [item["muscle"] for item in focus] == ["upper_chest", "chest"]
+    upper_chest = focus[0]
+    assert upper_chest["exercise_id"] == "171" or upper_chest["slot"] == "incline_press"
+    same_day = [item for item in focus if item["day_order"] == focus[0]["day_order"]]
+    assert len(same_day) == 2
+    day = next(day for day in program.days if day.day_order == same_day[0]["day_order"])
+    assert [ex.exercise_id for ex in day.exercises[:2]] == [item["exercise_id"] for item in same_day]
+
+
+def test_barbell_only_chest_extra_candidates_fall_through_to_unavailable(
+    fresh_store, monkeypatch
+):
+    import agent.program_generator as generator
+
+    fresh_store.switch_user("focus_barbell_only_candidates")
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 175.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": 5, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": [{"muscle": "chest", "source": "named"}],
+    })
+    original_generate_days = generator._generate_program_days
+    original_fetch = generator._fetch_generation_candidates
+    generation_complete = False
+
+    def generate_days(*args, **kwargs):
+        nonlocal generation_complete
+        result = original_generate_days(*args, **kwargs)
+        generation_complete = True
+        return result
+
+    def fetch_candidates(slot_key, context, excluded_ids, *, ledger):
+        if generation_complete and slot_key == "flat_press":
+            return ([{
+                "id": "barbell-row-focus-test", "name": "Barbell row signature match",
+                "equipment": "barbell", "_candidate_source": "signature",
+            }], False)
+        return original_fetch(slot_key, context, excluded_ids, ledger=ledger)
+
+    monkeypatch.setattr(generator, "_generate_program_days", generate_days)
+    monkeypatch.setattr(generator, "_fetch_generation_candidates", fetch_candidates)
+    program = generate_program_pipeline(ledger=fresh_store.ledger)[0]
+
+    focus = program.program_rationale["focus_muscles"][0]
+    assert focus["status"] == "unavailable"
+    assert not any(exercise.exercise_id == "barbell-row-focus-test" for day in program.days for exercise in day.exercises)
+
+
+def test_unanswered_weak_points_produce_no_focus_rationale(fresh_store):
+    fresh_store.switch_user("focus_weak_points_unanswered")
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "female", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 165.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": 3, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": None,
+    })
+    program = generate_program_pipeline(ledger=fresh_store.ledger)[0]
+    assert program.program_rationale["focus_muscles"] == []
+
+
+@pytest.mark.parametrize("days", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("equipment", ["Commercial gym", "Home gym", "Bodyweight only"])
+def test_focus_chest_generation_supports_every_frequency_and_equipment(
+    fresh_store, seed_bodyweight_curation, days, equipment
+):
+    if equipment == "Bodyweight only":
+        seed_bodyweight_curation(fresh_store)
+    fresh_store.switch_user(f"focus_axis_{days}_{equipment}")
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
+        "height_cm": 175.0, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": days, "training_age_years": 3.0,
+        "equipment_access": equipment, "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "weak_points": [{"muscle": "chest", "source": "named"}],
+    })
+    program = generate_program_pipeline(ledger=fresh_store.ledger)[0]
+    focus = program.program_rationale["focus_muscles"][0]
+    assert focus["muscle"] == "chest" and focus["source"] == "named"
+    if focus["status"] == "added":
+        day = next(day for day in program.days if day.day_order == focus["day_order"])
+        assert day.exercises[0].exercise_id == focus["exercise_id"]
+        assert focus["exercise_id"] not in {
+            exercise.exercise_id for candidate_day in program.days for exercise in candidate_day.exercises[1:]
+        }
+        set_reason = next(
+            record["rationale"]["prescription"]["sets"]["params"]
+            for record in program.program_rationale["days"][focus["day_order"] - 1]["exercises"]
+            if record["exercise_id"] == focus["exercise_id"]
+        )
+        actual_weekly_sets = sum(
+            exercise.target_sets for candidate_day in program.days for exercise in candidate_day.exercises
+            if exercise.slot_key in {"incline_press", "flat_press", "chest_fly"}
+        )
+        assert actual_weekly_sets >= set_reason["target_weekly_sets"]
+
+
 def test_bodyweight_quad_isolation_uses_curated_sissy_squat(
     fresh_store, seed_bodyweight_curation
 ):
