@@ -53,6 +53,7 @@ from agent.program_generator import (
 )
 from agent.program_blueprints import (
     DEFAULT_SPLIT_BY_FREQUENCY,
+    LEGACY_GLUTE_PRIORITY_SPLIT_NAMES,
     SPLIT_DISPLAY_NAMES,
     experience_level_for_training_age,
 )
@@ -1114,17 +1115,6 @@ def _resolve_arabic_day(program: Any, requested_name: str) -> Any | None:
     return matches[0] if len(matches) == 1 else None
 
 
-_LEGACY_GLUTE_PRIORITY_SPLIT_NAMES = frozenset(
-    {
-        "full body (glute specialized)",
-        "glute bias a/b",
-        "glute hypertrophy tri-phase",
-        "glute specialization 4-day",
-        "glute specialization 5-day",
-    }
-)
-
-
 def _current_split_family(program: Any) -> str | None:
     if not program:
         return None
@@ -1136,7 +1126,7 @@ def _current_split_family(program: Any) -> str | None:
     for split_type, display_name in SPLIT_DISPLAY_NAMES.items():
         if display_name.casefold() == split_name:
             return split_type if split_type in ARABIC_SPLIT_PREFERENCES else None
-    if split_name in _LEGACY_GLUTE_PRIORITY_SPLIT_NAMES:
+    if split_name in LEGACY_GLUTE_PRIORITY_SPLIT_NAMES:
         return "female_full_body"
     return match_split_keyword(split_name)
 
@@ -1200,6 +1190,8 @@ def _default_arabic_split(frequency: int, profile: dict[str, Any]) -> str:
 def _preserved_arabic_split(program: Any, profile: dict[str, Any], frequency: int) -> str:
     gender = profile.get("gender", "male")
     split_type = _current_split_family(program)
+    if split_type == "female_full_body":
+        return "full_body"
     if split_type not in ARABIC_SPLIT_PREFERENCES:
         return _default_arabic_split(frequency, profile)
     if split_type == "arnold_x_ul" and frequency < 4:

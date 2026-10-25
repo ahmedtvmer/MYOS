@@ -616,7 +616,6 @@ def test_issue_232_glute_priority_prose_uses_the_injected_model_path():
     ("frequency", "gender", "split_type", "expected_name"),
     [
         (4, "male", "upper_lower", "Upper / Lower (Arms & Delts Augmented)"),
-        (4, "female", "female_full_body", "Full Body (Glute Priority)"),
         (4, "female", "female_upper_lower", "Lower (Glute Bias) / Upper & Core"),
     ],
 )
@@ -627,6 +626,10 @@ def test_catalog_split_family_keys_route_deterministically(
     plan = resolve_split(frequency, split_type, gender)
 
     assert plan.split_name == expected_name
+
+
+def test_retired_glute_split_id_is_not_a_recognized_new_request():
+    assert resolve_split(4, "female_full_body").split_name == get_default_split(4).split_name
 
 
 def test_split_translation_keeps_other_player_words():
@@ -699,7 +702,6 @@ def test_valid_splits_for_matches_the_parent_frequency_table():
         ],
         3: [
             ("full_body", "Full Body"),
-            ("female_full_body", "Full Body (Glute Priority)"),
             ("upper_lower", "Upper/Lower/Upper"),
             ("anterior_posterior", "Anterior / Posterior"),
             ("ppl", "PPL"),
@@ -707,13 +709,11 @@ def test_valid_splits_for_matches_the_parent_frequency_table():
         ],
         4: [
             ("full_body", "Full Body"),
-            ("female_full_body", "Full Body (Glute Priority)"),
             ("upper_lower", "Upper/Lower"),
             ("anterior_posterior", "Anterior / Posterior"),
         ],
         5: [
             ("full_body", "Full Body"),
-            ("female_full_body", "Full Body (Glute Priority)"),
             ("upper_lower", "Upper/Lower ×2 + Upper"),
             ("anterior_posterior", "Anterior / Posterior"),
             ("arnold_x_ul", "Arnold × Upper/Lower"),

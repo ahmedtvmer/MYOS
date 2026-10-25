@@ -1771,7 +1771,7 @@ def test_arabic_program_change_without_target_clarifies_without_mutation(
         ),
     ],
 )
-def test_arabic_frequency_change_preserves_glute_priority_split_family(api, monkeypatch, scenario):
+def test_arabic_frequency_change_retires_glute_priority_split(api, monkeypatch, scenario):
     split_type, gender, frequency, target_frequency = scenario
     client, db = api
     player = f"arabic-glute-frequency-{gender}-{frequency}"
@@ -1800,10 +1800,17 @@ def test_arabic_frequency_change_preserves_glute_priority_split_family(api, monk
         after = ledger.get_active_program()
     assert after.version == before.version + 1
     assert after.weekly_frequency == target_frequency
-    assert after.split_type == "Full Body (Glute Priority)"
+    full_body_name = {
+        1: "Consolidated Full Body",
+        2: "Full Body A/B",
+        3: "Full Body Tri-Phase",
+        4: "Full Body 4-Day",
+        5: "Full Body 5-Day",
+    }[target_frequency]
+    assert after.split_type == full_body_name
     assert _done_content(body) == (
         f"تمام، ظبطتلك البرنامج التدريبي على {target_frequency} أيام: "
-        "Full Body (Glute Priority) rebuilt."
+        f"{full_body_name} rebuilt."
     )
 
 

@@ -67,8 +67,8 @@ BODYWEIGHT_OPENER_FALLBACKS = {
 }
 
 
-def _generate_matrix_program(db, *, experience, days, equipment, glute_priority):
-    user = f"coach_rubric_{experience}_{days}_{equipment}_{glute_priority}"
+def _generate_matrix_program(db, *, experience, days, equipment):
+    user = f"coach_rubric_{experience}_{days}_{equipment}"
     db.switch_user(user)
     db.ledger.upsert_player_profile(
         {
@@ -87,8 +87,7 @@ def _generate_matrix_program(db, *, experience, days, equipment, glute_priority)
             "stress_and_sleep": "normal",
         }
     )
-    split = "female_full_body" if glute_priority else None
-    return generate_program_pipeline(user_split_override=split, ledger=db.ledger)[0]
+    return generate_program_pipeline(ledger=db.ledger)[0]
 
 
 @pytest.fixture
@@ -141,16 +140,14 @@ def test_commercial_and_home_program_outputs_match_baseline_snapshot(fresh_store
     for equipment in ("Commercial gym", "Home gym"):
         for experience in ("beginner", "intermediate", "advanced"):
             for days in (3, 4, 5):
-                for glute_priority in (False, True):
-                    key = f"{experience}|{days}|{equipment}|{str(glute_priority).lower()}"
-                    program = _generate_matrix_program(
-                        fresh_store,
-                        experience=experience,
-                        days=days,
-                        equipment=equipment,
-                        glute_priority=glute_priority,
-                    )
-                    actual[key] = _program_snapshot(program)
+                key = f"{experience}|{days}|{equipment}|false"
+                program = _generate_matrix_program(
+                    fresh_store,
+                    experience=experience,
+                    days=days,
+                    equipment=equipment,
+                )
+                actual[key] = _program_snapshot(program)
     assert actual == expected
 
 
@@ -161,7 +158,6 @@ def test_bodyweight_only_does_not_relabel_ham_curl_as_ham_hinge(fresh_store, day
         experience="beginner",
         days=days,
         equipment="Bodyweight only",
-        glute_priority=False,
     )
     assert not any(
         exercise.slot_key == "ham_hinge"
@@ -363,7 +359,6 @@ def test_bodyweight_quad_isolation_uses_curated_sissy_squat(
         experience="beginner",
         days=3,
         equipment="Bodyweight only",
-        glute_priority=False,
     )
     selected = [
         (exercise.exercise_id, exercise.slot_key)
@@ -378,9 +373,8 @@ def test_bodyweight_quad_isolation_uses_curated_sissy_squat(
 @pytest.mark.parametrize("experience", ["beginner", "intermediate", "advanced"])
 @pytest.mark.parametrize("days", [3, 4, 5])
 @pytest.mark.parametrize("equipment", ["Commercial gym", "Home gym", "Bodyweight only"])
-@pytest.mark.parametrize("glute_priority", [False, True])
 def test_generated_programs_pass_the_coach_pattern_rubric(
-    fresh_store, seed_bodyweight_curation, experience, days, equipment, glute_priority
+    fresh_store, seed_bodyweight_curation, experience, days, equipment
 ):
     db = fresh_store
     if equipment == "Bodyweight only":
@@ -390,18 +384,13 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
         experience=experience,
         days=days,
         equipment=equipment,
-        glute_priority=glute_priority,
     )
 
-    expected_split = (
-        "Full Body (Glute Priority)"
-        if glute_priority
-        else {
-            3: "Full Body Tri-Phase",
-            4: "Upper / Lower (Arms & Delts Augmented)",
-            5: "PPL × UL",
-        }[days]
-    )
+    expected_split = {
+        3: "Full Body Tri-Phase",
+        4: "Upper / Lower (Arms & Delts Augmented)",
+        5: "PPL × UL",
+    }[days]
     assert program.split_type == expected_split
     assert len(program.days) == days
     rationale = program.program_rationale
@@ -437,7 +426,6 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
         exercises = [exercise for day in exercises_by_day for exercise in day]
         weekly_sets = sum(exercise.target_sets for exercise in exercises)
         frequency = sum(bool(day) for day in exercises_by_day)
-        expected_glute_sets = (6 if glute_priority else 4) if muscle == "glutes" else None
         if equipment == "Bodyweight only" and muscle in BODYWEIGHT_RUBRIC_EXCEPTIONS:
             expected_sets, expected_frequency, _reason = BODYWEIGHT_RUBRIC_EXCEPTIONS[muscle]
             assert (weekly_sets, frequency) == (expected_sets, expected_frequency), (
@@ -445,10 +433,7 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
                 f"got {weekly_sets} sets/{frequency} days"
             )
             continue
-        if expected_glute_sets is None:
-            assert 4 <= weekly_sets <= 6, f"{muscle}: {weekly_sets} sets"
-        else:
-            assert weekly_sets == expected_glute_sets, f"glutes: {weekly_sets} sets"
+        assert 4 <= weekly_sets <= 6, f"{muscle}: {weekly_sets} sets"
         assert 2 <= frequency <= 3, f"{muscle}: trained {frequency} days"
 
     slots = {exercise.slot_key for day in program.days for exercise in day.exercises}
@@ -467,7 +452,7 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
     exercises = [exercise for day in program.days for exercise in day.exercises]
     if equipment == "Bodyweight only":
         assert all((exercise.equipment or "").casefold() == "body weight" for exercise in exercises)
-        if days == 5 and not glute_priority:
+        if days == 5:
             pull_days = [day for day in program.days if "pull" in day.day_name.casefold()]
             assert pull_days
             assert all(

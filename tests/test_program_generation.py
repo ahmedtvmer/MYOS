@@ -195,48 +195,25 @@ def test_generated_program_draft_carries_structured_rationale(monkeypatch):
     assert rationale["days"][0]["exercises"][0]["rationale"]["prescription"]["sets"]["code"] == "sets.coach_dose"
 
 
-def test_glute_priority_is_explicit_for_female_profiles(monkeypatch):
-    def unexpected_dynamic_plan(*_args, **_kwargs):
-        raise AssertionError("Coach split ids must not call the dynamic split planner")
-
-    monkeypatch.setattr(program_rules, "llm", type("NoDynamicLLM", (), {
-        "with_structured_output": staticmethod(unexpected_dynamic_plan),
-    })())
-    profile = {"gender": "female"}
-
-    default_plan = program_generator._resolve_split_plan(
-        profile,
-        program_generator.ProgramGenerationRequest(
-            frequency_override=4,
-        ),
-        4,
-        inference_call=unexpected_dynamic_plan,
-    )
-
-    assert default_plan.split_name == "Upper / Lower (Arms & Delts Augmented)"
-    default_glute_exposures = sum(
-        slot.startswith("glute")
-        for day in default_plan.days
-        for slot in day.target_slots
-    )
-
-    priority_plan = program_generator._resolve_split_plan(
-        profile,
+def test_retired_glute_split_id_uses_frequency_default_for_new_requests(fresh_store):
+    generated, _ = program_generator.generate_program_draft_pipeline(
         program_generator.ProgramGenerationRequest(
             frequency_override=4,
             split_id_override="female_full_body",
         ),
-        4,
-        inference_call=unexpected_dynamic_plan,
+        ledger=fresh_store.ledger,
+        profile={
+            "gender": "female",
+            "weekly_frequency": 4,
+            "equipment_access": "commercial gym",
+            "injuries_or_limitations": "None",
+            "rep_preference": "balanced",
+            "training_age_years": 3.0,
+            "stress_and_sleep": "normal",
+        },
     )
-    assert priority_plan.split_name == "Full Body (Glute Priority)"
-    priority_glute_exposures = sum(
-        slot.startswith("glute")
-        for day in priority_plan.days
-        for slot in day.target_slots
-    )
-    assert default_glute_exposures == 2
-    assert priority_glute_exposures == 3
+
+    assert generated.split_type == program_rules.get_default_split(4).split_name
 
 
 @pytest.mark.parametrize("frequency", [2, 3, 4, 5])

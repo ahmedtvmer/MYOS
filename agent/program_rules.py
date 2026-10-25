@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent.program_blueprints import (
     DEFAULT_SPLIT_BY_FREQUENCY,
+    RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS,
     SLOT_SPECS,
     SLOT_STAPLES,
     SlotSpec,
@@ -226,7 +227,7 @@ Rules:
 3. Session Size: for 3 days, use 8-10 slots per day; for 4 days, use 6-8; for 5 days, use 5-6. Keep sessions balanced, never use more than 12 slots in a day, and list no more than 2 double_slots per day.
 4. Weekly Coverage (mandatory): chest uses incline_press and flat_press on separate days, with chest_fly as an optional third exposure; back uses vertical_pull and horizontal_row on separate days, with shrug as an optional third exposure; shoulders use side_delts and rear_delts on separate days, with shoulder_press as an optional third exposure; include both biceps slots, both triceps slots, and forearm_wrist or forearm_reverse across 2 days; include quad, hamstring, glute, adductors, calf, and abs work across 2 days. Spread all groups across distinct days.
 5. Weekly Volume and Frequency: start every muscle at 4-6 working sets per week, regardless of experience, and train each muscle on 2-3 separate days. Spread slots across the week so repeated work is not concentrated on one day.
-6. Staples: include calf, side_delts, and adductors every week. Do not default to extra glute work for a female trainee; only emphasize glutes when the user explicitly requests it.
+6. Staples: include calf, side_delts, and adductors every week.
 7. Ordering: a priority or small muscle may open a day, and a pre-exhaust isolation may precede compounds. Never place two hard compounds for the same muscle back-to-back after a pre-exhaust unless the requested coach template explicitly does so.
 8. Fatigue Management: avoid heavy spinal loads (ham_hinge, quad_compound) on consecutive days.
 9. Lower days MAY include low-fatigue upper isolations ('side_delts', 'biceps_preacher', 'biceps_alt', 'triceps_pushdown', 'triceps_overhead', 'abs'). Keep prescriptions to 1-2 working sets per exercise.
@@ -292,7 +293,6 @@ SPLIT_OPTIONS_BY_FREQUENCY: dict[int, tuple[tuple[str, str], ...]] = {
     ),
     3: (
         ("full_body", "Full Body"),
-        ("female_full_body", "Full Body (Glute Priority)"),
         ("upper_lower", "Upper/Lower/Upper"),
         ("anterior_posterior", "Anterior / Posterior"),
         ("ppl", "PPL"),
@@ -300,13 +300,11 @@ SPLIT_OPTIONS_BY_FREQUENCY: dict[int, tuple[tuple[str, str], ...]] = {
     ),
     4: (
         ("full_body", "Full Body"),
-        ("female_full_body", "Full Body (Glute Priority)"),
         ("upper_lower", "Upper/Lower"),
         ("anterior_posterior", "Anterior / Posterior"),
     ),
     5: (
         ("full_body", "Full Body"),
-        ("female_full_body", "Full Body (Glute Priority)"),
         ("upper_lower", "Upper/Lower ×2 + Upper"),
         ("anterior_posterior", "Anterior / Posterior"),
         ("arnold_x_ul", "Arnold × Upper/Lower"),
@@ -341,7 +339,7 @@ def get_default_split(frequency: int, gender: str = "male") -> DynamicSplitPlan:
 
 
 def valid_splits_for(frequency: int, gender: str = "male") -> list[tuple[str, str]]:
-    """Return manual Split choices, including an explicit glute-priority option.
+    """Return manual Split choices for the requested weekly frequency.
 
     Auto is omitted and resolves through the gender-neutral default template.
     """
@@ -461,11 +459,9 @@ def resolve_split(
         return get_default_split(clamped_freq, gender=gender)
 
     canonical_split = preference.strip().casefold()
-    split_type = (
-        canonical_split
-        if canonical_split in SPLIT_DISPLAY_NAMES
-        else match_split_keyword(preference)
-    )
+    if canonical_split in RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS:
+        return get_default_split(clamped_freq, gender=gender)
+    split_type = canonical_split if canonical_split in SPLIT_DISPLAY_NAMES else match_split_keyword(preference)
     if split_type:
         plan = get_split_plan(split_type, clamped_freq, gender)
         if plan is not None:
@@ -480,11 +476,7 @@ def resolve_split(
         DynamicSplitPlan,
         **_dynamic_split_plan_options(),
     )
-    gender_context = (
-        "female trainee (use the same balanced muscle priorities; glute emphasis only when explicitly requested)"
-        if gender.lower() == "female"
-        else "trainee with no default muscle priority"
-    )
+    gender_context = "trainee with no default muscle priority"
     prompt = [
         SystemMessage(content=SYSTEM_SPLIT_PROMPT.format(frequency=clamped_freq)),
         HumanMessage(

@@ -734,12 +734,85 @@ def test_keyword_matching_is_not_hijacked_by_body_part_phrases():
             "with a glute priority.",
             None,
         ),
-        ("Full Body (Glute Priority)", "female_full_body"),
-        ("female_full_body", "female_full_body"),
+        ("Full Body (Glute Priority)", None),
+        ("female_full_body", None),
     ],
 )
-def test_issue_232_only_explicit_glute_priority_choice_matches(preference, expected_split):
+def test_glute_priority_is_not_matched_as_a_new_split(preference, expected_split):
     assert match_split_keyword(preference) == expected_split
+    if preference in {"Full Body (Glute Priority)", "female_full_body"}:
+        assert resolve_split(3, preference).split_name == get_default_split(3).split_name
+
+
+def test_retired_glute_split_is_not_a_selectable_split():
+    for frequency in range(1, 6):
+        assert all(split_id != "female_full_body" for split_id, _ in valid_splits_for(frequency))
+
+
+@pytest.mark.parametrize(
+    ("saved_weak_points", "expected_weak_points"),
+    [
+        (None, [{"muscle": "glutes", "source": "migrated"}]),
+        ([], []),
+    ],
+)
+def test_retired_glute_split_migrates_only_an_unanswered_weak_point_answer(
+    saved_weak_points, expected_weak_points
+):
+    first = _generate("female", 3)
+    legacy_program = first.model_dump()
+    legacy_program["split_type"] = "Full Body (Glute Priority)"
+    legacy_program["program_name"] = "Full Body (Glute Priority)"
+    db.ledger.save_training_program(legacy_program)
+    legacy_version = db.ledger.get_active_program().version
+    if saved_weak_points is not None:
+        profile = db.ledger.get_player_profile()
+        profile["weak_points"] = saved_weak_points
+        db.ledger.upsert_player_profile(profile)
+
+    regenerated = program_generator.generate_program_pipeline(ledger=db.ledger)[0]
+    profile = db.ledger.get_player_profile()
+
+    assert regenerated.split_type == "Full Body Tri-Phase"
+    assert profile["weak_points"] == expected_weak_points
+    assert db.ledger.get_program_by_version(legacy_version).split_type == "Full Body (Glute Priority)"
+
+
+def test_legacy_glute_regeneration_honors_upper_lower_request_and_migrates_focus():
+    first = _generate("female", 4)
+    legacy_program = first.model_dump()
+    legacy_program["split_type"] = "Full Body (Glute Priority)"
+    legacy_program["program_name"] = "Full Body (Glute Priority)"
+    db.ledger.save_training_program(legacy_program)
+
+    regenerated = program_generator.generate_program_pipeline(
+        user_split_override="Upper/Lower", ledger=db.ledger
+    )[0]
+
+    assert regenerated.split_type == "Upper / Lower (Arms & Delts Augmented)"
+    focus = regenerated.program_rationale["focus_muscles"]
+    assert len(focus) == 1
+    assert (focus[0]["muscle"], focus[0]["source"], focus[0]["status"]) == (
+        "glutes", "migrated", "added"
+    )
+
+
+def test_coach_split_id_is_preserved_with_a_legacy_glute_active_program():
+    first = _generate("female", 4)
+    legacy_program = first.model_dump()
+    legacy_program["split_type"] = "Full Body (Glute Priority)"
+    legacy_program["program_name"] = "Full Body (Glute Priority)"
+    db.ledger.save_training_program(legacy_program)
+
+    draft, _ = program_generator.generate_program_draft_pipeline(
+        program_generator.ProgramGenerationRequest(
+            frequency_override=4, split_id_override="upper_lower"
+        ),
+        ledger=db.ledger,
+    )
+
+    assert draft.split_type == "Upper / Lower (Arms & Delts Augmented)"
+    assert db.ledger.get_active_program().split_type == "Full Body (Glute Priority)"
 
 
 def test_unsupported_keyword_frequency_falls_back_to_default():

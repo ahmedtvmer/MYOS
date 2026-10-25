@@ -11,6 +11,8 @@ from core.effort import min_rir_from_rpe
 from agent.program_blueprints import (
     _SMALL_MUSCLE_OPENERS,
     ExperienceLevel,
+    LEGACY_GLUTE_PRIORITY_SPLIT_NAMES,
+    RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS,
     MAX_COACH_PATTERN_RECOVERY_CUTS_PER_DAY,
     MAX_RECOVERY_CUTS_PER_DAY,
     SLOT_FALLBACKS,
@@ -281,6 +283,8 @@ def _contains_one_sided_push_pull(preference: str) -> bool:
 
 def _recognized_split_preference(preference: str) -> str | None:
     split_type = preference.strip().casefold()
+    if split_type in RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS:
+        return None
     if split_type in SPLIT_DISPLAY_NAMES:
         return split_type
     return _translate_split_preference(preference)
@@ -810,6 +814,13 @@ def generate_program_pipeline(
     profile = _generation_profile(ledger)
     request = ProgramGenerationRequest(user_split_override, rep_preference_override, frequency_override)
     weekly_frequency = _resolve_generation(profile, request)
+    active_program = ledger.get_active_program()
+    active_split = str(getattr(active_program, "split_type", "")).strip().casefold()
+    if active_split in LEGACY_GLUTE_PRIORITY_SPLIT_NAMES:
+        _migrate_legacy_glute_weak_point(ledger, profile)
+        profile = _generation_profile(ledger)
+        if not (user_split_override and user_split_override.strip()):
+            request = ProgramGenerationRequest("full_body", rep_preference_override, frequency_override)
     if published_by_coach_account_id is None and weekly_frequency != profile.get("weekly_frequency"):
         ledger.update_player_frequency(weekly_frequency)
     program, markdown = _build_program(profile, request, weekly_frequency, ledger)
@@ -822,6 +833,13 @@ def generate_program_pipeline(
         starting_position=None,
     )
     return program, markdown
+
+
+def _migrate_legacy_glute_weak_point(ledger: Any, profile: dict[str, Any]) -> None:
+    if profile.get("weak_points") is not None:
+        return
+    profile["weak_points"] = [{"muscle": "glutes", "source": "migrated"}]
+    ledger.upsert_player_profile(profile)
 
 
 def generate_program_draft_pipeline(

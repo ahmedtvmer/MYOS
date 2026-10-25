@@ -1572,6 +1572,21 @@ SPLIT_DISPLAY_NAMES: dict[str, str] = {
     "ppl_x_ul": "PPL × UL",
 }
 
+LEGACY_GLUTE_PRIORITY_SPLIT_NAMES = frozenset(
+    {
+        "female_full_body",
+        "full body (glute priority)",
+        "full body (glute specialized)",
+        "glute bias a/b",
+        "glute hypertrophy tri-phase",
+        "glute specialization 4-day",
+        "glute specialization 5-day",
+    }
+)
+RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS = frozenset(
+    {"female_full_body", SPLIT_DISPLAY_NAMES["female_full_body"].casefold()}
+)
+
 
 def _pool_for(split_type: str, gender: str) -> tuple[DayBlueprint, ...] | None:
     if split_type == "full_body":
@@ -1624,8 +1639,7 @@ DEFAULT_SPLIT_BY_FREQUENCY: dict[str, dict[int, str]] = {
 
 # Deterministic keyword routing for free-text split preferences. Word-boundary
 # regex keeps body-part phrases ("lower back pain", "upper chest focus",
-# "posterior chain") from hijacking the split router. Glute-priority prose is
-# left for the planner; only its exact catalog label or id is deterministic.
+# "posterior chain") from hijacking the split router.
 SPLIT_KEYWORD_PATTERNS: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = (
     (
         "anterior_posterior",
@@ -1676,11 +1690,8 @@ def match_split_keyword(preference: str | None) -> str | None:
     if not preference:
         return None
     text = preference.strip().casefold()
-    if text in {
-        "female_full_body",
-        SPLIT_DISPLAY_NAMES["female_full_body"].casefold(),
-    }:
-        return "female_full_body"
+    if text in RETIRED_GLUTE_PRIORITY_SPLIT_REQUESTS:
+        return None
     for split_type, patterns in SPLIT_KEYWORD_PATTERNS:
         if any(pattern.search(text) for pattern in patterns):
             return split_type
