@@ -473,3 +473,15 @@ _Avoid_: Custom food
 **Quick add**:
 A Food log entry of calories and optional Macros with no food, for when a Player knows the numbers but not the food. It counts toward totals and Nutrition adherence.
 _Arabic_: إضافة سريعة
+
+**Fiber target**:
+A daily fiber amount in grams shown beside the Nutrition targets, by default 14 g per 1,000 kcal of the calorie target. It is not a Macro and never affects Nutrition adherence or Coach alerts.
+_Arabic_: هدف الألياف
+
+**Water target**:
+A daily water amount for a Player, by default 35 ml per kg of bodyweight plus 500 ml on training days, rounded to 250 ml glasses. It never affects Nutrition adherence or Coach alerts.
+_Arabic_: هدف الماء
+
+**Water log**:
+The number of 250 ml glasses a Player taps in for a Player-local day. An active Coach can read it.
+_Arabic_: سجل الماء
