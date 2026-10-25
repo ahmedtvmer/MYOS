@@ -69,6 +69,7 @@ from svc.schemas import (
     CheckInOut,
     CoachActiveProgramOut,
     CoachNutritionTargetsIn,
+    NutritionPaceProposalDecisionIn,
     CoachAssignmentsOut,
     CoachCheckInCreateOut,
     CheckpointReviewListItemOut,
@@ -367,6 +368,46 @@ async def save_assigned_player_nutrition(
             )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+
+
+@coach_router.post("/{assignment_id}/nutrition/pace-proposals/{proposal_id}/decision")
+async def decide_assigned_player_pace_proposal(
+    request: Request,
+    assignment_id: str,
+    proposal_id: int,
+    body: NutritionPaceProposalDecisionIn,
+    coach: Annotated[VerifiedPlayer, Depends(get_current_coach)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    authorized = coach_history_service.authorized_player_ledger(db, coach.account_id, assignment_id)
+    if authorized is None:
+        raise _no_active_assignment()
+    ledger, context = authorized
+    from service import nutrition as nutrition_service
+    with ledger:
+        plan = await asyncio.to_thread(ledger.get_active_nutrition_plan)
+        if (plan is None or plan["author"] != "Coach"
+                or plan["authority_assignment_id"] != assignment_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Only the Nutrition authority holder can decide this proposal.")
+        today = player_local_date(ledger, context["player"]["ledger_id"])
+        try:
+            result = await asyncio.to_thread(
+                nutrition_service.decide_pace_proposal, ledger,
+                nutrition_service.PaceProposalDecision(
+                    proposal_id, body.decision, "coach", assignment_id, today),
+            )
+            result = await asyncio.to_thread(
+                nutrition_service.coach_read, ledger, today, assignment_id
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
+    analytics.capture_for_request(request, analytics.AnalyticsEvent(
+        account_id=coach.account_id, event="nutrition_pace_proposal_decided",
+        domain_key=f"{assignment_id}:pace:{proposal_id}:{body.decision}:coach", role="coach",
+        properties={"proposal_decision": body.decision, "decision_actor": "coach"},
+    ))
+    return result
 
 
 @coach_router.post("/invites", response_model=AssignmentInviteIssueOut)

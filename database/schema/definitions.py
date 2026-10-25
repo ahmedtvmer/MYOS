@@ -183,6 +183,22 @@ class SchemaMixin:
                 profile_json TEXT NOT NULL,
                 FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id)
             );
+            CREATE TABLE IF NOT EXISTS nutrition_pace_proposals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_version_id INTEGER NOT NULL,
+                payload_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','kept')),
+                created_at TEXT NOT NULL,
+                decided_at TEXT,
+                decided_by TEXT,
+                FOREIGN KEY(plan_version_id) REFERENCES nutrition_plan_versions(id)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_nutrition_pace_pending
+                ON nutrition_pace_proposals(plan_version_id) WHERE status='pending';
+            CREATE TABLE IF NOT EXISTS nutrition_pace_check_state (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                last_evaluated_on TEXT NOT NULL
+            );
             CREATE TRIGGER IF NOT EXISTS nutrition_plan_versions_no_update
                 BEFORE UPDATE ON nutrition_plan_versions BEGIN
                 SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END;

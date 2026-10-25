@@ -98,6 +98,14 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
             logger.exception(
                 "Follow-up evaluation failed for assignment %s", assignment.get("assignment_id")
             )
+    for account in db.list_accounts():
+        if not account.get("is_player"):
+            continue
+        try:
+            _evaluate_nutrition_pace_check(db, account, now)
+        except Exception:
+            counts["errors"] += 1
+            logger.exception("Nutrition pace check failed for player %s", account["account_id"])
     # The model spend alert rides this existing sweep rather than adding a loop
     # (ADR 038, AC3). It is deduped per UTC month and never raises.
     try:
@@ -114,3 +122,12 @@ def run_sweep(db: Any, now: datetime | None = None) -> dict[str, int]:
         counts["errors"] += 1
         logger.exception("Analytics deletion retry failed during the sweep")
     return counts
+
+
+def _evaluate_nutrition_pace_check(db: Any, account: dict[str, Any], now: datetime) -> None:
+    from service import nutrition as nutrition_service
+    from service.weight_history import player_local_date
+
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        local_today = player_local_date(ledger, account["ledger_id"], now)
+        nutrition_service.evaluate_pace_check(ledger, local_today)

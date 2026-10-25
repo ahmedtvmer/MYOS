@@ -115,6 +115,31 @@ class NutritionCopy {
   String get coachChartLoadError => isArabic ? 'تعذر تحميل بيانات الرسم البياني.' : 'Could not load chart data.';
   String get coachNextPaceCheck => isArabic ? 'فحص الوتيرة القادم' : 'Next pace check';
   String get coachPaceCheckPending => isArabic ? 'بعد 21 يومًا من تسجيل الوزن' : 'After 21 days of weigh-ins';
+  String get paceProposal => isArabic ? 'اقتراح فحص الوتيرة' : 'Pace check proposal';
+  String paceProposalRates(Object? actual, Object? planned) => isArabic
+      ? 'الوتيرة الفعلية: $actual٪ · المخططة: $planned٪'
+      : 'Actual pace: $actual% · planned: $planned%';
+  String paceProposalCalories(Object? calories, Object? change) => isArabic
+      ? '$calories سعرة حرارية ($change سعرة)'
+      : '$calories kcal ($change kcal)';
+  String get proposalAccept => isArabic ? 'تطبيق' : 'Apply';
+  String get proposalKeep => isArabic ? 'الإبقاء على الأهداف' : 'Keep targets';
+  String proposalDecision(String? value) => switch (value) {
+    'accepted' => isArabic ? 'طُبّق الاقتراح' : 'Proposal accepted',
+    'kept' => isArabic ? 'تم الإبقاء على الأهداف' : 'Targets kept',
+    _ => isArabic ? 'بانتظار القرار' : 'Decision pending',
+  };
+  String proposalDecisionBy(String? decision, String? actor) {
+    final String person = actor == 'coach'
+        ? (isArabic ? 'المدرب' : 'Coach')
+        : (isArabic ? 'اللاعب' : 'Player');
+    return decision == null || decision == 'pending'
+        ? proposalDecision(decision)
+        : isArabic ? '${proposalDecision(decision)} · $person'
+            : '${decision == 'accepted' ? 'Accepted' : 'Kept'} by $person';
+  }
+  String get staleProposal => isArabic ? 'تغيرت خطة التغذية؛ لم يعد هذا الاقتراح صالحًا.'
+      : 'The Nutrition plan changed; this proposal is stale.';
   String coachPaceCheckValue(String? value) => switch (value) {
     'after_21_days_of_weigh_ins' => coachPaceCheckPending,
     _ => value ?? coachPaceCheckPending,

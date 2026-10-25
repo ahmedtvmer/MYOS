@@ -850,6 +850,16 @@ class ApiClient {
         _invalidCoachHistory);
   }
 
+  Future<CoachNutritionState> decideCoachPaceProposal(String assignmentId,
+      int proposalId, String decision) async {
+    final response = await _send(() => _dio.post<dynamic>(
+      '/coach/assignments/$assignmentId/nutrition/pace-proposals/$proposalId/decision',
+      data: <String, dynamic>{'decision': decision},
+    ));
+    return _parseBody(response.data, CoachNutritionState.fromJson,
+        _invalidCoachHistory);
+  }
+
   Future<VolumeReview?> coachPlayerVolumeReview(String assignmentId) async {
     final response = await _send(
       () => _dio.get<dynamic>(
@@ -2131,6 +2141,16 @@ class ApiClient {
 
   Future<NutritionPlanState> dismissNutritionGoalOffer() async {
     final response = await _send(() => _dio.post<dynamic>('/nutrition/goal-offer/dismiss'));
+    return _parseBody(response.data, NutritionPlanState.fromJson,
+        'The service returned invalid Nutrition data.');
+  }
+
+  Future<NutritionPlanState> decideNutritionPaceProposal(
+      int proposalId, String decision) async {
+    final response = await _send(() => _dio.post<dynamic>(
+      '/nutrition/pace-proposals/$proposalId/decision',
+      data: <String, dynamic>{'decision': decision},
+    ));
     return _parseBody(response.data, NutritionPlanState.fromJson,
         'The service returned invalid Nutrition data.');
   }

@@ -85,6 +85,45 @@ class LedgerNutritionMixin:
         ).fetchone()
         return str(row[0]) if row and row[0] else None
 
+    def get_nutrition_pace_proposal(self):
+        row = self.conn.execute(
+            "SELECT * FROM nutrition_pace_proposals ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if row is None:
+            return None
+        proposal = dict(row)
+        proposal["payload"] = json.loads(proposal.pop("payload_json"))
+        return proposal
+
+    def get_last_nutrition_pace_check_date(self):
+        row = self.conn.execute(
+            "SELECT last_evaluated_on FROM nutrition_pace_check_state WHERE id=1"
+        ).fetchone()
+        return str(row[0]) if row else None
+
+    def record_nutrition_pace_check(self, checked_on):
+        self.conn.execute(
+            "INSERT INTO nutrition_pace_check_state(id, last_evaluated_on) VALUES(1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET last_evaluated_on=excluded.last_evaluated_on",
+            (str(checked_on),),
+        )
+
+    def create_nutrition_pace_proposal(self, plan_version_id, payload, created_at):
+        cursor = self.conn.execute(
+            "INSERT INTO nutrition_pace_proposals(plan_version_id, payload_json, created_at) "
+            "VALUES(?, ?, ?)",
+            (plan_version_id, json.dumps(payload), str(created_at)),
+        )
+        return cursor.lastrowid
+
+    def decide_nutrition_pace_proposal(self, proposal_id, decision, decided_by, decided_at):
+        cursor = self.conn.execute(
+            "UPDATE nutrition_pace_proposals SET status=?, decided_by=?, decided_at=? "
+            "WHERE id=? AND status='pending'",
+            (decision, decided_by, str(decided_at), proposal_id),
+        )
+        return cursor.rowcount == 1
+
     def get_nutrition_training_days(self, fallback=0):
         row = self.conn.execute(
             "SELECT weekly_frequency FROM training_programs WHERE is_active=1 ORDER BY created_at DESC LIMIT 1"

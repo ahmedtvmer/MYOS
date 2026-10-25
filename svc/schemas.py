@@ -1093,6 +1093,10 @@ class NutritionPaceIn(BaseModel):
 class NutritionGoalSaveIn(NutritionPaceIn):
     screening: NutritionScreeningIn | None = None
 
+
+class NutritionPaceProposalDecisionIn(BaseModel):
+    decision: Literal["accepted", "kept"]
+
 class CoachNutritionTargetsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: Literal["lose", "maintain", "gain"]

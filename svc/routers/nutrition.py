@@ -16,6 +16,7 @@ from svc.schemas import (
     NutritionAdherenceIn,
     NutritionGoalSaveIn,
     NutritionPaceIn,
+    NutritionPaceProposalDecisionIn,
     NutritionSetupIn,
 )
 
@@ -205,4 +206,32 @@ async def dismiss_goal_offer(
     result = await asyncio.to_thread(nutrition_service.dismiss_goal_offer, ledger, today)
     result["coach_sees_adherence"] = assignment is not None
     _apply_authority_view(result, assignment)
+    return result
+
+
+@router.post("/pace-proposals/{proposal_id}/decision")
+async def decide_pace_proposal(
+    request: Request,
+    proposal_id: int,
+    body: NutritionPaceProposalDecisionIn,
+    player: Annotated[Any, Depends(get_verified_player)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    today, assignment, _language = _player_context(player, ledger, db, request)
+    _require_player_authority(ledger, assignment)
+    try:
+        result = await asyncio.to_thread(
+            nutrition_service.decide_pace_proposal, ledger,
+            nutrition_service.PaceProposalDecision(
+                proposal_id, body.decision, "player", None, today),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    _apply_authority_view(result, assignment)
+    analytics.capture_for_request(request, analytics.AnalyticsEvent(
+        account_id=account_id_of(player), event="nutrition_pace_proposal_decided",
+        domain_key=f"{player}:pace:{proposal_id}:{body.decision}:player", role="player",
+        properties={"proposal_decision": body.decision, "decision_actor": "player"},
+    ))
     return result

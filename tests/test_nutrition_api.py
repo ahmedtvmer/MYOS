@@ -66,6 +66,306 @@ def test_setup_persists_targets_and_returns_goal_reason(api):
     assert client.get("/nutrition", headers=headers).json()["targets"] == body["targets"]
 
 
+def test_weight_history_creates_version_pinned_pace_proposal(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-player", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-player", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-player")
+    from datetime import timedelta
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        start = date.today() - timedelta(days=24)
+        _seed_pace_weight_history(ledger, start, (70, 68.6, 67.2, 65.8))
+        _backdate_active_nutrition_plan(ledger, start)
+    from service.alert_sweep import run_sweep
+    run_sweep(db)
+    response = client.get("/nutrition", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["pace_proposal"] is not None
+    proposal = response.json()["pace_proposal"]
+    assert proposal["plan_version_id"] == 1
+    assert proposal["status"] == "pending"
+    assert proposal["payload"]["calorie_change"] == 250
+    accepted = client.post(f"/nutrition/pace-proposals/{proposal['id']}/decision",
+                           headers=headers, json={"decision": "accepted"})
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["pace_proposal"]["stale"] is True
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert int(ledger.get_active_nutrition_plan()["id"]) == 2
+        assert ledger.get_nutrition_pace_proposal()["status"] == "accepted"
+        active_plan = ledger.get_active_nutrition_plan()
+        with ledger.ledger_transaction():
+            stale_proposal_id = ledger.create_nutrition_pace_proposal(
+                active_plan["id"], {"kind": "pace", "goal": "gain", "intensity": "light",
+                    "actual_rate_pct": 0, "planned_rate_pct": 0.1,
+                    "calorie_change": 100, "targets": proposal["payload"]["targets"]},
+                "2026-10-25T00:00:00+00:00")
+    changed = client.put("/nutrition/goal", headers=headers,
+                         json={"goal": "gain", "intensity": "light"})
+    assert changed.status_code == 200, changed.text
+    stale_accept = client.post(f"/nutrition/pace-proposals/{stale_proposal_id}/decision",
+                               headers=headers, json={"decision": "accepted"})
+    assert stale_accept.status_code == 409
+    kept = client.post(f"/nutrition/pace-proposals/{stale_proposal_id}/decision",
+                       headers=headers, json={"decision": "kept"})
+    assert kept.status_code == 200, kept.text
+
+
+def test_target_weight_proximity_proposes_maintain(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-target", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-target", age=30, target=65)
+    setup = client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    assert setup.json()["goal"] == "lose"
+    account = db.get_active_account_by_username("pace-target")
+    from datetime import timedelta
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        start = date.today() - timedelta(days=24)
+        _seed_pace_weight_history(ledger, start, (70, 68, 66, 65.8))
+        _backdate_active_nutrition_plan(ledger, start)
+    weight_write = client.post("/profile/weight", headers=headers, json={"weight_kg": 65.8})
+    assert weight_write.status_code == 200, weight_write.text
+    proposal = client.get("/nutrition", headers=headers).json()["pace_proposal"]
+    assert proposal["payload"]["kind"] == "maintain_at_target"
+    assert proposal["payload"]["goal"] == "maintain"
+    assert proposal["payload"]["targets"]["protein_g"] == setup.json()["targets"]["protein_g"]
+    assert proposal["payload"]["targets"]["fat_g"] == setup.json()["targets"]["fat_g"]
+
+
+def test_pace_proposal_respects_live_calorie_floor(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-floor", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-floor", age=30, target=60, current_goal="fat loss")
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    saved = client.put("/nutrition/goal", headers=headers,
+                       json={"goal": "lose", "intensity": "aggressive"})
+    assert saved.status_code == 200, saved.text
+    account = db.get_active_account_by_username("pace-floor")
+    from datetime import timedelta
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        start = date.today() - timedelta(days=24)
+        _seed_pace_weight_history(ledger, start, (70, 70.2, 70.4, 70.6))
+        _backdate_active_nutrition_plan(ledger, start)
+    weight_write = client.post("/profile/weight", headers=headers, json={"weight_kg": 70.6})
+    assert weight_write.status_code == 200, weight_write.text
+    proposal = client.get("/nutrition", headers=headers).json()["pace_proposal"]
+    assert proposal["payload"]["floor_limited"] is True
+    assert proposal["payload"]["targets"]["calories"] >= proposal["payload"]["calorie_floor"]
+    for macro in ("protein_g", "fat_g"):
+        assert proposal["payload"]["targets"][macro] == saved.json()["targets"][macro]
+
+
+def test_acceptance_rechecks_floor_after_profile_weight_changes(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-live-floor", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-live-floor", age=30, target=None)
+    account = db.get_active_account_by_username("pace-live-floor")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET height_cm=170 WHERE id=1")
+        ledger.conn.commit()
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "female", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        active = ledger.get_active_nutrition_plan()
+        with ledger.ledger_transaction():
+            proposal_id = ledger.create_nutrition_pace_proposal(active["id"], {
+                "kind": "pace", "goal": "maintain", "intensity": "moderate",
+                "calorie_change": -250, "targets": {"calories": 1500, "protein_g": 140,
+                    "carbs_g": 150, "fat_g": 60}}, "2026-10-25T00:00:00+00:00")
+        ledger.conn.execute("UPDATE user_profile SET weight_kg=80 WHERE id=1")
+        ledger.conn.commit()
+    response = client.post(f"/nutrition/pace-proposals/{proposal_id}/decision",
+                           headers=headers, json={"decision": "accepted"})
+    assert response.status_code == 409
+    assert "Calorie floor" in response.json()["detail"]
+
+
+def test_new_plan_version_allows_a_fresh_pace_proposal(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-superseded", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-superseded", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-superseded")
+    start = date.today() - timedelta(days=24)
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        _seed_pace_weight_history(ledger, start, (70, 68.6, 67.2, 65.8))
+        _backdate_active_nutrition_plan(ledger, start)
+        active = ledger.get_active_nutrition_plan()
+        with ledger.ledger_transaction():
+            ledger.create_nutrition_pace_proposal(active["id"], {
+                "kind": "pace", "goal": "lose", "intensity": "moderate",
+                "calorie_change": 100, "targets": {"calories": 2000, "protein_g": 140,
+                    "carbs_g": 220, "fat_g": 70}}, "2026-10-25T00:00:00+00:00")
+    changed = client.put("/nutrition/goal", headers=headers,
+                         json={"goal": "gain", "intensity": "light"})
+    assert changed.status_code == 200, changed.text
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        _backdate_active_nutrition_plan(ledger, start)
+    from service.nutrition import evaluate_pace_check
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        proposal = evaluate_pace_check(ledger, date.today())
+    assert proposal is not None
+    assert proposal["plan_version_id"] == 2
+
+
+def test_accepting_pace_proposal_preserves_training_and_rest_targets(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-split", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-split", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-split")
+    start = date.today() - timedelta(days=24)
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        _seed_pace_weight_history(ledger, start, (70, 68.6, 67.2, 65.8))
+        _backdate_active_nutrition_plan(ledger, start)
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET targets_json=? WHERE id=1", (json.dumps({
+            "daily": {"calories": 2600, "protein_g": 140, "carbs_g": 335, "fat_g": 80},
+            "training_day": {"calories": 2600, "protein_g": 140, "carbs_g": 335, "fat_g": 80},
+            "rest_day": {"calories": 2000, "protein_g": 140, "carbs_g": 185, "fat_g": 80},
+        }),))
+        ledger.conn.execute(
+            "CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions "
+            "BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+        ledger.conn.commit()
+    from service.nutrition import evaluate_pace_check
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        proposal = evaluate_pace_check(ledger, date.today())
+    assert proposal is not None
+    split = proposal["payload"]["target_options"]
+    delta = proposal["payload"]["calorie_change"]
+    assert split["training_day"]["calories"] == 2600 + delta
+    assert split["rest_day"]["calories"] == 2000 + delta
+    response = client.post(f"/nutrition/pace-proposals/{proposal['id']}/decision",
+                           headers=headers, json={"decision": "accepted"})
+    assert response.status_code == 200, response.text
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        targets = json.loads(ledger.get_active_nutrition_plan()["targets_json"])
+    assert targets["training_day"]["calories"] == 2600 + delta
+    assert targets["rest_day"]["calories"] == 2000 + delta
+
+
+def test_pace_history_window_starts_on_player_local_plan_date(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-la-date", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-la-date", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-la-date")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.append_training_schedule(account["ledger_id"], [1, 3, 5], "America/Los_Angeles",
+            "2026-09-01", "2026-09-01T00:00:00+00:00")
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET created_at=? WHERE id=1",
+                            ("2026-10-01T02:00:00+00:00",))
+        ledger.conn.execute("CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions "
+                            "BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+        _seed_pace_weight_history(ledger, date(2026, 9, 30), (70, 68, 66, 64))
+    from service.nutrition import evaluate_pace_check
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        proposal = evaluate_pace_check(ledger, date(2026, 10, 25))
+    assert proposal is not None
+
+
+def test_capped_reduction_keeps_proposal_macros_balanced(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-macro-cap", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-macro-cap", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-macro-cap")
+    start = date.today() - timedelta(days=24)
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        _backdate_active_nutrition_plan(ledger, start)
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET targets_json=? WHERE id=1", (json.dumps({
+            "daily": {"calories": 2000, "protein_g": 200, "carbs_g": 30, "fat_g": 120},
+        }),))
+        ledger.conn.execute("CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions "
+                            "BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+        ledger.conn.commit()
+        _seed_pace_weight_history(ledger, start, (70, 72, 74, 76))
+    from service.nutrition import evaluate_pace_check
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        proposal = evaluate_pace_check(ledger, date.today())
+    assert proposal is not None
+    proposed = proposal["payload"]["targets"]
+    assert proposed["calories"] == 1750
+    assert proposed["fat_g"] < 120
+    assert proposed["protein_g"] == 200
+    macro_calories = 4 * proposed["protein_g"] + 4 * proposed["carbs_g"] + 9 * proposed["fat_g"]
+    assert abs(macro_calories - proposed["calories"]) <= proposed["calories"] * .05
+    response = client.post(f"/nutrition/pace-proposals/{proposal['id']}/decision",
+                           headers=headers, json={"decision": "accepted"})
+    assert response.status_code == 200, response.text
+
+
+def test_pace_check_waits_for_three_weeks_and_skips_small_pace_gap(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "pace-threshold", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "pace-threshold", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={
+        "sex": "male", "sex_confirmed": True, "daily_activity": "mostly_sitting",
+        "screening": {"pregnant_or_breastfeeding": False, "medical_condition": False, "eating_disorder": False},
+    })
+    account = db.get_active_account_by_username("pace-threshold")
+    from datetime import timedelta
+    threshold_weight = 70 / (1 - (0.1499 * 21) / (100 * 7))
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert ledger.get_last_nutrition_pace_check_date() is None
+        start = date.today() - timedelta(days=21)
+        _backdate_active_nutrition_plan(ledger, start)
+        for offset, weight in ((0, 70), (1, 70.05)):
+            profile = ledger.get_player_profile()
+            profile["weight_kg"] = weight
+            ledger.upsert_player_profile_with_weight_history(
+                profile, (start + timedelta(days=offset)).isoformat())
+    first_weight = client.post("/profile/weight", headers=headers, json={"weight_kg": threshold_weight})
+    assert first_weight.status_code == 200
+    assert client.get("/nutrition", headers=headers).json()["pace_proposal"] is None
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        profile = ledger.get_player_profile()
+        profile["weight_kg"] = 70.15
+        ledger.upsert_player_profile_with_weight_history(
+            profile, (start + timedelta(days=7)).isoformat())
+    second_weight = client.post("/profile/weight", headers=headers, json={"weight_kg": threshold_weight})
+    assert second_weight.status_code == 200
+    assert client.get("/nutrition", headers=headers).json()["pace_proposal"] is None
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert ledger.get_nutrition_pace_proposal() is None
+        assert ledger.get_last_nutrition_pace_check_date() == date.today().isoformat()
+
+
 def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     client, db = api
     coach = client.post("/auth/register", json={"trainee_id": "nutrition-coach", "password": "correct-horse-1"}).json()
@@ -125,6 +425,25 @@ def test_coach_nutrition_requires_assignment_and_takeover_confirmation(api):
     saved = client.put(path, headers=coach_headers, json=payload)
     assert saved.status_code == 200, saved.text
     assert saved.json()["authority"] == "coach"
+    with db.open_ledger(player_account["ledger_id"]) as ledger:
+        active_plan = ledger.get_active_nutrition_plan()
+        proposal_targets = {key: setup.json()["targets"][key]
+                            for key in ("calories", "protein_g", "carbs_g", "fat_g")}
+        with ledger.ledger_transaction():
+            pace_proposal_id = ledger.create_nutrition_pace_proposal(
+                active_plan["id"], {"kind": "pace", "goal": "maintain", "intensity": None,
+                    "actual_rate_pct": 0.3, "planned_rate_pct": 0,
+                    "calorie_change": 0, "targets": proposal_targets}, "2026-10-25T00:00:00+00:00")
+    player_cannot_decide = client.post(
+        f"/nutrition/pace-proposals/{pace_proposal_id}/decision", headers=player_headers,
+        json={"decision": "accepted"})
+    assert player_cannot_decide.status_code == 403
+    coach_decision = client.post(
+        f"/coach/assignments/{assignment_id}/nutrition/pace-proposals/{pace_proposal_id}/decision",
+        headers=coach_headers, json={"decision": "accepted"})
+    assert coach_decision.status_code == 200, coach_decision.text
+    assert coach_decision.json()["authority"] == "coach"
+    assert coach_decision.json()["pace_proposal"]["status"] == "accepted"
     activity_change = client.put("/nutrition/activity", headers=player_headers,
                                  json={"daily_activity": "physical_job"})
     assert activity_change.status_code == 403
@@ -622,6 +941,26 @@ def test_coach_authored_plan_without_active_assignment_does_not_withhold_player_
                           json={"goal": "gain", "intensity": "light"})
     assert response.status_code == 200, response.text
     assert response.json()["authority"] == "player"
+
+
+def _seed_pace_weight_history(ledger, start, weights):
+    from datetime import timedelta
+
+    for offset, weight in zip((0, 7, 14, 21), weights, strict=True):
+        profile = ledger.get_player_profile()
+        profile["weight_kg"] = weight
+        ledger.upsert_player_profile_with_weight_history(
+            profile, (start + timedelta(days=offset)).isoformat())
+
+
+def _backdate_active_nutrition_plan(ledger, start):
+    created_at = start.isoformat() + "T00:00:00+00:00"
+    ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+    ledger.conn.execute("UPDATE nutrition_plan_versions SET created_at=?", (created_at,))
+    ledger.conn.execute(
+        "CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions "
+        "BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+    ledger.conn.commit()
 
 
 def _seed_profile(db, username, *, age, target, current_goal="get stronger"):

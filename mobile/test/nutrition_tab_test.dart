@@ -5,6 +5,8 @@ import 'package:myos_mobile/src/core/api_client.dart';
 import 'package:myos_mobile/src/core/display_language/controller.dart';
 import 'package:myos_mobile/src/core/token_store.dart';
 import 'package:myos_mobile/src/features/player/nutrition/nutrition_tab.dart';
+import 'package:myos_mobile/src/features/coach/coach_nutrition_segment.dart';
+import 'package:myos_mobile/src/features/coach/coach_charts_segment.dart';
 import 'package:myos_mobile/src/providers.dart';
 
 import 'support/fake_myos_api.dart';
@@ -144,6 +146,85 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Update Nutrition targets'), findsNothing);
     expect(find.text('Physical job'), findsNothing);
+  });
+
+  testWidgets('Player can see and decide a pending pace proposal', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+      'state': 'ready', 'goal': 'lose', 'goal_reason': <String, dynamic>{'code': 'default'},
+      'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
+      'pace_proposal': <String, dynamic>{'id': 3, 'status': 'pending', 'stale': false,
+        'payload': <String, dynamic>{'actual_rate_pct': -0.1, 'planned_rate_pct': -0.5,
+          'calorie_change': -250, 'targets': <String, dynamic>{'calories': 1550}}},
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Pace check proposal'), findsOneWidget);
+    expect(find.text('Apply'), findsOneWidget);
+    expect(find.text('Keep targets'), findsOneWidget);
+    await tester.tap(find.text('Keep targets'));
+    await tester.pumpAndSettle();
+    expect(fake.nutritionPaceDecisions, <String>['kept']);
+    expect(fake.nutritionState['targets']?['calories'], 1800);
+    expect(find.text('Kept by Player'), findsOneWidget);
+  });
+
+  testWidgets('stale pace proposal still offers Keep without Apply', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+      'state': 'ready', 'goal': 'lose', 'authority': 'player',
+      'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
+      'pace_proposal': <String, dynamic>{'id': 3, 'status': 'pending', 'stale': true,
+        'payload': <String, dynamic>{'targets': <String, dynamic>{'calories': 1550}}},
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsNothing);
+    expect(find.text('Keep targets'), findsOneWidget);
+    await tester.tap(find.text('Keep targets'));
+    await tester.pumpAndSettle();
+    expect(fake.nutritionPaceDecisions, <String>['kept']);
+  });
+
+  testWidgets('Coach authority shows Apply and Keep while read-only Coach sees decision only', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()
+      ..coachPlayerNutrition = <String, dynamic>{
+        'authority': 'coach', 'goal': 'lose',
+        'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
+        'target_options': <String, dynamic>{'daily': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60}},
+        'pace_proposal': <String, dynamic>{'id': 3, 'status': 'pending', 'stale': false,
+          'payload': <String, dynamic>{'actual_rate_pct': -0.1, 'planned_rate_pct': -0.5,
+            'calorie_change': -250, 'targets': <String, dynamic>{'calories': 1550}}},
+      };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(), home: const CoachChartsSegment(key: ValueKey<String>('authority-chart'), assignmentId: 'assignment')));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsOneWidget);
+    expect(find.text('Keep targets'), findsOneWidget);
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(fake.nutritionPaceDecisions, <String>['accepted']);
+    expect(fake.coachPlayerNutrition['targets']?['calories'], 1550);
+    expect(find.text('Accepted by Coach'), findsOneWidget);
+    fake.coachPlayerNutrition = <String, dynamic>{...fake.coachPlayerNutrition,
+      'authority': 'player', 'pace_proposal': <String, dynamic>{'id': 3, 'status': 'kept', 'stale': false,
+        'payload': <String, dynamic>{'actual_rate_pct': -0.1, 'planned_rate_pct': -0.5,
+          'targets': <String, dynamic>{'calories': 1800}}}};
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(), home: const CoachChartsSegment(key: ValueKey<String>('readonly-chart'), assignmentId: 'assignment')));
+    await tester.pumpAndSettle();
+    expect(find.text('Kept by Player'), findsOneWidget);
+    expect(find.text('Apply'), findsNothing);
+  });
+
+  testWidgets('Coach Nutrition content fits inside the Player page scroll view', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+      'authority': 'player', 'goal': 'maintain',
+      'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
+    };
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light(), home: ListView(children: <Widget>[
+      const Text('Player page'),
+      const CoachNutritionSegment(assignmentId: 'assignment'),
+    ])));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Player page'), findsOneWidget);
   });
 
   for (final ThemeData theme in <ThemeData>[ThemeData.light(), ThemeData.dark()]) {
@@ -338,7 +419,7 @@ FakeMyosApi _fake() => FakeMyosApi()
   ..gender = 'female'
   ..profileExists = true;
 
-Widget _app(FakeMyosApi fake, String language, ThemeData theme) => ProviderScope(
+Widget _app(FakeMyosApi fake, String language, ThemeData theme, {Widget? home}) => ProviderScope(
       overrides: <Override>[
         apiClientProvider.overrideWith((ref) {
           final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -347,6 +428,6 @@ Widget _app(FakeMyosApi fake, String language, ThemeData theme) => ProviderScope
         }),
         systemDisplayLanguageProvider.overrideWithValue(language),
       ],
-      child: MaterialApp(theme: theme, home: const Scaffold(body: NutritionTab())),
+      child: MaterialApp(theme: theme, home: Scaffold(body: home ?? const NutritionTab())),
     );
 

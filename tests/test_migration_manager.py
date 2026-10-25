@@ -619,12 +619,18 @@ def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     set_ledger_schema_version(conn, 38)
     conn.commit()
     apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 39
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 41
+    assert conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='nutrition_pace_proposals'"
+    ).fetchone() is not None
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "nutrition_adherence" in tables
     assert "authority_assignment_id" in {
         row[1] for row in conn.execute("PRAGMA table_info(nutrition_plan_versions)")
     }
+    assert [row[2] for row in conn.execute(
+        "PRAGMA index_info(idx_nutrition_pace_pending)")
+    ] == ["plan_version_id"]
     db.ledger.upsert_nutrition_adherence("2026-10-24", "roughly")
     assert db.ledger.list_nutrition_adherence("2026-10-24", "2026-10-24") == [
         {"date": "2026-10-24", "value": "roughly", "source": "answered"}

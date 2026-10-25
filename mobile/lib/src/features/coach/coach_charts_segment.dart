@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/connectivity_message.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/nutrition_copy.dart';
 import '../../core/models.dart';
 import '../../providers.dart';
+import 'coach_pace_check_card.dart';
 
 class CoachChartsSegment extends ConsumerStatefulWidget {
   const CoachChartsSegment({super.key, required this.assignmentId});
@@ -20,6 +22,8 @@ class CoachChartsSegment extends ConsumerStatefulWidget {
 class _CoachChartsSegmentState extends ConsumerState<CoachChartsSegment> {
   CoachNutritionState? _state;
   bool _failed = false;
+  bool _deciding = false;
+  String? _decisionError;
 
   @override
   void initState() {
@@ -67,6 +71,13 @@ class _CoachChartsSegmentState extends ConsumerState<CoachChartsSegment> {
     final String summary = _accessibleSummary(copy, weights, adherence,
         state.plannedWeeklyRatePct ?? 0, firstWeightDate);
     return Directionality(textDirection: copy.isArabic ? TextDirection.rtl : TextDirection.ltr, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      if (state.paceProposal != null) ...<Widget>[
+        CoachPaceCheckCard(proposal: state.paceProposal!, authority: state.authority,
+          onDecision: _decidePaceProposal),
+        if (_decisionError != null) Text(_decisionError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        const SizedBox(height: 12),
+      ],
       Text(copy.coachWeightAdherence, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 8),
       SizedBox(
@@ -91,6 +102,25 @@ class _CoachChartsSegmentState extends ConsumerState<CoachChartsSegment> {
       const SizedBox(height: 8),
       if (hasData) ExcludeSemantics(child: Text(summary)),
     ]));
+  }
+
+  Future<void> _decidePaceProposal(String decision) async {
+    final Object? rawId = _state?.paceProposal?['id'];
+    final int? proposalId = rawId is num ? rawId.toInt() : int.tryParse('$rawId');
+    if (proposalId == null || _deciding) return;
+    setState(() { _deciding = true; _decisionError = null; });
+    try {
+      final CoachNutritionState state = await ref.read(apiClientProvider)
+          .decideCoachPaceProposal(widget.assignmentId, proposalId, decision);
+      if (mounted) setState(() { _state = state; _deciding = false; });
+    } on ApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _deciding = false;
+          _decisionError = displayCopyOf(context).failureMessage(apiFailureMessage(error));
+        });
+      }
+    }
   }
 
   String _accessibleSummary(NutritionCopy copy, Map<String, double> weights,

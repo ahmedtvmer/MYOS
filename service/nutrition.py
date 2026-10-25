@@ -2,12 +2,14 @@
 
 import json
 import math
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from agent.program_blueprints import classify_goal
 from core.nutrition_targets import ACTIVITY_FACTORS, NutritionCalculationInput, NutritionTargets, calculate_targets
 from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
+from service import nutrition_pace_check
 
 
 SCREENING_KEYS = (
@@ -15,6 +17,15 @@ SCREENING_KEYS = (
     "medical_condition",
     "eating_disorder",
 )
+
+
+@dataclass(frozen=True)
+class PaceProposalDecision:
+    proposal_id: int
+    decision: str
+    actor_role: str
+    assignment_id: str | None
+    today: date
 MESSAGES = {
     "incomplete": ("Complete your Training profile before setting Nutrition targets.",
                    "أكمل الملف التدريبي قبل إعداد الأهداف الغذائية."),
@@ -316,7 +327,66 @@ def read(
                 nutrition_state["pending_goal"] = resolved
                 nutrition_state["pending_goal_reason"] = reason
     nutrition_state.update(_adherence_state(ledger, today))
+    proposal = ledger.get_nutrition_pace_proposal()
+    if proposal is not None:
+        active = ledger.get_active_nutrition_plan()
+        proposal["stale"] = active is None or int(active["id"]) != int(proposal["plan_version_id"])
+        nutrition_state["pace_proposal"] = proposal
+    else:
+        nutrition_state["pace_proposal"] = None
     return nutrition_state
+
+
+def evaluate_pace_check(ledger: Any, today: date) -> dict[str, Any] | None:
+    return nutrition_pace_check.evaluate(ledger, today)
+
+
+def decide_pace_proposal(ledger: Any, command: PaceProposalDecision) -> dict[str, Any]:
+    if command.decision not in ("accepted", "kept"):
+        raise ValueError("Decision must be accepted or kept.")
+    proposal = ledger.get_nutrition_pace_proposal()
+    if (proposal is None or int(proposal["id"]) != command.proposal_id
+            or proposal["status"] != "pending"):
+        raise ValueError("Pace proposal is no longer pending.")
+    with ledger.ledger_transaction():
+        if command.decision == "accepted":
+            _accept_pace_proposal(ledger, proposal, command)
+        if not ledger.decide_nutrition_pace_proposal(
+            command.proposal_id, command.decision, command.actor_role,
+            datetime.now(UTC).isoformat()
+        ):
+            raise ValueError("Pace proposal is no longer pending.")
+    return read(ledger, today=command.today)
+
+
+def _accept_pace_proposal(ledger: Any, proposal: dict[str, Any],
+                          command: PaceProposalDecision) -> None:
+    active = ledger.get_active_nutrition_plan()
+    if active is None or int(active["id"]) != int(proposal["plan_version_id"]):
+        raise ValueError("This pace proposal is stale because the Nutrition plan changed.")
+    payload = proposal["payload"]
+    profile = ledger.get_nutrition_profile() or {}
+    floor = math.ceil(_calculate_for(ledger, profile, profile.get("gender") or "male",
+                                     active["daily_activity"], "maintain", "moderate")["calorie_floor"])
+    targets = payload.get("target_options") or {"daily": payload["targets"]}
+    for day_targets in targets.values():
+        calories = int(day_targets["calories"])
+        macro_calories = (int(day_targets["protein_g"]) * 4
+                          + int(day_targets["carbs_g"]) * 4
+                          + int(day_targets["fat_g"]) * 9)
+        if calories < floor:
+            raise ValueError(f"Pace proposal is below the current Calorie floor of {floor} kcal.")
+        if abs(macro_calories - calories) > calories * 0.05:
+            raise ValueError("Pace proposal Macros do not match the calorie target within 5%.")
+    coach_authored = command.actor_role == "coach"
+    ledger.save_nutrition_plan(NutritionPlanVersion(
+        goal=payload["goal"], reason={"code": "pace_check", "proposal_id": command.proposal_id},
+        intensity=payload["intensity"], daily_activity=active["daily_activity"],
+        targets=targets, goal_source_snapshot=_goal_source(profile),
+        author="Coach" if coach_authored else "Player",
+        provenance="coach" if coach_authored else "automatic",
+        authority_assignment_id=command.assignment_id if coach_authored else None,
+    ))
 
 
 def assistant_projection(ledger: Any, today: date) -> dict[str, Any]:

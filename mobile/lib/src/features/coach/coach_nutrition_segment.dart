@@ -164,7 +164,7 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
   }
 
   Widget _nutritionContent(NutritionCopy copy) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
         _authorityHeader(copy),
         const SizedBox(height: 12),
         Text(copy.coachTargets, style: Theme.of(context).textTheme.titleLarge),

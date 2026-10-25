@@ -102,6 +102,7 @@ class FakeMyosApi {
   final List<String> nutritionAdherenceValues = <String>[];
   Map<String, dynamic>? lastNutritionGoal;
   int nutritionOfferDismissals = 0;
+  final List<String> nutritionPaceDecisions = <String>[];
   Map<String, dynamic> nutritionState = <String, dynamic>{
     'state': 'not_started', 'targets': null,
   };
@@ -564,6 +565,33 @@ class FakeMyosApi {
 
   FakeResponse _handle(FakeRequest request) {
     final String path = request.path;
+    if (path.startsWith('/coach/assignments/') &&
+        path.contains('/nutrition/pace-proposals/')) {
+      final String decision = request.body['decision'] as String;
+      nutritionPaceDecisions.add(decision);
+      final Map<String, dynamic>? proposal = coachPlayerNutrition['pace_proposal'] as Map<String, dynamic>?;
+      final Map<String, dynamic> payload = proposal?['payload'] is Map<String, dynamic>
+          ? proposal!['payload'] as Map<String, dynamic> : <String, dynamic>{};
+      coachPlayerNutrition = <String, dynamic>{...coachPlayerNutrition,
+        if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
+          'targets': payload['targets'],
+        'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
+          'status': decision, 'decided_by': 'coach'}};
+      return FakeResponse(200, coachPlayerNutrition);
+    }
+    if (path.startsWith('/nutrition/pace-proposals/')) {
+      final String decision = request.body['decision'] as String;
+      nutritionPaceDecisions.add(decision);
+      final Map<String, dynamic>? proposal = nutritionState['pace_proposal'] as Map<String, dynamic>?;
+      final Map<String, dynamic> payload = proposal?['payload'] is Map<String, dynamic>
+          ? proposal!['payload'] as Map<String, dynamic> : <String, dynamic>{};
+      nutritionState = <String, dynamic>{...nutritionState,
+        if (decision == 'accepted' && payload['targets'] is Map<String, dynamic>)
+          'targets': payload['targets'],
+        'pace_proposal': proposal == null ? null : <String, dynamic>{...proposal,
+          'status': decision, 'decided_by': 'player'}};
+      return FakeResponse(200, nutritionState);
+    }
     if (path == '/app/version-policy') {
       appVersionPolicyRequests++;
       if (appVersionPolicyFails) {

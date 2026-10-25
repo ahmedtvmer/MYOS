@@ -214,6 +214,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             }, child: Text(copy.accept)),
           ]),
         )),
+        if (_plan!.paceProposal != null) _paceProposalCard(copy),
         if (_plan!.authority != 'coach') Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
           onPressed: _saving ? null : () async {
             final NutritionPlanState? saved = await Navigator.of(context).push<NutritionPlanState>(
@@ -252,6 +253,47 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
         if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ],
     );
+  }
+
+  Widget _paceProposalCard(NutritionCopy copy) {
+    final Map<String, dynamic> proposal = _plan!.paceProposal!;
+    final Map<String, dynamic> payload = proposal['payload'] is Map<String, dynamic>
+        ? proposal['payload'] as Map<String, dynamic> : <String, dynamic>{};
+    final Map<String, dynamic> targets = payload['targets'] is Map<String, dynamic>
+        ? payload['targets'] as Map<String, dynamic> : <String, dynamic>{};
+    final bool stale = proposal['stale'] == true;
+    final bool canDecide = _plan!.authority != 'coach'
+        && proposal['status'] == 'pending';
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Text(copy.paceProposal, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Text(copy.paceProposalRates(payload['actual_rate_pct'] ?? '—', payload['planned_rate_pct'] ?? '—')),
+        Text(copy.paceProposalCalories(targets['calories'] ?? '—', payload['calorie_change'] ?? 0)),
+        if (stale) Text(copy.staleProposal),
+        if (proposal['status'] != 'pending')
+          Text(copy.proposalDecisionBy(proposal['status'] as String?, proposal['decided_by'] as String?)),
+        if (payload['floor_limited'] == true) Text(copy.floorWarning),
+        if (canDecide) Wrap(spacing: 8, children: <Widget>[
+          if (!stale) FilledButton(onPressed: _saving ? null : () { _decidePaceProposal('accepted'); }, child: Text(copy.proposalAccept)),
+          OutlinedButton(onPressed: _saving ? null : () { _decidePaceProposal('kept'); }, child: Text(copy.proposalKeep)),
+        ]),
+      ],
+    )));
+  }
+
+  Future<void> _decidePaceProposal(String decision) async {
+    final Object? rawId = _plan?.paceProposal?['id'];
+    final int? proposalId = rawId is num ? rawId.toInt() : int.tryParse('$rawId');
+    if (proposalId == null) return;
+    setState(() { _saving = true; _error = null; });
+    try {
+      final NutritionPlanState plan = await ref.read(apiClientProvider)
+          .decideNutritionPaceProposal(proposalId, decision);
+      if (mounted) setState(() { _plan = plan; _saving = false; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; _saving = false; });
+    }
   }
 
   Widget _adherenceButton(String label, String value, NutritionCopy copy) =>
