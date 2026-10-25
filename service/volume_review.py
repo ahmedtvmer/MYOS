@@ -1,6 +1,7 @@
 """Deterministic per-muscle working-set reviews (#234)."""
 
 import json
+import math
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -9,10 +10,23 @@ from agent.program_rationale import CHANGE_VOLUME_REVIEW
 from agent.progression_engine import set_e1rm
 from agent.ProgramState import program_exercise_working_sets
 from agent.program_blueprints import SLOT_STAPLES, experience_level_for_training_age
+from agent.focus_muscles import FOCUS_MULTIPLIER, FOCUS_REVIEW_MUSCLES
 from agent.program_weeks import flatten_program_days, normalize_program_weeks
 from utils.equipment_access import equipment_access_allows
 
-CEILINGS = {"beginner": 8, "intermediate": 10, "advanced": 13}
+BASE_CEILINGS = {"beginner": 8, "intermediate": 10, "advanced": 13}
+REMOVAL_FLOOR = 4
+
+
+def _review_focus_muscles(program: Any) -> set[str]:
+    """Map version-pinned Weak point keys to Volume review muscle groups."""
+    rationale = getattr(program, "program_rationale", None) or {}
+    return {
+        review_muscle
+        for item in rationale.get("focus_muscles", [])
+        if isinstance(item, dict) and item.get("muscle")
+        for review_muscle in FOCUS_REVIEW_MUSCLES.get(str(item["muscle"]).strip().lower(), set())
+    }
 
 
 def review_facts(ledger: Any, program: Any, profile: dict[str, Any], as_of: date) -> dict[str, Any]:
@@ -42,6 +56,7 @@ def review_facts(ledger: Any, program: Any, profile: dict[str, Any], as_of: date
     adherence = _adherence(ledger, active_version, changed, as_of, elapsed_weeks, program.weekly_frequency)
     experience = float(profile.get("training_age_years") or 0)
     level = experience_level_for_training_age(experience)
+    focus_muscles = _review_focus_muscles(program)
     results = []
     for muscle in sorted(sets_by_muscle):
         muscle_rows = by_muscle.get(muscle, [])
@@ -62,7 +77,7 @@ def review_facts(ledger: Any, program: Any, profile: dict[str, Any], as_of: date
         }
         verdict, delta, reason = _verdict(
             muscle, trend, adherence, low_readiness, len(overshoot_sessions),
-            sets_by_muscle[muscle], level,
+            sets_by_muscle[muscle], level, muscle.strip().lower() in focus_muscles,
         )
         placements = exercises_by_muscle[muscle]
         edits = _place_delta(placements, delta)
@@ -133,17 +148,20 @@ def _verdict(
     overshoot_sessions: int,
     weekly_sets: int,
     level: str,
+    focus: bool = False,
 ) -> tuple[str, int, str]:
+    ceiling = round(BASE_CEILINGS[level] * FOCUS_MULTIPLIER) if focus else BASE_CEILINGS[level]
+    floor = math.ceil(REMOVAL_FLOOR * FOCUS_MULTIPLIER) if focus else REMOVAL_FLOOR
     if adherence < .75:
         return "low_adherence", 0, "Consistency comes first; complete at least 75% of planned sessions before changing volume."
     if trend == "progressing":
         return "progressing", 0, f"{muscle} is progressing on its working sets; keep volume steady."
     if trend == "regressing" or (trend == "flat" and (low_readiness or overshoot_sessions >= 2)):
-        delta = -min(2, max(0, weekly_sets - 4))
+        delta = -min(2, max(0, weekly_sets - floor))
         if delta == 0:
-            return "at_floor", 0, f"{muscle} is already at the four-set weekly floor; keep volume steady."
+            return "at_floor", 0, f"{muscle} is already at the {floor}-set weekly floor; keep volume steady."
         return "under_recovered", delta, f"{muscle} performance is {trend} with recovery strain; reduce weekly work."
-    delta = max(0, min(2, CEILINGS[level] - weekly_sets))
+    delta = max(0, min(2, ceiling - weekly_sets))
     if delta == 0:
         return "at_ceiling", 0, f"{muscle} is already at its weekly set ceiling; keep volume steady."
     return "stalled", delta, f"{muscle} has stalled despite good recovery; add weekly working sets."

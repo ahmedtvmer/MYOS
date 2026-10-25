@@ -18,6 +18,34 @@ class CoachCopy {
   String get roster => isArabic ? 'قائمة اللاعبين' : 'Roster';
   String get alerts => isArabic ? 'التنبيهات' : 'Alerts';
   String get requests => isArabic ? 'الطلبات' : 'Requests';
+  String get weakPoints => isArabic ? 'نقاط الضعف' : 'Weak points';
+  String get focusMuscles => isArabic ? 'العضلات محل التركيز' : 'Focus muscles';
+  String get noExtraExerciseAvailable => isArabic ? 'لا يتوفر تمرين إضافي' : 'No extra exercise available';
+  String get noWeakPoints => isArabic ? 'لم يحدد اللاعب نقاط ضعف.' : 'The lifter has not named any Weak points.';
+  String get noFocusMuscles => isArabic ? 'لا توجد عضلات محل تركيز.' : 'There are no Focus muscles.';
+  String weakPointSource(String source) => switch (source) {
+        'named' => isArabic ? 'اختارها اللاعب' : 'Named by the lifter',
+        'default' => isArabic ? 'افتراضية' : 'Default',
+        'migrated' => isArabic ? 'من أولوية المؤخرة' : 'From Glute Priority',
+        _ => '',
+      };
+  String muscleName(String key) => switch (key) {
+        'chest' => isArabic ? 'الصدر' : 'Chest',
+        'upper_chest' => isArabic ? 'أعلى الصدر' : 'Upper chest',
+        'back' => isArabic ? 'الظهر' : 'Back',
+        'shoulders' => isArabic ? 'الأكتاف' : 'Shoulders',
+        'side_delts' => isArabic ? 'الأكتاف الجانبية' : 'Side delts',
+        'biceps' => isArabic ? 'العضلة ذات الرأسين' : 'Biceps',
+        'triceps' => isArabic ? 'العضلة ثلاثية الرؤوس' : 'Triceps',
+        'forearms' => isArabic ? 'الساعدان' : 'Forearms',
+        'quads' => isArabic ? 'الرباعية' : 'Quads',
+        'hamstrings' => isArabic ? 'أوتار الركبة' : 'Hamstrings',
+        'glutes' => isArabic ? 'المؤخرة' : 'Glutes',
+        'adductors' => isArabic ? 'المقربات' : 'Adductors',
+        'calves' => isArabic ? 'السمانة' : 'Calves',
+        'abs' => isArabic ? 'البطن' : 'Abs',
+        _ => key,
+      };
   String get profile => isArabic ? 'الملف الشخصي' : 'Profile';
   String get allPlayers => isArabic ? 'كل اللاعبين' : 'All players';
   String get stalledFilter => isArabic ? 'المتوقفون' : 'Stalled';

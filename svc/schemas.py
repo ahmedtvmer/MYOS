@@ -1631,6 +1631,8 @@ class CoachActiveProgramOut(BaseModel):
 
     program: CoachActiveProgramDetailsOut | None = None
     has_draft: bool
+    weak_points: list[dict[str, str]] | None = None
+    focus_muscles: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CoachExerciseCreateIn(BaseModel):
