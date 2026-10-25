@@ -98,15 +98,46 @@ def substitute_program_exercise(
     for exercise in replaced_exercises:
         _adjust_class_prescription(exercise, replacement, profile)
     replaced_count = len(replaced_exercises)
-    from service.program_rationale_changes import record_exercise_changes
-    replaced_ids = {str(exercise["exercise_id"]) for exercise in replaced_exercises}
-    record_exercise_changes(active_program, program_data, {
-        str(exercise["exercise_id"]): [{"code": CHANGE_SUBSTITUTION, "params": {
-            "from_exercise_id": str(request.exercise_id),
-            "to_exercise_id": str(exercise["exercise_id"]),
-            "by": "coach" if request.published_by_coach_account_id else "player",
-        }}] for exercise in replaced_exercises
-    }, source_ids={exercise_id: str(request.exercise_id) for exercise_id in replaced_ids})
+    from service.program_rationale_changes import (
+        carry_program_rationale,
+        occurrence_mappings_for_days,
+    )
+    old_days = flatten_program_days(normalize_program_weeks(active_program))
+    new_days = program_data.get("days", [])
+    target_keys = {
+        (int(day.get("week_order", current_week)), int(day.get("day_order", 0)))
+        for day in target_days
+    }
+    source_positions: dict[tuple[int, int], dict[int, int]] = {}
+    changes_by_target: dict[tuple[int, int, int], list[dict[str, Any]]] = {}
+    for day_key in target_keys:
+        old_day = next((day for day in old_days if (
+            int(day.get("week_order", 1)), int(day.get("day_order", 0))
+        ) == day_key), None)
+        new_day = next((day for day in new_days if (
+            int(day.get("week_order", 1)), int(day.get("day_order", 0))
+        ) == day_key), None)
+        if old_day is None or new_day is None:
+            continue
+        for position, (old_exercise, new_exercise) in enumerate(
+            zip(old_day["exercises"], new_day["exercises"]), 1
+        ):
+            if (str(old_exercise["exercise_id"]) == str(request.exercise_id)
+                    and str(new_exercise["exercise_id"]) == str(replacement["id"])):
+                source_positions.setdefault(day_key, {})[position] = position
+                changes_by_target[(*day_key, position)] = [{
+                    "code": CHANGE_SUBSTITUTION,
+                    "params": {
+                        "from_exercise_id": str(request.exercise_id),
+                        "to_exercise_id": str(new_exercise["exercise_id"]),
+                        "by": "coach" if request.published_by_coach_account_id else "player",
+                    },
+                }]
+    mappings = occurrence_mappings_for_days(
+        old_days, new_days, source_positions=source_positions,
+        changes_by_target=changes_by_target,
+    )
+    carry_program_rationale(active_program, program_data, occurrence_mappings=mappings)
     program_data.pop("created_at", None)
     ledger.save_training_program(
         program_data,

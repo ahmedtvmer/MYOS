@@ -1050,7 +1050,6 @@ class _CoachPlayerHistoryScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        ...emphasis,
         CoachProgramCard(
           active: active,
           busyState: (
@@ -1073,6 +1072,8 @@ class _CoachPlayerHistoryScreenState
             saveAsTemplate: _saveProgramAsTemplate,
           ),
         ),
+        const SizedBox(height: MyosSpacing.md),
+        ...emphasis,
       ],
     );
   }

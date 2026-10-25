@@ -68,13 +68,15 @@ from service.missed_day_alerts import (
     list_alerts as list_coach_alerts,
 )
 from service.weight_history import WeightTrendQuery, get_weight_trend
-from agent.player_tools import ProgramRationaleArgs, _read_program_rationale
+from agent.program_rationale_reader import read_program_rationale
 
 logger = logging.getLogger(__name__)
 
+COACH_PROGRAM_RATIONALE_MAX_BYTES = 4 * 1024
+
 #: Bumped whenever the prompt or the context shape changes; the eval report's
 #: ``prompt_hash`` must match :func:`prompt_version_hash` for the flag to enable.
-CONTEXT_VERSION = "coach-context-v11"
+CONTEXT_VERSION = "coach-context-v12"
 
 BODYWEIGHT_TREND_WEEKS = 8
 E1RM_TREND_WEEKS = 12
@@ -558,8 +560,143 @@ def _program_facts(
     return facts
 
 
+def coach_program_rationale_context(program: Any) -> dict[str, Any]:
+    """Build a byte-bounded rationale with a selection and position code per lift."""
+    header = read_program_rationale(program)
+    days = [
+        _coach_rationale_day(program, week, day)
+        for week in _program_week_structure(program)
+        for day in week["days"]
+    ]
+    return _bound_coach_rationale({
+        "status": header.get("status", "ok"),
+        "source": header.get("source"),
+        "reason_available": header.get("reason_available", False),
+        "split": header.get("split"),
+        "day_order": header.get("day_order"),
+        "days": days,
+    })
+
+
+def _coach_rationale_day(program: Any, week: dict[str, Any], day: dict[str, Any]) -> dict[str, Any]:
+    week_order = int(day.get("week_order", week["order"]))
+    day_order = int(day.get("day_order", 0))
+    day_result = read_program_rationale(
+        program, {"week_order": week_order, "day_order": day_order}
+    )
+    read_day = next(iter(day_result.get("days", [])), {})
+    exercises = [
+        _coach_rationale_exercise(program, {
+            "week_order": week_order,
+            "day_order": day_order,
+            "position": position,
+        }, exercise)
+        for position, exercise in enumerate(day.get("exercises", ()) or (), 1)
+    ]
+    return {
+        "week_order": week_order,
+        "day_order": day_order,
+        "day": str(day.get("day_name", "")),
+        "day_order_reason": read_day.get("day_order_reason"),
+        "exercises": exercises,
+    }
+
+
+def _coach_rationale_exercise(
+    program: Any, scope: dict[str, int], exercise: Any
+) -> dict[str, Any]:
+    exercise_id = _coach_exercise_field(exercise, "exercise_id")
+    exercise_name = _coach_exercise_field(exercise, "exercise_name", "name")
+    result = read_program_rationale(program, scope | {"exercise_id": exercise_id})
+    read_exercise = next(
+        (item for day in result.get("days", []) for item in day.get("exercises", [])),
+        {},
+    )
+    return _serialize_coach_rationale_exercise(exercise_id, exercise_name, read_exercise)
+
+
+def _serialize_coach_rationale_exercise(
+    exercise_id: str, exercise_name: str, read_exercise: dict[str, Any]
+) -> dict[str, Any]:
+    rationale = read_exercise.get("rationale") or {}
+    prescription = rationale.get("prescription") or {}
+    return {
+        "id": exercise_id,
+        "name": exercise_name,
+        "selection": rationale.get("selection"),
+        "position": rationale.get("position"),
+        "prescription": {
+            key: prescription[key]
+            for key in ("sets", "reps", "rir", "rest")
+            if key in prescription
+        },
+        "changes": [change.get("code") for change in read_exercise.get("changes", [])],
+    }
+
+
+def _coach_exercise_field(exercise: Any, field: str, fallback: str | None = None) -> str:
+    if isinstance(exercise, dict):
+        value = exercise.get(field, exercise.get(fallback, "") if fallback else "")
+    else:
+        value = getattr(exercise, field, "")
+    return str(value)
+
+
+def _bound_coach_rationale(result: dict[str, Any]) -> dict[str, Any]:
+    if _rationale_size(result) <= COACH_PROGRAM_RATIONALE_MAX_BYTES:
+        return result
+    compact = json.loads(json.dumps(result))
+    for day in compact["days"]:
+        for exercise in day["exercises"]:
+            for reason in exercise["prescription"].values():
+                reason.pop("params", None)
+    if _rationale_size(compact) <= COACH_PROGRAM_RATIONALE_MAX_BYTES:
+        return compact
+    return _minimal_coach_rationale(compact)
+
+
+def _minimal_coach_rationale(compact: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "source": compact["source"],
+        "reason_available": compact["reason_available"],
+        "split": compact["split"],
+        "day_order": compact["day_order"],
+        "days": [_minimal_coach_day(day) for day in compact["days"]],
+    }
+    if _rationale_size(fallback) <= COACH_PROGRAM_RATIONALE_MAX_BYTES:
+        return fallback
+    fallback["days"] = [
+        {"order": day["order"], "exercises": [entry[2:] for entry in day["exercises"]]}
+        for day in fallback["days"]
+    ]
+    return fallback
+
+
+def _minimal_coach_day(day: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "week": day["week_order"],
+        "order": day["day_order"],
+        "name": day["day"],
+        "exercises": [
+            [exercise["id"], exercise["name"],
+             (exercise.get("selection") or {}).get("code"),
+             (exercise.get("position") or {}).get("code")]
+            for exercise in day["exercises"]
+        ],
+    }
+
+
+def _rationale_size(value: dict[str, Any]) -> int:
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
 def _program_week_structure(program: Any) -> list[dict[str, Any]]:
-    weeks = normalize_program_weeks(program)
+    program_data = (
+        program.model_dump()
+        if hasattr(program, "model_dump")
+        else vars(program)
+    )
+    weeks = normalize_program_weeks(program_data)
     return [
         {
             "order": week["week_order"],
@@ -928,9 +1065,7 @@ def gather_player_context(
                 "status": context["assignment"].get("status", "active"),
             },
             "program": _program_facts(program, db, ledger, program_flags),
-            "program_rationale": _read_program_rationale(
-                ledger, ProgramRationaleArgs()
-            ),
+            "program_rationale": coach_program_rationale_context(program),
             "training_profile": _training_profile_facts(ledger),
             "injuries": injuries,
             "volume": {

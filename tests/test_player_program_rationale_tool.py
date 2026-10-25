@@ -59,8 +59,56 @@ def test_program_rationale_reader_reports_legacy_and_coach_authored_source_and_n
 
 def test_program_rationale_reader_never_exceeds_4_kb():
     rationale = {"split": {"code": "split.test", "params": {}}, "days": [
-        {"day_order": 1, "exercises": [{"position": i, "exercise_id": f"id-{i}", "payload": "x" * 1200} for i in range(4)]}
+        {"day_order": 1, "exercises": [{"position": i, "exercise_id": f"id-{i}", "rationale": {
+            "selection": {"code": "selection.staple", "params": {"exercise_id": f"id-{i}", "slot": "horizontal_press"}},
+            "position": {"code": "position.heavy_compound", "params": {"slot": "horizontal_press"}},
+            "prescription": {"sets": {"code": "sets.coach_dose", "params": {"count": 4}},
+                             "reps": {"code": "reps.movement_class", "params": {"rep_min": 6, "rep_max": 8}},
+                             "rir": {"code": "rir.experience_level", "params": {"target_rir": 2}},
+                             "rest": {"code": "rest.movement_class", "params": {"rest_seconds": 150}}}},
+            "changes": [{"code": "change.substitution", "params": {"from": "old"}, "at": "2026-01-01T00:00:00Z"}]}
+            for i in range(1, 5)]}
     ]}
     result = _reader(_program(rationale=rationale)).invoke({})
     assert len(result.encode("utf-8")) <= 4096
-    assert json.loads(result)["status"] == "summary"
+    assert json.loads(result)["reason_available"] is True
+
+
+def test_reader_preserves_change_history_removed_entries_and_unavailable_focus():
+    program = _program(rationale={
+        "focus_muscles": [{"muscle": "glutes", "status": "unavailable", "code": "focus.unavailable", "params": {}}],
+        "days": [{"day_order": 1, "removed": [{"exercise_id": "old", "code": "change.program_edit_removed"}],
+                  "exercises": [{"position": 1, "exercise_id": "id-1", "selection": {"code": "selection.staple", "params": {}},
+                                 "position_reason": {"code": "position.isolation", "params": {}},
+                                 "prescription": {}, "changes": [{"code": "change.substitution", "params": {"from": "old"}, "at": "today"}]}]}],
+    })
+    whole = json.loads(_reader(program).invoke({}))
+    exercise = json.loads(_reader(program).invoke({"exercise_id": "id-1"}))
+    assert whole["days"][0]["exercises"][0]["changes"][0]["code"] == "change.substitution"
+    assert whole["days"][0]["removed"][0]["exercise_id"] == "old"
+    assert whole["focus_muscles"][0]["status"] == "unavailable"
+    assert exercise["days"][0]["exercises"][0]["changes"]
+
+
+def test_coach_published_generated_program_is_not_labeled_automatic():
+    program = _program(rationale={"days": []}, authored=True)
+    result = json.loads(_reader(program).invoke({}))
+    assert result["source"] == "coach_generated"
+    assert result["days"][0]["exercises"][0]["coach_note"] == "Coach note"
+
+
+def test_oversized_day_rationale_is_paged_without_losing_reasons():
+    program = _program(rationale={"days": [{"day_order": 1, "exercises": [
+        {"position": index, "exercise_id": f"id-{index}", "rationale": {
+            "selection": {"code": "selection.staple", "params": {"detail": "x" * 1100}},
+        }} for index in range(1, 5)
+    ]}]})
+    first = json.loads(_reader(program).invoke({"day_order": 1}))
+
+    assert first["reason_available"] is True
+    assert len(json.dumps(first, separators=(",", ":")).encode()) <= 4096
+    assert first["days"][0]["exercises"]
+    assert first["next_page"] > 0
+    second = json.loads(_reader(program).invoke({"day_order": 1, "page": first["next_page"]}))
+    assert second["days"][0]["exercises"]
+    assert len(json.dumps(second, separators=(",", ":")).encode()) <= 4096

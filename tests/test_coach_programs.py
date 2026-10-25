@@ -235,6 +235,9 @@ def _program() -> GeneratedProgramSchema:
 
 def _coach_generation(monkeypatch):
     """Replaces the generator while leaving draft persistence to the real service."""
+    from agent.program_blueprints import SLOT_SPECS, target_rpe_for_experience
+    from agent.program_generator import ExercisePrescription
+    from agent.program_rationale import ExerciseRationaleOptions, exercise_rationale
 
     def fake(request, *, inference_call=None, ledger):
         source = _program()
@@ -246,8 +249,14 @@ def _coach_generation(monkeypatch):
                     "day_name": f"Full {index}",
                     "day_order": index,
                     "exercises": [
-                        exercise.model_copy(update={"target_rpe": 8.0, "notes": "Catalog execution steps."})
-                        for exercise in day.exercises
+                        exercise.model_copy(update={
+                            "target_rpe": target_rpe_for_experience(SLOT_SPECS[slot], "intermediate"),
+                            "target_reps_min": SLOT_SPECS[slot].reps[0],
+                            "target_reps_max": SLOT_SPECS[slot].reps[1],
+                            "rest_seconds": SLOT_SPECS[slot].rest_seconds,
+                            "notes": "Catalog execution steps.",
+                        })
+                        for exercise, slot in zip(day.exercises, ("flat_press", "horizontal_row", "triceps_pushdown"))
                     ],
                 }
             )
@@ -259,8 +268,20 @@ def _coach_generation(monkeypatch):
                     "day_order": {"code": "day_order.template", "params": {}}, "days": [
                         {"day_order": day.day_order, "exercises": [
                             {"position": index + 1, "exercise_id": exercise.exercise_id,
-                             "rationale": {"selection": {"code": "selection.staple"}, "prescription": {"sets": {"code": "sets.coach_dose", "params": {"count": exercise.target_sets}}}}}
-                            for index, exercise in enumerate(day.exercises)
+                             "rationale": exercise_rationale(
+                                 {"id": exercise.exercise_id, "_candidate_source": "signature"},
+                                 ExercisePrescription(
+                                     movement_slot=slot,
+                                     spec=SLOT_SPECS[slot],
+                                     working_sets=exercise.target_sets,
+                                     rep_preference="balanced",
+                                     experience_level="intermediate",
+                                 ),
+                                 ExerciseRationaleOptions(day_slots=(slot,), experience_level="intermediate"),
+                            )}
+                            for index, (exercise, slot) in enumerate(zip(
+                                day.exercises, ("flat_press", "horizontal_row", "triceps_pushdown")
+                            ))
                         ]} for day in days
                     ]}}
         )
@@ -1037,7 +1058,7 @@ def test_generate_draft_preserves_active_program_profile_and_authority(api, monk
         assert ledger.get_player_profile() == original_profile
         assert ledger.get_program_draft(assignment_id)["draft"]["weekly_frequency"] == 2
         assert db.get_active_assignment_for_player(player_account_id)["coach_account_id"] == coach_account_id
-        assert ledger.get_program_draft(assignment_id)["draft"]["days"][0]["exercises"][0]["target_rir"] == 2
+        assert ledger.get_program_draft(assignment_id)["draft"]["days"][0]["exercises"][0]["target_rir"] == 0.5
 
 
 def test_generate_draft_rejects_cardio_days_above_training_frequency(api):
@@ -1116,6 +1137,7 @@ def test_coach_edits_generated_draft_marks_changed_and_preserves_other_reasons(a
     changed_id = first_day["exercises"][0]["exercise_id"]
     untouched_id = first_day["exercises"][1]["exercise_id"]
     original_reason = next(row for row in rationale["days"][0]["exercises"] if row["exercise_id"] == untouched_id)["rationale"]
+    assert original_reason["prescription"]["rir"]["params"]["target_rir"] is not None
     first_day["exercises"][0]["notes"] = "Coach changed this exercise note."
     saved = client.put(_program_draft_path(assignment_id), headers=coach_headers, json=draft)
     assert saved.status_code == 200, saved.text
