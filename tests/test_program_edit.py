@@ -153,8 +153,94 @@ def test_program_edit_adds_visible_library_exercise_and_raises_sets(fresh_store)
     rationale = ledger.get_active_program().program_rationale
     added = rationale["days"][0]["exercises"][-1]
     assert added["changes"][0]["code"] == "change.program_edit_added"
-    assert added["changes"][0]["params"] == {"exercise_id": candidate["id"], "by": "player"}
+    assert added["changes"][0]["params"]["exercise_id"] == candidate["id"]
+    assert added["changes"][0]["params"]["by"] == "player"
     assert added["changes"][0]["at"]
+
+
+def test_program_edit_set_limit_applies_to_total_groups(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    exercise = PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]),
+        target_sets=4, target_reps_min=8, target_reps_max=12,
+        set_groups=[{"sets": 1, "reps_min": 8, "reps_max": 12, "target_rir": 2}, {"sets": 2, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[exercise])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+    result = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(row[0]), 4)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+    assert "code" not in result
+    saved = ledger.get_active_program().days[0].exercises[0]
+    assert sum(group.sets for group in saved.set_groups) == 4
+    assert saved.set_groups[0].sets == 1
+
+
+def test_program_edit_added_rationale_records_computed_prescription(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]), target_sets=2, target_reps_min=8, target_reps_max=12)])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+    edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(rows[0][0]), 2), ProgramEditExercise(-1, str(rows[1][0]), 2)],
+        player_account_id=TEST_PLAYER_ID, actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), preview=False))
+    added = ledger.get_active_program().program_rationale["days"][0]["exercises"][-1]
+    prescription = added["changes"][0]["params"]["prescription"]
+    assert {key: reason["code"] for key, reason in prescription.items()} == {
+        "sets": "sets.player_edit", "reps": "reps.rep_preference",
+        "rir": "rir.experience_level", "rest": "rest.movement_class",
+        "warmup": "warmup.template",
+    }
+    assert prescription["reps"]["params"]["rep_preference"] == "balanced"
+    assert prescription["rir"]["params"]["experience_level"] == "beginner"
+
+
+def test_program_edit_resolves_rationale_day_without_day_order(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 3").fetchall()
+    first = PersistedProgramDaySchema(day_name="A", day_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]), target_sets=2, target_reps_min=8, target_reps_max=12)])
+    second = PersistedProgramDaySchema(day_name="B", day_order=2, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(rows[1][0]), exercise_name=str(rows[1][1]), target_sets=2, target_reps_min=8, target_reps_max=12)])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=2, days=[first, second]).model_dump())
+    active = ledger.get_active_program()
+    edit_active_program_day(db, ledger, ProgramEdit(day_name="B", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(rows[1][0]), 3), ProgramEditExercise(-1, str(rows[2][0]), 2)],
+        player_account_id=TEST_PLAYER_ID, actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player")))
+    rationale_day = next(day for day in ledger.get_active_program().program_rationale["days"] if day["day_order"] == 2)
+    changes_by_id = {entry["exercise_id"]: [change["code"] for change in entry.get("changes", [])]
+                     for entry in rationale_day["exercises"]}
+    assert "change.program_edit_raised" in changes_by_id[str(rows[1][0])]
+    assert "change.program_edit_added" in changes_by_id[str(rows[2][0])]
+
+
+def test_program_edit_warning_uses_unchanged_edited_week(fresh_store, monkeypatch):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 5").fetchall()
+    first_day = PersistedProgramDaySchema(day_name="Full A", day_order=1, week_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]), target_sets=2, target_reps_min=8, target_reps_max=12)])
+    second_day = PersistedProgramDaySchema(day_name="Full A", day_order=1, week_order=2, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=3, target_reps_min=8, target_reps_max=12)
+        for row in rows[1:]])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Two-week plan", split_type="Full Body", weekly_frequency=1,
+        days=[first_day, second_day], weeks=[
+            PersistedProgramWeekSchema(week_name="Base", week_order=1, days=[first_day]),
+            PersistedProgramWeekSchema(week_name="Build", week_order=2, days=[second_day]),
+        ]).model_dump())
+    monkeypatch.setattr(ledger, "volume_review_exercise_targets", lambda ids: {exercise_id: "Biceps" for exercise_id in ids})
+    active = ledger.get_active_program()
+
+    response = edit_active_program_day(db, ledger, ProgramEdit(day_name="Full A", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(index, str(row[0]), 3) for index, row in enumerate(rows[1:])],
+        player_account_id=TEST_PLAYER_ID, actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), week_order=2, day_order=1))
+
+    assert response["volume_warnings"] == [{"muscle": "Biceps", "weekly_sets": 12, "ceiling": 8}]
 
 
 def test_program_edit_rejects_more_than_ten_exercises(fresh_store):

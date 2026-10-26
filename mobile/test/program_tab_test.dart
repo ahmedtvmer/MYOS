@@ -1820,6 +1820,41 @@ void main() {
     ]);
   });
 
+  testWidgets('Edit day stepper increments the total across set groups', (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..programVersion = 1
+      ..programDaysOverride = <Map<String, dynamic>>[
+        <String, dynamic>{
+          'day_name': 'Upper 1',
+          'day_order': 1,
+          'warmup_exercises': <dynamic>[],
+          'exercises': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'exercise_id': 'bench_press', 'exercise_name': 'Bench Press',
+              'target_sets': 1, 'target_reps_min': 5, 'target_reps_max': 8,
+              'target_rpe': 8, 'rest_seconds': 90,
+              'set_groups': <Map<String, dynamic>>[
+                <String, dynamic>{'sets': 1, 'reps_min': 5, 'reps_max': 8, 'target_rir': 2},
+                <String, dynamic>{'sets': 2, 'reps_min': 8, 'reps_max': 12, 'target_rir': 3},
+              ],
+            },
+          ],
+        },
+      ];
+    await _pumpProgram(tester, fake);
+
+    await tester.tap(find.byKey(const Key('program_edit_day_1')));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Bench Press: 3 working sets'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('program_edit_increase_0')));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Bench Press: 4 working sets'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('program_edit_save_button')));
+    await tester.pumpAndSettle();
+    final List<dynamic> requested = fake.programEditRequests.single['exercises'] as List<dynamic>;
+    expect((requested.single as Map<String, dynamic>)['target_sets'], 4);
+  });
+
   testWidgets('grouped day edit changes first group and keeps back-offs read-only',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _signedInFake()

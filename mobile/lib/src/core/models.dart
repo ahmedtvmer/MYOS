@@ -2958,11 +2958,14 @@ class ProgramEditExerciseEntry {
   final int prescribedSets;
   final bool showAllEquipment;
 
-  ProgramEditExerciseEntry copyWith({ProgramExercise? exercise}) =>
+  ProgramEditExerciseEntry copyWith({
+    ProgramExercise? exercise,
+    int? prescribedSets,
+  }) =>
       ProgramEditExerciseEntry(
         sourceIndex: sourceIndex,
         exercise: exercise ?? this.exercise,
-        prescribedSets: prescribedSets,
+        prescribedSets: prescribedSets ?? this.prescribedSets,
         showAllEquipment: showAllEquipment,
       );
 }

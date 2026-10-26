@@ -7,6 +7,7 @@ selection.signature_match, selection.limitation_substitute, selection.fallback; 
 position.heavy_compound, position.medium_compound, position.isolation,
 position.pre_exhaust; sets.coach_dose, sets.recovery_cut; reps.movement_class,
 reps.rep_preference; rir.experience_level; rest.movement_class; warmup.template;
+sets.player_edit;
 cardio.fat_loss_finisher, cardio.coach_option; day_order.full_body_distributed,
 day_order.full_body_glute_priority,
 day_order.upper_lower_alternating, day_order.female_upper_lower, day_order.arnold,
@@ -54,6 +55,7 @@ POSITION_ISOLATION = "position.isolation"
 POSITION_PRE_EXHAUST = "position.pre_exhaust"
 SETS_COACH_DOSE = "sets.coach_dose"
 SETS_RECOVERY_CUT = "sets.recovery_cut"
+SETS_PLAYER_EDIT = "sets.player_edit"
 REPS_MOVEMENT_CLASS = "reps.movement_class"
 REPS_PREFERENCE = "reps.rep_preference"
 RIR_EXPERIENCE_LEVEL = "rir.experience_level"

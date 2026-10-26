@@ -186,6 +186,8 @@ ERROR_MESSAGE_PARAM_ALLOWLISTS = {
     "program.edit.duplicate_exercise.v1": frozenset(),
     "program.edit.empty_day.v1": frozenset(),
     "program.edit.invalid_set_count.v1": frozenset(),
+    "program.edit.exercise_not_available.v1": frozenset(),
+    "program.edit.day_limit.v1": frozenset(),
     "program.edit.changed.v1": frozenset(),
     "program_request.invalid_kind.v1": frozenset(),
     "program_request.reason_required.v1": frozenset(),

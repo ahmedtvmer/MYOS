@@ -500,6 +500,24 @@ def test_pulldown_aliases_return_display_names(fresh_store, query):
     }
 
 
+def test_equipment_access_filters_name_tier_before_limit(fresh_store):
+    fresh_store.initialize_and_seed()
+    fresh_store.catalog_conn.executemany(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES (?, ?, ?, ?, ?)",
+        [(f"equipment-test-{index}", f"FixZ Calf Raise BW {index:02}", "Lower Legs", "Calves", "body weight")
+         for index in range(10)]
+        + [("equipment-test-available", "FixZ Calf Raise Dumbbell Option", "Lower Legs", "Calves", "dumbbell")],
+    )
+    fresh_store.catalog_conn.commit()
+
+    matches = fresh_store.find_exercises_by_name(
+        "fixz calf raise", limit=10, equipment_access="Commercial gym"
+    )
+
+    assert "equipment-test-available" in {match["id"] for match in matches}
+    assert all(match["equipment"] != "body weight" for match in matches)
+
+
 @pytest.mark.parametrize("query", ["pendulum squat", "kelso shrug", "bayesian curl"])
 def test_near_miss_names_do_not_resolve(fresh_store, query):
     fresh_store.initialize_and_seed()

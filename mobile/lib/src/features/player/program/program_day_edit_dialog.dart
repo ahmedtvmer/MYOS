@@ -34,9 +34,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
       ProgramEditExerciseEntry(
         sourceIndex: index,
         exercise: exercise,
-        prescribedSets: exercise.setGroups.length > 1
-            ? ((exercise.setGroups.first['sets'] as num?)?.toInt() ?? exercise.targetSets)
-            : exercise.targetSets,
+        prescribedSets: exercise.workingSetCount,
       ),
   ];
 
@@ -86,7 +84,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: <Widget>[
             _decreaseSetButton(context, entry),
-            _setCount(context, exercise),
+            _setCount(context, entry),
             _increaseSetButton(context, entry),
           ],
         ),
@@ -137,26 +135,27 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     return IconButton(
       key: Key('program_edit_decrease_${entry.sourceIndex}'),
       tooltip: copy.decreaseProgramExerciseSets(exercise.exerciseName),
-      onPressed: exercise.targetSets <= 1
+      onPressed: entry.prescribedSets <= 1
           ? null
-          : () => _changeSetCount(entry, exercise.targetSets - 1),
+          : () => _changeSetCount(entry, entry.prescribedSets - 1),
       icon: const Icon(Icons.remove),
     );
   }
 
-  Widget _setCount(BuildContext context, ProgramExercise exercise) {
+  Widget _setCount(BuildContext context, ProgramEditExerciseEntry entry) {
+    final ProgramExercise exercise = entry.exercise;
     final MyosCopy copy = displayCopyOf(context);
     return Semantics(
       container: true,
       label: copy.programExerciseSetCount(
         exercise.exerciseName,
-        exercise.targetSets,
+        entry.prescribedSets,
       ),
       child: ExcludeSemantics(
         child: SizedBox(
           width: 20,
           child: Text(
-            '${exercise.targetSets}',
+            '${entry.prescribedSets}',
             textAlign: TextAlign.center,
           ),
         ),
@@ -173,9 +172,9 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     return IconButton(
       key: Key('program_edit_increase_${entry.sourceIndex}'),
       tooltip: copy.increaseProgramExerciseSets(exercise.exerciseName),
-      onPressed: exercise.targetSets >= 4
+      onPressed: entry.prescribedSets >= 4
           ? null
-          : () => _changeSetCount(entry, exercise.targetSets + 1),
+          : () => _changeSetCount(entry, entry.prescribedSets + 1),
       icon: const Icon(Icons.add),
     );
   }
@@ -201,6 +200,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
       );
       _exercises[index] = entry.copyWith(
         exercise: entry.exercise.copyWith(targetSets: targetSets),
+        prescribedSets: targetSets,
       );
     });
   }
