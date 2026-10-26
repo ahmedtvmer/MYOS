@@ -2950,22 +2950,26 @@ class ProgramEditExerciseEntry {
     required this.sourceIndex,
     required this.exercise,
     required this.prescribedSets,
+    required this.maximumSets,
     this.showAllEquipment = false,
   });
 
   final int sourceIndex;
   final ProgramExercise exercise;
   final int prescribedSets;
+  final int maximumSets;
   final bool showAllEquipment;
 
   ProgramEditExerciseEntry copyWith({
     ProgramExercise? exercise,
     int? prescribedSets,
+    int? maximumSets,
   }) =>
       ProgramEditExerciseEntry(
         sourceIndex: sourceIndex,
         exercise: exercise ?? this.exercise,
         prescribedSets: prescribedSets ?? this.prescribedSets,
+        maximumSets: maximumSets ?? this.maximumSets,
         showAllEquipment: showAllEquipment,
       );
 }

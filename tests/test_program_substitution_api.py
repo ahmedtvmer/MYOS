@@ -790,7 +790,7 @@ def test_program_edit_changes_first_group_sets_and_retains_backoff_sets(api):
         "/programs/active/edits",
         headers=headers,
         json=_program_edit_request([{
-            "source_index": 0, "exercise_id": grouped.exercise_id, "target_sets": 2,
+            "source_index": 0, "exercise_id": grouped.exercise_id, "target_sets": 4,
         }]),
     )
 

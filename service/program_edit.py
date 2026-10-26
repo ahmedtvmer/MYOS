@@ -253,11 +253,18 @@ def _validate_program_edit(
         for exercise in requested_exercises if exercise.source_index >= 0
     ):
         return _failure(ProgramEditErrorCode.EXERCISE_NOT_ON_DAY)
-    if any(exercise.target_sets < 1 or exercise.target_sets > 4 for exercise in requested_exercises):
-        return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
-    if any(item.source_index >= 0 and item.target_sets < len(current_exercises[item.source_index].get("set_groups") or [])
-           for item in requested_exercises):
-        return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
+    for item in requested_exercises:
+        maximum_sets = 4
+        minimum_sets = 1
+        if item.source_index >= 0:
+            current = current_exercises[item.source_index]
+            maximum_sets = max(maximum_sets, program_exercise_working_sets(current))
+            minimum_sets += sum(
+                int(group.get("sets", 0))
+                for group in (current.get("set_groups") or [])[1:]
+            )
+        if item.target_sets < minimum_sets or item.target_sets > maximum_sets:
+            return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
     return None
 
 
@@ -285,10 +292,10 @@ def _apply_program_edit(
         exercise_copy = deepcopy(current_exercises[requested.source_index])
         groups = exercise_copy.get("set_groups") or []
         if groups:
-            current_total = program_exercise_working_sets(exercise_copy)
-            groups[-1]["sets"] += requested.target_sets - current_total
+            backoff_sets = sum(int(group.get("sets", 0)) for group in groups[1:])
+            groups[0]["sets"] = requested.target_sets - backoff_sets
             exercise_copy["set_groups"] = groups
-            exercise_copy["target_sets"] = sum(int(group.get("sets", 0)) for group in groups)
+            exercise_copy["target_sets"] = groups[0]["sets"]
         else:
             exercise_copy["target_sets"] = requested.target_sets
         prepared.day["exercises"].append(exercise_copy)

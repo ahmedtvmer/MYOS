@@ -1887,6 +1887,11 @@ void main() {
     expect(find.text('2 back-off sets stay as prescribed'), findsOneWidget);
     await tester.tap(find.byKey(const Key('program_edit_decrease_0')));
     await tester.pump();
+    expect(find.bySemanticsLabel('Bench Press: 4 working sets'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('program_edit_decrease_0')));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Bench Press: 3 working sets'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(const Key('program_edit_decrease_0'))).onPressed, isNull);
     expect(find.text('2 back-off sets stay as prescribed'), findsOneWidget);
     await tester.tap(find.byKey(const Key('program_edit_save_button')));
     await tester.pumpAndSettle();
@@ -1895,9 +1900,49 @@ void main() {
       <String, dynamic>{
         'source_index': 0,
         'exercise_id': 'bench_press',
-        'target_sets': 2,
+        'target_sets': 3,
       },
     ]);
+  });
+
+  testWidgets('grouped exercise stepper caps an existing five-set total at five',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..programVersion = 1
+      ..programDaysOverride = <Map<String, dynamic>>[
+        <String, dynamic>{
+          'day_name': 'Upper 1',
+          'day_order': 1,
+          'warmup_exercises': <dynamic>[],
+          'exercises': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'exercise_id': 'bench_press', 'exercise_name': 'Bench Press',
+              'target_sets': 3, 'target_reps_min': 5, 'target_reps_max': 8,
+              'target_rpe': 8,
+              'set_groups': <Map<String, dynamic>>[
+                <String, dynamic>{'sets': 3, 'reps_min': 5, 'reps_max': 8, 'target_rir': 2},
+                <String, dynamic>{'sets': 2, 'reps_min': 8, 'reps_max': 12, 'target_rir': 3},
+              ],
+            },
+          ],
+        },
+      ];
+    await _pumpProgram(tester, fake);
+
+    await tester.tap(find.byKey(const Key('program_edit_day_1')));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Bench Press: 5 working sets'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(const Key('program_edit_increase_0'))).onPressed, isNull);
+    expect(tester.widget<IconButton>(find.byKey(const Key('program_edit_decrease_0'))).onPressed, isNotNull);
+    await tester.tap(find.byKey(const Key('program_edit_decrease_0')));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Bench Press: 4 working sets'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(const Key('program_edit_increase_0'))).onPressed, isNotNull);
+    await tester.tap(find.byKey(const Key('program_edit_increase_0')));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Bench Press: 5 working sets'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.byKey(const Key('program_edit_increase_0'))).onPressed, isNull);
   });
 
   testWidgets('Edit day Cancel discards changes and the last row cannot be removed',

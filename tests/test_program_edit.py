@@ -163,7 +163,7 @@ def test_program_edit_set_limit_applies_to_total_groups(fresh_store):
     ledger = db.ledger
     row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
     exercise = PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]),
-        target_sets=4, target_reps_min=8, target_reps_max=12,
+        target_sets=1, target_reps_min=8, target_reps_max=12,
         set_groups=[{"sets": 1, "reps_min": 8, "reps_max": 12, "target_rir": 2}, {"sets": 2, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
     day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[exercise])
     ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
@@ -174,7 +174,100 @@ def test_program_edit_set_limit_applies_to_total_groups(fresh_store):
     assert "code" not in result
     saved = ledger.get_active_program().days[0].exercises[0]
     assert sum(group.sets for group in saved.set_groups) == 4
-    assert saved.set_groups[0].sets == 1
+    assert saved.set_groups[0].sets == 2
+    assert saved.set_groups[1].sets == 2
+
+
+def test_program_edit_rejects_total_below_backoff_sets_plus_one(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    exercise = PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]),
+        target_sets=1, target_reps_min=8, target_reps_max=12,
+        set_groups=[{"sets": 1, "reps_min": 8, "reps_max": 12, "target_rir": 2},
+                    {"sets": 3, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[exercise])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+
+    response = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(row[0]), 3)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+
+    assert response["code"] == "invalid_set_count"
+
+
+def test_program_edit_total_cap_does_not_turn_backoffs_into_seven_sets(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+    grouped = PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]),
+        target_sets=1, target_reps_min=8, target_reps_max=12,
+        set_groups=[{"sets": 1, "reps_min": 8, "reps_max": 12, "target_rir": 2},
+                    {"sets": 3, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
+    other = PersistedProgramExerciseSchema(exercise_id=str(rows[1][0]), exercise_name=str(rows[1][1]),
+        target_sets=2, target_reps_min=8, target_reps_max=12)
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[grouped, other])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+
+    response = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(rows[0][0]), 4)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+
+    assert "code" not in response
+    saved = ledger.get_active_program().days[0].exercises[0]
+    assert [group.sets for group in saved.set_groups] == [1, 3]
+    assert sum(group.sets for group in saved.set_groups) == 4
+
+
+def test_program_edit_keeps_existing_five_set_exercise_when_removing_another(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+    grouped = PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]),
+        target_sets=3, target_reps_min=8, target_reps_max=12,
+        set_groups=[{"sets": 3, "reps_min": 8, "reps_max": 12, "target_rir": 2},
+                    {"sets": 2, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
+    other = PersistedProgramExerciseSchema(exercise_id=str(rows[1][0]), exercise_name=str(rows[1][1]), target_sets=2,
+        target_reps_min=8, target_reps_max=12)
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[grouped, other])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+
+    response = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(rows[0][0]), 5)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+
+    assert "code" not in response
+    saved = ledger.get_active_program().days[0].exercises
+    assert len(saved) == 1
+    assert [group.sets for group in saved[0].set_groups] == [3, 2]
+
+
+def test_program_edit_can_lower_existing_five_sets_but_not_raise_to_six(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    grouped = PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=3,
+        target_reps_min=8, target_reps_max=12,
+        set_groups=[{"sets": 3, "reps_min": 8, "reps_max": 12, "target_rir": 2},
+                    {"sets": 2, "reps_min": 8, "reps_max": 12, "target_rir": 2}])
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[grouped])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+
+    rejected = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(row[0]), 6)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+    assert rejected["code"] == "invalid_set_count"
+
+    lowered = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, str(row[0]), 4)], player_account_id=TEST_PLAYER_ID,
+        actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+    assert "code" not in lowered
+    saved = ledger.get_active_program().days[0].exercises[0]
+    assert [group.sets for group in saved.set_groups] == [2, 2]
 
 
 def test_program_edit_added_rationale_records_computed_prescription(fresh_store):

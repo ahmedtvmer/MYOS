@@ -35,6 +35,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
         sourceIndex: index,
         exercise: exercise,
         prescribedSets: exercise.workingSetCount,
+        maximumSets: math.max(4, exercise.workingSetCount),
       ),
   ];
 
@@ -135,7 +136,8 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     return IconButton(
       key: Key('program_edit_decrease_${entry.sourceIndex}'),
       tooltip: copy.decreaseProgramExerciseSets(exercise.exerciseName),
-      onPressed: entry.prescribedSets <= 1
+      onPressed: exercise.backoffSetCount >= 4 ||
+              entry.prescribedSets <= exercise.backoffSetCount + 1
           ? null
           : () => _changeSetCount(entry, entry.prescribedSets - 1),
       icon: const Icon(Icons.remove),
@@ -172,7 +174,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     return IconButton(
       key: Key('program_edit_increase_${entry.sourceIndex}'),
       tooltip: copy.increaseProgramExerciseSets(exercise.exerciseName),
-      onPressed: entry.prescribedSets >= 4
+      onPressed: entry.prescribedSets >= entry.maximumSets
           ? null
           : () => _changeSetCount(entry, entry.prescribedSets + 1),
       icon: const Icon(Icons.add),
@@ -250,7 +252,8 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     setState(() => _exercises.add(ProgramEditExerciseEntry(
       sourceIndex: -_exercises.length - 1,
       exercise: exercise,
-      prescribedSets: 4,
+      prescribedSets: 2,
+      maximumSets: 4,
       showAllEquipment: selection.$2,
     )));
   }
