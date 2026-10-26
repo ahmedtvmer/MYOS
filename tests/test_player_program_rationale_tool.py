@@ -30,8 +30,15 @@ def test_program_rationale_reader_scopes_by_day_or_exercise_and_keeps_unknown_co
     program = _program(rationale={
         "split": {"code": "split.new_code", "params": {}},
         "day_order": {"code": "day_order.new_code", "params": {}},
+        "focus_muscles": [{"muscle": "biceps", "extras": [{
+            "exercise_id": "id-1", "day_order": 1,
+            "day_choice_reason": {"code": "focus.new_weekly_exposure", "params": {"day_order": 1}},
+        }]}],
         "days": [{"day_order": 1, "exercises": [
-            {"position": 1, "exercise_id": "id-1", "selection": {"code": "new.selection", "params": {}}},
+            {"position": 1, "exercise_id": "id-1", "rationale": {
+                "selection": {"code": "selection.focus_muscle_extra", "params": {}},
+                "day_choice": {"code": "focus.new_weekly_exposure", "params": {"day_order": 1}},
+            }},
             {"position": 2, "exercise_id": "id-2", "selection": {"code": "selection.staple", "params": {}}},
         ]}],
     })
@@ -45,6 +52,8 @@ def test_program_rationale_reader_scopes_by_day_or_exercise_and_keeps_unknown_co
     assert exercise["days"][0]["exercises"][0]["exercise_id"] == "id-2"
     assert exercise["days"][0]["exercises"][0]["rationale"]["selection"]["code"] == "selection.staple"
     assert day["split"]["code"] == "split.new_code"
+    assert day["days"][0]["exercises"][0]["rationale"]["day_choice"]["code"] == "focus.new_weekly_exposure"
+    assert day["focus_muscles"][0]["extras"][0]["day_choice_reason"]["code"] == "focus.new_weekly_exposure"
 
 
 def test_program_rationale_reader_reports_legacy_and_coach_authored_source_and_note():

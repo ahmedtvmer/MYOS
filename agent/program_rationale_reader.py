@@ -122,9 +122,8 @@ def read_program_rationale(program: Any, scope: Any = None) -> dict[str, Any]:
         selected_ids = {
             item["exercise_id"] for day in output_days for item in day["exercises"]
         }
-        focus = [entry for entry in focus if (
-            entry.get("day_order") in selected_days
-            or entry.get("exercise_id") in selected_ids
+        focus = [entry for entry in focus if _focus_entry_matches_scope(
+            entry, selected_days, selected_ids
         )]
     result: dict[str, Any] = {
         "status": "ok", "source": source,
@@ -159,3 +158,13 @@ def read_program_rationale(program: Any, scope: Any = None) -> dict[str, Any]:
             base["page"] = page
             result = base
     return result
+
+
+def _focus_entry_matches_scope(entry, selected_days, selected_ids):
+    return (
+        entry.get("day_order") in selected_days
+        or entry.get("exercise_id") in selected_ids
+        or any(extra.get("day_order") in selected_days
+               or extra.get("exercise_id") in selected_ids
+               for extra in entry.get("extras", []))
+    )

@@ -44,7 +44,9 @@ from agent.program_rules import (
     resolve_split,
 )
 from agent.program_cardio import CoachCardioOptions, apply_program_cardio
-from agent.focus_muscles import FOCUS_EXTRA_TABLE, FOCUS_MUSCLE_SLOTS, FOCUS_MULTIPLIER
+from agent.focus_muscles import (
+    FOCUS_EXTRA_TABLE, FOCUS_MUSCLE_SLOTS, FOCUS_MULTIPLIER, FOCUS_REGION_POLICY,
+)
 from agent.program_rationale import (
     SELECTION_ALREADY_USED_TODAY,
     SELECTION_EQUIPMENT_ACCESS_STAPLE,
@@ -58,6 +60,8 @@ from agent.program_rationale import (
     POSITION_AFTER_FOCUS_EXTRA,
     SETS_FOCUS_MULTIPLIER,
     FOCUS_UNAVAILABLE,
+    FOCUS_LIGHTEST_TRAINING_DAY,
+    FOCUS_NEW_WEEKLY_EXPOSURE,
     SPLIT_COACH_PICK,
     SPLIT_FREQUENCY_DEFAULT,
     SPLIT_LIFTER_REQUEST,
@@ -322,6 +326,15 @@ class _FocusDosePlan:
     target: int
     baseline_exercises: dict[int, tuple[Any, ...]]
     context: DayGenerationContext
+    day_families: dict[int, str]
+
+
+@dataclass(frozen=True)
+class _FocusExtraPlacement:
+    plan: _FocusDosePlan
+    slot_key: str
+    actual_weekly_sets: int
+    day_choice: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -921,11 +934,12 @@ def _build_program(
     program.program_rationale = build_program_rationale(program, split_plan, request.coach_cardio)
     for day_rationale, exercise_reasons in zip(program.program_rationale["days"], rationale_days):
         day_rationale["exercises"] = exercise_reasons["exercises"]
-    _apply_focus_muscles(program, focus_muscles, profile, ledger)
+    day_families = {day.day_order: day.family for day in split_plan.days}
+    _apply_focus_muscles(program, focus_muscles, profile, ledger, day_families)
     return program, render_program_markdown(program)
 
 
-def _apply_focus_muscles(program, focus_muscles, profile, ledger):
+def _apply_focus_muscles(program, focus_muscles, profile, ledger, day_families):
     """Selects Focus variants, places them, doses them, and records their reasons."""
     context = DayGenerationContext(
         equipment_access=map_equipment_access(profile.get("equipment_access", COMMERCIAL_GYM)),
@@ -946,7 +960,8 @@ def _apply_focus_muscles(program, focus_muscles, profile, ledger):
         baseline = _focus_baseline_sets(muscle_slots, baseline_exercises)
         target = _focus_target_weekly_sets(baseline)
         plan = _FocusDosePlan(
-            focus, focus_policy, muscle_slots, baseline, target, baseline_exercises, context
+            focus, focus_policy, muscle_slots, baseline, target, baseline_exercises,
+            context, day_families,
         )
         focus_reason = _insert_focus_extras(program, plan, ledger)
         focus_reasons.append(focus_reason)
@@ -966,40 +981,60 @@ def _focus_baseline_sets(muscle_slots, baseline_exercises):
 def _insert_focus_extras(program, plan, ledger):
     muscle, source = plan.focus["muscle"], plan.focus.get("source", "named")
     focus_reason = {"muscle": muscle, "source": source, "status": "added", "extra_exercise_ids": []}
+    focus_reason["extras"] = []
     opened_days = set()
     actual = plan.baseline
+    day_choices = []
     while actual < plan.target:
-        addition = _insert_next_focus_extra(program, plan, opened_days, actual, ledger)
+        addition = _insert_next_focus_extra(program, plan, opened_days, ledger)
         if addition is None:
             focus_reason["reason"] = _focus_unavailable_reason(
                 muscle, plan.context.equipment_access, plan.target - actual
             )
             break
-        target_day, new_exercise = addition
+        target_day, new_exercise, day_choice = addition
         actual += new_exercise.target_sets
         focus_reason["extra_exercise_ids"].append(new_exercise.exercise_id)
+        day_choices.append(day_choice)
+        focus_reason["extras"].append({
+            "exercise_id": new_exercise.exercise_id,
+            "day_order": target_day.day_order,
+            "day_choice_reason": day_choice,
+        })
         opened_days.add(target_day.day_order)
     if not focus_reason["extra_exercise_ids"]:
         focus_reason["status"] = "unavailable"
         focus_reason.pop("extra_exercise_ids")
+        focus_reason.pop("extras")
         focus_reason["reason"] = focus_reason.pop("reason", _focus_unavailable_reason(
             muscle, plan.context.equipment_access, plan.target - actual
         ))
     _record_focus_actual(program, focus_reason, actual)
+    if day_choices:
+        focus_reason["day_choice_reason"] = day_choices[0]
     return focus_reason
 
 
-def _insert_next_focus_extra(program, plan, opened_days, actual, ledger):
+def _insert_next_focus_extra(program, plan, opened_days, ledger):
     candidate, slot_key = _focus_extra_candidate_for_program(
         program, plan.candidate_policy, plan.context, ledger
     )
     if candidate is None:
         return None
-    day = _focus_target_day(
-        program.days, plan.muscle_slots, plan.baseline_exercises, opened_days
+    day, day_choice = _focus_target_day_for_extra(
+        program, plan, slot_key, opened_days
     )
-    exercise = _insert_focus_exercise(program, day, plan, candidate, slot_key, actual)
-    return day, exercise
+    if day is None:
+        return None
+    actual = sum(
+        exercise.target_sets
+        for training_day in program.days
+        for exercise in training_day.exercises
+        if exercise.slot_key in plan.muscle_slots
+    )
+    placement = _FocusExtraPlacement(plan, slot_key, actual, day_choice)
+    exercise = _insert_focus_exercise(program, day, candidate, placement)
+    return day, exercise, day_choice
 
 
 def _focus_extra_candidate_for_program(program, focus_policy, context, ledger):
@@ -1021,10 +1056,11 @@ def _focus_unavailable_reason(muscle, equipment_access, missing_sets):
     }}
 
 
-def _insert_focus_exercise(program, day, plan, candidate, slot_key, actual):
-    spec = SLOT_SPECS[slot_key]
+def _insert_focus_exercise(program, day, candidate, placement):
+    plan = placement.plan
+    spec = SLOT_SPECS[placement.slot_key]
     prescription = ExercisePrescription(
-        movement_slot=slot_key,
+        movement_slot=placement.slot_key,
         spec=spec,
         working_sets=2,
         rep_preference=plan.context.rep_preference,
@@ -1034,14 +1070,18 @@ def _insert_focus_exercise(program, day, plan, candidate, slot_key, actual):
     rationale_day = _focus_rationale_day(program, day.day_order)
     insert_at = _focus_exercise_prefix_length(rationale_day["exercises"])
     day.exercises.insert(insert_at, exercise)
-    rationale = _focus_extra_rationale(candidate, prescription, exercise, plan, slot_key, actual)
+    rationale = _focus_extra_rationale(
+        candidate, prescription, exercise, placement
+    )
     rationale_day["exercises"].insert(insert_at, {
         "position": insert_at + 1, "exercise_id": exercise.exercise_id, "rationale": rationale,
     })
     return exercise
 
 
-def _focus_extra_rationale(candidate, prescription, exercise, plan, slot_key, actual):
+def _focus_extra_rationale(candidate, prescription, exercise, placement):
+    plan = placement.plan
+    slot_key = placement.slot_key
     rationale = exercise_rationale(
         candidate, prescription,
         ExerciseRationaleOptions(
@@ -1055,7 +1095,10 @@ def _focus_extra_rationale(candidate, prescription, exercise, plan, slot_key, ac
     rationale["position"] = {"code": POSITION_FOCUS_FIRST, "params": {
         "muscle": plan.focus["muscle"], "slot": slot_key,
     }}
-    rationale["prescription"]["sets"] = _focus_sets_rationale(exercise, plan, actual)
+    rationale["prescription"]["sets"] = _focus_sets_rationale(
+        exercise, plan, placement.actual_weekly_sets
+    )
+    rationale["day_choice"] = placement.day_choice
     return rationale
 
 
@@ -1160,19 +1203,81 @@ def _focus_target_weekly_sets(baseline: int) -> int:
     return max(baseline + 2, nearest_two_set_step)
 
 
-def _focus_target_day(days, muscle_slots, baseline_exercises, opened_days=()):
-    training_days = [
-        day for day in days
-        if any(ex.slot_key in muscle_slots for ex in baseline_exercises[day.day_order])
-    ]
-    candidates = [day for day in training_days if day.day_order not in opened_days]
-    return min(
-        candidates or training_days or days,
-        key=lambda day: (
-            sum(ex.target_sets for ex in baseline_exercises[day.day_order]),
-            day.day_order,
-        ),
+def _focus_target_day_for_extra(program, plan, slot_key, opened_days):
+    muscle = plan.focus["muscle"]
+    available = _focus_available_days(program, opened_days)
+    eligible_days = _focus_days_under_cap(program)
+    if not eligible_days:
+        return None, None
+    exposures = _focus_exposure_count(plan, opened_days)
+    new_days = _focus_new_exposure_days(available, plan, slot_key)
+    if new_days:
+        day = _lightest_focus_day(new_days, plan.baseline_exercises)
+        return day, _focus_day_choice_reason(
+            FOCUS_NEW_WEEKLY_EXPOSURE, muscle, exposures, day.day_order
+        )
+    training_days = [day for day in available if any(
+        ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day.day_order]
+    )]
+    fallback = _lightest_focus_day(training_days or available or eligible_days, plan.baseline_exercises)
+    return fallback, _focus_day_choice_reason(
+        FOCUS_LIGHTEST_TRAINING_DAY, muscle, exposures, fallback.day_order
     )
+
+
+def _focus_available_days(program, opened_days):
+    return [day for day in _focus_days_under_cap(program) if day.day_order not in opened_days]
+
+
+def _focus_days_under_cap(program):
+    return [day for day in program.days if sum(
+        item["rationale"]["selection"]["code"] == SELECTION_FOCUS_MUSCLE_EXTRA
+        for item in program.program_rationale["days"][day.day_order - 1]["exercises"]
+    ) < 2]
+
+
+def _focus_exposure_count(plan, opened_days):
+    baseline_exposures = sum(any(ex.slot_key in plan.muscle_slots for ex in exercises)
+                             for exercises in plan.baseline_exercises.values())
+    extra_exposures = sum(
+        not any(ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day_order])
+        for day_order in opened_days
+    )
+    return baseline_exposures + extra_exposures
+
+
+def _focus_new_exposure_days(available, plan, slot_key):
+    return [day for day in available if _focus_day_adds_exposure(day, plan, slot_key)]
+
+
+def _focus_day_adds_exposure(day, plan, slot_key):
+    region_policy = FOCUS_REGION_POLICY[plan.focus["muscle"]]
+    home_family = region_policy["home_region"]
+    family = plan.day_families[day.day_order]
+    if family == "arms":
+        family = "upper"
+    if any(ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day.day_order]):
+        return False
+    if family == home_family or (home_family == "neutral" and family in {"upper", "lower"}):
+        return True
+    return (
+        family in region_policy["isolation_cross_regions"]
+        and SLOT_SPECS[slot_key].archetype == "isolation"
+    )
+
+
+def _lightest_focus_day(days, baseline_exercises):
+    return min(days, key=lambda day: (
+        sum(ex.target_sets for ex in baseline_exercises[day.day_order]), day.day_order
+    ))
+
+
+def _focus_day_choice_reason(code, muscle, exposures, day_order):
+    increase = 1 if code == FOCUS_NEW_WEEKLY_EXPOSURE else 0
+    return {"code": code, "params": {
+        "muscle": muscle, "exposures_before": exposures,
+        "exposures_after": exposures + increase, "day_order": day_order,
+    }}
 
 
 def _eligible_focus_candidate(focus_policy, slot_key, used_ids, context, ledger):

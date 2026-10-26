@@ -17,7 +17,8 @@ change.program_edit_reordered, change.volume_review, change.coach_edit.
 Parameters are stable JSON values; message
 text belongs to the reading assistant.
 selection.focus_muscle_extra, position.focus_first, sets.focus_multiplier,
-focus.unavailable are the Focus muscle codes (#492).
+focus.unavailable, focus.new_weekly_exposure and focus.lightest_training_day
+are the Focus muscle codes (#492, #512).
 """
 
 from dataclasses import dataclass
@@ -74,6 +75,8 @@ POSITION_FOCUS_FIRST = "position.focus_first"
 POSITION_AFTER_FOCUS_EXTRA = "position.after_focus_extra"
 SETS_FOCUS_MULTIPLIER = "sets.focus_multiplier"
 FOCUS_UNAVAILABLE = "focus.unavailable"
+FOCUS_NEW_WEEKLY_EXPOSURE = "focus.new_weekly_exposure"
+FOCUS_LIGHTEST_TRAINING_DAY = "focus.lightest_training_day"
 
 
 @dataclass(frozen=True)
