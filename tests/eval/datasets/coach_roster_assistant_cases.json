@@ -238,7 +238,9 @@
           },
           "health_screening_answers": {
             "pregnant_or_breastfeeding": "PRIVATE_ROSTER_SCREENING_469"
-          }
+          },
+          "cardio_minutes_7d": 90,
+          "cardio_calories_kcal_7d": 640
         }
       ]
     }
@@ -525,9 +527,9 @@
     {
       "id": "nutrition_adherence_en",
       "snapshot": "nutrition_adherence",
-      "question": "Which player has the most off Nutrition adherence days in the last 7 days?",
+      "question": "Which player has the most off Nutrition adherence days in the last 7 days, and how much Cardio did they log?",
       "history": [],
-      "scripted_answer": "P0123456789ab has 2 off Nutrition adherence days in the last 7 days, with 2 on target and 3 roughly.",
+      "scripted_answer": "P0123456789ab has 2 off Nutrition adherence days and logged 90 Cardio minutes for 640 kcal in the last 7 days.",
       "expect": {
         "player_ids": [
           "P0123456789ab"
@@ -535,7 +537,9 @@
         "figures": [
           "2",
           "7",
-          "3"
+          "3",
+          "90",
+          "640"
         ],
         "refusal": false,
         "insufficient": false

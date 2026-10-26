@@ -25,6 +25,8 @@ def _signal(player_id, rank):
         "effort_rising_same_load_main_lift": False,
         "days_since_last_check_in": 1,
         "bodyweight_trend": None,
+        "cardio_minutes_7d": 0,
+        "cardio_calories_kcal_7d": 0,
         "coaching_subscription_end": None,
         "username": "PRIVATE_USERNAME_SHOULD_BE_DROPPED",
     }

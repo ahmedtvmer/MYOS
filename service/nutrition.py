@@ -592,6 +592,8 @@ def assistant_projection(ledger: Any, today: date) -> dict[str, Any]:
         "goal": nutrition_state["goal"],
         "pace": nutrition_state["intensity"],
         "adherence": _adherence_counts(adherence),
+        "cardio_burned_kcal": nutrition_state.get("cardio_burned_kcal", 0),
+        "cardio_adjustment_kcal": nutrition_state.get("cardio_adjustment_kcal", 0),
     }
 
 

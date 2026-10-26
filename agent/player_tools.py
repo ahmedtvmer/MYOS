@@ -302,7 +302,8 @@ PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
         name="get_player_nutrition",
         description=(
             "Read the current player's active Nutrition targets, author, Nutrition goal, pace, "
-            "and last-14-day adherence counts. This is read-only; direct target changes "
+            "last-14-day adherence counts, and today's Cardio calories and calorie adjustment. "
+            "This is read-only; direct target changes "
             "to the Nutrition tab."
         ),
         args_schema=EmptyToolArgs,

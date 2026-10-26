@@ -214,8 +214,15 @@ void main() {
     expect(disclosure, contains('300 حرف'));
     expect(disclosure, contains('الإصابات النشطة وتوصيات الطبيب بشأن التمرين'));
     expect(disclosure, contains('أهدافه الغذائية وهدف التغذية والوتيرة'));
+    expect(disclosure, contains('دقائق تمارين القلب وأنواع أجهزته وسعراتها'));
+    expect(disclosure, contains('أنواع أجهزته'));
     expect(disclosure, contains('إجابات الفحص الصحي'));
     expect(disclosure, contains('الملاحظات والإصابات والنبذة'));
+  });
+
+  test('roster disclosure names Cardio minutes and calories in English and Arabic', () {
+    expect(const CoachCopy('en').rosterAssistantPrivacyNote, contains('Cardio minutes and calories'));
+    expect(const CoachCopy('ar').rosterAssistantPrivacyNote, contains('دقائق تمارين القلب وسعراتها'));
   });
 
   testWidgets('the Ask assistant entry is hidden while the feature is off',
@@ -249,6 +256,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(const CoachCopy('en').assistantNote('bob'), contains('Cardio minutes, machine kinds, calories with estimate flags'));
     expect(find.text('0/1000'), findsOneWidget);
 
     await _ask(tester, 'How is the bench progressing?');

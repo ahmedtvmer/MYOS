@@ -240,6 +240,14 @@ def test_gathered_coach_context_uses_player_local_nutrition_state_and_real_propo
         ledger.upsert_nutrition_adherence("2026-10-12", "on_target")
         ledger.upsert_nutrition_adherence("2026-10-13", "roughly")
         ledger.upsert_nutrition_adherence("2026-10-26", "off")
+        ledger.log_workout_session(
+            "cardio-yesterday", "2026-10-25", "Cardio", "2026-10-25T12:00:00Z",
+            "2026-10-25T12:40:00Z",
+        )
+        ledger.log_session_cardio("cardio-yesterday", [{
+            "machine": "stairmaster", "minutes": 40, "level": 8,
+            "calories_kcal": 320, "calories_are_estimate": False,
+        }], "2026-10-25T12:40:00Z")
         plan = ledger.get_active_nutrition_plan()
         proposal_id = ledger.create_nutrition_pace_proposal(
             plan["id"], {"suggested_calories": 2250}, "2026-10-26T00:00:00+00:00"
@@ -259,6 +267,8 @@ def test_gathered_coach_context_uses_player_local_nutrition_state_and_real_propo
     assert facts["nutrition"]["planned_weekly_rate_pct"] < 0
     assert facts["nutrition"]["adherence_counts"] == {"on_target": 0, "roughly": 1, "off": 1}
     assert facts["nutrition"]["pace_proposal"]["id"] == proposal_id
+    assert {day["date"]: day["cardio_adjustment_kcal"] for day in facts["nutrition"]["cardio_days"]}["2026-10-25"] == 160
+    assert "no cardio logged" not in model_payload
     assert "planned_weekly_rate_pct:" in model_payload
     assert "training_day_target_options: calories 2400" in model_payload
     assert "rest_day_target_options: calories 2100" in model_payload
@@ -282,7 +292,18 @@ def test_gathered_coach_model_payload_excludes_persisted_screening_answers(api):
                 "eating_disorder": False,
             },
         })
-    facts = coach_ai.gather_player_context(db, _account_id(db, "coach"), assignment_id)
+        ledger.log_workout_session(
+            "privacy-cardio", "2026-10-25", "Cardio", "2026-10-25T12:00:00Z",
+            "2026-10-25T12:40:00Z",
+        )
+        ledger.log_session_cardio("privacy-cardio", [{
+            "machine": "stairmaster", "minutes": 40, "level": 8,
+            "calories_kcal": 320, "calories_are_estimate": False,
+        }], "2026-10-25T12:40:00Z")
+    facts = coach_ai.gather_player_context(
+        db, _account_id(db, "coach"), assignment_id,
+        now=datetime(2026, 10, 26, 12, tzinfo=UTC),
+    )
     model_payload = coach_ai.build_messages(
         coach_ai.render_context(facts), "What should I know?", []
     )[0].content
@@ -291,6 +312,8 @@ def test_gathered_coach_model_payload_excludes_persisted_screening_answers(api):
     assert "pregnant_or_breastfeeding" not in model_payload
     assert "medical_condition" not in model_payload
     assert "eating_disorder" not in model_payload
+    assert "stairmaster" in model_payload and "320 kcal" in model_payload
+    assert "level 8" not in model_payload
 
 
 def _make_coach(client, db, username="coach", capacity=5):
@@ -970,6 +993,24 @@ def test_render_context_states_every_deterministic_figure():
         "divergences skipped Row",
     ):
         assert expected in rendered, expected
+
+
+def test_render_context_includes_cardio_context_without_settings_or_screening():
+    facts = _sample_facts()
+    facts["nutrition"] = {}
+    facts["nutrition"]["cardio_days"] = [{"date": "2026-10-25", "minutes": 35,
+        "machines": ["stairmaster"], "calories_kcal": 280, "calories_are_estimate": True}]
+    facts["nutrition"]["cardio_adjustment_kcal"] = 90
+    rendered = coach_ai.render_context(facts)
+    assert "cardio" in rendered and "35" in rendered and "stairmaster" in rendered
+    assert "280" in rendered and "estimate" in rendered and "90" in rendered
+    assert "machines stairmaster" in rendered
+    assert "stairmaster, level" not in rendered and "screening" not in rendered
+
+
+def test_render_context_says_when_no_cardio_was_logged():
+    rendered = coach_ai.render_context({"nutrition": {"cardio_days": []}})
+    assert "cardio: no cardio logged in the last 14 days" in rendered
 
 
 def test_coach_context_includes_week_structure_and_derived_current_week(api):

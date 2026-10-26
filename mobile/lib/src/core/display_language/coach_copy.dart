@@ -215,8 +215,8 @@ class CoachCopy {
       ? 'اسأل عن اللاعبين الذين يحتاجون إلى متابعة، أو التوقف، أو الالتزام بالتدريب.'
       : 'Ask which players need attention, have stalled, or are keeping up with training.';
   String get rosterAssistantPrivacyNote => isArabic
-      ? 'يتلقى النموذج المستضاف لقطة إشارات القائمة، ومنها الالتزام الغذائي خلال 7 أيام، وسؤالك وسجل المحادثة. لا تتضمن اللقطة الأسماء أو بيانات التواصل أو أرقام الحسابات والتكليفات أو إجابات الفحص الصحي أو الملاحظات أو النصوص الحرة أو محادثات اللاعب. لا تُحفظ المحادثة.'
-      : 'The hosted model receives the Roster signal snapshot, including 7-day Nutrition adherence, your question, and chat history. It excludes names, contact details, Account and Assignment ids, health-screening answers, notes, free text, and Player chat. The conversation is not saved.';
+      ? 'يتلقى النموذج المستضاف لقطة إشارات القائمة، ومنها الالتزام الغذائي ودقائق تمارين القلب وسعراتها خلال 7 أيام، وسؤالك وسجل المحادثة. لا تتضمن اللقطة الأسماء أو بيانات التواصل أو أرقام الحسابات والتكليفات أو إجابات الفحص الصحي أو الملاحظات أو النصوص الحرة أو محادثات اللاعب. لا تُحفظ المحادثة.'
+      : 'The hosted model receives the Roster signal snapshot, including 7-day Nutrition adherence and Cardio minutes and calories, your question, and chat history. It excludes names, contact details, Account and Assignment ids, health-screening answers, notes, free text, and Player chat. The conversation is not saved.';
   String get rosterQuestionHint => isArabic
       ? 'مثال: من يحتاج إلى متابعة اليوم؟'
       : 'For example: Who needs my attention today?';
@@ -269,14 +269,14 @@ class CoachCopy {
       ? 'يتلقى النموذج المستضاف اسم ${_ltr(player)} (والاسم المفضل إن وُجد)، واسمك كمدرب ونبذتك، '
           'وهدف اللاعب ومستوى خبرته والمعدات المتاحة واتجاهات وزن الجسم و\u2066e1RM\u2069، '
           'والإصابات النشطة وتوصيات الطبيب بشأن التمرين كما أبلغ بها اللاعب (الوصف والملاحظات حتى 300 حرف لكل منها)، '
-          'وآخر 5 ملاحظات تواصل كتبتها (حتى 300 حرف لكل ملاحظة)، وأهدافه الغذائية وهدف التغذية والوتيرة وأعداد التزامه خلال آخر 14 يومًا وأي اقتراح وتيرة معلّق. '
+          'وآخر 5 ملاحظات تواصل كتبتها (حتى 300 حرف لكل ملاحظة)، وأهدافه الغذائية وهدف التغذية والوتيرة وأعداد التزامه خلال آخر 14 يومًا، ودقائق تمارين القلب وأنواع أجهزته وسعراتها مع توضيح التقديرية، والتعديل اليومي للسعرات، وأي اقتراح وتيرة معلّق. '
           'لا يتلقى النموذج إجابات الفحص الصحي. قد تحتوي الملاحظات والإصابات والنبذة على تفاصيل تكشف الهوية. لا تُحفظ المحادثة.'
       : "The hosted model receives $player's name (preferred name if set), "
           "your coach display name and bio, $player's goal, Experience level, Equipment access, "
           "bodyweight and e1RM trends, active injuries and the player's reports of physician advice on exercise clearances "
           '(descriptions and notes up to 300 characters each), and your last 5 check-in notes '
           '(up to 300 characters each), Nutrition targets and author, Nutrition goal and pace, '
-          '14-day adherence counts, and any pending pace proposal. Health-screening answers are excluded. '
+          '14-day adherence counts, Cardio minutes, machine kinds, calories with estimate flags for the last 14 days, today’s calorie adjustment, and any pending pace proposal. Health-screening answers are excluded. '
           'Notes, injury details, and your bio may contain '
           "identifying details. This exchange isn't saved.";
   String get askAboutPlayer =>

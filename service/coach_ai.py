@@ -1076,6 +1076,28 @@ def gather_player_context(
             if day.get("value") in adherence_counts:
                 adherence_counts[day["value"]] += 1
         nutrition_facts["adherence_counts"] = adherence_counts
+        cardio_days = []
+        cardio_rows = ledger.list_session_cardio_by_session()
+        for offset in range(13, -1, -1):
+            day_date = nutrition_today - timedelta(days=offset)
+            day_sessions, logged_kcal = ledger.get_cardio_day_records(day_date.isoformat())
+            entries = [entry for session in day_sessions
+                       for entry in cardio_rows.get(str(session["id"]), [])]
+            day_state = nutrition_state if day_date == nutrition_today else nutrition_service.coach_read(
+                ledger, day_date, str(context["assignment"]["assignment_id"]), days=14
+            )
+            adjustment = int(day_state.get("cardio_adjustment_kcal", 0) or 0)
+            if entries or adjustment:
+                cardio_days.append({
+                    "date": day_date.isoformat(),
+                    "minutes": sum(int(entry["minutes"]) for entry in entries),
+                    "machines": sorted({str(entry["machine"]) for entry in entries}),
+                    "calories_kcal": logged_kcal,
+                    "calories_are_estimate": any(bool(entry["calories_are_estimate"]) for entry in entries),
+                    "cardio_adjustment_kcal": adjustment,
+                })
+        nutrition_facts["cardio_days"] = cardio_days
+        nutrition_facts["cardio_adjustment_kcal"] = nutrition_state.get("cardio_adjustment_kcal", 0)
         volumes = dashboard_service.working_set_volume(db, ledger_id, days_lookback=(7, 28), ledger=ledger)
         facts: dict[str, Any] = {
             "as_of": (attendance or {}).get("local_today") or now.date().isoformat(),
@@ -1481,6 +1503,17 @@ def _render_nutrition(facts: dict[str, Any]) -> list[str]:
     else:
         lines.append("  no active Nutrition targets")
     lines.append(_nutrition_adherence_line(nutrition))
+    for day in nutrition.get("cardio_days", []):
+        lines.append("  cardio " + str(day.get("date")) + ": "
+                     f"{day.get('minutes', 0)} minutes, machines "
+                     f"{', '.join(day.get('machines') or [])}, "
+                     f"{day.get('calories_kcal', 0)} kcal"
+                     + (" (estimate)" if day.get("calories_are_estimate") else "")
+                     + f", calorie adjustment {day.get('cardio_adjustment_kcal', 0)} kcal")
+    if not nutrition.get("cardio_days"):
+        lines.append("  cardio: no cardio logged in the last 14 days")
+    if "cardio_adjustment_kcal" in nutrition:
+        lines.append(f"  today's cardio calorie adjustment: {nutrition['cardio_adjustment_kcal']} kcal")
     proposal = nutrition.get("pace_proposal")
     if proposal:
         lines.append("  pending_pace_proposal: " + json.dumps(proposal, ensure_ascii=False, sort_keys=True))

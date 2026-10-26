@@ -85,6 +85,8 @@ _SIGNAL_FIELDS = (
     "days_since_last_check_in",
     "bodyweight_trend",
     "nutrition_adherence_7d",
+    "cardio_minutes_7d",
+    "cardio_calories_kcal_7d",
     "coaching_subscription_end",
 )
 _URGENCY_INPUT_FIELDS = (

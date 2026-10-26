@@ -3200,6 +3200,14 @@ def test_player_nutrition_tool_returns_ready_payload_for_player_local_window(api
         ledger.upsert_nutrition_adherence("2026-10-11", "off")
         ledger.upsert_nutrition_adherence("2026-10-12", "on_target")
         ledger.upsert_nutrition_adherence("2026-10-25", "roughly")
+        ledger.log_workout_session(
+            "nutrition-tool-cardio", "2026-10-25", "Cardio", "2026-10-25T12:00:00Z",
+            "2026-10-25T12:40:00Z",
+        )
+        ledger.log_session_cardio("nutrition-tool-cardio", [{
+            "machine": "stairmaster", "minutes": 40, "level": 8,
+            "calories_kcal": 320, "calories_are_estimate": False,
+        }], "2026-10-25T12:40:00Z")
     monkeypatch.setattr(player_tools, "player_local_date", lambda *_args: date(2026, 10, 25))
     model = ScriptedChatModel([
         ToolCallsTurn(calls=[{"name": "get_player_nutrition", "args": {}, "id": "ready-nutrition"}]),
@@ -3219,6 +3227,9 @@ def test_player_nutrition_tool_returns_ready_payload_for_player_local_window(api
     assert nutrition["goal"] == "maintain"
     assert nutrition["pace"] is None
     assert nutrition["adherence"] == {"on_target": 1, "roughly": 1, "off": 0}
+    assert nutrition["cardio_burned_kcal"] == 320
+    assert nutrition["cardio_adjustment_kcal"] == 160
+    assert "level" not in tool_result and "stairmaster" not in tool_result
 
 
 def test_player_nutrition_tool_reports_under_18_as_unavailable(api, monkeypatch):

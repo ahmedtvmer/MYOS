@@ -419,6 +419,8 @@ class CoachRosterSignalOut(BaseModel):
     days_since_last_check_in: int | None
     bodyweight_trend: None = None
     nutrition_adherence_7d: dict[str, int] | None = None
+    cardio_minutes_7d: int | None = None
+    cardio_calories_kcal_7d: int | None = None
     coaching_subscription_end: None = None
 
 

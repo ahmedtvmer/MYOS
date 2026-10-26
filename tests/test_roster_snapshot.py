@@ -243,6 +243,14 @@ def test_roster_snapshot_includes_persisted_adherence_and_excludes_screening(api
             ("2026-10-25", "off"),
         ):
             ledger.upsert_nutrition_adherence(on, adherence)
+        ledger.log_workout_session(
+            "roster-cardio", "2026-10-25", "Cardio", "2026-10-25T12:00:00Z",
+            "2026-10-25T12:40:00Z",
+        )
+        ledger.log_session_cardio("roster-cardio", [{
+            "machine": "stairmaster", "minutes": 40, "level": 8,
+            "calories_kcal": 320, "calories_are_estimate": False,
+        }], "2026-10-25T12:40:00Z")
         ledger.conn.execute(
             "UPDATE nutrition_screening SET answers_json=? WHERE id=1",
             (json.dumps({
@@ -253,6 +261,10 @@ def test_roster_snapshot_includes_persisted_adherence_and_excludes_screening(api
         )
         ledger.conn.commit()
 
+    snapshot = _snapshot(db, coach_id, datetime(2026, 10, 26, 12, tzinfo=UTC))
+    filtered_payload = coach_roster_ai.prepare_roster_question(
+        snapshot, "Who did the most Cardio?", []
+    ).messages[0].content
     snapshot_response = client.get("/coach/roster/snapshot", headers=coach_headers)
     assert snapshot_response.status_code == 200, snapshot_response.text
     snapshot = snapshot_response.json()
@@ -266,6 +278,11 @@ def test_roster_snapshot_includes_persisted_adherence_and_excludes_screening(api
     assert "pregnant_or_breastfeeding" not in model_payload
     assert "medical_condition" not in model_payload
     assert "eating_disorder" not in model_payload
+    assert signal["cardio_minutes_7d"] == 40
+    assert signal["cardio_calories_kcal_7d"] == 320
+    assert '"cardio_minutes_7d":40' in filtered_payload
+    assert '"cardio_calories_kcal_7d":320' in filtered_payload
+    assert '"level":8' not in filtered_payload
 
 
 def test_legacy_assignment_enters_snapshot_only_after_disclosure_and_revokes(

@@ -199,6 +199,8 @@ def _empty_ledger_signals() -> dict[str, Any]:
         "effort_rising_same_load_main_lift": False,
         "bodyweight_trend": None,
         "nutrition_adherence_7d": None,
+        "cardio_minutes_7d": None,
+        "cardio_calories_kcal_7d": None,
     }
 
 
@@ -228,6 +230,17 @@ def _ledger_signals(
             value = day.get("value")
             if value in nutrition_counts:
                 nutrition_counts[value] += 1
+        cardio_minutes = cardio_kcal = 0
+        cardio_rows = ledger.list_session_cardio_by_session()
+        for offset in range(6, -1, -1):
+            day_date = local_today - timedelta(days=offset)
+            sessions, logged = ledger.get_cardio_day_records(day_date.isoformat())
+            cardio_kcal += logged
+            cardio_minutes += sum(
+                int(entry["minutes"])
+                for session in sessions
+                for entry in cardio_rows.get(str(session["id"]), [])
+            )
     return {
         "missed_expected_days_7d": missed_7,
         "missed_expected_days_14d": missed_14,
@@ -238,6 +251,8 @@ def _ledger_signals(
         ),
         "bodyweight_trend": bodyweight_trend,
         "nutrition_adherence_7d": nutrition_counts,
+        "cardio_minutes_7d": cardio_minutes,
+        "cardio_calories_kcal_7d": cardio_kcal,
     }, local_today, str(preferred_name).strip() if preferred_name else None
 
 
