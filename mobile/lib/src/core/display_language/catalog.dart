@@ -84,6 +84,11 @@ class MyosCopy {
       'chest': 'الصدر', 'pectorals': 'الصدر', 'quads': 'العضلات الرباعية',
       'back': 'الظهر', 'shoulders': 'الكتفين', 'glutes': 'الأرداف',
       'hamstrings': 'أوتار الركبة', 'calves': 'السمانة', 'abs': 'البطن',
+      'biceps': 'العضلة ذات الرأسين', 'triceps': 'العضلة ثلاثية الرؤوس',
+      'forearms': 'الساعدان', 'adductors': 'العضلات المقربة',
+      'upper chest': 'أعلى الصدر', 'lats': 'العضلة الظهرية العريضة',
+      'front delts': 'الأكتاف الأمامية', 'side delts': 'الأكتاف الجانبية',
+      'rear delts': 'الأكتاف الخلفية',
     };
     final String label = isArabic ? (arabicMuscles[muscle.toLowerCase()] ?? muscle) : muscle;
     return isArabic

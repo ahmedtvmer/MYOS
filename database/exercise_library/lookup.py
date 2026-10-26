@@ -117,6 +117,8 @@ def _exact_name_rows(cursor, search: _NameSearch):
         "OR EXISTS (SELECT 1 FROM exercise_aliases a "
         "WHERE a.exercise_id = e.id AND a.normalized_alias = ?))"
     )
+    if search.equipment_clause:
+        where = f"({where}) AND ({search.equipment_clause})"
     params = [*search.filter_params, search.query, search.query, search.normalized_query]
     return _exercise_name_rows(
         cursor, where, params, _NameRowsOptions(limit=search.limit)
@@ -124,9 +126,12 @@ def _exact_name_rows(cursor, search: _NameSearch):
 
 
 def _normalized_name_rows(cursor, search: _NameSearch):
+    where = search.filter_clause
+    if search.equipment_clause:
+        where += f" AND ({search.equipment_clause})"
     rows = _exercise_name_rows(
         cursor,
-        search.filter_clause,
+        where,
         list(search.filter_params),
         _NameRowsOptions(limit=None),
     )
@@ -147,6 +152,8 @@ def _substring_name_rows(cursor, search: _NameSearch):
         "OR EXISTS (SELECT 1 FROM exercise_aliases a "
         "WHERE a.exercise_id = e.id AND LOWER(a.alias) LIKE ?))"
     )
+    if search.equipment_clause:
+        where = f"({where}) AND ({search.equipment_clause})"
     return _exercise_name_rows(
         cursor,
         where,
@@ -169,6 +176,8 @@ def _token_name_rows(cursor, search: _NameSearch):
         "OR EXISTS (SELECT 1 FROM exercise_aliases a "
         f"WHERE a.exercise_id = e.id AND {alias_pattern}))"
     )
+    if search.equipment_clause:
+        where = f"({where}) AND ({search.equipment_clause})"
     token_values = [f"%{token}%" for token in tokens]
     params = [*search.filter_params, *token_values, *token_values, *token_values]
     return _exercise_name_rows(
@@ -417,11 +426,7 @@ class ExerciseLookupMixin:
             filter_clause=filter_clause,
             filter_params=filter_params,
             filter_browse=browse,
-            equipment_clause=(
-                equipment_access_sql(equipment_access)
-                if equipment_access and browse
-                else None
-            ),
+            equipment_clause=equipment_access_sql(equipment_access) if equipment_access else None,
             limit=limit,
             replacing_exercise_id=(replacing_exercise_id or None),
         )

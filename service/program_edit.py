@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
-from agent.program_rationale import CHANGE_PROGRAM_EDIT_REMOVED, CHANGE_PROGRAM_EDIT_REORDERED, CHANGE_PROGRAM_EDIT_TRIMMED, CHANGE_PROGRAM_EDIT_ADDED, CHANGE_PROGRAM_EDIT_RAISED
+from agent.program_rationale import CHANGE_PROGRAM_EDIT_REMOVED, CHANGE_PROGRAM_EDIT_REORDERED, CHANGE_PROGRAM_EDIT_TRIMMED, CHANGE_PROGRAM_EDIT_ADDED, CHANGE_PROGRAM_EDIT_RAISED, SETS_PLAYER_EDIT
 from agent.program_weeks import (
     flatten_program_days,
     find_program_day,
@@ -36,7 +36,7 @@ PROGRAM_EDIT_ERRORS = {
     ProgramEditErrorCode.EXERCISE_NOT_ON_DAY: "That exercise is not in that day of your current program.",
     ProgramEditErrorCode.DUPLICATE_EXERCISE: "Each exercise entry can appear only once in a Program edit.",
     ProgramEditErrorCode.EMPTY_DAY: "A training day must keep at least one working-set exercise.",
-    ProgramEditErrorCode.INVALID_SET_COUNT: "Working sets must be from 1 to the current prescription.",
+    ProgramEditErrorCode.INVALID_SET_COUNT: "Working sets must be from 1 to 4.",
     ProgramEditErrorCode.COACH_CONTROLLED: COACH_CONTROLLED_ERROR,
     ProgramEditErrorCode.NO_ACTIVE_PROGRAM: "No active program.",
     ProgramEditErrorCode.PROGRAM_CHANGED: "The program changed since this edit was opened.",
@@ -108,8 +108,9 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
                 return _failure(ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE)
     previous_version = active.version
     if _is_unchanged(prepared.day["exercises"], edit_request.exercises):
+        week_order = int(prepared.day.get("week_order", edit_request.week_order or current_position.current_week))
         warnings = _volume_warnings(
-            ledger, active.model_dump(), ledger.get_player_profile() or {}, current_position.current_week
+            ledger, active.model_dump(), ledger.get_player_profile() or {}, week_order
         )
         return {**_updated_program_result(ledger, previous_version), "volume_warnings": warnings}
     _apply_program_edit(prepared, edit_request.exercises)
@@ -120,7 +121,7 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     )
     old_days = flatten_program_days(normalize_program_weeks(active))
     new_days = prepared.program_copy.get("days", [])
-    day_key = (int(edit_request.week_order or 1), int(edit_request.day_order or 1))
+    day_key = (int(prepared.day.get("week_order", edit_request.week_order or 1)), int(prepared.day.get("day_order", edit_request.day_order or 1)))
     old_day = next((day for day in old_days if (int(day.get("week_order", 1)), int(day.get("day_order", 0))) == day_key), None)
     new_day = next((day for day in new_days if (int(day.get("week_order", 1)), int(day.get("day_order", 0))) == day_key), None)
     source_positions: dict[tuple[int, int], dict[int, int]] = {}
@@ -130,7 +131,8 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
         source_positions[day_key] = {}
         for target_position, requested in enumerate(edit_request.exercises, 1):
             if requested.source_index < 0:
-                changes_by_target[(*day_key, target_position)] = [{"code": CHANGE_PROGRAM_EDIT_ADDED, "params": {"exercise_id": requested.exercise_id, "by": "player"}}]
+                prescription = prepared.day["exercises"][target_position - 1].get("program_edit_prescription_rationale", {})
+                changes_by_target[(*day_key, target_position)] = [{"code": CHANGE_PROGRAM_EDIT_ADDED, "params": {"exercise_id": requested.exercise_id, "by": "player", "prescription": prescription}}]
                 continue
             from_position = requested.source_index + 1
             source_positions[day_key][target_position] = from_position
@@ -156,9 +158,11 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
         old_days, new_days, source_positions=source_positions,
         changes_by_target=changes_by_target,
     )
+    for exercise in prepared.day["exercises"]:
+        exercise.pop("program_edit_prescription_rationale", None)
     carry_program_rationale(active, prepared.program_copy,
                             occurrence_mappings=mappings, removed_entries=removed_entries)
-    warnings = _volume_warnings(ledger, prepared.program_copy, ledger.get_player_profile() or {}, current_position.current_week)
+    warnings = _volume_warnings(ledger, prepared.program_copy, ledger.get_player_profile() or {}, day_key[0])
     if edit_request.preview:
         return {**prepared.program_copy, "previous_version": active.version, "volume_warnings": warnings}
     prepared.program_copy.pop("created_at", None)
@@ -249,11 +253,10 @@ def _validate_program_edit(
         for exercise in requested_exercises if exercise.source_index >= 0
     ):
         return _failure(ProgramEditErrorCode.EXERCISE_NOT_ON_DAY)
-    if any(
-        exercise.target_sets < 1
-        or exercise.target_sets > 4
-        for exercise in requested_exercises
-    ):
+    if any(exercise.target_sets < 1 or exercise.target_sets > 4 for exercise in requested_exercises):
+        return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
+    if any(item.source_index >= 0 and item.target_sets < len(current_exercises[item.source_index].get("set_groups") or [])
+           for item in requested_exercises):
         return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
     return None
 
@@ -264,11 +267,7 @@ def _is_unchanged(
 ) -> bool:
     return len(current_exercises) == len(requested_exercises) and all(
         requested.source_index == index
-        and (
-            int(current["set_groups"][0]["sets"])
-            if len(current.get("set_groups") or []) > 1
-            else program_exercise_working_sets(current)
-        ) == requested.target_sets
+        and program_exercise_working_sets(current) == requested.target_sets
         for index, (current, requested) in enumerate(zip(current_exercises, requested_exercises))
     )
 
@@ -286,9 +285,10 @@ def _apply_program_edit(
         exercise_copy = deepcopy(current_exercises[requested.source_index])
         groups = exercise_copy.get("set_groups") or []
         if groups:
-            groups[0]["sets"] = requested.target_sets
+            current_total = program_exercise_working_sets(exercise_copy)
+            groups[-1]["sets"] += requested.target_sets - current_total
             exercise_copy["set_groups"] = groups
-            exercise_copy["target_sets"] = groups[0]["sets"]
+            exercise_copy["target_sets"] = sum(int(group.get("sets", 0)) for group in groups)
         else:
             exercise_copy["target_sets"] = requested.target_sets
         prepared.day["exercises"].append(exercise_copy)
@@ -316,6 +316,13 @@ def _prepare_added_prescriptions(db: Any, ledger: Any, day: dict[str, Any], requ
         exercise.update({"exercise_name": row["name"], "target_reps_min": reps[0], "target_reps_max": reps[1],
             "target_rpe": 10 - rir, "rest_seconds": (rest_min + rest_max) // 2, "warmup_sets": warmup_sets,
             "set_groups": [{"sets": item.target_sets, "reps_min": reps[0], "reps_max": reps[1], "target_rir": rir}]})
+        exercise["program_edit_prescription_rationale"] = {
+            "sets": {"code": SETS_PLAYER_EDIT, "params": {"count": item.target_sets}},
+            "reps": {"code": "reps.rep_preference", "params": {"rep_preference": profile.get("rep_preference", "balanced"), "rep_min": reps[0], "rep_max": reps[1], "movement_class": mechanic}},
+            "rir": {"code": "rir.experience_level", "params": {"experience_level": level, "target_rir": rir, "prescription_class": prescription_class}},
+            "rest": {"code": "rest.movement_class", "params": {"rest_seconds": (rest_min + rest_max) // 2, "prescription_class": prescription_class}},
+            "warmup": {"code": "warmup.template", "params": {"count": warmup_sets, "prescription_class": prescription_class}},
+        }
 
 
 def _updated_program_result(ledger: Any, previous_version: int) -> dict[str, Any]:

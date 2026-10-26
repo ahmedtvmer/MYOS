@@ -7,6 +7,12 @@ const Map<String, String> _specificEnglishErrors = <String, String>{
       'Roster questions are unavailable right now.',
   'coach.roster_ai_pro_required.v1':
       'Coach Pro is required to ask questions about the roster.',
+  'program.edit.invalid_set_count.v1':
+      'Working sets must be from 1 to 4.',
+  'program.edit.exercise_not_available.v1':
+      'That exercise is not available in the Exercise library.',
+  'program.edit.day_limit.v1':
+      'A training day can have at most 10 working-set exercises.',
 };
 
 const Map<String, ({String english, String arabic})> _programImportMessages =
@@ -678,7 +684,9 @@ const Map<String, String> _specificArabicErrors = <String, String>{
   'program.edit.exercise_not_on_day.v1': 'هذا التمرين غير موجود في ذلك اليوم من برنامجك الحالي.',
   'program.edit.duplicate_exercise.v1': 'لا يمكن أن يظهر أي تمرين من اليوم أكثر من مرة في تعديل البرنامج.',
   'program.edit.empty_day.v1': 'يجب أن يحتفظ اليوم التدريبي بتمرين واحد على الأقل ضمن مجموعات التدريب.',
-  'program.edit.invalid_set_count.v1': 'يجب أن يكون عدد مجموعات التدريب من 1 إلى العدد المحدد حاليًا.',
+  'program.edit.invalid_set_count.v1': 'يجب أن يكون عدد مجموعات التدريب من 1 إلى 4.',
+  'program.edit.exercise_not_available.v1': 'هذا التمرين غير متاح في مكتبة التمارين.',
+  'program.edit.day_limit.v1': 'يمكن أن يضم اليوم التدريبي 10 تمارين كحد أقصى ضمن مجموعات التدريب.',
   'program.edit.changed.v1': 'تغير البرنامج منذ بدء التعديل. حدّث البرنامج ثم حاول مرة أخرى.',
   'program_request.invalid_kind.v1': 'اختر استبدال تمرين أو تغيير تقسيم التدريب.',
   'program_request.reason_required.v1': 'أضف سببًا للطلب.',

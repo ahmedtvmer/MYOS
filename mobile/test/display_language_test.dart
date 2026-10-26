@@ -38,6 +38,17 @@ void main() {
     }
   });
 
+  test('volume warning translates every common muscle group in Arabic', () {
+    const List<String> muscles = <String>[
+      'Biceps', 'Triceps', 'Forearms', 'Adductors', 'Upper Chest', 'Lats',
+      'Front Delts', 'Side Delts', 'Rear Delts',
+    ];
+    for (final String muscle in muscles) {
+      expect(const MyosCopy('ar').programVolumeWarning(muscle, 12, 10),
+          isNot(contains(muscle)));
+    }
+  });
+
   test('Arabic Cardio prescription display translates units', () {
     final ProgramCardio cardio = ProgramCardio(
       machine: 'rower', minutes: 20, watts: 100, distanceM: 2000,
