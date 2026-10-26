@@ -77,7 +77,7 @@ COACH_PROGRAM_RATIONALE_MAX_BYTES = 4 * 1024
 
 #: Bumped whenever the prompt or the context shape changes; the eval report's
 #: ``prompt_hash`` must match :func:`prompt_version_hash` for the flag to enable.
-CONTEXT_VERSION = "coach-context-v12"
+CONTEXT_VERSION = "coach-context-v13"
 
 BODYWEIGHT_TREND_WEEKS = 8
 E1RM_TREND_WEEKS = 12

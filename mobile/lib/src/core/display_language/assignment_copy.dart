@@ -113,11 +113,10 @@ class AssignmentCopy {
   String get acceptAssignment =>
       isArabic ? 'قبول علاقة التدريب' : 'Accept assignment';
   String get rosterAiDisclosure => isArabic
-      ? 'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية ودقائق تمارين القلب وسعراتها خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.'
-      : 'Your coach may ask a hosted AI about your training signals and your '
-          'Nutrition adherence and Cardio minutes and calories over the last 7 days '
-          'alongside other players’ figures. '
-          'The AI does not receive your name, contact details, or health-screening answers.';
+      ? 'قد يستخدم مدربك ذكاءً اصطناعيًا مستضافًا لمقارنة إشارات تدريبك والتزامك الغذائي ودقائق تمارين القلب وسعراتها خلال 7 أيام ببيانات لاعبين آخرين. لا يتلقى اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.'
+      : 'Your coach may use hosted AI to compare your training signals, 7-day '
+          'Nutrition adherence, and Cardio minutes and calories with other players. '
+          'It receives no name, contact details, or health-screening answers.';
   String get rosterAiDisclosureOk => isArabic ? 'حسنًا' : 'OK';
   String get enterInviteCode => isArabic
       ? 'أدخل رمز دعوة للتدريب مع مدرب.'

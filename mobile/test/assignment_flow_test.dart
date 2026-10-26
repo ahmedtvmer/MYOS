@@ -91,8 +91,10 @@ void main() {
     const AssignmentCopy arabic = AssignmentCopy('ar');
 
     expect(english.rosterAiDisclosure, contains('Nutrition adherence'));
+    expect(english.rosterAiDisclosure, contains('Cardio minutes and calories'));
     expect(english.rosterAiDisclosure, contains('health-screening answers'));
-    expect(arabic.rosterAiDisclosure, contains('الأهداف الغذائية'));
+    expect(arabic.rosterAiDisclosure, contains('التزامك الغذائي'));
+    expect(arabic.rosterAiDisclosure, contains('دقائق تمارين القلب وسعراتها'));
     expect(arabic.rosterAiDisclosure, contains('إجابات الفحص الصحي'));
     expect(rosterAiDisclosureVersion, '2');
   });
@@ -380,11 +382,7 @@ void main() {
     expect(find.text('Your coach will be Coach Bob'), findsOneWidget);
     expect(find.text('Strength'), findsOneWidget);
     expect(
-      find.text(
-        'Your coach may ask a hosted AI about your training signals and your '
-        'Nutrition adherence over the last 7 days alongside other players’ figures. '
-        'The AI does not receive your name, contact details, or health-screening answers.',
-      ),
+      find.text(const AssignmentCopy('en').rosterAiDisclosure),
       findsOneWidget,
     );
     expect(fake.activeAssignmentId, isNull);
@@ -411,10 +409,7 @@ void main() {
       ..rosterAiDisclosureVersion = null;
     await _pumpApp(tester, fake);
 
-    const String disclosure =
-        'Your coach may ask a hosted AI about your training signals and your '
-        'Nutrition adherence over the last 7 days alongside other players’ figures. '
-        'The AI does not receive your name, contact details, or health-screening answers.';
+    final String disclosure = const AssignmentCopy('en').rosterAiDisclosure;
     await _pumpUntilFound(tester, find.text(disclosure));
     expect(find.text('OK'), findsOneWidget);
     expect(fake.rosterAiDisclosureRequests, 0);
@@ -468,10 +463,7 @@ void main() {
       ..rosterAiDisclosureFailuresRemaining = 1;
     await _pumpApp(tester, fake);
 
-    const String disclosure =
-        'Your coach may ask a hosted AI about your training signals and your '
-        'Nutrition adherence over the last 7 days alongside other players’ figures. '
-        'The AI does not receive your name, contact details, or health-screening answers.';
+    final String disclosure = const AssignmentCopy('en').rosterAiDisclosure;
     await _pumpUntilFound(tester, find.text(disclosure));
 
     await tester.tap(find.text('OK'));
@@ -505,10 +497,7 @@ void main() {
       ..rosterAiDisclosureVersion = null;
     await _pumpApp(tester, fake);
 
-    const String disclosure =
-        'Your coach may ask a hosted AI about your training signals and your '
-        'Nutrition adherence over the last 7 days alongside other players’ figures. '
-        'The AI does not receive your name, contact details, or health-screening answers.';
+    final String disclosure = const AssignmentCopy('en').rosterAiDisclosure;
     await _pumpUntilFound(tester, find.text(disclosure));
 
     await tester.tapAt(const Offset(12, 12));
@@ -539,16 +528,10 @@ void main() {
     await tester.tap(find.text('معاينة إمكانية الاطلاع'));
     await _pumpUntilFound(
       tester,
-      find.text(
-        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية '
-        'خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.',
-      ),
+      find.text(const AssignmentCopy('ar').rosterAiDisclosure),
     );
     expect(
-      find.text(
-        'قد يطلب مدربك من ذكاء اصطناعي مستضاف تحليل إشارات تدريبك والتزامك بالأهداف الغذائية '
-        'خلال آخر 7 أيام مع بيانات لاعبين آخرين. لا يتلقى هذا الذكاء الاصطناعي اسمك أو بيانات الاتصال أو إجابات الفحص الصحي.',
-      ),
+      find.text(const AssignmentCopy('ar').rosterAiDisclosure),
       findsOneWidget,
     );
   });

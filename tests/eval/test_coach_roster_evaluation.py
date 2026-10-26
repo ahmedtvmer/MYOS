@@ -223,6 +223,20 @@ def test_insufficient_data_scorer_recognizes_arabic_absence_phrases(answer):
     assert insufficiency["passed"]
 
 
+@pytest.mark.parametrize("answer", ["لا توجد معلومات عن اللاعب.", "لا تتوفر معلومات عن اللاعب."])
+def test_insufficient_data_scorer_recognizes_arabic_information_phrases(answer):
+    result = _score_check(
+        answer=answer,
+        question="ما المعلومات المتاحة عن اللاعب؟",
+        check_name="states_insufficient_data",
+        expect={"insufficient": True},
+        player_ids=["P0123456789ab"],
+    )
+
+    assert result["observed"]
+    assert result["passed"]
+
+
 def test_insufficient_data_scorer_does_not_mark_available_data_as_missing():
     insufficiency = _score_check(
         answer="بيانات التدريب متاحة.",
