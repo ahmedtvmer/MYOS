@@ -2950,17 +2950,20 @@ class ProgramEditExerciseEntry {
     required this.sourceIndex,
     required this.exercise,
     required this.prescribedSets,
+    this.showAllEquipment = false,
   });
 
   final int sourceIndex;
   final ProgramExercise exercise;
   final int prescribedSets;
+  final bool showAllEquipment;
 
   ProgramEditExerciseEntry copyWith({ProgramExercise? exercise}) =>
       ProgramEditExerciseEntry(
         sourceIndex: sourceIndex,
         exercise: exercise ?? this.exercise,
         prescribedSets: prescribedSets,
+        showAllEquipment: showAllEquipment,
       );
 }
 

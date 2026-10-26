@@ -13,7 +13,8 @@ day_order.upper_lower_alternating, day_order.female_upper_lower, day_order.arnol
 day_order.arnold_x_ul, day_order.anterior_posterior, day_order.ppl,
 day_order.ppl_x_ul_spaces_leg_days. Change codes: change.substitution,
 change.program_edit_removed, change.program_edit_trimmed,
-change.program_edit_reordered, change.volume_review, change.coach_edit.
+change.program_edit_reordered, change.program_edit_added,
+change.program_edit_raised, change.volume_review, change.coach_edit.
 Parameters are stable JSON values; message
 text belongs to the reading assistant.
 selection.focus_muscle_extra, position.focus_first, sets.focus_multiplier,
@@ -66,6 +67,8 @@ CHANGE_SUBSTITUTION = "change.substitution"
 CHANGE_PROGRAM_EDIT_REMOVED = "change.program_edit_removed"
 CHANGE_PROGRAM_EDIT_TRIMMED = "change.program_edit_trimmed"
 CHANGE_PROGRAM_EDIT_REORDERED = "change.program_edit_reordered"
+CHANGE_PROGRAM_EDIT_ADDED = "change.program_edit_added"
+CHANGE_PROGRAM_EDIT_RAISED = "change.program_edit_raised"
 CHANGE_VOLUME_REVIEW = "change.volume_review"
 CHANGE_COACH_EDIT = "change.coach_edit"
 

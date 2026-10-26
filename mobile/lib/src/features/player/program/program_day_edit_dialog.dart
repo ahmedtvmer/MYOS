@@ -6,6 +6,7 @@ import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/models.dart';
 import '../../../core/theme/myos_typography.dart';
+import '../exercise_picker_dialog.dart';
 
 class ProgramDayEditDialog extends StatefulWidget {
   const ProgramDayEditDialog({super.key, required this.day});
@@ -172,7 +173,7 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
     return IconButton(
       key: Key('program_edit_increase_${entry.sourceIndex}'),
       tooltip: copy.increaseProgramExerciseSets(exercise.exerciseName),
-      onPressed: exercise.targetSets >= entry.prescribedSets
+      onPressed: exercise.targetSets >= 4
           ? null
           : () => _changeSetCount(entry, exercise.targetSets + 1),
       icon: const Icon(Icons.add),
@@ -213,6 +214,10 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
 
   List<Widget> _actions(MyosCopy copy) => <Widget>[
         TextButton(
+          onPressed: _exercises.length >= 10 ? null : _addExercise,
+          child: Text(copy.addProgramExercise),
+        ),
+        TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(copy.cancel),
         ),
@@ -222,4 +227,31 @@ class _ProgramDayEditDialogState extends State<ProgramDayEditDialog> {
           child: Text(copy.save),
         ),
       ];
+
+  Future<void> _addExercise() async {
+    final selection = await ExercisePickerDialog.show(
+      context,
+      excludeExerciseIds: _exercises.map((item) => item.exercise.exerciseId).toSet(),
+    );
+    if (selection == null || !mounted) return;
+    final entry = selection.$1;
+    final ProgramExercise exercise = ProgramExercise(
+      exerciseId: entry.id,
+      exerciseName: entry.name,
+      targetSets: 2,
+      targetRepsMin: 8,
+      targetRepsMax: 12,
+      targetRpe: 8,
+      equipment: entry.equipment,
+      primaryMuscle: entry.primaryMuscle,
+      primaryAction: entry.primaryAction,
+      equipmentCategory: entry.equipmentCategory,
+    );
+    setState(() => _exercises.add(ProgramEditExerciseEntry(
+      sourceIndex: -_exercises.length - 1,
+      exercise: exercise,
+      prescribedSets: 4,
+      showAllEquipment: selection.$2,
+    )));
+  }
 }

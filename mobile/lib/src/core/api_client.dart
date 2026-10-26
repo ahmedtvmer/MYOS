@@ -2583,6 +2583,31 @@ class ApiClient {
     );
   }
 
+  Future<List<Map<String, dynamic>>> previewProgramDay({
+    required String dayName,
+    required int weekOrder,
+    required int dayOrder,
+    required int expectedActiveVersion,
+    required List<ProgramEditExerciseEntry> exercises,
+  }) async {
+    final response = await _send(
+      () => _dio.post<dynamic>(
+        '/programs/active/edits',
+        data: <String, dynamic>{
+          'day_name': dayName,
+          'week_order': weekOrder,
+          'day_order': dayOrder,
+          'expected_active_version': expectedActiveVersion,
+          'preview': true,
+          'exercises': _programEditExercisePayload(exercises),
+        },
+      ),
+    );
+    final dynamic warnings = (response.data as Map<String, dynamic>?)?['volume_warnings'];
+    if (warnings is! List) return const <Map<String, dynamic>>[];
+    return warnings.whereType<Map<String, dynamic>>().map(Map<String, dynamic>.from).toList(growable: false);
+  }
+
   List<Map<String, dynamic>> _programEditExercisePayload(
     List<ProgramEditExerciseEntry> exercises,
   ) =>
@@ -2592,6 +2617,7 @@ class ApiClient {
             'source_index': entry.sourceIndex,
             'exercise_id': entry.exercise.exerciseId,
             'target_sets': entry.exercise.targetSets,
+            if (entry.showAllEquipment) 'show_all_equipment': true,
           },
       ];
 
@@ -2745,6 +2771,8 @@ class ApiClient {
     List<String> loadTypes = const <String>[],
     List<String> equipmentCategories = const <String>[],
     String? replacingExerciseId,
+    bool filterEquipmentAccess = false,
+    bool showAllEquipment = false,
   }) async {
     final response = await _send(
       () => _dio.get<dynamic>('/workouts/exercises',
@@ -2758,6 +2786,9 @@ class ApiClient {
               'equipment_category': equipmentCategories,
             if (replacingExerciseId != null)
               'replacing_exercise_id': replacingExerciseId,
+            if (filterEquipmentAccess) 'filter_equipment_access': true,
+            if (filterEquipmentAccess && showAllEquipment)
+              'show_all_equipment': true,
           },
           options: Options(listFormat: ListFormat.multi)),
     );

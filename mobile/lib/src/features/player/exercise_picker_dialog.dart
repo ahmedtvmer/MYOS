@@ -50,7 +50,18 @@ class ExercisePickerDialog extends ConsumerStatefulWidget {
     this.excludeExerciseIds = const <String>{},
     this.suggestedSubstitutes = const <SuggestedSubstitute>[],
     this.emptyFilteredMessage,
+    this.allowShowAllEquipment = false,
   });
+
+  static Future<(ExerciseCatalogEntry, bool)?> show(BuildContext context, {required Set<String> excludeExerciseIds}) =>
+      showDialog<(ExerciseCatalogEntry, bool)>(
+        context: context,
+        builder: (BuildContext context) => ExercisePickerDialog(
+          title: displayCopyOf(context).addProgramExercise,
+          excludeExerciseIds: excludeExerciseIds,
+          allowShowAllEquipment: true,
+        ),
+      );
 
   /// The dialog's heading: "Add unplanned exercise", or "Replace exercise".
   final String? title;
@@ -70,6 +81,7 @@ class ExercisePickerDialog extends ConsumerStatefulWidget {
   final List<SuggestedSubstitute> suggestedSubstitutes;
 
   final String? emptyFilteredMessage;
+  final bool allowShowAllEquipment;
 
   @override
   ConsumerState<ExercisePickerDialog> createState() =>
@@ -86,6 +98,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
 
   /// Whether [widget.targetMuscle] narrows the results right now (#162).
   bool _targetMuscleFilter = false;
+  bool _showAllEquipment = false;
   ExerciseFilterState _filterState = const ExerciseFilterState();
 
   @override
@@ -143,6 +156,8 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
             loadTypes: filters.loadTypes,
             equipmentCategories: filters.equipmentCategories,
             replacingExerciseId: widget.replacingExerciseId,
+            filterEquipmentAccess: widget.allowShowAllEquipment,
+            showAllEquipment: _showAllEquipment,
           );
       if (!mounted) return;
       setState(() {
@@ -216,6 +231,17 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            if (widget.allowShowAllEquipment)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(displayCopyOf(context).showAllEquipment),
+                subtitle: Text(displayCopyOf(context).equipmentAccessFilter),
+                value: _showAllEquipment,
+                onChanged: (bool value) {
+                  setState(() => _showAllEquipment = value);
+                  unawaited(_search());
+                },
+              ),
             MyosTextField(
               controller: _query,
               autofocus: true,
@@ -277,19 +303,20 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
                         MyosSettingsTile(
                           icon: Icons.swap_horiz,
                           title: item.exerciseName,
-                          onTap: () => Navigator.of(context).pop(
+                          onTap: () => _selectExercise((
                             ExerciseCatalogEntry(
                               id: item.exerciseId,
                               name: item.exerciseName,
                             ),
-                          ),
+                            _showAllEquipment,
+                          )),
                         ),
                     ],
                     for (final ExerciseCatalogEntry entry in visible)
                       MyosSettingsTile(
                         icon: Icons.fitness_center,
                         title: entry.name,
-                        onTap: () => Navigator.of(context).pop(entry),
+                        onTap: () => _selectExercise((entry, _showAllEquipment)),
                       ),
                   ],
                 ),
@@ -312,6 +339,14 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
         ),
       ],
     );
+  }
+
+  void _selectExercise((ExerciseCatalogEntry, bool) selection) {
+    if (widget.allowShowAllEquipment) {
+      Navigator.of(context).pop(selection);
+    } else {
+      Navigator.of(context).pop(selection.$1);
+    }
   }
 }
 

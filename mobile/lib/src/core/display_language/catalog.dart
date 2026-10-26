@@ -74,6 +74,22 @@ class MyosCopy {
       ? 'أُرسل طلب تغيير البرنامج التدريبي إلى مدربك.'
       : 'Your program change request was sent to your coach.';
   String get editDay => isArabic ? 'تعديل اليوم' : 'Edit day';
+  String get addProgramExercise => isArabic ? 'إضافة تمرين إلى البرنامج' : 'Add exercise';
+  String get equipmentAccessFilter => isArabic ? 'حسب المعدات المتاحة' : 'Equipment access';
+  String get showAllEquipment => isArabic ? 'عرض كل المعدات' : 'Show all equipment';
+  String get programVolumeWarningTitle => isArabic ? 'تنبيه بشأن حجم التدريب' : 'Volume warning';
+  String get saveProgramEditAnyway => isArabic ? 'حفظ على أي حال' : 'Save anyway';
+  String programVolumeWarning(String muscle, int sets, int ceiling) {
+    const Map<String, String> arabicMuscles = <String, String>{
+      'chest': 'الصدر', 'pectorals': 'الصدر', 'quads': 'العضلات الرباعية',
+      'back': 'الظهر', 'shoulders': 'الكتفين', 'glutes': 'الأرداف',
+      'hamstrings': 'أوتار الركبة', 'calves': 'السمانة', 'abs': 'البطن',
+    };
+    final String label = isArabic ? (arabicMuscles[muscle.toLowerCase()] ?? muscle) : muscle;
+    return isArabic
+        ? 'سيصل تدريب $label إلى ${_ltr('$sets')} مجموعات أسبوعية، متجاوزًا الحد ${_ltr('$ceiling')}.'
+        : '$label will reach $sets weekly working sets, above the $ceiling-set review ceiling.';
+  }
   // #323
   String get amrapLabel => isArabic ? 'أكبر عدد ممكن من التكرارات' : 'AMRAP';
   String cardioMachineName(String machine) => (isArabic

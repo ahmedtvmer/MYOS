@@ -203,6 +203,7 @@ def _program_edit_command(body: ProgramEditIn, player: Any, request: Request) ->
                 source_index=exercise.source_index,
                 exercise_id=exercise.exercise_id,
                 target_sets=exercise.target_sets,
+                show_all_equipment=exercise.show_all_equipment,
             )
             for exercise in body.exercises
         ],
@@ -211,6 +212,7 @@ def _program_edit_command(body: ProgramEditIn, player: Any, request: Request) ->
         player_account_id=account_id,
         actor=ProgramAnalyticsActor(account_id, "player"),
         client=analytics.client_context(request),
+        preview=body.preview,
     )
 
 

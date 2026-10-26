@@ -123,3 +123,50 @@ def test_program_edit_records_trim_reorder_removal_and_keeps_reasons(fresh_store
     assert by_id[str(rows[3][0])]["changes"][0]["code"] == "change.program_edit_reordered"
     assert saved["removed"][0]["exercise_id"] == str(rows[1][0])
     assert saved["removed"][0]["code"] == "change.program_edit_removed"
+
+
+def test_program_edit_adds_visible_library_exercise_and_raises_sets(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 3").fetchall()
+    ids = [str(row[0]) for row in rows]
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=ids[0], exercise_name=str(rows[0][1]), target_sets=2, target_reps_min=8, target_reps_max=12),
+    ])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+    candidate = db.get_exercise_library_entry(ids[1])
+    if candidate and candidate["equipment"].lower() in {"body weight", "band"}:
+        candidate = db.find_exercises_by_name("dumbbell", limit=1)[0]
+    edit = ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(0, ids[0], 4), ProgramEditExercise(-1, candidate["id"], 2)],
+        player_account_id=TEST_PLAYER_ID, actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1, preview=True)
+    preview = edit_active_program_day(db, ledger, edit)
+    assert preview["version"] == active.version
+    assert "volume_warnings" in preview
+    assert ledger.get_active_program().version == active.version
+    result = edit_active_program_day(db, ledger, ProgramEdit(**{**edit.__dict__, "preview": False}))
+    assert "code" not in result
+    saved = ledger.get_active_program().days[0].exercises
+    assert [exercise.exercise_id for exercise in saved] == [ids[0], candidate["id"]]
+    assert saved[0].target_sets == 4
+    rationale = ledger.get_active_program().program_rationale
+    added = rationale["days"][0]["exercises"][-1]
+    assert added["changes"][0]["code"] == "change.program_edit_added"
+    assert added["changes"][0]["params"] == {"exercise_id": candidate["id"], "by": "player"}
+    assert added["changes"][0]["at"]
+
+
+def test_program_edit_rejects_more_than_ten_exercises(fresh_store):
+    db = fresh_store
+    ledger = db.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 12").fetchall()
+    day = PersistedProgramDaySchema(day_name="Edit", day_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=2, target_reps_min=8, target_reps_max=12) for row in rows[:1]
+    ])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Edit", split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+    active = ledger.get_active_program()
+    result = edit_active_program_day(db, ledger, ProgramEdit(day_name="Edit", expected_active_version=active.version,
+        exercises=[ProgramEditExercise(-1, str(row[0]), 2) for row in rows[:11]],
+        player_account_id=TEST_PLAYER_ID, actor=ProgramAnalyticsActor(TEST_PLAYER_ID, "player"), day_order=1))
+    assert result["code"] == "day_limit"
