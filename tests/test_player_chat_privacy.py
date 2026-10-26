@@ -15,6 +15,7 @@ Proves the stated guarantees through the real HTTP surface:
 import json
 import sqlite3
 import time
+from types import SimpleNamespace
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -22,9 +23,15 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from agent import assistant_graph
-from agent import player_tools
 from agent import player_prompt
-from agent.ProgramState import GeneratedProgramSchema, ProgramDaySchema, ProgramExerciseSchema
+from agent import player_tools
+from agent.ProgramState import (
+    GeneratedProgramSchema, ProgramDaySchema, ProgramExerciseSchema,
+    ProgramSetGroupSchema, program_exercise_working_sets,
+)
+from agent import program_generator, program_rules
+from agent.focus_muscles import FOCUS_REVIEW_MUSCLES
+from core.weak_points import WEAK_POINT_MUSCLES
 from database.database_manager import DatabaseManager
 from service import coach as coach_service
 from service import workouts as workouts_service
@@ -34,6 +41,13 @@ from svc.schemas import CHAT_MESSAGE_MAX_CHARS
 from tests.fakes.chat_model import ScriptedChatModel, ToolCallsTurn
 
 TEST_JWT_SECRET = "test-secret-key-0123456789abcdef"
+
+PROGRAM_TOOL_CASES = [
+    (frequency, split_id, include_focus)
+    for frequency in range(1, 6)
+    for split_id in [None, *(split for split, _ in program_rules.SPLIT_OPTIONS_BY_FREQUENCY[frequency])]
+    for include_focus in (False, True)
+]
 
 PRIVATE_USER_CHAT = "PRIVATE_PLAYER_CHAT_7f3a How should I cue my bench?"
 PRIVATE_ASSISTANT_CHAT = "PRIVATE_ASSISTANT_REPLY_9c1d Keep the elbows tucked."
@@ -1168,6 +1182,141 @@ def test_tool_result_keeps_followup_payload_under_the_prompt_ceiling(api, monkey
     )
     assert payload_bytes <= player_prompt.HOSTED_PROMPT_MAX_BYTES
     assert '"status":"truncated"' in followup[-1].content
+
+
+def test_active_program_tool_returns_weekly_muscle_totals_and_scoped_day():
+    exercises = [
+        ProgramExerciseSchema(exercise_id="curl", exercise_name="Curl", target_sets=4,
+                              target_reps_min=8, target_reps_max=12, target_rpe=8,
+                              rest_seconds=90, set_groups=[
+                                  ProgramSetGroupSchema(sets=2, reps_min=8, reps_max=10, target_rir=2),
+                                  ProgramSetGroupSchema(sets=2, reps_min=6, reps_max=8, target_rir=1),
+                              ]),
+        ProgramExerciseSchema(exercise_id="pushdown", exercise_name="Pushdown", target_sets=3,
+                              target_reps_min=8, target_reps_max=12, target_rpe=8),
+        ProgramExerciseSchema(exercise_id="row", exercise_name="Row", target_sets=2,
+                              target_reps_min=8, target_reps_max=12, target_rpe=8),
+    ]
+    program = GeneratedProgramSchema(
+        program_name="Plan", split_type="PPL x UL", weekly_frequency=1,
+        days=[ProgramDaySchema(day_order=1, day_name="Pull", exercises=exercises)],
+    )
+    ledger = SimpleNamespace(
+        get_active_program=lambda: program,
+        volume_review_exercise_targets=lambda _ids: {"curl": "Biceps", "pushdown": "Triceps"},
+    )
+    tool = next(item for item in player_tools.PLAYER_READ_TOOL_REGISTRY
+                if item.name == "get_active_program")
+    result = tool.args_reader(ledger, player_tools.ActiveProgramArgs())
+    assert result["weekly_sets_by_muscle"]["biceps"] == 4
+    assert result["weekly_sets_by_muscle"]["triceps"] == 3
+    assert result["message"]
+    assert "day_name" in result["message"]
+    scoped = tool.args_reader(ledger, player_tools.ActiveProgramArgs(day_name="pull"))
+    assert scoped["days"][0]["day"] == "Pull"
+    assert "weekly_sets_by_muscle" not in scoped
+    for exercise in scoped["days"][0]["exercises"]:
+        assert {"name", "sets", "reps_min", "reps_max", "rir", "rest_seconds", "muscle"} <= exercise.keys()
+    assert scoped["days"][0]["exercises"][0]["muscle"] == "Biceps"
+    assert scoped["days"][0]["exercises"][0]["set_groups"] == [
+        {"sets": 2, "reps_min": 8, "reps_max": 10, "rir": 2.0},
+        {"sets": 2, "reps_min": 6, "reps_max": 8, "rir": 1.0},
+    ]
+    assert scoped["days"][0]["exercises"][0]["rest_seconds"] == 90
+    encoded = player_tools._encode_tool_result({**result, "days": result["days"] * 100})
+    assert len(encoded.encode("utf-8")) <= player_tools.MAX_TOOL_RESULT_BYTES
+    assert json.loads(encoded)["status"] == "summary_only"
+
+
+@pytest.mark.parametrize("frequency,split_id,include_focus", PROGRAM_TOOL_CASES)
+def test_generated_programs_fit_active_program_tool_cap_and_report_arm_sets(
+    fresh_store, frequency, split_id, include_focus
+):
+    profile = {
+        "gender": "male", "proportions": "balanced", "age": 28,
+        "weight_kg": 80.0, "height_cm": 175.0, "rep_preference": "balanced",
+        "current_goal": "hypertrophy", "long_term_goal": "progressive overload",
+        "weekly_frequency": frequency, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None",
+        "stress_and_sleep": "normal",
+        "weak_points": ([{"muscle": "biceps", "source": "named"},
+                         {"muscle": "triceps", "source": "named"}]
+                        if include_focus else []),
+    }
+    fresh_store.ledger.upsert_player_profile(profile)
+    program, _ = program_generator.generate_program_pipeline(
+        user_split_override=split_id,
+        frequency_override=frequency,
+        ledger=fresh_store.ledger,
+    )
+
+    tool = next(item for item in player_tools.PLAYER_READ_TOOL_REGISTRY
+                if item.name == "get_active_program")
+    tool_result = tool.args_reader(fresh_store.ledger, player_tools.ActiveProgramArgs())
+    encoded = player_tools._encode_tool_result(tool_result)
+    assert len(encoded.encode("utf-8")) <= player_tools.MAX_TOOL_RESULT_BYTES
+    decoded = json.loads(encoded)
+    assert decoded["status"] == "ok"
+    assert set(WEAK_POINT_MUSCLES).issubset(decoded["weekly_sets_by_muscle"])
+
+    exercise_ids = sorted({exercise.exercise_id for day in program.days for exercise in day.exercises})
+    targets = fresh_store.ledger.volume_review_exercise_targets(exercise_ids)
+    expected_sets = {}
+    expected_other = {}
+    for day in program.days:
+        for exercise in day.exercises:
+            muscle = (targets.get(exercise.exercise_id) or "").strip()
+            if muscle:
+                groups = [
+                    group for group, names in FOCUS_REVIEW_MUSCLES.items()
+                    if muscle.casefold() in {name.casefold() for name in names}
+                ]
+                target = expected_sets if groups else expected_other
+                for key in groups or [muscle]:
+                    target[key] = target.get(key, 0) + program_exercise_working_sets(exercise)
+    for muscle, sets in expected_sets.items():
+        assert decoded["weekly_sets_by_muscle"][muscle] == sets
+    assert decoded["other_muscles"] == expected_other
+    assert decoded["weekly_sets_by_muscle"]["biceps"] == expected_sets["biceps"]
+    assert decoded["weekly_sets_by_muscle"]["triceps"] == expected_sets["triceps"]
+    if include_focus:
+        assert expected_sets["biceps"] > 0
+        assert expected_sets["triceps"] > 0
+
+
+def test_ppl_upper_lower_muscle_totals_follow_volume_review_groups(fresh_store):
+    fresh_store.ledger.upsert_player_profile({
+        "gender": "male", "weekly_frequency": 5, "equipment_access": "Commercial gym",
+        "current_goal": "hypertrophy", "training_age_years": 3,
+        "weak_points": [{"muscle": "biceps", "source": "named"},
+                        {"muscle": "triceps", "source": "named"}],
+    })
+    program, _ = program_generator.generate_program_pipeline(
+        user_split_override="ppl_x_ul", frequency_override=5, ledger=fresh_store.ledger,
+    )
+    tool = next(item for item in player_tools.PLAYER_READ_TOOL_REGISTRY
+                if item.name == "get_active_program")
+    response = tool.args_reader(fresh_store.ledger, player_tools.ActiveProgramArgs())
+    summary = response["weekly_sets_by_muscle"]
+    ids = sorted({exercise.exercise_id for day in program.days for exercise in day.exercises})
+    targets = fresh_store.ledger.volume_review_exercise_targets(ids)
+    expected = {group: 0 for group in FOCUS_REVIEW_MUSCLES}
+    slot_sets = {"incline_press": 0, "flat_press": 0, "chest_fly": 0}
+    for day in program.days:
+        for exercise in day.exercises:
+            sets = program_exercise_working_sets(exercise)
+            review_muscle = (targets.get(exercise.exercise_id) or "").casefold()
+            for group, review_names in FOCUS_REVIEW_MUSCLES.items():
+                if review_muscle in {name.casefold() for name in review_names}:
+                    expected[group] += sets
+            if exercise.slot_key in slot_sets:
+                slot_sets[exercise.slot_key] += sets
+    assert summary["back"] > 0
+    assert summary["shoulders"] > 0
+    assert summary["chest"] == sum(slot_sets.values())
+    assert summary["upper_chest"] == slot_sets["incline_press"]
+    assert summary["biceps"] == expected["biceps"]
+    assert summary["triceps"] == expected["triceps"]
 
 
 @pytest.mark.parametrize(
