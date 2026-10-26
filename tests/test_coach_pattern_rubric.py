@@ -434,6 +434,7 @@ def test_every_focus_extra_keeps_its_own_day_choice_reason(fresh_store, monkeypa
         days, rationale = original_generate_days(profile, request, split_plan, ledger)
         back_exercises = [ex for day in days for ex in day.exercises if ex.slot_key in FOCUS_MUSCLE_SLOTS["back"]]
         back_exercises[0].target_sets += 2
+        back_exercises[0].set_groups[-1].sets += 2
         return days, rationale
 
     monkeypatch.setattr(generator, "_generate_program_days", baseline_ten)
@@ -443,6 +444,34 @@ def test_every_focus_extra_keeps_its_own_day_choice_reason(fresh_store, monkeypa
     assert all(extra["day_choice_reason"]["code"] for extra in focus["extras"])
     rationale_extras = [item for _day, item in _focus_extra_records(program)]
     assert all(item["rationale"]["day_choice"]["code"] for item in rationale_extras)
+    assert len({item["rationale"]["day_choice"]["params"]["day_order"] for item in rationale_extras}) == 2
+    by_id = {item["exercise_id"]: item for item in rationale_extras}
+    rationale_extras = [by_id[extra["exercise_id"]] for extra in focus["extras"]]
+    extra_ids = {item["exercise_id"] for item in rationale_extras}
+    expected_exposures = sum(
+        any(ex.slot_key in FOCUS_MUSCLE_SLOTS["back"] and ex.exercise_id not in extra_ids
+            for ex in day.exercises)
+        for day in program.days
+    )
+    for item in rationale_extras:
+        choice = item["rationale"]["day_choice"]
+        before = choice["params"]["exposures_before"]
+        assert before == expected_exposures
+        assert choice["params"]["exposures_after"] == before + (
+            1 if choice["code"] == "focus.new_weekly_exposure" else 0
+        )
+        if choice["code"] == "focus.new_weekly_exposure":
+            expected_exposures += 1
+    assert sum(ex.target_sets for day in program.days for ex in day.exercises
+               if ex.slot_key in FOCUS_MUSCLE_SLOTS["back"]) == 14
+
+
+def test_focus_compound_extra_fallback_stays_in_eligible_region(fresh_store):
+    fresh_store.switch_user("focus_compound_region_fallback")
+    program = _focus_draft(fresh_store, "arnold_x_ul", 5, ("shoulders",))
+    focus = next(item for item in program.program_rationale["focus_muscles"] if item["muscle"] == "shoulders")
+    day = next(day for day in program.days if day.day_order == focus["day_order"])
+    assert not ("lower" in day.day_name.casefold() or "leg" in day.day_name.casefold())
 
 
 def _focus_draft(db, split_type, frequency, muscles=()):

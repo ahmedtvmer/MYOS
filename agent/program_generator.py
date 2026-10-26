@@ -1205,28 +1205,28 @@ def _focus_target_weekly_sets(baseline: int) -> int:
 
 def _focus_target_day_for_extra(program, plan, slot_key, opened_days):
     muscle = plan.focus["muscle"]
-    available = _focus_available_days(program, opened_days)
-    eligible_days = _focus_days_under_cap(program)
+    eligible_days = [
+        day for day in _focus_days_under_cap(program)
+        if _focus_day_region_eligible(day, plan, slot_key)
+    ]
+    available = [day for day in eligible_days if day.day_order not in opened_days]
     if not eligible_days:
         return None, None
-    exposures = _focus_exposure_count(plan, opened_days)
-    new_days = _focus_new_exposure_days(available, plan, slot_key)
+    current_exercises = _current_focus_exercises(program)
+    exposures = _focus_exposure_count(plan, current_exercises)
+    new_days = _focus_new_exposure_days(available, plan, slot_key, current_exercises)
     if new_days:
-        day = _lightest_focus_day(new_days, plan.baseline_exercises)
+        day = _lightest_focus_day(new_days, current_exercises)
         return day, _focus_day_choice_reason(
             FOCUS_NEW_WEEKLY_EXPOSURE, muscle, exposures, day.day_order
         )
     training_days = [day for day in available if any(
-        ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day.day_order]
+        ex.slot_key in plan.muscle_slots for ex in current_exercises[day.day_order]
     )]
-    fallback = _lightest_focus_day(training_days or available or eligible_days, plan.baseline_exercises)
+    fallback = _lightest_focus_day(training_days or available or eligible_days, current_exercises)
     return fallback, _focus_day_choice_reason(
         FOCUS_LIGHTEST_TRAINING_DAY, muscle, exposures, fallback.day_order
     )
-
-
-def _focus_available_days(program, opened_days):
-    return [day for day in _focus_days_under_cap(program) if day.day_order not in opened_days]
 
 
 def _focus_days_under_cap(program):
@@ -1236,33 +1236,63 @@ def _focus_days_under_cap(program):
     ) < 2]
 
 
-def _focus_exposure_count(plan, opened_days):
-    baseline_exposures = sum(any(ex.slot_key in plan.muscle_slots for ex in exercises)
-                             for exercises in plan.baseline_exercises.values())
-    extra_exposures = sum(
-        not any(ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day_order])
-        for day_order in opened_days
-    )
-    return baseline_exposures + extra_exposures
+def _current_focus_exercises(program):
+    return {day.day_order: tuple(day.exercises) for day in program.days}
 
 
-def _focus_new_exposure_days(available, plan, slot_key):
-    return [day for day in available if _focus_day_adds_exposure(day, plan, slot_key)]
+def _focus_exposure_count(plan, current_exercises):
+    return sum(any(ex.slot_key in plan.muscle_slots for ex in exercises)
+               for exercises in current_exercises.values())
 
 
-def _focus_day_adds_exposure(day, plan, slot_key):
+def _focus_new_exposure_days(available, plan, slot_key, current_exercises):
+    return [day for day in available if _focus_day_adds_exposure(day, plan, slot_key, current_exercises)]
+
+
+def _focus_day_adds_exposure(day, plan, slot_key, current_exercises):
     region_policy = FOCUS_REGION_POLICY[plan.focus["muscle"]]
     home_family = region_policy["home_region"]
     family = plan.day_families[day.day_order]
     if family == "arms":
         family = "upper"
-    if any(ex.slot_key in plan.muscle_slots for ex in plan.baseline_exercises[day.day_order]):
+    if any(ex.slot_key in plan.muscle_slots for ex in current_exercises[day.day_order]):
         return False
     if family == home_family or (home_family == "neutral" and family in {"upper", "lower"}):
         return True
     return (
         family in region_policy["isolation_cross_regions"]
         and SLOT_SPECS[slot_key].archetype == "isolation"
+    )
+
+
+def _focus_day_region_eligible(day, plan, slot_key):
+    policy = FOCUS_REGION_POLICY[plan.focus["muscle"]]
+    home = policy["home_region"]
+    family = plan.day_families[day.day_order]
+    if family == "arms":
+        family = "upper"
+    if family == "full":
+        return True
+    if home == "neutral":
+        return family in {"upper", "lower"}
+    if family == home:
+        return True
+    if _focus_day_trains_region(day, home):
+        return True
+    return (
+        family in policy["isolation_cross_regions"]
+        and SLOT_SPECS[slot_key].archetype == "isolation"
+    )
+
+
+def _focus_day_trains_region(day, home):
+    return any(
+        ex.slot_key in {
+            slot for muscle, region in FOCUS_REGION_POLICY.items()
+            if region["home_region"] == home
+            for slot in FOCUS_MUSCLE_SLOTS[muscle]
+        }
+        for ex in day.exercises
     )
 
 
