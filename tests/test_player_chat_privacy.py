@@ -1228,6 +1228,89 @@ def test_active_program_tool_returns_weekly_muscle_totals_and_scoped_day():
     assert json.loads(encoded)["status"] == "summary_only"
 
 
+def test_active_program_totals_default_to_current_week_and_allow_explicit_week():
+    program = GeneratedProgramSchema(
+        program_name="Two weeks", split_type="Custom", weekly_frequency=1,
+        days=[
+            ProgramDaySchema(day_order=1, week_order=1, day_name="Pull", exercises=[
+                ProgramExerciseSchema(exercise_id="curl", exercise_name="Curl", target_sets=2,
+                                      target_reps_min=8, target_reps_max=12, target_rpe=8),
+                *[ProgramExerciseSchema(exercise_id=f"w1-{i}", exercise_name="Other", target_sets=1,
+                                        target_reps_min=8, target_reps_max=12, target_rpe=8) for i in range(2)],
+            ]),
+            ProgramDaySchema(day_order=1, week_order=2, day_name="Pull", exercises=[
+                ProgramExerciseSchema(exercise_id="curl", exercise_name="Curl", target_sets=4,
+                                      target_reps_min=8, target_reps_max=12, target_rpe=8),
+                *[ProgramExerciseSchema(exercise_id=f"w2-{i}", exercise_name="Other", target_sets=1,
+                                        target_reps_min=8, target_reps_max=12, target_rpe=8) for i in range(2)],
+            ]),
+        ],
+    )
+    ledger = SimpleNamespace(
+        get_active_program=lambda: program,
+        get_program_position=lambda _program: SimpleNamespace(current_week=2),
+        volume_review_exercise_targets=lambda _ids: {"curl": "Biceps"},
+    )
+    tool = next(item for item in player_tools.PLAYER_READ_TOOL_REGISTRY
+                if item.name == "get_active_program")
+
+    current = tool.args_reader(ledger, player_tools.ActiveProgramArgs())
+    assert current["weekly_sets_by_muscle"]["biceps"] == 4
+    assert current["days"][0]["w"] == 2
+    explicit = tool.args_reader(ledger, player_tools.ActiveProgramArgs(week_order=1))
+    assert explicit["weekly_sets_by_muscle"]["biceps"] == 2
+    assert explicit["days"][0]["w"] == 1
+
+
+def test_active_program_day_can_be_narrowed_to_one_complete_exercise():
+    exercises = [
+        ProgramExerciseSchema(exercise_id=f"curl-{index}", exercise_name=f"Curl {index}",
+                              target_sets=3, target_reps_min=8, target_reps_max=12,
+                              target_rpe=8, set_groups=[
+                                  ProgramSetGroupSchema(sets=1, reps_min=12, reps_max=15, target_rir=3),
+                                  ProgramSetGroupSchema(sets=1, reps_min=10, reps_max=12, target_rir=2),
+                                  ProgramSetGroupSchema(sets=1, reps_min=8, reps_max=10, target_rir=1),
+                              ]) for index in range(10)
+    ]
+    program = GeneratedProgramSchema(program_name="Plan", split_type="Custom", weekly_frequency=1,
+                                     days=[ProgramDaySchema(day_order=1, day_name="Pull", exercises=exercises)])
+    ledger = SimpleNamespace(get_active_program=lambda: program,
+                             volume_review_exercise_targets=lambda _ids: {})
+    tool = next(item for item in player_tools.PLAYER_READ_TOOL_REGISTRY
+                if item.name == "get_active_program")
+
+    scoped = tool.args_reader(ledger, player_tools.ActiveProgramArgs(day_name="Pull", exercise_name="Curl 9"))
+    encoded = player_tools._encode_tool_result(scoped)
+    assert json.loads(encoded)["status"] == "ok"
+    assert [item["name"] for item in scoped["days"][0]["exercises"]] == ["Curl 9"]
+    assert len(scoped["days"][0]["exercises"][0]["set_groups"]) == 3
+
+
+def test_active_program_summary_fallback_preserves_unmapped_muscle_totals():
+    exercises = [
+        ProgramExerciseSchema(
+            exercise_id=f"exercise-{index}", exercise_name=f"Exercise {index} " + "x" * 1000,
+            target_sets=2, target_reps_min=8, target_reps_max=12, target_rpe=8,
+        ) for index in range(5)
+    ]
+    program = GeneratedProgramSchema(
+        program_name="Large plan", split_type="Custom", weekly_frequency=1,
+        days=[ProgramDaySchema(day_order=1, day_name="Pull", exercises=exercises)],
+    )
+    ledger = SimpleNamespace(
+        get_active_program=lambda: program,
+        volume_review_exercise_targets=lambda _ids: {
+            "exercise-0": "Traps", "exercise-1": "Lower Back",
+        },
+    )
+    tools, _definitions = player_tools.build_player_read_tools(ledger)
+    active_program_tool = next(tool for tool in tools if tool.name == "get_active_program")
+
+    decoded = json.loads(active_program_tool.invoke({}))
+    assert decoded["status"] == "summary_only"
+    assert decoded["other_muscles"] == {"Traps": 2, "Lower Back": 2}
+
+
 @pytest.mark.parametrize("frequency,split_id,include_focus", PROGRAM_TOOL_CASES)
 def test_generated_programs_fit_active_program_tool_cap_and_report_arm_sets(
     fresh_store, frequency, split_id, include_focus
