@@ -112,7 +112,7 @@ void main() {
   testWidgets('female profile Weak points default is removable and editable', (tester) async {
     final FakeMyosApi fake = _playerFake()..gender = 'female';
     await _pumpApp(tester, fake);
-    await _openProfile(tester);
+    await _changeTrainingDays(tester);
     final Finder scrollable = find.descendant(
       of: find.byType(ProfileScreen), matching: find.byType(Scrollable));
     await tester.scrollUntilVisible(
@@ -160,6 +160,60 @@ void main() {
     expect(find.text('Program rebuilt.'), findsNothing);
     // The profile update itself still applied.
     expect(fake.weeklyFrequency, 3);
+  });
+
+  testWidgets('accepting a goal Weak point saves it from the profile prompt',
+      (tester) async {
+    final FakeMyosApi fake = _playerFake()
+      ..profileSuggestedWeakPoints = <String>['glutes'];
+    await _pumpApp(tester, fake);
+    await _changeTrainingDays(tester);
+    await tester.enterText(find.byKey(const Key('current_goal_field')), 'Grow my glutes');
+    await tester.ensureVisible(find.text('Save profile'));
+    await tester.tap(find.text('Save profile'));
+    await _pumpUntilFound(tester, find.text('This rebuilds your program'));
+    await tester.tap(find.byKey(const Key('profile_rebuild_confirm_button')));
+    await _pumpUntilFound(tester, find.text('Make Glutes a Weak point?'));
+    await tester.tap(find.text('Accept'));
+    await tester.pumpAndSettle();
+    expect(fake.profileUpdateBodies.any((Map<String, dynamic> body) =>
+        body['weak_points'] != null), isTrue);
+    expect(fake.weakPoints, <Map<String, String>>[
+      <String, String>{'muscle': 'glutes', 'source': 'named'},
+    ]);
+    expect(find.text('Program rebuilt.'), findsOneWidget);
+    final Finder scrollable = find.descendant(
+      of: find.byType(ProfileScreen), matching: find.byType(Scrollable));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile_weak_points_section')), 250,
+      scrollable: scrollable.first);
+    await tester.tap(find.byKey(const Key('profile_weak_points_section')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(find.byKey(const Key('profile_weak_point_glutes'))).selected, isTrue);
+    await tester.tap(find.byKey(const Key('save_weak_points_button')));
+    await tester.pumpAndSettle();
+    expect(fake.weakPoints, <Map<String, String>>[
+      <String, String>{'muscle': 'glutes', 'source': 'named'},
+    ]);
+  });
+
+  testWidgets('dismissing a goal Weak point prompt leaves Weak points unchanged',
+      (tester) async {
+    final FakeMyosApi fake = _playerFake()
+      ..profileSuggestedWeakPoints = <String>['glutes'];
+    await _pumpApp(tester, fake);
+    await _changeTrainingDays(tester);
+    await tester.enterText(find.byKey(const Key('current_goal_field')), 'Grow my glutes');
+    await tester.ensureVisible(find.text('Save profile'));
+    await tester.tap(find.text('Save profile'));
+    await _pumpUntilFound(tester, find.text('This rebuilds your program'));
+    await tester.tap(find.byKey(const Key('profile_rebuild_confirm_button')));
+    await _pumpUntilFound(tester, find.text('Make Glutes a Weak point?'));
+    await tester.tap(find.text('Dismiss'));
+    await tester.pumpAndSettle();
+    expect(fake.profileUpdateBodies.any((Map<String, dynamic> body) =>
+        body['weak_points'] != null), isFalse);
+    expect(fake.weakPoints, isNull);
   });
 
   testWidgets('normal profile update announces the rebuild', (tester) async {

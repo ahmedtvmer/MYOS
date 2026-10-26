@@ -541,6 +541,29 @@ void main() {
     expect(fake.intakeAnswers['weak_points'], isEmpty);
   });
 
+  testWidgets('goal suggestions preselect named Weak points and show their source', (tester) async {
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeAnswers.addAll(_requiredAnswers)
+      ..intakeSuggestedWeakPoints = <String>['chest', 'biceps', 'triceps'];
+    await _pumpOnboarding(tester, fake);
+    expect(find.text('From your goal'), findsOneWidget);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_chest'),
+    )).selected, isTrue);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_biceps'),
+    )).selected, isTrue);
+    expect(tester.widget<FilterChip>(find.byKey(
+      const Key('onboarding_weak_point_triceps'),
+    )).selected, isFalse);
+    await tester.tap(find.byKey(const Key('onboarding_continue')));
+    await _pumpUntilFound(tester, find.byKey(const Key('onboarding_confirm')));
+    expect(fake.intakeAnswers['weak_points'], <Map<String, String>>[
+      <String, String>{'muscle': 'chest', 'source': 'named'},
+      <String, String>{'muscle': 'biceps', 'source': 'named'},
+    ]);
+  });
+
   testWidgets('male Weak points step starts with no selection', (tester) async {
     final Map<String, Object> answers = Map<String, Object>.from(_requiredAnswers)
       ..['gender'] = 'male';

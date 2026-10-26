@@ -97,6 +97,7 @@ class FakeMyosApi {
   bool profileExists = false;
   String gender = 'male';
   List<Map<String, String>>? weakPoints;
+  List<String> profileSuggestedWeakPoints = <String>[];
   bool nutritionLoadFails = false;
   Map<String, dynamic>? lastNutritionSetupBody;
   String? lastNutritionActivity;
@@ -557,6 +558,7 @@ class FakeMyosApi {
   String intakeStatus = 'in_progress';
   Map<String, Object?> intakeAnswers = <String, Object?>{};
   Map<String, dynamic>? intakeProgram;
+  List<String> intakeSuggestedWeakPoints = <String>[];
   // When true, `GET /onboarding/intake` omits the required `fields` key.
   bool intakeMalformed = false;
   bool legacyEquipmentIntakeContract = false;
@@ -3751,6 +3753,7 @@ class FakeMyosApi {
   Map<String, dynamic> _profileBody() => <String, dynamic>{
         'gender': gender,
         'weak_points': weakPoints,
+        'suggested_weak_points': profileSuggestedWeakPoints,
         'rep_preference': repPreference,
         'weekly_frequency': weeklyFrequency,
         'equipment_access': equipmentAccess,
@@ -3894,12 +3897,14 @@ class FakeMyosApi {
       'rep_preference': preference,
       'equipment_access': access,
       'injuries_or_limitations': injuries,
+      'current_goal': request.body['current_goal'],
     };
     final Map<String, Object?> before = <String, Object?>{
       'weekly_frequency': weeklyFrequency,
       'rep_preference': repPreference,
       'equipment_access': equipmentAccess,
       'injuries_or_limitations': injuriesOrLimitations,
+      'current_goal': currentGoal,
     };
     final bool rebuildWarranted = _profileRebuildFields.any(
       (String field) =>
@@ -4308,6 +4313,7 @@ class FakeMyosApi {
       'status': intakeStatus,
       'disclosure_acknowledged': intakeDisclosureAcknowledged,
       'fields': fields,
+      'suggested_weak_points': intakeSuggestedWeakPoints,
       'profile_rebuild_fields': _profileRebuildFields,
       'progress': <String, dynamic>{
         'answered_required': answeredRequired,

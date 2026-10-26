@@ -49,6 +49,7 @@ from utils.equipment_access import (
     map_equipment_access,
 )
 from core.weak_points import WEAK_POINT_MUSCLES, validate_weak_points
+from core.weak_point_suggestions import suggest_weak_points_for_goals
 
 STATUS_IN_PROGRESS = "in_progress"
 STATUS_CONFIRMING = "confirming"
@@ -510,6 +511,10 @@ def build_view(db: Any, ledger_id: str, ledger: Any | None = None) -> dict[str, 
         "profile_rebuild_fields": list(PROFILE_REBUILD_FIELDS),
         "disclosure_acknowledged": bool(state.get("disclosure_acknowledged")),
         "fields": fields,
+        "suggested_weak_points": suggest_weak_points_for_goals(
+            answers.get("current_goal", {}).get("value", ""),
+            answers.get("long_term_goal", {}).get("value", ""),
+        ),
         "progress": {
             "answered_required": sum(1 for name in REQUIRED_FIELDS if name in answers),
             "required_total": len(REQUIRED_FIELDS),

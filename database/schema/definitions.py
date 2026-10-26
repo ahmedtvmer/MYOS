@@ -9,7 +9,11 @@ from typing import Any
 from agent.prompts import DEFAULT_ASSISTANT_STYLE
 from database.exercise_library.curation import apply_exercise_curation
 from database.migration_manager import CURRENT_LEDGER_SCHEMA_VERSION
-from database.migration_manager import ASSISTANT_PREFERENCES_DDL, PROGRAM_DESIGN_OFFER_DDL
+from database.migration_manager import (
+    ASSISTANT_GOAL_WEAK_POINT_PENDING_DDL,
+    ASSISTANT_PREFERENCES_DDL,
+    PROGRAM_DESIGN_OFFER_DDL,
+)
 from database.migration_manager import PROGRAM_EXERCISE_LOAD_COLUMN, PROGRAM_EXERCISE_SET_GROUPS_COLUMN
 from database.migration_manager import VOLUME_REVIEWS_DDL
 from database.migration_manager import EQUIPMENT_ACCESS_DDL
@@ -407,6 +411,7 @@ class SchemaMixin:
                 *WEIGHT_HISTORY_DDL,
                 *EQUIPMENT_ACCESS_DDL,
                 *ASSISTANT_PREFERENCES_DDL,
+                *ASSISTANT_GOAL_WEAK_POINT_PENDING_DDL,
                 *VOLUME_REVIEWS_DDL,
                 *PROGRAM_DESIGN_OFFER_DDL,
             )

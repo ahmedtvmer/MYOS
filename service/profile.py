@@ -18,6 +18,7 @@ from service import injuries as injuries_service
 from service import weight_history
 from service.profile_fields import PROFILE_REBUILD_FIELDS
 from service.weight_trend_alerts import evaluate_for_player
+from core.weak_point_suggestions import suggest_weak_points_for_goals
 from utils.equipment_access import map_equipment_access
 from utils.preferred_name import validate_preferred_name
 
@@ -75,6 +76,9 @@ def _profile_with_preferred_name(
     return {
         **profile,
         "preferred_name": ledger.get_assistant_memory().get("preferred_name"),
+        "suggested_weak_points": suggest_weak_points_for_goals(
+            profile.get("current_goal", ""), profile.get("long_term_goal", "")
+        ),
     }
 
 

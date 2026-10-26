@@ -308,7 +308,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _noticeIsError = false;
     });
     try {
-      final ProfileUpdateResult result =
+      ProfileUpdateResult result =
           await ref.read(apiClientProvider).updateProfile(
                 weeklyFrequency: changedValues['weekly_frequency'] as int?,
                 repPreference: changedValues['rep_preference'] as String?,
@@ -321,11 +321,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 equipmentAccess: changedValues['equipment_access'] as String?,
               );
       if (!mounted) return;
+      List<Map<String, String>> weakPoints = List<Map<String, String>>.from(
+        result.profile?.weakPoints ?? saved.weakPoints ?? const <Map<String, String>>[],
+      );
+      for (final String muscle in result.profile?.suggestedWeakPoints ?? const <String>[]) {
+        if (weakPoints.any((Map<String, String> point) => point['muscle'] == muscle) ||
+            weakPoints.length >= 2) {
+          continue;
+        }
+        final bool? accepted = await _confirmGoalWeakPoint(muscle);
+        if (!mounted) return;
+        if (accepted == true && mounted) {
+          weakPoints.removeWhere((Map<String, String> point) => point['source'] == 'default');
+          weakPoints.add(<String, String>{'muscle': muscle, 'source': 'named'});
+          final ProfileUpdateResult weakPointResult =
+              await ref.read(apiClientProvider).updateProfile(weakPoints: weakPoints);
+          result = ProfileUpdateResult(
+            programRebuilt: result.programRebuilt || weakPointResult.programRebuilt,
+            programBlocked: result.programBlocked || weakPointResult.programBlocked,
+            programMessage: weakPointResult.programMessage ?? result.programMessage,
+            profile: weakPointResult.profile ?? result.profile,
+            program: weakPointResult.program ?? result.program,
+          );
+          weakPoints = List<Map<String, String>>.from(
+              weakPointResult.profile?.weakPoints ?? weakPoints);
+        }
+      }
+      if (!mounted) return;
       if (result.programRebuilt) {
         unawaited(_refreshProgramCache(rebuiltProgram: result.program));
       }
       setState(() {
         _saving = false;
+        _weakPoints = List<Map<String, String>>.from(
+            result.profile?.weakPoints ?? weakPoints);
         _savedProfile = result.profile ??
             PlayerProfile(
               weeklyFrequency: _weeklyFrequency,
@@ -353,6 +382,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       });
     }
   }
+
+  Future<bool?> _confirmGoalWeakPoint(String muscle) => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          content: Text(_copy.makeWeakPoint(
+              MyosCopy(_copy.languageCode).weakPointMuscle(muscle))),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(_copy.dismiss),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(_copy.accept),
+            ),
+          ],
+        ),
+      );
 
   Future<void> _saveWeakPoints() async {
     setState(() {

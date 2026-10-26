@@ -25,6 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
 from core.effort import rir_label
+from core.weak_point_suggestions import suggest_weak_points
+from core.weak_points import WEAK_POINT_MUSCLES
 from core.injuries import (
     body_area_in_text,
     clarification_body_area_in_text,
@@ -1750,6 +1752,237 @@ _WEAK_POINT_NAMES = {
     "البطن": "abs",
 }
 
+_WEAK_POINT_CHAT_LABELS = {
+    "chest": ("chest", "الصدر"),
+    "upper_chest": ("upper chest", "أعلى الصدر"),
+    "back": ("back", "الظهر"),
+    "shoulders": ("shoulders", "الأكتاف"),
+    "side_delts": ("side delts", "الأكتاف الجانبية"),
+    "biceps": ("biceps", "البايسبس"),
+    "triceps": ("triceps", "الترايسبس"),
+    "forearms": ("forearms", "الساعد"),
+    "quads": ("quads", "الفخذ الأمامي"),
+    "hamstrings": ("hamstrings", "الفخذ الخلفي"),
+    "glutes": ("glutes", "الأرداف"),
+    "adductors": ("adductors", "العضلات المقربة"),
+    "calves": ("calves", "السمانة"),
+    "abs": ("abs", "البطن"),
+}
+
+
+def _goal_change_from_statement(query: str) -> tuple[str, str] | None:
+    patterns = (
+        ("current_goal", r"(?:change|update|set) my (?:current )?goal to\s+(.+)$"),
+        ("long_term_goal", r"(?:change|update|set) my long[- ]term goal to\s+(.+)$"),
+        ("current_goal", r"my current goal is\s+(.+)$"),
+        ("current_goal", r"my goal is\s+(.+)$"),
+        ("current_goal", r"(?:غيّر|غير|عدّل|عدل) هدفي(?: الحالي)? (?:إلى|الى)\s*(.+)$"),
+        ("long_term_goal", r"(?:غيّر|غير|عدّل|عدل) هدفي طويل المدى (?:إلى|الى)\s*(.+)$"),
+        ("current_goal", r"هدفي(?: الحالي)? هو\s*(.+)$"),
+        ("current_goal", r"(?:هدفي(?: الحالي)?|عايز|عايزة|نفسي)\s+((?:أكبر|اكبر|أوسع|اوسع|أزود|ازود)\s+.+)$"),
+    )
+    normalized = unicodedata.normalize("NFKC", query).strip().rstrip(".!؟")
+    normalized = re.sub(r"[\u064b-\u065f\u0670]", "", normalized)
+    for field_name, pattern in patterns:
+        match = re.fullmatch(pattern, normalized, re.IGNORECASE)
+        if match is not None:
+            goal = match.group(1).strip()
+            if len(goal) >= 2:
+                return field_name, goal[:500]
+    return None
+
+
+def _goal_weak_point_labels(muscles: list[str], language: str) -> str:
+    label_index = 1 if language == "ar" else 0
+    return ", ".join(_WEAK_POINT_CHAT_LABELS[muscle][label_index] for muscle in muscles)
+
+
+def _goal_confirmation_kind(query: str) -> str | None:
+    normalized = unicodedata.normalize("NFKC", query).casefold().strip()
+    normalized = re.sub(r"[\u064b-\u065f\u0670]", "", normalized)
+    normalized = re.sub(r"[.!?,،؟؛]+", " ", normalized)
+    normalized = " ".join(normalized.split())
+    if re.fullmatch(r"(?:yes|yes please|sure|okay|ok|نعم|أيوه|أيوة|ايوه|ايوة|ماشي|تمام)", normalized):
+        return "yes"
+    if re.fullmatch(r"(?:no|no thanks|لا|لأ|مش عايز|مش عايزة|مش عاوز)", normalized):
+        return "no"
+    return None
+
+
+def _goal_confirmation_turn(messages: list[Any], pending: dict[str, Any]) -> str | None:
+    latest = next(
+        (_get_message_text(message) for message in reversed(messages[:-1])
+         if isinstance(message, AIMessage)),
+        "",
+    )
+    if not latest or latest.strip() != pending.get("offer_text", "").strip():
+        return None
+    return pending.get("kind") if pending.get("offer_id") else None
+
+
+def _goal_suggestion_candidates(ledger: Any, pending: list[str]) -> list[str]:
+    current = (ledger.get_player_profile() or {}).get("weak_points") or []
+    named = [point["muscle"] for point in current if point.get("source") != "default"]
+    return list(dict.fromkeys(named + pending))
+
+
+def _goal_suggestion_overflow(candidates: list[str], language: str) -> dict[str, Any]:
+    labels = _goal_weak_point_labels(candidates, language)
+    reply = (
+        f"You can have at most two Weak points. Which two should I keep: {labels}?"
+        if language == "en"
+        else f"يمكنك اختيار نقطتي ضعف فقط. أي نقطتين تريد الاحتفاظ بهما: {labels}؟"
+    )
+    return _response(reply)
+
+
+def _save_goal_weak_points(
+    selected: list[str], ledger: Any, store: Any, state: AssistantState
+) -> dict[str, Any]:
+    language = _tool_reply_language(state)
+    weak_points, invalid_reply = _validated_chat_weak_points(selected, language)
+    if invalid_reply is not None:
+        return _response(invalid_reply)
+    from service.profile import update_profile
+
+    saved = update_profile(
+        store, ledger.ledger_id, {"weak_points": weak_points},
+        state.get("player_account_id"), ledger,
+    )
+    ledger.clear_pending_goal_weak_point_suggestion()
+    labels = [_WEAK_POINT_CHAT_LABELS[muscle][0 if language == "en" else 1] for muscle in selected]
+    return _response(_weak_point_write_confirmation(labels, saved, language))
+
+
+def _decline_goal_weak_point_suggestion(ledger: Any, language: str) -> dict[str, Any]:
+    ledger.clear_pending_goal_weak_point_suggestion()
+    reply = (
+        "Okay, I left your Weak points unchanged."
+        if language == "en"
+        else "تمام، سبت نقاط ضعفك زي ما هي."
+    )
+    return _response(reply)
+
+
+def _pending_goal_confirmation(
+    query: str, ledger: Any, messages: list[Any]
+) -> tuple[list[str], str] | None:
+    if _weak_point_names_from_statement(query) is not None:
+        return None
+    pending_state = ledger.get_pending_goal_weak_point_suggestion()
+    if not pending_state:
+        return None
+    turn = _goal_confirmation_turn(messages, pending_state)
+    if turn is None or turn != pending_state.get("kind"):
+        ledger.clear_pending_goal_weak_point_suggestion()
+        return None
+    return pending_state["muscles"], turn
+
+
+def _resolve_goal_weak_point_selection(
+    query: str, pending: list[str], turn: str, ledger: Any
+) -> tuple[list[str], list[str] | None]:
+    candidates = _goal_suggestion_candidates(ledger, pending)
+    confirmation = _goal_confirmation_kind(query)
+    if confirmation == "yes":
+        selected = pending
+    else:
+        selected = [muscle for muscle in suggest_weak_points(query) if muscle in candidates]
+        explicit_pick = bool(re.search(
+            r"\b(?:just|only|keep)\b|\b(?:chest|back|shoulders|upper chest|side delts)\s+only\b|"
+            r"بس|فقط|خلي|خليلي|احتفظ",
+            unicodedata.normalize("NFKC", query).casefold(),
+        ))
+        if not explicit_pick:
+            return candidates, None
+        if not selected:
+            return candidates, None
+    if turn == "choose" and confirmation != "yes":
+        return candidates, selected
+    current = (ledger.get_player_profile() or {}).get("weak_points") or []
+    current_named = [point["muscle"] for point in current if point.get("source") != "default"]
+    return candidates, list(dict.fromkeys(current_named + selected))
+
+
+def _goal_weak_point_confirmation(
+    query: str, ledger: Any, store: Any, state: AssistantState
+) -> dict[str, Any] | None:
+    messages = state.get("messages", [])
+    if _goal_change_from_statement(query) is not None:
+        ledger.clear_pending_goal_weak_point_suggestion()
+        return None
+    pending_context = _pending_goal_confirmation(query, ledger, messages)
+    if pending_context is None:
+        return None
+    pending, confirmation_turn = pending_context
+    language = _tool_reply_language({"messages": [HumanMessage(content=query)]})
+    confirmation = _goal_confirmation_kind(query)
+    if confirmation == "no":
+        return _decline_goal_weak_point_suggestion(ledger, language)
+    candidates, selected = _resolve_goal_weak_point_selection(
+        query, pending, confirmation_turn, ledger
+    )
+    if selected is None:
+        return None
+    if len(selected) > 2:
+        overflow = _goal_suggestion_overflow(candidates, language)
+        ledger.set_pending_goal_weak_point_suggestion(
+            candidates, "choose", overflow["response_content"]
+        )
+        return overflow
+    return _save_goal_weak_points(selected, ledger, store, state)
+
+
+def _write_chat_goal(
+    goal_change: tuple[str, str], ledger: Any, store: Any, state: AssistantState
+) -> list[str]:
+    field, goal = goal_change
+    from service.profile import update_profile
+
+    updated = update_profile(
+        store, ledger.ledger_id, {field: goal}, state.get("player_account_id"), ledger
+    )
+    profile = updated.get("profile") or ledger.get_player_profile() or {}
+    saved_muscles = {point["muscle"] for point in profile.get("weak_points") or []}
+    suggestions = [muscle for muscle in suggest_weak_points(goal) if muscle not in saved_muscles]
+    return suggestions
+
+
+def _offer_goal_weak_points(
+    suggestions: list[str], ledger: Any, language: str
+) -> dict[str, Any]:
+    labels = _goal_weak_point_labels(suggestions, language)
+    offer = (
+        f"I updated your goal. Should I make {labels} a Weak point? Reply yes or no."
+        if language == "en"
+        else f"حدّثت هدفك. أضيف {labels} كنقطة ضعف؟ رد أيوه أو لا."
+    )
+    response = _response(offer)
+    ledger.set_pending_goal_weak_point_suggestion(
+        suggestions, "offer", response["response_content"]
+    )
+    return response
+
+
+def _goal_write_intent(
+    query: str, ledger: Any, store: Any, state: AssistantState
+) -> dict[str, Any] | None:
+    goal_change = _goal_change_from_statement(query)
+    if goal_change is not None:
+        ledger.clear_pending_goal_weak_point_suggestion()
+        suggestions = _write_chat_goal(goal_change, ledger, store, state)
+        language = _tool_reply_language({"messages": [HumanMessage(content=query)]})
+        if not suggestions:
+            return _response("I updated your goal." if language == "en" else "حدّثت هدفك.")
+        return _offer_goal_weak_points(suggestions, ledger, language)
+    confirmation = _goal_weak_point_confirmation(query, ledger, store, state)
+    if confirmation is not None:
+        return confirmation
+    pending = ledger.get_pending_goal_weak_point_suggestion()
+    if pending:
+        ledger.clear_pending_goal_weak_point_suggestion()
+    return None
+
 
 def _weak_point_names_from_statement(query: str) -> list[str] | None:
     match = re.fullmatch(
@@ -1768,7 +2001,7 @@ def _weak_point_names_from_statement(query: str) -> list[str] | None:
 def _validated_chat_weak_points(
     names: list[str], language: str
 ) -> tuple[list[dict[str, str]] | None, str | None]:
-    muscles = [_WEAK_POINT_NAMES.get(name) for name in names]
+    muscles = [_WEAK_POINT_NAMES.get(name) or (name if name in WEAK_POINT_MUSCLES else None) for name in names]
     if not muscles or any(muscle is None for muscle in muscles):
         reply = (
             "Name Weak points from the list: chest, upper chest, back, shoulders, "
@@ -1824,6 +2057,7 @@ def _weak_point_write_intent(
     raw_names = _weak_point_names_from_statement(query)
     if raw_names is None:
         return None
+    ledger.clear_pending_goal_weak_point_suggestion()
     language = _tool_reply_language({"messages": [HumanMessage(content=query)]})
     weak_points, invalid_reply = _validated_chat_weak_points(raw_names, language)
     if invalid_reply is not None:
@@ -1871,6 +2105,7 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     if clinical is not None:
         if ledger is not None:
             ledger.clear_pending_assistant_preference_deletion()
+            ledger.clear_pending_goal_weak_point_suggestion()
         if (
             not clinical.get("franco")
             and pending is not None
@@ -1886,9 +2121,18 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     if safety_classification and safety_classification.get("intent") == "banned_movement":
         if ledger is not None:
             ledger.clear_pending_assistant_preference_deletion()
+            ledger.clear_pending_goal_weak_point_suggestion()
         return {key: value for key, value in safety_classification.items() if key != "query"}
 
     if ledger is not None:
+        goal_write = _goal_write_intent(
+            query, ledger, _graph_context(config)[1], state
+        )
+        if goal_write is not None:
+            return {
+                "intent": "telemetry_intercept",
+                "intent_metadata": {"response_content": goal_write["response_content"]},
+            }
         weak_point_intent = _weak_point_write_intent(
             query, ledger, _graph_context(config)[1], state.get("player_account_id")
         )

@@ -1007,6 +1007,7 @@ This document records the architectural, algorithmic, and heuristic decisions im
 * **Context**: Lifters could not tell MYOS which muscles lag; the only emphasis was a glute-only Full Body split.
 * **Rationale**: One extra, different exercise placed first keeps ADR 054's 1–2 sets per exercise while giving the muscle fresh, proportionally larger work. A multiplier scales with the coach dose and keeps a beginner's Focus muscle from starting at the Volume review ceiling. The glute default amends ADR 077 deliberately: it is shown and removable, so the Player still decides, which is the point ADR 077 protected. Retiring the glute split leaves one emphasis mechanism that works with every Split.
 * **Code References**: `core/weak_points.py`, `agent/focus_muscles.py`, `agent/program_generator.py` (`_apply_focus_muscles`), `service/volume_review.py`, `service/profile.py`, `service/programs.py`, `database/migration_manager.py` (ledger v44, v46, v47), `mobile/lib/src/features/player/onboarding/`, `mobile/lib/src/features/player/program/program_tab.dart`, `mobile/lib/src/features/coach/coach_player_history_screen.dart`, `tests/test_coach_pattern_rubric.py`, `tests/test_volume_review.py`.
+* **Amendment (2026-10-26, #509)**: Current and long-term goal text may deterministically suggest Weak points using word-boundary matching in English and Arabic. Suggestions are shown for the Player to confirm or remove; they never silently change saved Weak points. Chat confirmation is kept pending across turns (ledger v48).
 
 ---
 

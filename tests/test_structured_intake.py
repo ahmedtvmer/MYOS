@@ -172,6 +172,18 @@ def test_weak_points_are_optional_intake_answers_and_can_be_cleared(api):
     assert field["answered"] is True and field["answer"] == []
 
 
+def test_intake_exposes_deterministic_goal_weak_point_suggestions(api):
+    client, _, _ = api
+    headers = _register(client, "goal_suggestion")
+    client.post("/onboarding/intake/disclosure", headers=headers)
+    client.put("/onboarding/intake/answers/current_goal", headers=headers,
+               json={"value": "grow my glutes and arms"})
+    view = client.put("/onboarding/intake/answers/long_term_goal", headers=headers,
+                      json={"value": "عايز صدر أكبر"})
+    assert view.status_code == 200, view.text
+    assert view.json()["suggested_weak_points"] == ["glutes", "biceps", "triceps", "chest"]
+
+
 def test_skipping_weak_points_keeps_the_confirmed_profile_unanswered(api, monkeypatch):
     client, _, _ = api
     headers = _register(client, "weakpoint-skip")

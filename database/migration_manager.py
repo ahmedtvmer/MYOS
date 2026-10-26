@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 47
+CURRENT_LEDGER_SCHEMA_VERSION: int = 48
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -56,6 +56,14 @@ ASSISTANT_PREFERENCES_DDL: tuple[str, ...] = (
     " id TEXT PRIMARY KEY CHECK (id = 'forget'),"
     " preference_id TEXT NOT NULL,"
     " created_at TEXT NOT NULL"
+    ")",
+)
+
+ASSISTANT_GOAL_WEAK_POINT_PENDING_DDL: tuple[str, ...] = (
+    "CREATE TABLE IF NOT EXISTS assistant_goal_weak_point_pending ("
+    " id INTEGER PRIMARY KEY CHECK (id = 1),"
+    " muscles_json TEXT NOT NULL, offer_id TEXT NOT NULL, kind TEXT NOT NULL, "
+    "offer_text TEXT NOT NULL, created_at TEXT NOT NULL"
     ")",
 )
 
@@ -988,6 +996,12 @@ def _migrate_v46_to_v47(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v47_to_v48(conn: sqlite3.Connection) -> None:
+    """Stores a pending goal-based Weak point confirmation between chat turns (#509)."""
+    for statement in ASSISTANT_GOAL_WEAK_POINT_PENDING_DDL:
+        conn.execute(statement)
+
+
 def _migrate_v35_to_v36(conn: sqlite3.Connection) -> None:
     """Adds immutable Nutrition plan versions and Player-only screening (#461)."""
     conn.execute(
@@ -1260,6 +1274,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     44: _migrate_v44_to_v45,
     45: _migrate_v45_to_v46,
     46: _migrate_v46_to_v47,
+    47: _migrate_v47_to_v48,
 }
 
 

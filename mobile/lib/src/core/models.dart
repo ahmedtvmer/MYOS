@@ -1993,6 +1993,7 @@ class OnboardingIntake {
     required this.fields,
     required this.profileRebuildFields,
     required this.progress,
+    this.suggestedWeakPoints = const <String>[],
     this.program,
   });
 
@@ -2015,6 +2016,8 @@ class OnboardingIntake {
           (json['profile_rebuild_fields'] as List<dynamic>? ?? const [])
               .map((dynamic field) => field.toString())
               .toList(growable: false),
+      suggestedWeakPoints: (json['suggested_weak_points'] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic muscle) => muscle.toString()).toList(growable: false),
       progress: IntakeProgress.fromJson(
           json['progress'] as Map<String, dynamic>? ?? const {}),
       program: json['program'] == null
@@ -2027,6 +2030,7 @@ class OnboardingIntake {
   final bool disclosureAcknowledged;
   final List<IntakeField> fields;
   final List<String> profileRebuildFields;
+  final List<String> suggestedWeakPoints;
   final IntakeProgress progress;
   final IntakeProgram? program;
 
@@ -2148,6 +2152,7 @@ class PlayerProfile {
   const PlayerProfile({
     this.gender = 'male',
     this.weakPoints,
+    this.suggestedWeakPoints = const <String>[],
     this.repPreference = 'balanced',
     this.weeklyFrequency = 4,
     this.equipmentAccess = equipmentAccessCommercialGym,
@@ -2166,6 +2171,8 @@ class PlayerProfile {
         gender: json['gender'] as String? ?? 'male',
         weakPoints: json['weak_points'] == null ? null :
             (json['weak_points'] as List<dynamic>).map((dynamic item) => Map<String, String>.from(item as Map)).toList(growable: false),
+        suggestedWeakPoints: (json['suggested_weak_points'] as List<dynamic>? ?? const <dynamic>[])
+            .map((dynamic muscle) => muscle.toString()).toList(growable: false),
         repPreference: json['rep_preference'] as String? ?? 'balanced',
         weeklyFrequency: (json['weekly_frequency'] as num?)?.toInt() ?? 4,
         equipmentAccess:
@@ -2188,6 +2195,7 @@ class PlayerProfile {
   final String repPreference;
   final String gender;
   final List<Map<String, String>>? weakPoints;
+  final List<String> suggestedWeakPoints;
   final int weeklyFrequency;
   final String equipmentAccess;
   final String currentGoal;
@@ -2203,6 +2211,7 @@ class PlayerProfile {
   PlayerProfile copyWith({double? weightKg, double? targetWeightKg}) => PlayerProfile(
         gender: gender,
         weakPoints: weakPoints,
+        suggestedWeakPoints: suggestedWeakPoints,
         repPreference: repPreference,
         weeklyFrequency: weeklyFrequency,
         equipmentAccess: equipmentAccess,

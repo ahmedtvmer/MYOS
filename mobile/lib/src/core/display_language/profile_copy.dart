@@ -15,6 +15,11 @@ class ProfileCopy {
   String get weakPoints => isArabic ? 'نقاط الضعف' : 'Weak points';
   String get weakPointsLead => isArabic ? 'اختر حتى نقطتي ضعف لتحسينهما.' : 'Choose up to two Weak points to improve.';
   String get saveWeakPoints => isArabic ? 'حفظ نقاط الضعف' : 'Save Weak points';
+  String makeWeakPoint(String muscle) => isArabic
+      ? 'هل تريد جعل $muscle نقطة ضعف؟'
+      : 'Make $muscle a Weak point?';
+  String get accept => isArabic ? 'نعم' : 'Accept';
+  String get dismiss => isArabic ? 'لا' : 'Dismiss';
   String get injuries => isArabic ? 'الإصابات' : 'Injuries';
   String get injuriesLead => isArabic
       ? 'سجّل الإصابات الحالية ومتابعتها.'

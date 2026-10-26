@@ -56,6 +56,16 @@ def test_v47_scopes_existing_regeneration_decisions_to_design_v2():
     assert row == ("dismissed", "design_version", 2)
 
 
+def test_v48_adds_persistent_goal_weak_point_pending_intent():
+    conn = sqlite3.connect(":memory:")
+    MIGRATION_REGISTRY[47](conn)
+    MIGRATION_REGISTRY[47](conn)
+    columns = {column[1] for column in conn.execute(
+        "PRAGMA table_info(assistant_goal_weak_point_pending)"
+    )}
+    assert {"id", "muscles_json", "offer_id", "kind", "offer_text", "created_at"} <= columns
+
+
 @pytest.fixture
 def temp_db_env(tmp_path: Path, monkeypatch):
     catalog_path = tmp_path / "catalog.db"
@@ -1748,7 +1758,7 @@ def test_ledger_upgrade_from_v33_adds_optional_program_load(tmp_path: Path):
 
 
 def test_v42_lazy_migration_creates_water_log_from_real_v42_schema(temp_db_env):
-    from database.migration_manager import CURRENT_LEDGER_SCHEMA_VERSION, get_ledger_schema_version
+    from database.migration_manager import get_ledger_schema_version
 
     db, ledgers_dir, backups_dir = temp_db_env
     conn = db.conn

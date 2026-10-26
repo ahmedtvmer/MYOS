@@ -164,6 +164,201 @@ def test_chat_writes_weak_points_in_english_and_arabic_without_guessing(api, mon
         assert [point["muscle"] for point in profile["weak_points"]] == ["chest", "back"]
 
 
+@pytest.mark.parametrize(
+    ("goal_request", "yes", "expected", "offer_fragment"),
+    [
+        ("Change my current goal to grow my glutes", "yes", ["glutes"], "Weak point"),
+        ("Change my current goal to build my shoulders", "ماشي", ["shoulders"], "Weak point"),
+        ("My goal is grow my abs", "تمام", ["abs"], "Weak point"),
+        ("غيّر هدفي الحالي إلى عايز صدر أكبر", "أيوه", ["chest"], "نقطة ضعف"),
+        ("هدفي أكبر صدري", "نعم", ["chest"], "نقطة ضعف"),
+        ("عايز أكبر صدري", "ايوة", ["chest"], "نقطة ضعف"),
+        ("نفسي أكبر دراعاتي", "تمام", ["biceps", "triceps"], "نقطة ضعف"),
+    ],
+)
+def test_goal_change_chat_offers_and_saves_named_weak_points(
+    api, monkeypatch, goal_request, yes, expected, offer_fragment
+):
+    client, db = api
+    account = _register(client, f"goal-chat-{expected[0]}")
+    headers = _authed(account["access_token"])
+    from agent.program_generator import PROGRAM_DESIGN_VERSION
+
+    db.switch_user(f"goal-chat-{expected[0]}")
+    db.ledger.save_training_program({
+        "program_name": "Current plan",
+        "split_type": "Full Body",
+        "weekly_frequency": 4,
+        "design_version": PROGRAM_DESIGN_VERSION,
+        "days": [_day_plan().model_dump()],
+    })
+    monkeypatch.setattr(
+        "service.profile.generate_program_draft_pipeline",
+        lambda *_args, **_kwargs: (None, None),
+    )
+    for message, expected_reply in ((goal_request, offer_fragment), (yes, "saved" if yes == "yes" else "حفظت")):
+        response = client.post("/chat/messages", headers=headers, json={"content": message})
+        assert response.status_code == 200, response.text
+        assert expected_reply in _done_content(response.text)
+    profile = client.get("/profile", headers=headers).json()
+    assert [point["muscle"] for point in profile["weak_points"]] == expected
+    assert client.get("/programs/active", headers=headers).json()[
+        "regeneration_offer_reason"
+    ] == "focus_muscles_changed"
+
+
+def test_declining_goal_weak_point_suggestion_does_not_save_it(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-decline")["access_token"])
+    monkeypatch.setattr(
+        "service.profile.generate_program_draft_pipeline",
+        lambda *_args, **_kwargs: (None, None),
+    )
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Change my goal to grow my glutes"})
+    declined = client.post("/chat/messages", headers=headers, json={"content": "no"})
+    assert "left your Weak points unchanged" in _done_content(declined.text)
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_goal_suggestion_over_two_asks_which_to_keep_without_saving(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-over-two")["access_token"])
+    monkeypatch.setattr(
+        "service.profile.generate_program_draft_pipeline",
+        lambda *_args, **_kwargs: (None, None),
+    )
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Change my goal to grow my glutes, chest and back"})
+    response = client.post("/chat/messages", headers=headers, json={"content": "yes"})
+    assert "which two" in _done_content(response.text).lower()
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+    selected = client.post("/chat/messages", headers=headers,
+                           json={"content": "just chest"})
+    assert "saved your Weak points" in _done_content(selected.text)
+    assert [point["muscle"] for point in client.get("/profile", headers=headers).json()["weak_points"]] == [
+        "chest"
+    ]
+
+
+def test_goal_weak_point_acceptance_on_coach_program_saves_without_regeneration(api, monkeypatch):
+    client, db = api
+    _, headers, _assignment_id = _assigned_player(api, "goal-chat-coach-controlled")
+    coach_id = db.get_active_account_by_username("coach")["account_id"]
+    with db.open_ledger("goal-chat-coach-controlled") as ledger:
+        ledger.save_training_program(
+            {
+                "program_name": "Coach plan",
+                "split_type": "Full Body",
+                "weekly_frequency": 4,
+                "days": [_day_plan().model_dump()],
+            },
+            published_by_coach_account_id=coach_id,
+        )
+    monkeypatch.setattr(
+        "service.profile.generate_program_draft_pipeline",
+        lambda *_args, **_kwargs: pytest.fail("coach-controlled chat changes must not generate"),
+    )
+    changed = client.post("/chat/messages", headers=headers,
+                          json={"content": "Change my goal to grow my glutes"})
+    assert "Should I make glutes a Weak point?" in _done_content(changed.text)
+    saved = client.post("/chat/messages", headers=headers, json={"content": "sure"})
+    assert "saved your Weak points" in _done_content(saved.text)
+    profile = client.get("/profile", headers=headers).json()
+    assert profile["weak_points"] == [{"muscle": "glutes", "source": "named"}]
+    active = client.get("/programs/active", headers=headers).json()
+    assert active["version"] == 1
+    assert active["offer_design_regeneration"] is False
+
+
+@pytest.mark.parametrize("question", [
+    "How do I train chest and back?",
+    "I do not want chest and back as Weak points",
+])
+def test_goal_offer_is_not_accepted_by_unrelated_two_muscle_text(api, monkeypatch, question):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-no-silent")['access_token'])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers, json={"content": "Change my goal to grow my glutes"})
+    client.post("/chat/messages", headers=headers, json={"content": question})
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_new_goal_supersedes_pending_goal_offer(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-supersede")['access_token'])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers, json={"content": "Change my goal to grow my glutes"})
+    reply = client.post("/chat/messages", headers=headers,
+                        json={"content": "Change my goal to maintain chest and back"})
+    assert "chest" in _done_content(reply.text).lower()
+    assert client.get("/profile", headers=headers).json()["current_goal"] == "maintain chest and back"
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_unrelated_turn_clears_goal_offer_before_later_yes(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-expired-turn")['access_token'])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers, json={"content": "Change my goal to grow my glutes"})
+    client.post("/chat/messages", headers=headers, json={"content": "How do I train chest and back?"})
+    client.post("/chat/messages", headers=headers, json={"content": "yes"})
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_clearing_chat_clears_pending_goal_offer(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-clear")['access_token'])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers, json={"content": "Change my goal to grow my glutes"})
+    assert client.delete("/chat/history", headers=headers).status_code == 204
+    client.post("/chat/messages", headers=headers, json={"content": "yes"})
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_expired_goal_offer_cannot_be_accepted(api, monkeypatch):
+    client, db = api
+    username = "goal-chat-expiry"
+    headers = _authed(_register(client, username)["access_token"])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Change my goal to grow my glutes"})
+    with db.open_ledger(username) as ledger:
+        ledger.conn.execute(
+            "UPDATE assistant_goal_weak_point_pending SET created_at = ? WHERE id = 1",
+            ("2000-01-01T00:00:00+00:00",),
+        )
+        ledger._commit_ledger()
+    client.post("/chat/messages", headers=headers, json={"content": "yes"})
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_other_confirmation_cannot_accept_goal_offer(api, monkeypatch):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-other-confirmation")["access_token"])
+    monkeypatch.setattr("service.profile.generate_program_draft_pipeline", lambda *_a, **_k: (None, None))
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Remember that I train in the mornings"})
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Change my goal to grow my glutes"})
+    client.post("/chat/messages", headers=headers,
+                json={"content": "Forget that I train in the mornings"})
+    confirmed = client.post("/chat/messages", headers=headers, json={"content": "yes"})
+    assert "forgot" in _done_content(confirmed.text).lower()
+    assert client.get("/profile", headers=headers).json().get("weak_points") is None
+
+
+def test_chat_accepts_canonical_weak_point_keys(api):
+    client, _db = api
+    headers = _authed(_register(client, "goal-chat-canonical")['access_token'])
+    response = client.post("/chat/messages", headers=headers,
+                           json={"content": "My weak points are upper_chest and side_delts"})
+    assert "saved your Weak points" in _done_content(response.text)
+    assert [item["muscle"] for item in client.get("/profile", headers=headers).json()["weak_points"]] == [
+        "upper_chest", "side_delts"
+    ]
+
+
 def test_structured_intake_confirmation_does_not_call_hosted_model(api, monkeypatch):
     client, _db = api
     headers = _authed(_register(client, "private-intake")["access_token"])

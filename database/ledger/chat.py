@@ -3,6 +3,7 @@
 Extracted from DatabaseManager; behaviour is unchanged.
 """
 
+import json
 import uuid
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
@@ -10,6 +11,45 @@ from typing import Any
 
 
 class LedgerChatMixin:
+    def set_pending_goal_weak_point_suggestion(
+        self, muscles: list[str], kind: str, offer_text: str
+    ) -> None:
+        now = datetime.now(UTC).isoformat()
+        offer_id = str(uuid.uuid4())
+        self.conn.execute(
+            "INSERT INTO assistant_goal_weak_point_pending "
+            "(id, muscles_json, offer_id, kind, offer_text, created_at) VALUES (1, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET muscles_json = excluded.muscles_json, "
+            "offer_id = excluded.offer_id, kind = excluded.kind, offer_text = excluded.offer_text, "
+            "created_at = excluded.created_at",
+            (json.dumps(muscles), offer_id, kind, offer_text, now),
+        )
+        self._commit_ledger()
+
+    def get_pending_goal_weak_point_suggestion(self) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT muscles_json, offer_id, kind, offer_text, created_at "
+            "FROM assistant_goal_weak_point_pending WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            created = datetime.fromisoformat(row["created_at"])
+        except (TypeError, ValueError):
+            created = datetime.min.replace(tzinfo=UTC)
+        if (datetime.now(UTC) - created).total_seconds() > 1800:
+            self.clear_pending_goal_weak_point_suggestion()
+            return None
+        muscles = json.loads(row["muscles_json"])
+        return {
+            "muscles": muscles, "offer_id": row["offer_id"], "kind": row["kind"],
+            "offer_text": row["offer_text"],
+        } if isinstance(muscles, list) else None
+
+    def clear_pending_goal_weak_point_suggestion(self) -> None:
+        self.conn.execute("DELETE FROM assistant_goal_weak_point_pending WHERE id = 1")
+        self._commit_ledger()
+
     def list_assistant_preferences(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT id, text, created_at, updated_at FROM assistant_preferences "
@@ -130,4 +170,5 @@ class LedgerChatMixin:
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM chat_history")
         cursor.execute("DELETE FROM assistant_preference_pending")
+        cursor.execute("DELETE FROM assistant_goal_weak_point_pending")
         self.conn.commit()

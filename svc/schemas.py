@@ -2065,6 +2065,7 @@ class IntakeOut(BaseModel):
     status: str
     disclosure_acknowledged: bool
     fields: list[IntakeFieldOut]
+    suggested_weak_points: list[str] = []
     profile_rebuild_fields: list[str] = []
     progress: IntakeProgressOut
     program: IntakeProgramOut | None = None
