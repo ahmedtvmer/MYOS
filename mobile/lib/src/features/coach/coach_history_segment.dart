@@ -1291,7 +1291,7 @@ class _RecentSessionRowState extends State<_RecentSessionRow> {
 typedef _SessionFlagFields = ({
   List<CoachPlayerDivergence> divergences,
   int warmupMovementCount,
-  WorkoutCardio? cardio,
+  List<WorkoutCardio> cardio,
   int? readinessScore,
   int? programVersion,
   int? activeProgramVersionAtSync,
@@ -1314,12 +1314,28 @@ class _SessionFlagData {
       fields.activeProgramVersionAtSync,
       fields.isHistoricalProgram,
     );
+    final int totalCardioKcal = fields.cardio.fold<int>(
+      0,
+      (int total, WorkoutCardio entry) => total + (entry.caloriesKcal ?? 0),
+    );
+    final bool cardioIsEstimate = fields.cardio.any(
+      (WorkoutCardio entry) => entry.caloriesAreEstimate,
+    );
     return _SessionFlagData(<String>[
       for (final CoachPlayerDivergence divergence in fields.divergences)
         _sessionDivergenceLabel(context, divergence),
       if (fields.warmupMovementCount > 0)
         copy.warmupMovements(fields.warmupMovementCount),
-      if (fields.cardio != null) copy.cardioMinutes(fields.cardio!.minutes),
+      for (final WorkoutCardio entry in fields.cardio)
+        '${workoutCopyOf(context).cardioMachine(entry.machine)} · ${copy.cardioMinutes(entry.minutes)}'
+        '${entry.speedKmh == null ? '' : ' · ${workoutCopyOf(context).cardioSpeedValue(entry.speedKmh!)}'}'
+        '${entry.inclinePct == null ? '' : ' · ${workoutCopyOf(context).cardioInclineValue(entry.inclinePct!)}'}'
+        '${entry.level == null ? '' : ' · ${workoutCopyOf(context).cardioLevel}: ${entry.level}'}'
+        '${entry.watts == null ? '' : ' · ${workoutCopyOf(context).cardioWattsValue(entry.watts!)}'}'
+        '${entry.distanceM == null ? '' : ' · ${workoutCopyOf(context).cardioDistanceValue(entry.distanceM!)}'}'
+        '${entry.caloriesKcal == null ? '' : ' · ${workoutCopyOf(context).cardioCalories(entry.caloriesKcal!, estimate: entry.caloriesAreEstimate)}'}',
+      if (fields.cardio.any((WorkoutCardio entry) => entry.caloriesKcal != null))
+        '${workoutCopyOf(context).cardioCaloriesTotal}: ${workoutCopyOf(context).cardioCalories(totalCardioKcal, estimate: cardioIsEstimate)}',
       if (fields.readinessScore != null) copy.readiness(fields.readinessScore!),
       if (versionNote != null) versionNote,
       for (final PerformedDateCorrection correction in fields.corrections)

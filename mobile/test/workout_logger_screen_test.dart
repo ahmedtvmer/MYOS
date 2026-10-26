@@ -132,7 +132,7 @@ const ProgramDay _prescribedDetailsDay = ProgramDay(
       notes: 'Pause on the chest',
     ),
   ],
-  cardio: 'Cycle for 10 minutes',
+  cardio: ProgramCardio(machine: 'treadmill', minutes: 10, legacyText: 'Cycle for 10 minutes'),
 );
 
 const ProgramDay _warmupEquipmentDay = ProgramDay(
@@ -208,7 +208,7 @@ const ProgramDay _bandDay = ProgramDay(
 final ProgramDay _cardioDay = ProgramDay(
   dayName: 'Upper A',
   dayOrder: 2,
-  cardio: 'Steady bike after lifting',
+  cardio: ProgramCardio(machine: 'treadmill', minutes: 25, legacyText: 'Steady bike after lifting'),
   exercises: _day.exercises,
 );
 
@@ -897,7 +897,7 @@ void main() {
 
     expect(find.byKey(const ValueKey<String>('logger.warmup.section')),
         findsOneWidget);
-    expect(find.text('Cycle for 10 minutes'), findsOneWidget);
+    expect(find.text('Treadmill'), findsOneWidget);
     expect(find.text('1 × 8 · rest 30s'), findsOneWidget);
     expect(find.text('Exercise notes: Move smoothly'), findsOneWidget);
     final ActiveWorkout activeWorkout = (await store.read(_account))!;
@@ -960,7 +960,8 @@ void main() {
         findsNothing,
       );
       expect(find.byType(WarmupMovementLoggingCard), findsNothing);
-      expect(find.byType(CardioLoggingCard), findsNothing);
+      expect(find.byType(CardioLoggingCard), findsOneWidget);
+      expect(find.text(languageCode == 'ar' ? 'إضافة تمرين لياقة' : 'Add Cardio entry'), findsOneWidget);
     });
   }
 
@@ -1024,7 +1025,7 @@ void main() {
         await _openLogger(tester, day: _cardioDay, drafts: drafts);
 
     expect(find.byType(CardioLoggingCard), findsOneWidget);
-    expect(find.text('Steady bike after lifting'), findsOneWidget);
+    expect(find.text('Treadmill'), findsOneWidget);
     expect(
       tester
           .widget<IconButton>(find.byKey(
@@ -1064,8 +1065,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final ActiveWorkout afterCardio = (await store.read(_account))!;
-    expect(afterCardio.cardio!.ticked, isTrue);
-    expect(afterCardio.cardio!.minutes, 25);
+    expect(afterCardio.cardio.single.ticked, isTrue);
+    expect(afterCardio.cardio.single.minutes, 25);
     expect(workoutProgressOf(afterCardio).setsTicked, 0);
     expect(workoutProgressOf(afterCardio).setsTotal, 4);
     expect(currentSetOf(afterCardio), (exerciseIndex: 0, setIndex: 0));
@@ -1078,16 +1079,134 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('logger.summary.cardio')),
         findsOneWidget);
+    expect(find.text('Calories appear once the workout is saved'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
     await _pumpUntilFound(tester, find.text('Workouts'));
     final WorkoutDraft draft = (await drafts.read(_account)).single;
-    expect(draft.cardio!.prescription, 'Steady bike after lifting');
-    expect(draft.cardio!.minutes, 25);
-    expect(draft.cardio!.ticked, isTrue);
-    expect(draft.toCommitBody()['cardio'], <String, dynamic>{
-      'prescription': 'Steady bike after lifting',
-      'minutes': 25,
-    });
+    expect(draft.cardio.single.machine, 'treadmill');
+    expect(draft.cardio.single.minutes, 25);
+    expect(draft.cardio.single.ticked, isTrue);
+    expect(draft.toCommitBody()['cardio'], <Map<String, dynamic>>[
+      <String, dynamic>{'machine': 'treadmill', 'minutes': 25},
+    ]);
+  });
+
+  testWidgets('saved bike calories appear in the finished Player summary',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    fake.cardioCaloriesKcalOnCommit = 200;
+    fake.programVersion = 3;
+    await _openLogger(
+      tester,
+      day: _cardioDay,
+      fakeApi: fake,
+      webDirectCommit: true,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('logger.cardio.minutes')),
+      '30',
+    );
+    await tester.tap(find.text('Treadmill').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bike').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.cardio.tick')));
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _finishAndOpenSummary(tester);
+    expect(find.text('Calories appear once the workout is saved'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('logger.save')));
+    await tester.pumpAndSettle();
+    expect(fake.commitRequests, 1);
+    expect(find.text('~200 kcal'), findsOneWidget);
+  });
+
+  testWidgets('Cardio supports multiple machines in Arabic at 360dp',
+      (WidgetTester tester) async {
+    final InMemoryActiveWorkoutStore store = await _openLogger(
+      tester,
+      day: ProgramDay(
+        dayName: 'Cardio', dayOrder: 1,
+        cardio: ProgramCardio(machine: 'treadmill', minutes: 25,
+          speedKmh: 5, inclinePct: 10),
+        exercises: _day.exercises,
+      ),
+      languageCode: 'ar',
+    );
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpAndSettle();
+    final Finder card = find.byType(CardioLoggingCard);
+    expect(card, findsOneWidget);
+    expect(Directionality.of(tester.element(card)), TextDirection.rtl);
+    expect(find.text('جهاز المشي'), findsOneWidget);
+
+    final Finder add = find.byKey(const ValueKey<String>('logger.cardio.add'));
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('logger.cardio.minutes.1')),
+        findsOneWidget);
+
+    final Finder secondMachine =
+        find.byKey(const ValueKey<String>('logger.cardio.machine.1'));
+    await tester.ensureVisible(secondMachine);
+    await tester.tap(secondMachine);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('جهاز الدرج').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('logger.cardio.level.1')),
+        findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('logger.cardio.minutes.1')),
+      '30',
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final ActiveWorkout workout = (await store.read(_account))!;
+    expect(workout.cardio, hasLength(2));
+    expect(workout.cardio[0].machine, 'treadmill');
+    expect(workout.cardio[1].machine, 'stairmaster');
+    expect(workout.cardio[1].minutes, 30);
+  });
+
+  testWidgets('removing an earlier Cardio entry keeps remaining field values',
+      (WidgetTester tester) async {
+    final InMemoryActiveWorkoutStore store = await _openLogger(tester,
+      day: ProgramDay(dayName: 'Cardio', dayOrder: 1,
+        cardio: ProgramCardio(machine: 'bike', minutes: 25, level: 2), exercises: _day.exercises));
+    await tester.tap(find.byKey(const ValueKey<String>('logger.cardio.add')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.cardio.machine.1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bike').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey<String>('logger.cardio.minutes')), '10');
+    await tester.enterText(find.byKey(const ValueKey<String>('logger.cardio.minutes.1')), '30');
+    await tester.enterText(find.byKey(const ValueKey<String>('logger.cardio.level.1')), '4');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.cardio.remove.0')));
+    await tester.pumpAndSettle();
+    final Finder minutesField = find.byKey(const ValueKey<String>('logger.cardio.minutes'));
+    final Finder levelField = find.byKey(const ValueKey<String>('logger.cardio.level.0'));
+    expect(tester.widget<EditableText>(find.descendant(
+      of: minutesField, matching: find.byType(EditableText))).controller.text, '30');
+    expect(tester.widget<EditableText>(find.descendant(
+      of: levelField, matching: find.byType(EditableText))).controller.text, '4.0');
+    expect((await store.read(_account))!.cardio.single.minutes, 30);
+    expect((await store.read(_account))!.cardio.single.level, 4);
+  });
+
+  testWidgets('invalid Cardio settings show a field error',
+      (WidgetTester tester) async {
+    await _openLogger(tester, day: ProgramDay(dayName: 'Cardio', dayOrder: 1,
+      cardio: ProgramCardio(machine: 'treadmill', minutes: 25, speedKmh: 5),
+      exercises: _day.exercises));
+    await tester.enterText(find.byKey(const ValueKey<String>('logger.cardio.speed.0')), '41');
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a value within the allowed range.'), findsOneWidget);
+    expect(tester.widget<IconButton>(
+      find.byKey(const ValueKey<String>('logger.cardio.tick'))).onPressed, isNull);
   });
 
   testWidgets('a linked warm-up name opens library detail without prescription',
@@ -3309,6 +3428,8 @@ void main() {
     // barTop for free, so being on screen is the part that proves the end of
     // the list is reachable (#160).
     final Finder lastRow = _row(1, 0);
+    await tester.ensureVisible(lastRow);
+    await tester.pumpAndSettle();
     final Rect listRect = tester.getRect(list);
     final Rect rowRect = tester.getRect(lastRow);
     final double barTop = tester.getTopLeft(bar).dy;

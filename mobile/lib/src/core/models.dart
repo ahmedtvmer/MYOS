@@ -31,7 +31,8 @@ class NutritionPlanState {
     this.screening, this.sex, this.todayAdherence, this.todayWaterGlasses = 0,
     this.adherenceDays = const <Map<String, dynamic>>[],
     this.latestWeight, this.targetWeight, this.coachSeesAdherence = false,
-    this.pendingGoal, this.author, this.authority = 'player', this.paceProposal});
+    this.pendingGoal, this.author, this.authority = 'player', this.paceProposal,
+    this.cardioBurnedKcal = 0, this.cardioAdjustmentKcal = 0});
 
   factory NutritionPlanState.fromJson(Map<String, dynamic> json) {
     final Object? rawTargets = json['targets'];
@@ -59,6 +60,8 @@ class NutritionPlanState {
       authority: json['authority'] as String? ?? 'player',
       paceProposal: json['pace_proposal'] is Map<String, dynamic>
           ? json['pace_proposal'] as Map<String, dynamic> : null,
+      cardioBurnedKcal: (json['cardio_burned_kcal'] as num?)?.toInt() ?? 0,
+      cardioAdjustmentKcal: (json['cardio_adjustment_kcal'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -81,6 +84,8 @@ class NutritionPlanState {
   final String? author;
   final String authority;
   final Map<String, dynamic>? paceProposal;
+  final int cardioBurnedKcal;
+  final int cardioAdjustmentKcal;
 }
 
 class CoachNutritionState {
@@ -88,7 +93,8 @@ class CoachNutritionState {
     this.targets, this.targetOptions, this.calorieFloor, this.adherenceDays = const <Map<String, dynamic>>[],
     this.weightTrend = const <Map<String, dynamic>>[], this.waterDays = const <Map<String, dynamic>>[],
     this.todayWaterGlasses = 0, this.fiberEatenDays, this.targetWeight, this.nextPaceCheck,
-    this.plannedWeeklyRatePct, this.paceProposal});
+    this.plannedWeeklyRatePct, this.paceProposal, this.cardioBurnedKcal = 0,
+    this.cardioAdjustmentKcal = 0});
 
   factory CoachNutritionState.fromJson(Map<String, dynamic> json) => CoachNutritionState(
     authority: json['authority'] as String? ?? 'player',
@@ -111,6 +117,8 @@ class CoachNutritionState {
     plannedWeeklyRatePct: (json['planned_weekly_rate_pct'] as num?)?.toDouble(),
     paceProposal: json['pace_proposal'] is Map<String, dynamic>
         ? json['pace_proposal'] as Map<String, dynamic> : null,
+    cardioBurnedKcal: (json['cardio_burned_kcal'] as num?)?.toInt() ?? 0,
+    cardioAdjustmentKcal: (json['cardio_adjustment_kcal'] as num?)?.toInt() ?? 0,
   );
 
   final String authority;
@@ -128,6 +136,8 @@ class CoachNutritionState {
   final String? nextPaceCheck;
   final double? plannedWeeklyRatePct;
   final Map<String, dynamic>? paceProposal;
+  final int cardioBurnedKcal;
+  final int cardioAdjustmentKcal;
 }
 
 class Capabilities {
@@ -1411,7 +1421,7 @@ class CoachPlayerLatestSession {
     this.exercises = const <CoachPlayerSessionExercise>[],
     this.divergences = const <CoachPlayerDivergence>[],
     this.warmupMovements = const <WarmupMovementLog>[],
-    this.cardio,
+    this.cardio = const <WorkoutCardio>[],
   });
 
   factory CoachPlayerLatestSession.fromJson(Map<String, dynamic> json) =>
@@ -1442,9 +1452,7 @@ class CoachPlayerLatestSession {
             .map((dynamic movement) =>
                 WarmupMovementLog.fromJson(movement as Map<String, dynamic>))
             .toList(growable: false),
-        cardio: json['cardio'] is Map<String, dynamic>
-            ? WorkoutCardio.fromJson(json['cardio'] as Map<String, dynamic>)
-            : null,
+        cardio: workoutCardioListFromJson(json['cardio']),
       );
 
   final String? sessionId;
@@ -1462,7 +1470,7 @@ class CoachPlayerLatestSession {
   final List<CoachPlayerSessionExercise> exercises;
   final List<CoachPlayerDivergence> divergences;
   final List<WarmupMovementLog> warmupMovements;
-  final WorkoutCardio? cardio;
+  final List<WorkoutCardio> cardio;
 }
 
 /// A compact entry in the assigned player's recent session history.
@@ -1483,7 +1491,7 @@ class CoachPlayerRecentSession {
     this.exercises = const <CoachPlayerSessionExercise>[],
     this.divergences = const <CoachPlayerDivergence>[],
     this.warmupMovements = const <WarmupMovementLog>[],
-    this.cardio,
+    this.cardio = const <WorkoutCardio>[],
   });
 
   factory CoachPlayerRecentSession.fromJson(Map<String, dynamic> json) =>
@@ -1514,9 +1522,7 @@ class CoachPlayerRecentSession {
             .map((dynamic movement) =>
                 WarmupMovementLog.fromJson(movement as Map<String, dynamic>))
             .toList(growable: false),
-        cardio: json['cardio'] is Map<String, dynamic>
-            ? WorkoutCardio.fromJson(json['cardio'] as Map<String, dynamic>)
-            : null,
+        cardio: workoutCardioListFromJson(json['cardio']),
       );
 
   final String sessionId;
@@ -1534,7 +1540,7 @@ class CoachPlayerRecentSession {
   final List<CoachPlayerSessionExercise> exercises;
   final List<CoachPlayerDivergence> divergences;
   final List<WarmupMovementLog> warmupMovements;
-  final WorkoutCardio? cardio;
+  final List<WorkoutCardio> cardio;
 }
 
 /// "Logged against program vN (current vM)" for a session captured against an
@@ -2981,7 +2987,9 @@ class ProgramDay {
             .map((dynamic e) =>
                 ProgramExercise.fromJson(e as Map<String, dynamic>))
             .toList(growable: false),
-        cardio: json['cardio'] as String?,
+        cardio: json['cardio'] == null
+            ? null
+            : ProgramCardio.fromJson(json['cardio']),
       );
 
   final String dayName;
@@ -2989,11 +2997,11 @@ class ProgramDay {
   final int weekOrder;
   final List<WarmupExercise> warmupExercises;
   final List<ProgramExercise> exercises;
-  final String? cardio;
+  final ProgramCardio? cardio;
 
   bool get hasWarmup => warmupExercises.isNotEmpty;
 
-  bool get hasCardio => cardio != null && cardio!.isNotEmpty;
+  bool get hasCardio => cardio != null;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'day_name': dayName,
@@ -3005,57 +3013,246 @@ class ProgramDay {
         'exercises': <Map<String, dynamic>>[
           for (final ProgramExercise exercise in exercises) exercise.toJson(),
         ],
-        'cardio': cardio,
+        'cardio': cardio?.toJson(),
       };
+}
+
+class ProgramCardio {
+  const ProgramCardio({required this.machine, required this.minutes,
+    this.minutesMax, this.speedKmh, this.inclinePct, this.level, this.watts,
+    this.distanceM, this.legacyText});
+
+  factory ProgramCardio.fromJson(dynamic raw) {
+    if (raw is String) {
+      final WorkoutCardio parsed = WorkoutCardio.fromPrescription(raw);
+      return ProgramCardio(machine: 'treadmill', minutes: parsed.minutes ?? 25,
+        speedKmh: parsed.speedKmh, inclinePct: parsed.inclinePct, legacyText: raw);
+    }
+    final Map<String, dynamic> json = Map<String, dynamic>.from(raw as Map);
+    return ProgramCardio(
+      machine: json['machine'] as String? ?? 'treadmill',
+      minutes: (json['minutes'] as num?)?.toInt() ?? 25,
+      minutesMax: (json['minutes_max'] as num?)?.toInt(),
+      speedKmh: (json['speed_kmh'] as num?)?.toDouble(),
+      inclinePct: (json['incline_pct'] as num?)?.toDouble(),
+      level: (json['level'] as num?)?.toInt(),
+      watts: (json['watts'] as num?)?.toInt(),
+      distanceM: (json['distance_m'] as num?)?.toInt(),
+    );
+  }
+
+  final String machine;
+  final int minutes;
+  final int? minutesMax;
+  final double? speedKmh;
+  final double? inclinePct;
+  final int? level;
+  final int? watts;
+  final int? distanceM;
+  final String? legacyText;
+
+  Object toJson() => legacyText != null ? legacyText! : <String, dynamic>{
+    'machine': machine, 'minutes': minutes,
+    if (minutesMax != null) 'minutes_max': minutesMax,
+    if (speedKmh != null) 'speed_kmh': speedKmh,
+    if (inclinePct != null) 'incline_pct': inclinePct,
+    if (level != null) 'level': level,
+    if (watts != null) 'watts': watts,
+    if (distanceM != null) 'distance_m': distanceM,
+  };
+
+  String display(MyosCopy copy) {
+    if (!copy.isArabic && legacyText != null) return legacyText!;
+    final List<String> parts = <String>[
+      copy.cardioMachineName(machine),
+      copy.cardioMinutes(minutes, maximum: minutesMax),
+    ];
+    if (speedKmh != null) parts.add(copy.cardioSpeedValue(speedKmh!));
+    if (inclinePct != null) parts.add(copy.cardioInclineValue(inclinePct!));
+    if (level != null) parts.add(copy.cardioLevelValue(level!));
+    if (watts != null) parts.add(copy.cardioWattsValue(watts!));
+    if (distanceM != null) parts.add(copy.cardioDistanceValue(distanceM!));
+    return parts.join(', ');
+  }
 }
 
 /// Cardio captured alongside a workout, outside its exercise set rows.
 class WorkoutCardio {
   const WorkoutCardio({
-    required this.prescription,
+    this.entryId,
+    this.machine = 'treadmill',
     this.minutes,
+    this.speedKmh,
+    this.inclinePct,
+    this.level,
+    this.watts,
+    this.distanceM,
+    this.caloriesKcal,
+    this.caloriesAreEstimate = false,
     this.ticked = false,
   });
 
-  factory WorkoutCardio.fromJson(Map<String, dynamic> json) => WorkoutCardio(
-        prescription: json['prescription'] as String,
+  factory WorkoutCardio.fromJson(Map<String, dynamic> json) {
+    final String legacyText = (json['prescription'] as String? ?? '').toLowerCase();
+    final bool legacy = json['machine'] == null;
+    final bool treadmillLegacy = legacyText.contains('treadmill') || legacyText.contains('incline');
+    return WorkoutCardio(
+        entryId: json['entry_id'] as String? ?? 'cardio-${DateTime.now().microsecondsSinceEpoch}',
+        machine: json['machine'] as String? ?? (legacy && !treadmillLegacy ? 'other' : 'treadmill'),
         minutes: (json['minutes'] as num?)?.toInt(),
+        speedKmh: (json['speed_kmh'] as num?)?.toDouble(),
+        inclinePct: (json['incline_pct'] as num?)?.toDouble(),
+        level: (json['level'] as num?)?.toDouble(),
+        watts: (json['watts'] as num?)?.toDouble(),
+        distanceM: (json['distance_m'] as num?)?.toDouble(),
+        caloriesKcal: (json['calories_kcal'] as num?)?.toInt(),
+        caloriesAreEstimate: json['calories_are_estimate'] as bool? ?? false,
         ticked: json['ticked'] as bool? ?? false,
       );
+  }
 
-  final String prescription;
+  factory WorkoutCardio.fromPrescription(dynamic prescription) {
+    if (prescription is ProgramCardio) {
+      if (prescription.legacyText != null) {
+        return WorkoutCardio.fromPrescription(prescription.legacyText);
+      }
+      return WorkoutCardio(
+        entryId: 'cardio-${DateTime.now().microsecondsSinceEpoch}',
+        machine: prescription.machine,
+        minutes: prescription.minutes,
+        speedKmh: prescription.speedKmh,
+        inclinePct: prescription.inclinePct,
+        level: prescription.level?.toDouble(),
+        watts: prescription.watts?.toDouble(),
+        distanceM: prescription.distanceM?.toDouble(),
+      );
+    }
+    if (prescription is Map<String, dynamic>) {
+      return WorkoutCardio.fromJson(prescription);
+    }
+    final String text = prescription?.toString() ?? '';
+    final RegExpMatch? minutesMatch = RegExp(r'(\d+)\s*(?:-|–)?\s*(?:\d+\s*)?(?:min|minute)', caseSensitive: false).firstMatch(text);
+    final RegExpMatch? speedMatch = RegExp(r'(\d+(?:\.\d+)?)\s*km/?h', caseSensitive: false).firstMatch(text);
+    final RegExpMatch? inclineMatch = RegExp(r'(\d+(?:\.\d+)?)\s*%').firstMatch(text);
+    return WorkoutCardio(
+      machine: 'treadmill',
+      minutes: int.tryParse(minutesMatch?.group(1) ?? ''),
+      speedKmh: double.tryParse(speedMatch?.group(1) ?? ''),
+      inclinePct: double.tryParse(inclineMatch?.group(1) ?? ''),
+    );
+  }
+
+  final String machine;
+  final String? entryId;
   final int? minutes;
+  final double? speedKmh;
+  final double? inclinePct;
+  final double? level;
+  final double? watts;
+  final double? distanceM;
+  final int? caloriesKcal;
+  final bool caloriesAreEstimate;
   final bool ticked;
+
+  String get prescription => machine;
 
   bool get hasValidMinutes {
     final int? loggedMinutes = minutes;
     return loggedMinutes != null && loggedMinutes >= 1 && loggedMinutes <= 600;
   }
 
-  bool get isCommitted => ticked && hasValidMinutes;
+  bool get isCommitted => ticked && hasValidMinutes && hasValidSettings;
 
-  WorkoutCardio copyWith({bool? ticked}) => WorkoutCardio(
-        prescription: prescription,
-        minutes: minutes,
-        ticked: ticked ?? this.ticked,
+  bool get hasValidSettings => _settingsAreValid(
+        speedKmh: speedKmh,
+        inclinePct: inclinePct,
+        level: level,
+        watts: watts,
+        distanceM: distanceM,
       );
 
-  WorkoutCardio withMinutes(int? minutes, {bool? ticked}) => WorkoutCardio(
-        prescription: prescription,
+  static bool _settingsAreValid({double? speedKmh, double? inclinePct,
+    double? level, double? watts, double? distanceM}) =>
+      (speedKmh == null || (speedKmh >= 0.1 && speedKmh <= 40)) &&
+      (inclinePct == null || (inclinePct >= -10 && inclinePct <= 40)) &&
+      (level == null || (level >= 1 && level <= 100)) &&
+      (watts == null || (watts >= 1 && watts <= 2500)) &&
+      (distanceM == null || (distanceM >= 1 && distanceM <= 100000));
+
+  WorkoutCardio copyWith({bool? ticked, String? machine, double? speedKmh,
+    double? inclinePct, double? level, double? watts, double? distanceM,
+    bool clearSpeed = false, bool clearIncline = false, bool clearLevel = false,
+    bool clearWatts = false, bool clearDistance = false}) {
+    final bool machineChanged = machine != null && machine != this.machine;
+    final double? nextSpeed = clearSpeed || machineChanged ? null : speedKmh ?? this.speedKmh;
+    final double? nextIncline = clearIncline || machineChanged ? null : inclinePct ?? this.inclinePct;
+    final double? nextLevel = clearLevel || machineChanged ? null : level ?? this.level;
+    final double? nextWatts = clearWatts || machineChanged ? null : watts ?? this.watts;
+    final double? nextDistance = clearDistance || machineChanged ? null : distanceM ?? this.distanceM;
+    final bool settingsValid = _settingsAreValid(
+      speedKmh: nextSpeed,
+      inclinePct: nextIncline,
+      level: nextLevel,
+      watts: nextWatts,
+      distanceM: nextDistance,
+    );
+    return WorkoutCardio(
+        entryId: entryId,
+        machine: machine ?? this.machine,
         minutes: minutes,
+        speedKmh: nextSpeed,
+        inclinePct: nextIncline,
+        level: nextLevel,
+        watts: nextWatts,
+        distanceM: nextDistance,
+        ticked: settingsValid ? ticked ?? this.ticked : false,
+      );
+  }
+
+  WorkoutCardio withMinutes(int? minutes, {bool? ticked}) => WorkoutCardio(
+        entryId: entryId,
+        machine: machine,
+        minutes: minutes,
+        speedKmh: speedKmh,
+        inclinePct: inclinePct,
+        level: level,
+        watts: watts,
+        distanceM: distanceM,
         ticked: ticked ?? this.ticked,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'prescription': prescription,
+        'machine': machine,
+        if (entryId != null) 'entry_id': entryId,
         'minutes': minutes,
+        if (speedKmh != null) 'speed_kmh': speedKmh,
+        if (inclinePct != null) 'incline_pct': inclinePct,
+        if (level != null) 'level': level,
+        if (watts != null) 'watts': watts,
+        if (distanceM != null) 'distance_m': distanceM,
         'ticked': ticked,
       };
 
   Map<String, dynamic> toCommitJson() => <String, dynamic>{
-        'prescription': prescription,
+        'machine': machine,
         'minutes': minutes,
+        if (speedKmh != null) 'speed_kmh': speedKmh,
+        if (inclinePct != null) 'incline_pct': inclinePct,
+        if (level != null) 'level': level,
+        if (watts != null) 'watts': watts,
+        if (distanceM != null) 'distance_m': distanceM,
       };
+}
+
+List<WorkoutCardio> workoutCardioListFromJson(dynamic raw) {
+  if (raw is List<dynamic>) {
+    return raw.whereType<Map<String, dynamic>>()
+        .map(WorkoutCardio.fromJson).toList(growable: false);
+  }
+  if (raw is Map<String, dynamic>) {
+    return <WorkoutCardio>[WorkoutCardio.fromJson(raw)];
+  }
+  return const <WorkoutCardio>[];
 }
 
 /// `GeneratedProgramSchema` from `GET /programs/active`.
@@ -3587,7 +3784,7 @@ class WorkoutDraft {
     required this.capturedAt,
     required this.exercises,
     this.warmupMovements = const <WarmupMovementDraft>[],
-    this.cardio,
+    this.cardio = const <WorkoutCardio>[],
     required this.readiness,
     this.notes = '',
     this.status = DraftStatus.pending,
@@ -3621,9 +3818,7 @@ class WorkoutDraft {
             .map((dynamic movement) =>
                 WarmupMovementDraft.fromJson(movement as Map<String, dynamic>))
             .toList(growable: false),
-        cardio: json['cardio'] is Map<String, dynamic>
-            ? WorkoutCardio.fromJson(json['cardio'] as Map<String, dynamic>)
-            : null,
+        cardio: workoutCardioListFromJson(json['cardio']),
         readiness: (json['readiness'] as num?)?.toInt() ?? 4,
         notes: json['notes'] as String? ?? '',
         status: json['status'] as String? ?? DraftStatus.pending,
@@ -3651,7 +3846,7 @@ class WorkoutDraft {
   final String capturedAt;
   final List<DraftExercise> exercises;
   final List<WarmupMovementDraft> warmupMovements;
-  final WorkoutCardio? cardio;
+  final List<WorkoutCardio> cardio;
   final int readiness;
   final String notes;
   final String status;
@@ -3794,7 +3989,11 @@ class WorkoutDraft {
             for (final WarmupMovementDraft movement in warmupMovements)
               if (movement.hasTickedSets) movement.toCommitLog().toJson(),
           ],
-        if (cardio?.isCommitted == true) 'cardio': cardio!.toCommitJson(),
+        if (cardio.any((WorkoutCardio entry) => entry.isCommitted))
+          'cardio': <Map<String, dynamic>>[
+            for (final WorkoutCardio entry in cardio)
+              if (entry.isCommitted) entry.toCommitJson(),
+          ],
         'client_session_id': clientSessionId,
         'performed_date': performedDate,
         'performed_timezone': performedTimezone,
@@ -3821,7 +4020,9 @@ class WorkoutDraft {
             for (final WarmupMovementDraft movement in warmupMovements)
               movement.toJson(),
           ],
-        if (cardio != null) 'cardio': cardio!.toJson(),
+        if (cardio.isNotEmpty) 'cardio': <Map<String, dynamic>>[
+          for (final WorkoutCardio entry in cardio) entry.toJson(),
+        ],
         'readiness': readiness,
         'notes': notes,
         'status': status,
@@ -4280,7 +4481,7 @@ class LatestSession {
     this.weekOrder,
     this.programVersion,
     this.warmupMovements = const <WarmupMovementLog>[],
-    this.cardio,
+    this.cardio = const <WorkoutCardio>[],
   });
 
   factory LatestSession.fromJson(Map<String, dynamic> json) => LatestSession(
@@ -4295,9 +4496,7 @@ class LatestSession {
             .map((dynamic movement) =>
                 WarmupMovementLog.fromJson(movement as Map<String, dynamic>))
             .toList(growable: false),
-        cardio: json['cardio'] is Map<String, dynamic>
-            ? WorkoutCardio.fromJson(json['cardio'] as Map<String, dynamic>)
-            : null,
+        cardio: workoutCardioListFromJson(json['cardio']),
       );
 
   final String sessionId;
@@ -4307,7 +4506,7 @@ class LatestSession {
   final int? weekOrder;
   final int? programVersion;
   final List<WarmupMovementLog> warmupMovements;
-  final WorkoutCardio? cardio;
+  final List<WorkoutCardio> cardio;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'session_id': sessionId,
@@ -4320,6 +4519,8 @@ class LatestSession {
           for (final WarmupMovementLog movement in warmupMovements)
             movement.toJson(),
         ],
-        if (cardio != null) 'cardio': cardio!.toJson(),
+        if (cardio.isNotEmpty) 'cardio': <Map<String, dynamic>>[
+          for (final WorkoutCardio entry in cardio) entry.toJson(),
+        ],
       };
 }

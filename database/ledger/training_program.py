@@ -235,7 +235,14 @@ class LedgerTrainingProgramMixin:
                     if "warmup_json" in day_cols:
                         day_values["warmup_json"] = json.dumps(day.get("warmup_exercises", []), ensure_ascii=False)
                     if "cardio" in day_cols:
-                        day_values["cardio"] = day.get("cardio")
+                        cardio = day.get("cardio")
+                        day_values["cardio"] = (
+                            json.dumps(cardio.model_dump(), ensure_ascii=False)
+                            if hasattr(cardio, "model_dump")
+                            else json.dumps(cardio, ensure_ascii=False)
+                            if isinstance(cardio, dict)
+                            else cardio
+                        )
                     cursor.execute(
                         f"INSERT INTO program_days ({', '.join(day_values)}) VALUES ({', '.join(['?'] * len(day_values))})",
                         list(day_values.values()),
@@ -461,6 +468,11 @@ class LedgerTrainingProgramMixin:
                 if "warmup_json" in day_cols:
                     extra_index += 1
                 cardio = day_row[extra_index] if "cardio" in day_cols else None
+                if isinstance(cardio, str) and cardio.startswith("{"):
+                    try:
+                        cardio = json.loads(cardio)
+                    except json.JSONDecodeError:
+                        pass
 
                 select_cols = (
                     f"pe.exercise_id, {exercise_display_name_sql('pe.exercise_id')} AS name, "

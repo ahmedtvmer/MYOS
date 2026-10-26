@@ -92,7 +92,13 @@ def _proposal_for_points(ledger: Any, plan: Any, points: list[Any]) -> dict[str,
         ) / 7
         targets = {**targets, "calories": round(average_calories)}
         targets.pop("weekly_rate_pct", None)
+    base_targets = dict(targets)
     first, latest = points[0], points[-1]
+    cardio_adjustment = _cardio_adjustment_for_pace(ledger, latest.date)
+    if cardio_adjustment:
+        targets = {**targets,
+                   "calories": int(targets["calories"]) + cardio_adjustment,
+                   "carbs_g": int(targets.get("carbs_g", 0)) + round(cardio_adjustment / 4)}
     weight = float(latest.weight_kg)
     elapsed = (latest.date - first.date).days
     actual_rate = (float(latest.weight_kg) - float(first.weight_kg)) / elapsed * 7 / weight * 100
@@ -111,10 +117,26 @@ def _proposal_for_points(ledger: Any, plan: Any, points: list[Any]) -> dict[str,
         proposal["calorie_change"] = change
         proposal["target_options"] = {}
         for day, target in target_options.items():
-            calories = int(target["calories"]) + change
+            calories = _capped_calories(context, int(target["calories"]) + change)
             proposal["target_options"][day] = _with_rate_metadata(
                 _recompute_macros(target, calories, weight), context, calories)
+    elif proposal is not None and cardio_adjustment:
+        base_calories = int(base_targets["calories"])
+        final_calories = _capped_calories(
+            context, int(proposal["targets"]["calories"]) - cardio_adjustment
+        )
+        proposal["targets"] = _with_rate_metadata(
+            _recompute_macros(base_targets, final_calories, weight), context, final_calories
+        )
+        proposal["calorie_change"] = final_calories - base_calories
     return proposal
+
+
+def _cardio_adjustment_for_pace(ledger: Any, today: date) -> int:
+    from service.nutrition import read
+
+    state = read(ledger, today=today)
+    return int(state.get("cardio_adjustment_kcal", 0))
 
 
 def _maintain_proposal(ledger: Any, context: PaceCheckContext) -> dict[str, Any]:

@@ -241,6 +241,12 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             if (saved != null && mounted) setState(() => _plan = saved);
           }, icon: const Icon(Icons.tune), label: Text(copy.adjust))),
         _activityRow(copy),
+        if (_plan!.cardioBurnedKcal > 0)
+          Padding(padding: const EdgeInsets.only(top: 8),
+            child: Text(copy.cardioBurned(_plan!.cardioBurnedKcal), style: text.bodyMedium)),
+        if (_plan!.cardioAdjustmentKcal > 0)
+          Padding(padding: const EdgeInsets.only(top: 4),
+            child: Text(copy.cardioAdjustment(_plan!.cardioAdjustmentKcal), style: text.bodyMedium)),
         const SizedBox(height: 20),
         _plate(targets, macroCards, copy, text),
         const SizedBox(height: 12),

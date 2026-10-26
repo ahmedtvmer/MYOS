@@ -17,6 +17,7 @@ from agent.program_blueprints import (
     ANTERIOR_POSTERIOR_DAYS,
     ARNOLD_DAYS,
     ARNOLD_X_UL_DAYS,
+    FAT_LOSS_CARDIO_BODYWEIGHT_NOTE,
     FAT_LOSS_CARDIO_NOTE,
     FB_DAYS,
     FEMALE_FB_DAYS,
@@ -958,21 +959,35 @@ def test_shared_goal_classifier_handles_english_arabic_and_boundaries():
 def test_fat_loss_goal_adds_cardio_finisher_to_every_day(gender, frequency):
     program = _generate(gender, frequency, goal="fat loss")
     for day in program.days:
-        assert day.cardio == FAT_LOSS_CARDIO_NOTE, day.day_name
-        assert "Fat-loss finisher" in (day.cardio or "")
+        assert day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
     loaded = db.ledger.get_active_program()
     assert loaded is not None
-    assert [day.cardio for day in loaded.days] == [FAT_LOSS_CARDIO_NOTE] * len(program.days)
+    for day in loaded.days:
+        assert day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
+
+
+def test_bodyweight_only_fat_loss_uses_outdoor_cardio():
+    program = _generate("male", 3, goal="fat loss", equipment_access="Bodyweight only")
+    assert all(
+        day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_BODYWEIGHT_NOTE
+        for day in program.days
+    )
 
 
 def test_arabic_fat_loss_goal_adds_cardio_finisher_to_every_day():
     program = _generate("male", 4, goal="خسارة الدهون")
-    assert all(day.cardio == FAT_LOSS_CARDIO_NOTE for day in program.days)
+    assert all(
+        day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
+        for day in program.days
+    )
 
 
 def test_long_term_fat_loss_goal_keeps_cardio_when_current_goal_is_bulk():
     program = _generate("male", 4, goal="bulk", long_term_goal="lose weight")
-    assert all(day.cardio == FAT_LOSS_CARDIO_NOTE for day in program.days)
+    assert all(
+        day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
+        for day in program.days
+    )
 
 
 def test_other_goals_keep_default_cardio():
@@ -998,8 +1013,8 @@ def test_goal_changes_only_the_cardio_layer():
             for ex in hy_day.exercises
         ]
         assert fl_shape == hy_shape, f"Lifting program changed for {fl_day.day_name}"
-        assert fl_day.cardio == FAT_LOSS_CARDIO_NOTE
-        assert hy_day.cardio != FAT_LOSS_CARDIO_NOTE
+        assert fl_day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
+        assert hy_day.cardio is None or isinstance(hy_day.cardio, str)
 
 
 def test_is_poor_recovery_patterns():
@@ -1055,7 +1070,7 @@ def test_recovery_cut_composes_with_fat_loss_goal():
     weekly = sum(e.target_sets for d in program.days for e in d.exercises)
     assert weekly < normal_weekly
     for day in program.days:
-        assert day.cardio == FAT_LOSS_CARDIO_NOTE
+        assert day.cardio.model_dump(exclude_none=True) == FAT_LOSS_CARDIO_NOTE
 
 
 def test_back_limitation_substitutes_hamstring_alternative():

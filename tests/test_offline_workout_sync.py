@@ -856,6 +856,10 @@ def test_workout_completed_is_aggregate_only_and_replay_emits_once(api, recordin
     headers["X-MAYOS-Client"] = "android/1.2.3"
     payload = _sync_body(version=version)
     payload["captured_offline"] = True
+    payload["cardio"] = [
+        {"machine": "treadmill", "minutes": 20, "speed_kmh": 5.0},
+        {"machine": "bike", "minutes": 15, "level": 4},
+    ]
     payload["sets"] = payload["sets"][:2] + [
         {
             "exercise": _exercise_payload("ohp", "Overhead Press"),
@@ -891,6 +895,8 @@ def test_workout_completed_is_aggregate_only_and_replay_emits_once(api, recordin
         "is_first_workout": True,
         "program_provenance": "generated",
         "coached": False,
+        "cardio_entry_count": 2,
+        "cardio_machine_kinds": ["bike", "treadmill"],
     }
     assert "private note must stay in MYOS" not in repr(event)
     assert "Squat" not in repr(event)
@@ -1318,8 +1324,12 @@ def test_cardio_is_stored_and_returned_in_player_and_coach_history_without_set_e
     coach_headers = _make_coach(client, db, "coach")
     assignment_id = _assign(client, coach_headers, player_headers)
 
+    db.switch_user("p1")
+    db.ledger.upsert_weight_history_entry("2026-09-25", 60)
+    db.ledger.upsert_weight_history_entry("2026-09-27", 90)
+
     cardio_body = _sync_body(version=version)
-    cardio_body["cardio"] = {"prescription": "Steady bike after lifting", "minutes": 25}
+    cardio_body["cardio"] = [{"machine": "bike", "minutes": 25}]
     control_body = _sync_body(
         client_session_id="22222222-2222-4222-8222-222222222222",
         version=control_version,
@@ -1328,20 +1338,28 @@ def test_cardio_is_stored_and_returned_in_player_and_coach_history_without_set_e
     control_commit = client.post("/workouts/sessions", headers=control_headers, json=control_body)
     assert cardio_commit.status_code == control_commit.status_code == 201
     body = cardio_commit.json()
-    expected_cardio = {"prescription": "Steady bike after lifting", "minutes": 25}
+    expected_cardio = [{"machine": "bike", "minutes": 25, "speed_kmh": None,
+                        "incline_pct": None, "level": None, "watts": None, "distance_m": None,
+                        "calories_kcal": 145, "calories_are_estimate": True}]
     assert body["cardio"] == expected_cardio
+    assert body["cardio_calories_kcal"] == 145
     for key in ("divergences", "total_working_sets", "total_tonnage_kg", "new_prs", "exercise_summaries", "fatigue_post"):
         assert body[key] == control_commit.json()[key]
 
     db.switch_user("p1")
     session_id = body["session_id"]
     row = db.conn.execute(
-        "SELECT prescription, minutes FROM session_cardio WHERE session_id = ?",
+        "SELECT machine, minutes, calories_kcal, calories_are_estimate FROM session_cardio_entries WHERE session_id = ?",
         (session_id,),
     ).fetchone()
-    assert tuple(row) == (expected_cardio["prescription"], expected_cardio["minutes"])
+    assert tuple(row) == ("bike", 25, 145, 1)
     assert db.ledger.get_latest_session_summary()["cardio"] == expected_cardio
     assert client.get("/workouts/sessions/latest", headers=player_headers).json()["cardio"] == expected_cardio
+    db.ledger.upsert_weight_history_entry("2026-10-01", 100)
+    assert db.conn.execute(
+        "SELECT calories_kcal FROM session_cardio_entries WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()[0] == 145
 
     coach_history = client.get(
         f"/coach/assignments/{assignment_id}/player/summary", headers=coach_headers
@@ -1360,23 +1378,50 @@ def test_cardio_is_stored_and_returned_in_player_and_coach_history_without_set_e
 
     db.switch_user("p1")
     replay_payload = copy.deepcopy(cardio_body)
-    replay_payload["cardio"] = {"prescription": "Changed on retry", "minutes": 40}
+    replay_payload["cardio"] = [{"machine": "treadmill", "minutes": 40}]
     replay = client.post("/workouts/sessions", headers=player_headers, json=replay_payload)
     assert replay.status_code == 200
     assert replay.json() == body
     assert db.conn.execute(
-        "SELECT COUNT(*) FROM session_cardio WHERE session_id = ?", (session_id,)
+        "SELECT COUNT(*) FROM session_cardio_entries WHERE session_id = ?", (session_id,)
     ).fetchone()[0] == 1
+
+
+def test_backdated_cardio_uses_earliest_later_weight_and_flags_estimate(api, monkeypatch):
+    monkeypatch.setattr(
+        workouts_service,
+        "_now",
+        lambda: datetime(2026, 10, 25, 12, 0, tzinfo=UTC),
+    )
+    client, db = api
+    headers, version = _prepare_player(client, db)
+    db.switch_user("p1")
+    db.ledger.upsert_weight_history_entry("2026-10-26", 70)
+    body = _sync_body(
+        version=version,
+        performed_date="2026-10-24",
+        captured_at="2026-10-24T11:30:00+00:00",
+    )
+    body["cardio"] = [{"machine": "bike", "minutes": 30, "level": 5}]
+
+    response = client.post("/workouts/sessions", headers=headers, json=body)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["cardio"] == [{
+        "machine": "bike", "minutes": 30, "speed_kmh": None,
+        "incline_pct": None, "level": 5, "watts": None, "distance_m": None,
+        "calories_kcal": 203, "calories_are_estimate": True,
+    }]
 
 
 def test_cardio_bounds_are_rejected(api):
     client, db = api
     headers, version = _prepare_player(client, db)
     invalid_cardio = [
-        {"prescription": "", "minutes": 1},
-        {"prescription": "x" * 501, "minutes": 1},
-        {"prescription": "Bike", "minutes": 0},
-        {"prescription": "Bike", "minutes": 601},
+        [{"machine": "wrong", "minutes": 1}],
+        [{"machine": "bike", "minutes": 0}],
+        [{"machine": "bike", "minutes": 601}],
+        [{"machine": "treadmill", "minutes": 10, "speed_kmh": 41}],
     ]
     for cardio in invalid_cardio:
         body = _sync_body(version=version)
@@ -1393,10 +1438,57 @@ def test_cardio_minute_bounds_are_inclusive(api):
             client_session_id=f"33333333-3333-4333-8333-33333333333{index}",
             version=version,
         )
-        body["cardio"] = {"prescription": "Bike", "minutes": minutes}
+        body["cardio"] = [{"machine": "bike", "minutes": minutes}]
         response = client.post("/workouts/sessions", headers=headers, json=body)
         assert response.status_code == 201, response.text
-        assert response.json()["cardio"]["minutes"] == minutes
+        assert response.json()["cardio"][0]["minutes"] == minutes
+
+
+def test_structured_cardio_entries_round_trip_and_are_idempotent(api):
+    client, db = api
+    player_headers, version = _prepare_player(client, db)
+    body = _sync_body(client_session_id="55555555-5555-4555-8555-555555555555", version=version)
+    body["cardio"] = [{"machine": "treadmill", "minutes": 25,
+                       "speed_kmh": 5.0, "incline_pct": 10.0}]
+    response = client.post("/workouts/sessions", headers=player_headers, json=body)
+    assert response.status_code == 201
+    expected = [{"machine": "treadmill", "minutes": 25,
+                 "speed_kmh": 5.0, "incline_pct": 10.0,
+                 "level": None, "watts": None, "distance_m": None,
+                 "calories_kcal": 219, "calories_are_estimate": False}]
+    assert response.json()["cardio"] == expected
+    replay = client.post("/workouts/sessions", headers=player_headers, json=body)
+    assert replay.status_code == 200
+    assert replay.json()["cardio"] == expected
+
+
+def test_legacy_cardio_object_is_normalized_and_idempotent(api):
+    client, db = api
+    headers, version = _prepare_player(client, db)
+    body = _sync_body(client_session_id="56565656-5656-4565-8565-565656565656", version=version)
+    body["cardio"] = {"prescription": "Steady bike", "minutes": 25}
+    first = client.post("/workouts/sessions", headers=headers, json=body)
+    assert first.status_code == 201, first.text
+    assert first.json()["cardio"][0]["machine"] == "other"
+    assert first.json()["cardio"][0]["minutes"] == 25
+    replay = client.post("/workouts/sessions", headers=headers, json=body)
+    assert replay.status_code == 200
+    assert replay.json() == first.json()
+
+
+def test_legacy_minutes_only_cardio_is_preserved_by_v44_migration(api):
+    client, db = api
+    headers, version = _prepare_player(client, db)
+    # Existing entries are created by the v43 -> v44 ledger migration. This
+    # fixture inserts the equivalent legacy row into a fresh v44 test ledger.
+    session_id = "legacy-cardio-history"
+    db.conn.execute("INSERT INTO workout_sessions (id, session_date, split_name, started_at) VALUES (?, ?, ?, ?)",
+                    (session_id, "2026-01-01", "Upper", "2026-01-01T10:00:00+00:00"))
+    db.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,logged_at) VALUES (?,?,?,?)",
+                    (session_id, "other", 25, "2026-01-01T10:30:00+00:00"))
+    db.conn.commit()
+    row = db.conn.execute("SELECT machine, minutes FROM session_cardio_entries WHERE session_id=?", (session_id,)).fetchone()
+    assert tuple(row) == ("other", 25)
 
 
 def test_unknown_warmup_library_id_is_saved_by_name(api):

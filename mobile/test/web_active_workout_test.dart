@@ -90,7 +90,7 @@ ActiveWorkout _reorderWorkout() {
         sets: const <ActiveWarmupSet>[ActiveWarmupSet(reps: 10)],
       ),
     ],
-    cardio: const WorkoutCardio(prescription: 'Bike', minutes: 10),
+    cardio: const <WorkoutCardio>[WorkoutCardio(machine: 'bike', minutes: 10)],
   );
 }
 
@@ -235,6 +235,17 @@ class _DeniedBrowserStorage implements BrowserKeyValueStore {
 }
 
 void main() {
+  test('restored web Active workout classifies legacy non-finisher Cardio as other', () {
+    final Map<String, dynamic> json = _workout().toJson()
+      ..['cardio'] = <Map<String, dynamic>>[
+        <String, dynamic>{'prescription': 'Steady bike', 'minutes': 25, 'ticked': true},
+      ];
+    final ActiveWorkout restored = ActiveWorkout.fromJson(json);
+    expect(restored.cardio.single.machine, 'other');
+    expect(restored.cardio.single.minutes, 25);
+    expect(restored.cardio.single.ticked, isTrue);
+  });
+
   testWidgets('Arabic phone logger explains grouped AMRAP as a rep minimum',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _fake()..displayLanguage = 'ar';
@@ -308,10 +319,10 @@ void main() {
             ],
           ),
         ],
-        cardio: const WorkoutCardio(
-          prescription: 'Steady bike after lifting',
+        cardio: const <WorkoutCardio>[WorkoutCardio(
+          machine: 'bike',
           minutes: 25,
-        ),
+        )],
       ),
     );
 
@@ -321,9 +332,9 @@ void main() {
     expect(restored?.clientSessionId, _sessionId);
     expect(restored!.warmupMovements.single.sets.first.ticked, isTrue);
     expect(restored.warmupMovements.single.sets[1].ticked, isFalse);
-    expect(restored.cardio!.prescription, 'Steady bike after lifting');
-    expect(restored.cardio!.minutes, 25);
-    expect(restored.cardio!.ticked, isFalse);
+    expect(restored.cardio.single.machine, 'bike');
+    expect(restored.cardio.single.minutes, 25);
+    expect(restored.cardio.single.ticked, isFalse);
     expect(await afterReload.read('account-bob'), isNull);
   });
 
@@ -343,7 +354,7 @@ void main() {
           ],
         ),
       ],
-      cardio: const WorkoutCardio(prescription: 'Bike intervals'),
+      cardio: const <WorkoutCardio>[WorkoutCardio(machine: 'bike')],
     );
     await _pumpWebApp(
       tester,
@@ -382,10 +393,9 @@ void main() {
         ],
       },
     ]);
-    expect(sent['cardio'], <String, dynamic>{
-      'prescription': 'Bike intervals',
-      'minutes': 30,
-    });
+    expect(sent['cardio'], <Map<String, dynamic>>[
+      <String, dynamic>{'machine': 'bike', 'minutes': 30},
+    ]);
   });
 
   test('storage denial falls back to in-memory logging for this tab', () async {
@@ -485,7 +495,7 @@ void main() {
       <String>['incline_press', 'bench_press'],
     );
     expect(reordered.warmupMovements.single.exerciseName, 'Arm Circles');
-    expect(reordered.cardio!.prescription, 'Bike');
+    expect(reordered.cardio.single.machine, 'bike');
     expect(reordered.programVersion, 3);
     expect(
       fake.adapter.requests.where((request) =>

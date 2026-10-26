@@ -10,6 +10,8 @@ program.
 import copy
 from typing import Any
 
+from agent.ProgramState import CardioPrescriptionSchema
+
 from agent.program_weeks import (
     find_program_day,
     flatten_program_days,
@@ -530,7 +532,7 @@ def _reviewed_template_program(
                     "day_name": day.get("day_name") or f"Day {day.get('day_order', 1)}",
                     "day_order": int(day.get("day_order", 1)),
                     "week_order": int(day.get("week_order", week_order)),
-                    "cardio": None,
+                    "cardio": _structured_cardio(day.get("cardio")),
                     "warmup_exercises": [
                         _pick(movement, _WARMUP_STRUCTURE_FIELDS)
                         for movement in day.get("warmup_exercises", []) or []
@@ -557,6 +559,12 @@ def _reviewed_template_program(
         "days": flatten_program_days(weeks),
     }
     return apply_program_template_notes(reviewed, notes)
+
+
+def _structured_cardio(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return CardioPrescriptionSchema.model_validate(value).model_dump()
 
 
 def _active_program_revision(program: Any) -> str:

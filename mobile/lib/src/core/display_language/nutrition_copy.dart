@@ -25,6 +25,8 @@ class NutritionCopy {
   String get saving => isArabic ? 'جارٍ الحفظ…' : 'Saving…';
   String get retry => isArabic ? 'إعادة المحاولة' : 'Retry';
   String get calories => isArabic ? 'سعرة حرارية' : 'kcal';
+  String cardioBurned(int value) => isArabic ? 'السعرات المحروقة بالكارديو ~$value سعرة' : 'Cardio burned ~$value kcal';
+  String cardioAdjustment(int value) => isArabic ? 'تعديل الهدف بسبب الكارديو +$value سعرة' : 'Cardio target adjustment +$value kcal';
   String get protein => isArabic ? 'البروتين' : 'Protein';
   String get carbs => isArabic ? 'الكربوهيدرات' : 'Carbohydrates';
   String get fat => isArabic ? 'الدهون' : 'Fat';

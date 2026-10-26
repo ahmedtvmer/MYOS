@@ -1250,6 +1250,23 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
         return;
       }
       setState(() {
+        if (result.status == WebWorkoutCommitStatus.committed &&
+            result.response != null) {
+          final dynamic cardioBody = result.response!['cardio'];
+          if (cardioBody is List<dynamic>) {
+            final List<WorkoutCardio> entries = cardioBody
+                .whereType<Map<String, dynamic>>()
+                .map(WorkoutCardio.fromJson)
+                .toList(growable: false);
+            final WorkoutSummary? summary = _summary;
+            if (summary != null) {
+              _summary = summary.withStats(
+                summary.stats.withCardioEntries(entries),
+              );
+              ref.read(loggerSummaryProvider.notifier).state = _summary;
+            }
+          }
+        }
         _checkpointNumber = reachedCheckpoint ?? _checkpointNumber;
         _checkpointReview = checkpointReview;
         switch (result.status) {
@@ -1679,13 +1696,13 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
             // is nothing left to do.
             if (!workout.exercises[i].replaced)
               _buildExerciseCard(workout, i, current),
-          if (workout.cardio != null) ...<Widget>[
-            CardioLoggingCard(
-              cardio: workout.cardio!,
-              onChanged: (WorkoutCardio updated) =>
-                  unawaited(_controller.updateCardio(updated)),
+          CardioLoggingCard(
+              cardio: workout.cardio,
+              onChanged: (int index, WorkoutCardio updated) =>
+                  unawaited(_controller.updateCardio(index, updated)),
+              onAdd: () => unawaited(_controller.addCardio()),
+              onRemove: (int index) => unawaited(_controller.removeCardio(index)),
             ),
-          ],
           // Add exercise stays the list's last action; Finish lives in the
           // fixed bottom bar (#160), so it never needs scrolling to.
           MyosButton(
@@ -2609,6 +2626,35 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
             ],
           ),
         ],
+        if (stats.cardioCaloriesKcal != null) ...<Widget>[
+          const SizedBox(height: MyosSpacing.md),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: stat(
+                  key: const ValueKey<String>('logger.summary.cardioCalories'),
+                  value: copy.cardioCalories(stats.cardioCaloriesKcal!, estimate: stats.cardioCaloriesAreEstimate),
+                  label: copy.cardioCaloriesTotal,
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+          for (int index = 0; index < stats.cardioEntries.length; index++)
+            if (stats.cardioEntries[index].caloriesKcal != null)
+              Padding(
+                padding: const EdgeInsets.only(top: MyosSpacing.xs),
+                child: Text(
+                  '${copy.cardioMachine(stats.cardioEntries[index].machine)} · ${copy.cardioCalories(stats.cardioEntries[index].caloriesKcal!, estimate: stats.cardioEntries[index].caloriesAreEstimate)}',
+                  key: ValueKey<String>('logger.summary.cardioEntry.$index'),
+                ),
+              ),
+        ],
+        if (stats.cardioMinutes != null && stats.cardioCaloriesKcal == null)
+          Padding(
+            padding: const EdgeInsets.only(top: MyosSpacing.xs),
+            child: Text(copy.cardioCaloriesPending),
+          ),
       ],
     );
   }

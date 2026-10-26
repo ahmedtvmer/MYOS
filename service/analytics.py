@@ -141,6 +141,17 @@ def _model_list() -> PropertyType:
     return PropertyType(is_model_list, "a bounded list of configured model ids or other", maximum=5)
 
 
+def _cardio_machine_list() -> PropertyType:
+    machines = frozenset({"treadmill", "stairmaster", "bike", "elliptical", "rower", "outdoor_walk_run", "other"})
+    return PropertyType(
+        lambda value: isinstance(value, list)
+        and len(value) <= 20
+        and all(isinstance(machine, str) and machine in machines for machine in value),
+        "a bounded list of Cardio machine kinds",
+        maximum=20,
+    )
+
+
 def _is_version_label(value: Any) -> bool:
     return isinstance(value, str) and _APP_VERSION.fullmatch(value) is not None
 
@@ -270,6 +281,8 @@ PROPERTY_TYPES: dict[str, PropertyType] = {
     "length_days": _bounded_int(14),
     "set_count": _bounded_int(1000),
     "exercise_count": _bounded_int(100),
+    "cardio_entry_count": _bounded_int(20),
+    "cardio_machine_kinds": _cardio_machine_list(),
     "load_complete_set_count": _bounded_int(1000),
     "reps_complete_set_count": _bounded_int(1000),
     "rir_complete_set_count": _bounded_int(1000),
@@ -437,6 +450,8 @@ EVENT_CATALOGUE: dict[str, EventContract] = {
             **_COMMON_PROPERTIES,
             "set_count": PROPERTY_TYPES["set_count"],
             "exercise_count": PROPERTY_TYPES["exercise_count"],
+            "cardio_entry_count": PROPERTY_TYPES["cardio_entry_count"],
+            "cardio_machine_kinds": PROPERTY_TYPES["cardio_machine_kinds"],
             "load_complete_set_count": PROPERTY_TYPES["load_complete_set_count"],
             "reps_complete_set_count": PROPERTY_TYPES["reps_complete_set_count"],
             "rir_complete_set_count": PROPERTY_TYPES["rir_complete_set_count"],

@@ -307,38 +307,50 @@ class LedgerWorkoutsMixin:
         self._commit_ledger()
 
     def log_session_cardio(
-        self, session_id: str, cardio: dict[str, Any] | None, logged_at: str
+        self, session_id: str, cardio: list[dict[str, Any]] | None, logged_at: str
     ) -> None:
         """Stores the committed Cardio item outside working-set history."""
         if cardio is None:
             return
-        self.conn.execute(
-            "INSERT INTO session_cardio (session_id, prescription, minutes, logged_at)"
-            " VALUES (?, ?, ?, ?)",
-            (session_id, cardio["prescription"], int(cardio["minutes"]), logged_at),
-        )
+        for entry in cardio:
+            self.conn.execute(
+                "INSERT INTO session_cardio_entries"
+                " (session_id,machine,minutes,speed_kmh,incline_pct,level,watts,distance_m,"
+                "calories_kcal,calories_are_estimate,logged_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (session_id, entry["machine"], int(entry["minutes"]), entry.get("speed_kmh"),
+                 entry.get("incline_pct"), entry.get("level"), entry.get("watts"),
+                 entry.get("distance_m"), entry.get("calories_kcal"),
+                 int(bool(entry.get("calories_are_estimate", True))), logged_at),
+            )
         self._commit_ledger()
 
-    def get_session_cardio(self, session_id: str) -> dict[str, Any] | None:
-        row = self.conn.execute(
-            "SELECT prescription, minutes FROM session_cardio WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
-        if row is None:
-            return None
-        return {"prescription": row["prescription"], "minutes": row["minutes"]}
-
-    def list_session_cardio_by_session(self) -> dict[str, dict[str, Any]]:
+    def get_session_cardio(self, session_id: str) -> list[dict[str, Any]] | None:
         rows = self.conn.execute(
-            "SELECT session_id, prescription, minutes FROM session_cardio"
+            "SELECT machine,minutes,speed_kmh,incline_pct,level,watts,distance_m,"
+            "calories_kcal,calories_are_estimate"
+            " FROM session_cardio_entries WHERE session_id = ? ORDER BY id",
+            (session_id,),
         ).fetchall()
-        return {
-            row["session_id"]: {
-                "prescription": row["prescription"],
-                "minutes": row["minutes"],
-            }
-            for row in rows
-        }
+        if not rows:
+            return None
+        return [dict(row) for row in rows]
+
+    def list_session_cardio_by_session(self) -> dict[str, list[dict[str, Any]]]:
+        rows = self.conn.execute(
+            "SELECT session_id,machine,minutes,speed_kmh,incline_pct,level,watts,distance_m,"
+            "calories_kcal,calories_are_estimate"
+            " FROM session_cardio_entries ORDER BY id"
+        ).fetchall()
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            grouped.setdefault(row["session_id"], []).append(
+                {key: row[key] for key in (
+                    "machine", "minutes", "speed_kmh", "incline_pct", "level", "watts", "distance_m",
+                    "calories_kcal", "calories_are_estimate"
+                )}
+            )
+        return grouped
 
     @staticmethod
     def _warmup_set_rows(

@@ -54,7 +54,7 @@ const ProgramDay _dayWithWarmup = ProgramDay(
   warmupExercises: <WarmupExercise>[
     WarmupExercise(exerciseName: 'Cat-Cow', sets: 2, reps: 10),
   ],
-  cardio: 'Steady bike after lifting',
+  cardio: ProgramCardio(machine: 'treadmill', minutes: 25, legacyText: 'Steady bike after lifting'),
   exercises: <ProgramExercise>[
     ProgramExercise(
       exerciseId: 'bench_press',
@@ -406,20 +406,19 @@ void main() {
       );
       expect(controller.workout!.warmupMovements.single.sets, hasLength(2));
       expect(controller.workout!.warmupMovements.single.sets.first.reps, 10);
-      expect(controller.workout!.cardio!.prescription,
-          'Steady bike after lifting');
+      expect(controller.workout!.cardio.single.machine, 'treadmill');
       final Map<String, dynamic> earlierActiveJson =
           Map<String, dynamic>.of(controller.workout!.toJson())
             ..remove('cardio');
-      expect(ActiveWorkout.fromJson(earlierActiveJson).cardio, isNull);
+      expect(ActiveWorkout.fromJson(earlierActiveJson).cardio, isEmpty);
       await controller.updateWarmupMovementSet(
         0,
         0,
         const ActiveWarmupSet(reps: 10, ticked: true),
       );
-      await controller.updateCardio(
+      await controller.updateCardio(0,
         const WorkoutCardio(
-          prescription: 'Steady bike after lifting',
+          machine: 'bike',
           minutes: 25,
           ticked: true,
         ),
@@ -438,8 +437,8 @@ void main() {
       await restored.syncAccount(_account);
       expect(restored.workout!.warmupMovements.single.sets.first.ticked, isTrue);
       expect(restored.workout!.warmupMovements.single.sets[1].ticked, isFalse);
-      expect(restored.workout!.cardio!.minutes, 25);
-      expect(restored.workout!.cardio!.ticked, isTrue);
+      expect(restored.workout!.cardio.single.minutes, 25);
+      expect(restored.workout!.cardio.single.ticked, isTrue);
     });
 
     test('is created, persisted after changes, and restored on restart',

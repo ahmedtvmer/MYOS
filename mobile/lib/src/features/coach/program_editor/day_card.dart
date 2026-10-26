@@ -41,6 +41,11 @@ class _ProgramDraftDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    void onCardioFieldChanged() {
+      day.useStructuredCardio = true;
+      onChanged('cardio');
+    }
+
     final CoachCopy copy = coachCopyOf(context);
     final MyosThemeExtension colors = MyosTheme.of(context);
     return Padding(
@@ -189,29 +194,179 @@ class _ProgramDraftDayCard extends StatelessWidget {
               onPressed: busy ? null : onAddExercise,
             ),
             const SizedBox(height: MyosSpacing.md),
-            TextField(
-              key: Key('program_draft_cardio_$index'),
-              controller: day.cardio,
-              enabled: !busy,
-              minLines: 1,
-              maxLines: 3,
-              maxLength: ProgramDraftPrescription.maxProgramNotesLength,
-              inputFormatters: <TextInputFormatter>[
-                LengthLimitingTextInputFormatter(
-                  ProgramDraftPrescription.maxProgramNotesLength,
-                ),
-              ],
+            DropdownButtonFormField<String>(
+              key: Key('program_draft_cardio_machine_$index'),
+              initialValue: day.cardioMachine ?? 'none',
+              isExpanded: true,
               decoration: InputDecoration(
-                labelText: copy.cardioNote,
+                labelText: copy.cardioMachine,
                 border: const OutlineInputBorder(),
                 errorText: cardioError,
-                counterText: '',
               ),
-              onChanged: (_) => onChanged('cardio'),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: 'none',
+                  child: Text(
+                    copy.cardioNone,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                for (final String machine in _cardioMachines)
+                  DropdownMenuItem<String>(
+                    value: machine,
+                    child: Text(
+                      copy.cardioMachineName(machine),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: busy
+                  ? null
+                  : (String? machine) {
+                      day.selectCardioMachine(machine == 'none' ? null : machine);
+                      if (day.cardioMachine != null &&
+                          day.cardioMinutes.text.isEmpty) {
+                        day.cardioMinutes.text = '25';
+                      }
+                      onChanged('cardio');
+                    },
             ),
+            if (day.cardioMachine != null) ...<Widget>[
+              const SizedBox(height: MyosSpacing.xs),
+              Wrap(
+                spacing: MyosSpacing.sm,
+                runSpacing: MyosSpacing.sm,
+                children: <Widget>[
+                  _cardioNumberField(
+                    index,
+                    day.cardioMinutes,
+                    copy.cardioMinutesLabel,
+                    'minutes',
+                    busy,
+                    onChanged: onCardioFieldChanged,
+                  ),
+                  _cardioNumberField(
+                    index,
+                    day.cardioMinutesMax,
+                    copy.cardioMinutesMaxLabel,
+                    'minutes_max',
+                    busy,
+                    onChanged: onCardioFieldChanged,
+                    integer: true,
+                  ),
+                  if (day.cardioMachine == 'treadmill') ...<Widget>[
+                    _cardioNumberField(
+                      index,
+                      day.cardioSpeed,
+                      copy.cardioSpeed,
+                      'speed_kmh',
+                      busy,
+                      onChanged: onCardioFieldChanged,
+                    ),
+                    _cardioNumberField(
+                      index,
+                      day.cardioIncline,
+                      copy.cardioIncline,
+                      'incline_pct',
+                      busy,
+                      onChanged: onCardioFieldChanged,
+                    ),
+                  ],
+                  if (const <String>{'stairmaster', 'bike', 'elliptical'}.contains(day.cardioMachine))
+                    _cardioNumberField(
+                      index,
+                      day.cardioLevel,
+                      copy.cardioLevel,
+                      'level',
+                      busy,
+                      onChanged: onCardioFieldChanged,
+                      integer: true,
+                    ),
+                  if (const <String>{'bike', 'rower', 'other'}.contains(day.cardioMachine))
+                    _cardioNumberField(
+                      index,
+                      day.cardioWatts,
+                      copy.cardioWatts,
+                      'watts',
+                      busy,
+                      onChanged: onCardioFieldChanged,
+                      integer: true,
+                    ),
+                  if (const <String>{'bike', 'elliptical', 'rower', 'outdoor_walk_run', 'other'}.contains(day.cardioMachine))
+                    _cardioNumberField(
+                      index,
+                      day.cardioDistance,
+                      copy.cardioDistance,
+                      'distance_m',
+                      busy,
+                      onChanged: onCardioFieldChanged,
+                      integer: true,
+                    ),
+                ],
+              ),
+            ],
+            if (day.cardio.text.isNotEmpty || !day.useStructuredCardio) ...<Widget>[
+              const SizedBox(height: MyosSpacing.xs),
+              TextField(
+                key: Key('program_draft_cardio_$index'),
+                controller: day.cardio,
+                enabled: !busy,
+                minLines: 1,
+                maxLines: 3,
+                maxLength: ProgramDraftPrescription.maxProgramNotesLength,
+                inputFormatters: <TextInputFormatter>[
+                  LengthLimitingTextInputFormatter(
+                    ProgramDraftPrescription.maxProgramNotesLength,
+                  ),
+                ],
+                decoration: InputDecoration(
+                  labelText: copy.cardioNote,
+                  border: const OutlineInputBorder(),
+                  errorText: day.cardioMachine == null ? cardioError : null,
+                  counterText: '',
+                ),
+                onChanged: (_) => onChanged('cardio'),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 }
+
+const List<String> _cardioMachines = <String>[
+  'treadmill', 'stairmaster', 'bike', 'elliptical', 'rower',
+  'outdoor_walk_run', 'other',
+];
+
+Widget _cardioNumberField(
+  int dayIndex,
+  TextEditingController controller,
+  String label,
+  String field,
+  bool busy, {
+  required VoidCallback onChanged,
+  bool integer = false,
+}) => SizedBox(
+  width: 150,
+  child: TextField(
+    key: Key('program_draft_cardio_${field}_$dayIndex'),
+    controller: controller,
+    enabled: !busy,
+    keyboardType: integer
+        ? TextInputType.number
+        : const TextInputType.numberWithOptions(decimal: true, signed: true),
+    inputFormatters: <TextInputFormatter>[
+      FilteringTextInputFormatter.allow(RegExp(integer ? r'[0-9]' : r'[0-9.-]')),
+    ],
+    decoration: InputDecoration(
+      labelText: label,
+      border: const OutlineInputBorder(),
+      isDense: true,
+    ),
+    onChanged: (_) => onChanged(),
+  ),
+);

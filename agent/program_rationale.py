@@ -171,9 +171,15 @@ def exercise_rationale(
 
 
 def _day_rationale(day: Any, coach_cardio: Any) -> dict[str, Any]:
-    from agent.program_blueprints import FAT_LOSS_CARDIO_NOTE
+    from agent.program_blueprints import (
+        FAT_LOSS_CARDIO_BODYWEIGHT_NOTE,
+        FAT_LOSS_CARDIO_NOTE,
+    )
     cardio = None
-    if day.cardio == FAT_LOSS_CARDIO_NOTE:
+    cardio_value = day.cardio
+    if hasattr(cardio_value, "model_dump"):
+        cardio_value = cardio_value.model_dump(exclude_none=True)
+    if cardio_value in (FAT_LOSS_CARDIO_NOTE, FAT_LOSS_CARDIO_BODYWEIGHT_NOTE):
         cardio = {"code": CARDIO_FAT_LOSS_FINISHER, "params": {}}
     elif day.cardio:
         cardio = {

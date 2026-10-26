@@ -23,11 +23,14 @@ TEST_JWT_SECRET = "test-secret-key-0123456789abcdef"
 HEADERS = [
     "day", "day_name", "order", "exercise", "sets", "reps", "rir", "rpe",
     "load_kg", "load_pct_e1rm", "rest_sec", "tempo", "notes",
+    "cardio_machine", "cardio_minutes", "cardio_minutes_max", "cardio_speed_kmh",
+    "cardio_incline_pct", "cardio_level", "cardio_watts", "cardio_distance_m",
 ]
 CONFIRMED_ROW_FIELDS = (
     "source_row", "day", "day_name", "order", "exercise_name", "exercise_id",
     "sets", "reps_min", "reps_max", "target_rir", "rest_seconds", "tempo", "notes", "load",
             "group",
+    "cardio",
 )
 
 
@@ -639,6 +642,57 @@ def test_template_week_column_builds_ordered_weeks_in_draft(api, extension):
         ["Full body"], ["Full body"], ["Full body"], ["Full body"]
     ]
     assert [week["days"][0]["exercises"][0]["exercise_id"] for week in draft["weeks"]] == ["sq"] * 4
+
+
+@pytest.mark.parametrize("extension", ["csv", "xlsx"])
+def test_program_import_preserves_structured_cardio_prescription(api, extension):
+    client, db = api
+    coach_headers, _, assignment_id = _assignment(client, db, prefix=f"cardio-roundtrip-{extension}")
+    rows = [[1, "1", "Full body", "1", "Squat", "3", "6-8", "2", "", "", "", "90", "", "",
+             "treadmill", "20", "30", "5", "8", "", "", ""]]
+    payload = _week_csv(rows) if extension == "csv" else _week_xlsx(rows)
+    response = client.post(
+        f"/coach/assignments/{assignment_id}/program-import", headers=coach_headers,
+        files={"file": (f"cardio.{extension}", payload, "text/csv" if extension == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert response.status_code == 200, response.text
+    preview = response.json()["rows"][0]
+    assert preview["cardio"] == {
+        "machine": "treadmill", "minutes": 20, "minutes_max": 30,
+        "speed_kmh": 5.0, "incline_pct": 8.0, "level": None,
+        "watts": None, "distance_m": None,
+    }
+    created = client.post(
+        f"/coach/assignments/{assignment_id}/program-draft/import", headers=coach_headers,
+        json={"program_name": "cardio import", "rows": _confirmed_rows(response.json()["rows"])},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["draft"]["weeks"][0]["days"][0]["cardio"] == preview["cardio"]
+
+
+@pytest.mark.parametrize(
+    "field_index,invalid_value,field_name",
+    [(16, 30.5, "cardio_minutes_max"), (17, "fast", "cardio_speed_kmh")],
+)
+def test_invalid_nonblank_cardio_settings_report_source_row_error(
+    api, field_index, invalid_value, field_name
+):
+    client, db = api
+    coach_headers, _, assignment_id = _assignment(
+        client, db, prefix=f"invalid-cardio-{field_name}"
+    )
+    row = [1, "1", "Full body", "1", "Squat", "3", "6-8", "2", "", "", "", "90", "", "",
+           "treadmill", "25", "", "", "", "", ""]
+    row[field_index] = invalid_value
+    response = client.post(
+        f"/coach/assignments/{assignment_id}/program-import",
+        headers=coach_headers,
+        files={"file": ("cardio.csv", _week_csv([row]), "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    imported = response.json()["rows"][0]
+    assert any(error["column"] == field_name for error in imported["errors"])
+    assert imported["errors"][0]["source_row"] == imported["source_row"]
 
 
 def test_template_blank_week_defaults_to_one_and_bad_weeks_are_reported_by_row(api):

@@ -37,6 +37,7 @@ class _WorkoutAnalyticsFacts:
     is_first_workout: bool
     program: Any | None
     coached: bool
+    cardio: list[dict[str, Any]]
 
 
 def _capped_count(property_name: str, value: int) -> int:
@@ -111,6 +112,8 @@ def _properties(facts: _WorkoutAnalyticsFacts) -> dict[str, Any]:
         "is_first_workout": facts.is_first_workout,
         "program_provenance": _program_provenance(facts.program),
         "coached": facts.coached,
+        "cardio_entry_count": _capped_count("cardio_entry_count", len(facts.cardio)),
+        "cardio_machine_kinds": sorted({entry["machine"] for entry in facts.cardio}),
     }
 
 
@@ -136,6 +139,7 @@ def capture_workout_completed(
             is_first_workout=observation.body["training_status"]["mayos_workouts"] == 1,
             program=program,
             coached=db.get_active_assignment_for_player(observation.account_id) is not None,
+            cardio=observation.body.get("cardio") or [],
         )
         analytics.capture(
             analytics.AnalyticsEvent(

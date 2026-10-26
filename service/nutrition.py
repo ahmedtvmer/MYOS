@@ -9,6 +9,8 @@ from typing import Any
 from agent.program_blueprints import classify_goal
 from core.nutrition_targets import (ACTIVITY_FACTORS, NutritionCalculationInput, NutritionTargets,
                                     calculate_fiber_water_targets, calculate_targets)
+from core.cardio_calories import estimate_cardio_calories
+from core.cardio_prescriptions import parse_legacy_cardio_prescription
 from database.ledger.nutrition import NutritionPlanVersion, NutritionSetup
 from service import nutrition_pace_check
 
@@ -418,6 +420,8 @@ def read(
                 nutrition_state["pending_goal"] = resolved
                 nutrition_state["pending_goal_reason"] = reason
     nutrition_state.update(_adherence_state(ledger, today))
+    if nutrition_state.get("state") == "ready":
+        _apply_cardio_day_adjustment(ledger, nutrition_state, today)
     proposal = ledger.get_nutrition_pace_proposal()
     if proposal is not None:
         active = ledger.get_active_nutrition_plan()
@@ -427,6 +431,79 @@ def read(
         nutrition_state["pace_proposal"] = None
     return nutrition_state
 
+
+def _apply_cardio_day_adjustment(ledger: Any, state: dict[str, Any], today: date) -> None:
+    """Apply today's extra Cardio as a read-time carbs adjustment."""
+    sessions, logged = _cardio_day_records(ledger, today)
+    profile = ledger.get_nutrition_profile() or {}
+    weight_history = ledger.list_weight_history("0001-01-01", today.isoformat())
+    weight = (float(weight_history[-1]["weight_kg"]) if weight_history
+              else float(profile["weight_kg"]) if profile.get("weight_kg") else None)
+    prescribed = _prescribed_cardio_calories(ledger, sessions, weight)
+    extra = max(0, logged - prescribed)
+    adjustment = extra // 2
+    state["cardio_burned_kcal"] = logged
+    state["cardio_adjustment_kcal"] = adjustment
+    if adjustment:
+        targets = dict(state["targets"])
+        floor = math.ceil(float(targets.get("calorie_floor", 0)))
+        targets["calories"] = max(int(targets["calories"]), floor) + adjustment
+        targets["carbs_g"] = int(targets.get("carbs_g", 0)) + int(round(adjustment / 4))
+        state["targets"] = targets
+
+
+def _cardio_day_records(ledger: Any, today: date) -> tuple[list[Any], int]:
+    sessions = ledger.conn.execute(
+        "SELECT id, program_version, program_week_order, program_day_order "
+        "FROM workout_sessions WHERE session_date = ?",
+        (today.isoformat(),),
+    ).fetchall()
+    logged = ledger.conn.execute(
+        "SELECT COALESCE(SUM(c.calories_kcal), 0) FROM session_cardio_entries c "
+        "JOIN workout_sessions s ON s.id = c.session_id WHERE s.session_date = ?",
+        (today.isoformat(),),
+    ).fetchone()[0]
+    return sessions, int(logged or 0)
+
+
+def _prescribed_cardio_calories(ledger: Any, sessions: list[Any], weight: float | None) -> int:
+    prescribed = 0
+    program_cache: dict[int, Any] = {}
+    prescribed_days: set[tuple[int, int, int]] = set()
+    for session in sessions:
+        version = session["program_version"]
+        day_order = session["program_day_order"]
+        if version is None or day_order is None:
+            continue
+        version = int(version)
+        day_key = (version, int(session["program_week_order"] or 1), int(day_order))
+        if day_key in prescribed_days:
+            continue
+        prescribed_days.add(day_key)
+        if version not in program_cache:
+            program_cache[version] = ledger.get_program_by_version(version)
+        program = program_cache[version]
+        prescribed += _prescription_calories(program, session, weight)
+    return prescribed
+
+
+def _prescription_calories(program: Any, session: Any, weight: float | None) -> int:
+    if program is None:
+        return 0
+    week_order = int(session["program_week_order"] or 1)
+    day_order = int(session["program_day_order"])
+    day = next((item for item in program.days
+                if item.week_order == week_order and item.day_order == day_order), None)
+    cardio = day.cardio if day is not None else None
+    if isinstance(cardio, str):
+        cardio = parse_legacy_cardio_prescription(cardio)
+    elif cardio is not None:
+        cardio = cardio.model_dump(exclude_none=True)
+    if not isinstance(cardio, dict) or not cardio.get("minutes"):
+        return 0
+    if cardio.get("minutes_max") is not None:
+        cardio["minutes"] = (int(cardio["minutes"]) + int(cardio["minutes_max"])) / 2
+    return estimate_cardio_calories(cardio, weight)["kcal"]
 
 def evaluate_pace_check(ledger: Any, today: date) -> dict[str, Any] | None:
     return nutrition_pace_check.evaluate(ledger, today)

@@ -563,7 +563,7 @@ class _NextSessionSection extends StatelessWidget {
                 const SizedBox(width: MyosSpacing.xs),
                 Expanded(
                   child: Text(
-                    current.cardio!,
+                    current.cardio!.display(displayCopyOf(context)),
                     style: MyosTypography.of(context).bodySecondary
                         .copyWith(color: c.textSecondary),
                   ),

@@ -992,10 +992,14 @@ class CardioLoggingCard extends StatelessWidget {
     super.key,
     required this.cardio,
     required this.onChanged,
+    required this.onAdd,
+    required this.onRemove,
   });
 
-  final WorkoutCardio cardio;
-  final ValueChanged<WorkoutCardio> onChanged;
+  final List<WorkoutCardio> cardio;
+  final void Function(int, WorkoutCardio) onChanged;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,19 +1018,15 @@ class CardioLoggingCard extends StatelessWidget {
                 color: colors.textPrimary,
               ),
             ),
-            const SizedBox(height: MyosSpacing.xs),
-            Text(
-              cardio.prescription,
-              style: MyosTypography.of(context).bodySecondary.copyWith(
-                color: colors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: MyosSpacing.sm),
-            Row(
-              children: <Widget>[
-                Expanded(child: _minutesField(context)),
-                _tickButton(context, colors),
-              ],
+            for (int i = 0; i < cardio.length; i++) ...<Widget>[
+              const SizedBox(height: MyosSpacing.sm),
+              _entry(context, colors, i, cardio[i]),
+            ],
+            TextButton.icon(
+              key: const ValueKey<String>('logger.cardio.add'),
+              onPressed: cardio.length >= 20 ? null : onAdd,
+              icon: const Icon(Icons.add),
+              label: Text(copy.addCardioEntry),
             ),
           ],
         ),
@@ -1034,9 +1034,73 @@ class CardioLoggingCard extends StatelessWidget {
     );
   }
 
-  Widget _minutesField(BuildContext context) => TextFormField(
-        key: const ValueKey<String>('logger.cardio.minutes'),
-        initialValue: cardio.minutes?.toString() ?? '',
+  Widget _entry(BuildContext context, MyosThemeExtension colors, int index,
+      WorkoutCardio entry) {
+    final WorkoutCopy copy = workoutCopyOf(context);
+    final List<String> machines = <String>[
+      'treadmill', 'stairmaster', 'bike', 'elliptical', 'rower',
+      'outdoor_walk_run', 'other',
+    ];
+    return Column(key: ValueKey<String>(entry.entryId ?? 'cardio-$index'), crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      DropdownButtonFormField<String>(
+        key: ValueKey<String>('logger.cardio.machine.$index'),
+        initialValue: entry.machine,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: copy.cardioMachineLabel, isDense: true),
+        items: <DropdownMenuItem<String>>[
+          for (final String machine in machines)
+            DropdownMenuItem<String>(value: machine, child: Text(copy.cardioMachine(machine))),
+        ],
+        onChanged: (String? value) {
+          if (value != null) onChanged(index, entry.copyWith(machine: value));
+        },
+      ),
+      const SizedBox(height: MyosSpacing.xs),
+      Row(children: <Widget>[
+        Expanded(child: _minutesField(context, index, entry, copy)),
+        IconButton(
+          key: ValueKey<String>(index == 0 ? 'logger.cardio.tick' : 'logger.cardio.tick.$index'),
+          tooltip: entry.ticked ? copy.markCardioNotDone : copy.markCardioDone,
+          onPressed: entry.hasValidMinutes && entry.hasValidSettings
+              ? () => onChanged(index, entry.copyWith(ticked: !entry.ticked))
+              : null,
+          icon: Icon(entry.ticked ? Icons.check_box : Icons.check_box_outline_blank,
+            color: entry.ticked ? colors.accent : colors.textMuted),
+        ),
+        if (cardio.length > 1)
+          IconButton(
+            key: ValueKey<String>('logger.cardio.remove.$index'),
+            tooltip: copy.removeCardioEntry,
+            onPressed: () => onRemove(index),
+            icon: const Icon(Icons.close),
+          ),
+      ]),
+      if (entry.machine == 'treadmill') ...<Widget>[
+        _setting(context, index, 'speed', copy.cardioSpeed, entry.speedKmh,
+          (double? n) => onChanged(index, entry.copyWith(speedKmh: n, clearSpeed: n == null))),
+        _setting(context, index, 'incline', copy.cardioIncline, entry.inclinePct,
+          (double? n) => onChanged(index, entry.copyWith(inclinePct: n, clearIncline: n == null))),
+      ] else if (entry.machine == 'outdoor_walk_run') ...<Widget>[
+        _setting(context, index, 'speed', copy.cardioSpeed, entry.speedKmh,
+          (double? n) => onChanged(index, entry.copyWith(speedKmh: n, clearSpeed: n == null))),
+        _setting(context, index, 'distance', copy.cardioDistance, entry.distanceM,
+          (double? n) => onChanged(index, entry.copyWith(distanceM: n, clearDistance: n == null))),
+      ] else if (entry.machine == 'bike' || entry.machine == 'stairmaster' ||
+          entry.machine == 'elliptical' || entry.machine == 'rower' || entry.machine == 'other') ...<Widget>[
+        _setting(context, index, 'level', copy.cardioLevel, entry.level,
+          (double? n) => onChanged(index, entry.copyWith(level: n, clearLevel: n == null))),
+        _setting(context, index, 'watts', copy.cardioWatts, entry.watts,
+          (double? n) => onChanged(index, entry.copyWith(watts: n, clearWatts: n == null))),
+        _setting(context, index, 'distance', copy.cardioDistance, entry.distanceM,
+          (double? n) => onChanged(index, entry.copyWith(distanceM: n, clearDistance: n == null))),
+      ],
+    ]);
+  }
+
+  Widget _minutesField(BuildContext context, int index, WorkoutCardio entry,
+      WorkoutCopy copy) => TextFormField(
+        key: ValueKey<String>(index == 0 ? 'logger.cardio.minutes' : 'logger.cardio.minutes.$index'),
+        initialValue: entry.minutes?.toString() ?? '',
         keyboardType: TextInputType.number,
         inputFormatters: <TextInputFormatter>[
           FilteringTextInputFormatter.digitsOnly,
@@ -1044,33 +1108,35 @@ class CardioLoggingCard extends StatelessWidget {
           _CardioMinutesInputFormatter(),
         ],
         textDirection: TextDirection.ltr,
-        decoration: InputDecoration(
-            labelText: workoutCopyOf(context).minutes, isDense: true),
-        onChanged: _minutesChanged,
+        decoration: InputDecoration(labelText: copy.minutes, isDense: true),
+        onChanged: (String text) {
+          final int? minutes = int.tryParse(text);
+          final bool valid = minutes != null && minutes >= 1 && minutes <= 600;
+          onChanged(index, entry.withMinutes(minutes, ticked: valid ? entry.ticked : false));
+        },
       );
 
-  void _minutesChanged(String text) {
-    final int? minutes = int.tryParse(text);
-    final bool valid = minutes != null && minutes >= 1 && minutes <= 600;
-    onChanged(
-      cardio.withMinutes(minutes, ticked: valid ? cardio.ticked : false),
-    );
-  }
-
-  Widget _tickButton(BuildContext context, MyosThemeExtension colors) =>
-      IconButton(
-        key: const ValueKey<String>('logger.cardio.tick'),
-        tooltip: cardio.ticked
-            ? workoutCopyOf(context).markCardioNotDone
-            : workoutCopyOf(context).markCardioDone,
-        onPressed: cardio.hasValidMinutes
-            ? () => onChanged(cardio.copyWith(ticked: !cardio.ticked))
-            : null,
-        icon: Icon(
-          cardio.ticked ? Icons.check_box : Icons.check_box_outline_blank,
-          color: cardio.ticked ? colors.accent : colors.textMuted,
-        ),
+  Widget _setting(BuildContext context, int index, String name, String label,
+      num? value, ValueChanged<double?> onChanged) => TextFormField(
+        key: ValueKey<String>('logger.cardio.$name.$index'),
+        initialValue: value?.toString() ?? '',
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textDirection: TextDirection.ltr,
+        decoration: InputDecoration(labelText: label, isDense: true,
+          errorText: value != null && !_validSetting(name, value)
+              ? workoutCopyOf(context).cardioRangeError
+              : null),
+        onChanged: (String text) => onChanged(text.isEmpty ? null : double.tryParse(text)),
       );
+
+  bool _validSetting(String name, num value) => switch (name) {
+    'speed' => value >= 0.1 && value <= 40,
+    'incline' => value >= -10 && value <= 40,
+    'level' => value >= 1 && value <= 100,
+    'watts' => value >= 1 && value <= 2500,
+    'distance' => value >= 1 && value <= 100000,
+    _ => true,
+  };
 }
 
 class _CardioMinutesInputFormatter extends TextInputFormatter {

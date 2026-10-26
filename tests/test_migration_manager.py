@@ -663,8 +663,8 @@ def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     conn.execute("ALTER TABLE nutrition_plan_versions DROP COLUMN authority_assignment_id")
     set_ledger_schema_version(conn, 38)
     conn.commit()
-    apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir, target_version=43)
-    assert get_ledger_schema_version(conn) == 43
+    apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir)
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 50
     assert conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='nutrition_pace_proposals'"
     ).fetchone() is not None
@@ -1564,6 +1564,13 @@ def test_v13_to_v14_adds_session_cardio(temp_db_env):
     )
     conn.execute("PRAGMA user_version = 13")
     conn.commit()
+    apply_lazy_migrations(conn, "v13lifter", ledgers_dir, db.backups_dir, target_version=43)
+    conn.execute(
+        "INSERT INTO workout_sessions (id,session_date,split_name,started_at,client_session_id) VALUES ('session-2','2026-01-02','Lower','2026-01-02T10:00:00+00:00',NULL)"
+    )
+    conn.execute("INSERT INTO session_cardio VALUES ('session-1', 'Treadmill, 25 min, 5 km/h, 10% incline', 25, '2026-01-01T10:30:00+00:00')")
+    conn.execute("INSERT INTO session_cardio VALUES ('session-2', 'Steady cardio', 20, '2026-01-02T10:30:00+00:00')")
+    conn.commit()
     conn.close()
 
     migrated = DatabaseManager(
@@ -1574,11 +1581,24 @@ def test_v13_to_v14_adds_session_cardio(temp_db_env):
     )
     try:
         assert get_ledger_schema_version(migrated.conn) == CURRENT_LEDGER_SCHEMA_VERSION
-        cardio = {"prescription": "Steady bike", "minutes": 25}
+        assert migrated.ledger.get_session_cardio("session-1")[0]["machine"] == "treadmill"
+        assert migrated.ledger.get_session_cardio("session-2")[0]["machine"] == "other"
+        for column, value in (
+            ("speed_kmh", -1), ("incline_pct", 99), ("level", -5),
+            ("watts", -10), ("distance_m", -20),
+        ):
+            with pytest.raises(sqlite3.IntegrityError):
+                migrated.conn.execute(
+                    f"INSERT INTO session_cardio_entries (session_id,machine,minutes,{column},logged_at) VALUES ('session-1','treadmill',25,?,'2026-01-01T11:00:00+00:00')",
+                    (value,),
+                )
+        cardio = [{"machine": "bike", "minutes": 25}]
         migrated.ledger.log_session_cardio(
             "session-1", cardio, "2026-01-02T00:00:00+00:00"
         )
-        assert migrated.ledger.get_session_cardio("session-1") == cardio
+        assert [row["machine"] for row in migrated.ledger.get_session_cardio("session-1")] == [
+            "treadmill", "bike"
+        ]
         migrated.conn.execute("DELETE FROM workout_sessions WHERE id = 'session-1'")
         migrated.conn.commit()
         assert migrated.ledger.get_session_cardio("session-1") is None
@@ -1772,3 +1792,71 @@ def test_v42_lazy_migration_creates_water_log_from_real_v42_schema(temp_db_env):
 
     assert get_ledger_schema_version(conn) == 43
     assert conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='water_log'").fetchone() is not None
+
+
+def test_v48_to_v49_creates_cardio_entries_from_real_v48_schema(temp_db_env):
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE session_cardio_entries")
+    conn.execute(
+        "INSERT INTO workout_sessions (id, session_date, split_name, started_at) "
+        "VALUES ('cardio-v47', '2026-10-26', 'Cardio', '2026-10-26T12:00:00')"
+    )
+    conn.execute(
+        "INSERT INTO session_cardio (session_id, prescription, minutes, logged_at) "
+        "VALUES ('cardio-v47', 'Treadmill incline walk', 20, '2026-10-26T12:00:00')"
+    )
+    # #509 owns 47→48; apply it before testing the cardio migration.
+    set_ledger_schema_version(conn, 47)
+    conn.commit()
+    apply_lazy_migrations(
+        conn, "cardio-v47", ledgers_dir, backups_dir, target_version=48
+    )
+    assert get_ledger_schema_version(conn) == 48
+
+    apply_lazy_migrations(
+        conn, "cardio-v48", ledgers_dir, backups_dir, target_version=49
+    )
+
+    row = conn.execute(
+        "SELECT machine, minutes FROM session_cardio_entries WHERE session_id='cardio-v47'"
+    ).fetchone()
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(session_cardio_entries)")}
+    assert row is not None
+    assert tuple(row) == ("treadmill", 20)
+    assert "calories_kcal" not in columns
+    assert get_ledger_schema_version(conn) == 49
+
+
+def test_v49_to_v50_lazy_migration_adds_cardio_calorie_snapshot_columns(temp_db_env):
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE session_cardio_entries")
+    from database.migration_manager import SESSION_CARDIO_ENTRIES_V49_DDL
+
+    for statement in SESSION_CARDIO_ENTRIES_V49_DDL:
+        conn.execute(statement)
+    conn.execute(
+        "INSERT INTO workout_sessions (id, session_date, split_name, started_at) "
+        "VALUES ('cardio-v48', '2026-10-26', 'Cardio', '2026-10-26T12:00:00')"
+    )
+    conn.execute(
+        "INSERT INTO session_cardio (session_id, prescription, minutes, logged_at) "
+        "VALUES ('cardio-v48', 'Treadmill incline walk', 20, '2026-10-26T12:00:00')"
+    )
+    set_ledger_schema_version(conn, 49)
+    conn.commit()
+
+    apply_lazy_migrations(
+        conn, "cardio-v49", ledgers_dir, backups_dir, target_version=49
+    )
+    v49_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(session_cardio_entries)")
+    }
+    assert "calories_kcal" not in v49_columns
+
+    apply_lazy_migrations(conn, "cardio-v49", ledgers_dir, backups_dir)
+
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(session_cardio_entries)")}
+    assert {"calories_kcal", "calories_are_estimate"} <= columns
+    assert get_ledger_schema_version(conn) == 50

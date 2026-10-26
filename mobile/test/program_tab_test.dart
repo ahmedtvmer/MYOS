@@ -342,6 +342,30 @@ Future<void> _chooseCableFly(WidgetTester tester) async {
 }
 
 void main() {
+  test('legacy Cardio remains stored as text but reads as treadmill by default', () {
+    final ProgramDay day = ProgramDay.fromJson(<String, dynamic>{
+      'day_name': 'Day', 'day_order': 1, 'exercises': <dynamic>[],
+      'cardio': '20 min treadmill, 5 km/h, 10% incline',
+    });
+    expect(day.cardio!.machine, 'treadmill');
+    expect(day.cardio!.minutes, 20);
+    expect(day.cardio!.speedKmh, 5);
+    expect(day.cardio!.inclinePct, 10);
+    expect(day.toJson()['cardio'], '20 min treadmill, 5 km/h, 10% incline');
+  });
+
+  test('structured prescription survives program parsing with its settings', () {
+    final ProgramDay day = ProgramDay.fromJson(<String, dynamic>{
+      'day_name': 'Day', 'day_order': 1, 'exercises': <dynamic>[],
+      'cardio': <String, dynamic>{
+        'machine': 'treadmill', 'minutes': 25, 'speed_kmh': 5,
+        'incline_pct': 10,
+      },
+    });
+    expect(day.cardio!.speedKmh, 5);
+    expect(day.cardio!.inclinePct, 10);
+  });
+
   testWidgets('volume review can be accepted or dismissed in Arabic on phone',
       (tester) async {
     final FakeMyosApi fake = _signedInFake();

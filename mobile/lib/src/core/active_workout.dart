@@ -828,7 +828,7 @@ class ActiveWorkout {
     required this.dayName,
     required this.exercises,
     this.warmupMovements = const <ActiveWarmupMovement>[],
-    this.cardio,
+    this.cardio = const <WorkoutCardio>[],
     this.deload,
     required this.baselines,
     this.programVersion,
@@ -857,9 +857,7 @@ class ActiveWorkout {
             .map((dynamic movement) => ActiveWarmupMovement.fromJson(
                 movement as Map<String, dynamic>))
             .toList(growable: false),
-    cardio: json['cardio'] is Map<String, dynamic>
-        ? WorkoutCardio.fromJson(json['cardio'] as Map<String, dynamic>)
-        : null,
+    cardio: workoutCardioListFromJson(json['cardio']),
     deload: json['deload'] is Map<String, dynamic>
         ? DeloadDecision.fromJson(json['deload'] as Map<String, dynamic>)
         : null,
@@ -912,7 +910,7 @@ class ActiveWorkout {
   final List<ActiveWarmupMovement> warmupMovements;
 
   /// The prescribed Cardio item and its logged minutes, independent of sets.
-  final WorkoutCardio? cardio;
+  final List<WorkoutCardio> cardio;
 
   /// The server's active deload decision frozen with this workout.
   final DeloadDecision? deload;
@@ -933,7 +931,7 @@ class ActiveWorkout {
   ActiveWorkout copyWith({
     List<ActiveWorkoutExercise>? exercises,
     List<ActiveWarmupMovement>? warmupMovements,
-    WorkoutCardio? cardio,
+    List<WorkoutCardio>? cardio,
     DeloadDecision? deload,
     Map<String, BaselineExercise>? baselines,
     String? clientSessionId,
@@ -979,7 +977,9 @@ class ActiveWorkout {
         for (final ActiveWarmupMovement movement in warmupMovements)
           movement.toJson(),
       ],
-    if (cardio != null) 'cardio': cardio!.toJson(),
+    if (cardio.isNotEmpty) 'cardio': <Map<String, dynamic>>[
+      for (final WorkoutCardio entry in cardio) entry.toJson(),
+    ],
     if (deload != null) 'deload': deload!.toJson(),
     'baselines': <String, dynamic>{
       for (final MapEntry<String, BaselineExercise> entry in baselines.entries)
@@ -1026,7 +1026,11 @@ class ActiveWorkout {
           for (final WarmupMovementLog movement in loggedWarmupMovements)
             movement.toJson(),
         ],
-      if (cardio?.isCommitted == true) 'cardio': cardio!.toCommitJson(),
+      if (cardio.any((WorkoutCardio entry) => entry.isCommitted))
+        'cardio': <Map<String, dynamic>>[
+          for (final WorkoutCardio entry in cardio)
+            if (entry.isCommitted) entry.toCommitJson(),
+        ],
       'client_session_id': sessionId,
       'performed_date': performedDate ?? startedDate,
       'performed_timezone': timezone,

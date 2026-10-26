@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 48
+CURRENT_LEDGER_SCHEMA_VERSION: int = 50
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -198,6 +198,30 @@ SESSION_CARDIO_DDL: tuple[str, ...] = (
     " logged_at TEXT NOT NULL,"
     " FOREIGN KEY(session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE"
     ")",
+)
+
+SESSION_CARDIO_ENTRIES_DDL: tuple[str, ...] = (
+    "CREATE TABLE IF NOT EXISTS session_cardio_entries ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,"
+    " machine TEXT NOT NULL CHECK (machine IN"
+    " ('treadmill','stairmaster','bike','elliptical','rower','outdoor_walk_run','other')) ,"
+    " minutes INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 600),"
+    " speed_kmh REAL CHECK (speed_kmh IS NULL OR speed_kmh BETWEEN 0.1 AND 40),"
+    " incline_pct REAL CHECK (incline_pct IS NULL OR incline_pct BETWEEN -10 AND 40),"
+    " level REAL CHECK (level IS NULL OR level BETWEEN 1 AND 100),"
+    " watts REAL CHECK (watts IS NULL OR watts BETWEEN 1 AND 2500),"
+    " distance_m REAL CHECK (distance_m IS NULL OR distance_m BETWEEN 1 AND 100000),"
+    " calories_kcal INTEGER, calories_are_estimate INTEGER NOT NULL DEFAULT 1,"
+    " logged_at TEXT NOT NULL, FOREIGN KEY(session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE"
+    ")",
+)
+
+SESSION_CARDIO_ENTRIES_V49_DDL: tuple[str, ...] = (
+    tuple(statement.replace(
+        " calories_kcal INTEGER, calories_are_estimate INTEGER NOT NULL DEFAULT 1,", ""
+    )
+    for statement in SESSION_CARDIO_ENTRIES_DDL
+    )
 )
 
 CHECKPOINT_REVIEWS_DDL: tuple[str, ...] = (
@@ -1142,6 +1166,34 @@ def _migrate_v42_to_v43(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v48_to_v49(conn: sqlite3.Connection) -> None:
+    """Stores Cardio entries and converts legacy minutes-only records."""
+    for statement in SESSION_CARDIO_DDL:
+        conn.execute(statement)
+    for statement in SESSION_CARDIO_ENTRIES_V49_DDL:
+        conn.execute(statement)
+    for row in conn.execute(
+        "SELECT session_id, prescription, minutes, logged_at FROM session_cardio"
+    ).fetchall():
+        text = (row[1] or "").lower()
+        machine = "treadmill" if "treadmill" in text or "incline" in text else "other"
+        conn.execute(
+            "INSERT INTO session_cardio_entries (session_id,machine,minutes,logged_at)"
+            " VALUES (?,?,?,?)", (row[0], machine, row[2], row[3])
+        )
+
+
+def _migrate_v49_to_v50(conn: sqlite3.Connection) -> None:
+    """Stores immutable estimated Cardio calories per committed entry (#507)."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(session_cardio_entries)")}
+    if "calories_kcal" not in columns:
+        conn.execute("ALTER TABLE session_cardio_entries ADD COLUMN calories_kcal INTEGER")
+    if "calories_are_estimate" not in columns:
+        conn.execute(
+            "ALTER TABLE session_cardio_entries ADD COLUMN calories_are_estimate INTEGER NOT NULL DEFAULT 1"
+        )
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1275,6 +1327,8 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     45: _migrate_v45_to_v46,
     46: _migrate_v46_to_v47,
     47: _migrate_v47_to_v48,
+    48: _migrate_v48_to_v49,
+    49: _migrate_v49_to_v50,
 }
 
 

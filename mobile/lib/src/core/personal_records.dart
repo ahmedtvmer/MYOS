@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show immutable;
 
 import 'active_workout.dart';
+import 'models.dart';
 import 'baselines.dart';
 import 'training_status_projection.dart';
 import 'workout_equipment.dart';
@@ -257,6 +258,9 @@ class WorkoutSummaryStats {
     required this.workingSets,
     required this.totalVolumeKg,
     this.cardioMinutes,
+    this.cardioCaloriesKcal,
+    this.cardioCaloriesAreEstimate = false,
+    this.cardioEntries = const <WorkoutCardio>[],
   });
 
   /// Exercises with at least one ticked working set — the ones this workout
@@ -273,7 +277,34 @@ class WorkoutSummaryStats {
   /// Logged Cardio minutes, absent when the player left the item unticked.
   final int? cardioMinutes;
 
+  /// Stored net Cardio calories when this session was loaded from history.
+  final int? cardioCaloriesKcal;
+  final bool cardioCaloriesAreEstimate;
+  final List<WorkoutCardio> cardioEntries;
+
   String get volumeLabel => formatRecordKg(totalVolumeKg);
+
+  WorkoutSummaryStats withCardioEntries(List<WorkoutCardio> entries) {
+    final List<WorkoutCardio> withCalories = entries
+        .where((WorkoutCardio entry) => entry.caloriesKcal != null)
+        .toList(growable: false);
+    return WorkoutSummaryStats(
+      exercisesDone: exercisesDone,
+      workingSets: workingSets,
+      totalVolumeKg: totalVolumeKg,
+      cardioMinutes: cardioMinutes,
+      cardioEntries: entries,
+      cardioCaloriesKcal: withCalories.isEmpty
+          ? null
+          : withCalories.fold<int>(
+              0,
+              (int total, WorkoutCardio entry) => total + entry.caloriesKcal!,
+            ),
+      cardioCaloriesAreEstimate: withCalories.any(
+        (WorkoutCardio entry) => entry.caloriesAreEstimate,
+      ),
+    );
+  }
 }
 
 WorkoutSummaryStats workoutSummaryStats(ActiveWorkout workout) {
@@ -294,12 +325,28 @@ WorkoutSummaryStats workoutSummaryStats(ActiveWorkout workout) {
       exercisesDone += 1;
     }
   }
+  final List<WorkoutCardio> loggedCardio = workout.cardio
+      .where((WorkoutCardio entry) => entry.isCommitted)
+      .toList(growable: false);
+  final List<WorkoutCardio> cardioWithCalories = loggedCardio
+      .where((WorkoutCardio entry) => entry.caloriesKcal != null)
+      .toList(growable: false);
   return WorkoutSummaryStats(
     exercisesDone: exercisesDone,
     workingSets: workingSets,
     totalVolumeKg: round2(volume),
-    cardioMinutes:
-        workout.cardio?.isCommitted == true ? workout.cardio!.minutes : null,
+    cardioMinutes: workout.cardio.any((WorkoutCardio entry) => entry.isCommitted)
+        ? workout.cardio
+            .where((WorkoutCardio entry) => entry.isCommitted)
+            .fold<int>(0, (int total, WorkoutCardio entry) => total + entry.minutes!)
+        : null,
+    cardioCaloriesKcal: cardioWithCalories.isNotEmpty
+        ? cardioWithCalories.fold<int>(0, (int total, WorkoutCardio entry) => total + entry.caloriesKcal!)
+        : null,
+    cardioCaloriesAreEstimate: cardioWithCalories.any(
+      (WorkoutCardio entry) => entry.caloriesAreEstimate,
+    ),
+    cardioEntries: List<WorkoutCardio>.unmodifiable(loggedCardio),
   );
 }
 
@@ -341,4 +388,11 @@ class WorkoutSummary {
   /// It is part of the snapshot: once taken it never changes, whatever the
   /// rows or the clock do while the summary is open.
   final Duration duration;
+
+  WorkoutSummary withStats(WorkoutSummaryStats nextStats) => WorkoutSummary(
+        records: records,
+        stats: nextStats,
+        duration: duration,
+        trainingLines: trainingLines,
+      );
 }

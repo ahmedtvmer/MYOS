@@ -51,6 +51,7 @@ def run_test():
 
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from pydantic import ValidationError
@@ -195,6 +196,23 @@ def test_generated_program_draft_carries_structured_rationale(monkeypatch):
     assert rationale["days"][0]["exercises"][0]["rationale"]["prescription"]["sets"]["code"] == "sets.coach_dose"
 
 
+def test_structured_fat_loss_cardio_keeps_its_program_rationale():
+    from agent.ProgramState import CardioPrescriptionSchema
+    from agent.program_blueprints import (
+        FAT_LOSS_CARDIO_BODYWEIGHT_NOTE,
+        FAT_LOSS_CARDIO_NOTE,
+    )
+    from agent.program_rationale import CARDIO_FAT_LOSS_FINISHER, _day_rationale
+
+    for prescription in (FAT_LOSS_CARDIO_NOTE, FAT_LOSS_CARDIO_BODYWEIGHT_NOTE):
+        day = SimpleNamespace(
+            cardio=CardioPrescriptionSchema.model_validate(prescription),
+            warmup_exercises=[],
+            day_order=1,
+        )
+        assert _day_rationale(day, None)["cardio"]["code"] == CARDIO_FAT_LOSS_FINISHER
+
+
 def test_retired_glute_split_id_uses_frequency_default_for_new_requests(fresh_store):
     generated, _ = program_generator.generate_program_draft_pipeline(
         program_generator.ProgramGenerationRequest(
@@ -301,6 +319,26 @@ def test_coach_cardio_overrides_fat_loss_automatic_note_and_none_clears_it():
         program_days, split.days, profile, CoachCardioOptions(0, 25, "none")
     )
     assert all(day.cardio is None for day in program_days)
+
+
+def test_fat_loss_finisher_is_structured_treadmill_for_either_goal_field():
+    exercises = [ProgramExerciseSchema(exercise_id=f"x{i}", exercise_name="Squat", target_reps_min=6, target_reps_max=8) for i in range(3)]
+    days = [ProgramDaySchema(day_name="Upper", day_order=i, exercises=exercises) for i in range(1, 3)]
+    split_days = [CustomDayPlan(day_order=i, day_name="Upper") for i in range(1, 3)]
+    apply_program_cardio(days, split_days, {"current_goal": "hypertrophy", "long_term_goal": "fat loss"}, None)
+    assert days[0].cardio.model_dump() == {
+        "machine": "treadmill", "minutes": 25, "minutes_max": None,
+        "speed_kmh": 5.0, "incline_pct": 10.0, "level": None,
+        "watts": None, "distance_m": None,
+    }
+
+
+def test_program_day_schema_accepts_legacy_cardio_and_structured_prescription():
+    exercises = [ProgramExerciseSchema(exercise_id=f"x{i}", exercise_name="Squat", target_reps_min=6, target_reps_max=8) for i in range(3)]
+    legacy = ProgramDaySchema(day_name="A", day_order=1, exercises=exercises, cardio="Easy treadmill walk")
+    structured = ProgramDaySchema(day_name="A", day_order=1, exercises=exercises, cardio={"machine": "bike", "minutes": 30, "level": 4})
+    assert legacy.cardio == "Easy treadmill walk"
+    assert structured.cardio.machine == "bike"
 
 
 @pytest.mark.parametrize("schema", [PlayerProfileSchema, ProgramSchema, GeneratedProgramSchema])

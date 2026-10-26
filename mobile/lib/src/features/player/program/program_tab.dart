@@ -1831,7 +1831,7 @@ class _WarmupRow extends StatelessWidget {
 class _CardioRow extends StatelessWidget {
   const _CardioRow({required this.cardio});
 
-  final String cardio;
+  final ProgramCardio cardio;
 
   @override
   Widget build(BuildContext context) {
@@ -1845,9 +1845,9 @@ class _CardioRow extends StatelessWidget {
           const SizedBox(width: MyosSpacing.xs),
           Expanded(
             child: FirstStrongDirection(
-              text: cardio,
+              text: cardio.display(displayCopyOf(context)),
               child: Text(
-                cardio,
+                cardio.display(displayCopyOf(context)),
                 style: MyosTypography.of(context).bodySecondary
                     .copyWith(color: c.textSecondary),
               ),

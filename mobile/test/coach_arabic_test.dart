@@ -486,7 +486,10 @@ void main() {
 
   testWidgets('Arabic Coach Nutrition segment is localized and fits desktop width',
       (WidgetTester tester) async {
-    await _pumpApp(tester, _coachFake(), logicalSize: const Size(1280, 900));
+    final FakeMyosApi fake = _coachFake()
+      ..coachPlayerNutrition['cardio_burned_kcal'] = 301
+      ..coachPlayerNutrition['cardio_adjustment_kcal'] = 150;
+    await _pumpApp(tester, fake, logicalSize: const Size(1280, 900));
     await tester.tap(find.byKey(const Key('roster_row_assignment-ar')));
     await _pumpUntilFound(tester, find.byType(CoachPlayerHistoryScreen));
     await _pumpUntilFound(tester, find.text('التغذية'));
@@ -496,6 +499,8 @@ void main() {
     expect(find.text('الالتزام الغذائي · آخر 14 يومًا'), findsOneWidget);
     expect(find.text('اتجاه الوزن'), findsOneWidget);
     expect(find.text('فحص الوتيرة القادم'), findsOneWidget);
+    expect(find.text('السعرات المحروقة بالكارديو ~301 سعرة'), findsOneWidget);
+    expect(find.text('تعديل الهدف بسبب الكارديو +150 سعرة'), findsOneWidget);
     final Directionality direction = tester.widget(find.ancestor(
       of: find.text('حدده اللاعب'), matching: find.byType(Directionality),
     ).first);

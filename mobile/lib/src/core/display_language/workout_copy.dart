@@ -1,4 +1,5 @@
 import 'arabic_count.dart';
+import 'catalog.dart' show MyosCopy;
 import '../personal_records.dart';
 import '../training_status_projection.dart';
 import '../workout_equipment.dart';
@@ -55,6 +56,33 @@ class WorkoutCopy {
   String get warmupMovementTag => isArabic ? 'حركة إحماء' : 'Warm-up';
   String get unplanned => isArabic ? 'غير مخطط' : 'Unplanned';
   String get cardio => isArabic ? 'تمارين اللياقة' : 'Cardio';
+  String cardioCalories(int kcal, {bool estimate = false}) => isArabic
+      ? '${estimate ? 'تقديري ' : ''}${_ltr('$kcal سعرة حرارية')}'
+      : '${estimate ? '~' : ''}$kcal kcal';
+  String get cardioCaloriesTotal =>
+      isArabic ? 'إجمالي سعرات اللياقة' : 'Total Cardio calories';
+  String get cardioCaloriesPending => isArabic
+      ? 'ستظهر السعرات بعد حفظ الحصة'
+      : 'Calories appear once the workout is saved';
+  String cardioMachine(String kind) =>
+      MyosCopy(languageCode).cardioMachineName(kind);
+  String get cardioMachineLabel => MyosCopy(languageCode).cardioMachineLabel;
+  String get cardioSpeed => MyosCopy(languageCode).cardioSpeedLabel;
+  String get cardioIncline => MyosCopy(languageCode).cardioInclineLabel;
+  String get cardioLevel => MyosCopy(languageCode).cardioLevelLabel;
+  String get cardioWatts => MyosCopy(languageCode).cardioWattsLabel;
+  String get cardioDistance => MyosCopy(languageCode).cardioDistanceLabel;
+  String get cardioRangeError => MyosCopy(languageCode).cardioRangeError;
+  String cardioSpeedValue(num value) =>
+      MyosCopy(languageCode).cardioSpeedValue(value);
+  String cardioInclineValue(num value) =>
+      MyosCopy(languageCode).cardioInclineValue(value);
+  String cardioWattsValue(num value) =>
+      MyosCopy(languageCode).cardioWattsValue(value);
+  String cardioDistanceValue(num value) =>
+      MyosCopy(languageCode).cardioDistanceValue(value);
+  String get addCardioEntry => isArabic ? 'إضافة تمرين لياقة' : 'Add Cardio entry';
+  String get removeCardioEntry => isArabic ? 'حذف تمرين اللياقة' : 'Remove Cardio entry';
   String get minutes => isArabic ? 'دقائق' : 'Minutes';
   String get restTime => isArabic ? 'مدة الراحة…' : 'Rest time…';
   String get exerciseNotes => isArabic ? 'ملاحظات التمرين' : 'Exercise notes';

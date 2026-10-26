@@ -537,6 +537,41 @@ void main() {
     expect(find.textContaining('Weekly change: +0.2 kg a week'), findsOneWidget);
   });
 
+  testWidgets('Player Nutrition shows the Cardio adjustment in English and Arabic', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+        'daily_activity': 'mostly_sitting', 'cardio_burned_kcal': 301,
+        'cardio_adjustment_kcal': 150,
+        'targets': <String, dynamic>{'calories': 2150, 'protein_g': 140,
+          'carbs_g': 258, 'fat_g': 70, 'fiber_g': 30, 'water_ml': 2500}};
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Cardio burned ~301 kcal'), findsOneWidget);
+    expect(find.text('Cardio target adjustment +150 kcal'), findsOneWidget);
+    expect(find.text('2150'), findsOneWidget);
+
+    await tester.pumpWidget(_app(fake, 'ar', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('السعرات المحروقة بالكارديو ~301 سعرة'), findsOneWidget);
+    expect(find.text('تعديل الهدف بسبب الكارديو +150 سعرة'), findsOneWidget);
+    expect(tester.widget<Directionality>(find.byType(Directionality).last).textDirection,
+      TextDirection.rtl);
+  });
+
+  testWidgets('prescribed-only Cardio keeps the Player target unchanged', (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake()
+      ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
+        'daily_activity': 'mostly_sitting', 'cardio_burned_kcal': 203,
+        'cardio_adjustment_kcal': 0,
+        'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140,
+          'carbs_g': 220, 'fat_g': 70, 'fiber_g': 30, 'water_ml': 2500}};
+    await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
+    await tester.pumpAndSettle();
+    expect(find.text('Cardio burned ~203 kcal'), findsOneWidget);
+    expect(find.text('Cardio target adjustment +0 kcal'), findsNothing);
+    expect(find.text('2000'), findsOneWidget);
+  });
+
   testWidgets('goal offer accepts through dial and persists dismissal', (WidgetTester tester) async {
     final FakeMyosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain', 'intensity': 'moderate',

@@ -6,8 +6,13 @@ from itertools import combinations
 import re
 from typing import Any, Literal
 
-from agent.ProgramState import CustomDayPlan, ProgramDaySchema
-from agent.program_blueprints import FAT_LOSS_CARDIO_NOTE, is_fat_loss_goal
+from agent.ProgramState import CardioPrescriptionSchema, CustomDayPlan, ProgramDaySchema
+from agent.program_blueprints import (
+    FAT_LOSS_CARDIO_BODYWEIGHT_NOTE,
+    FAT_LOSS_CARDIO_NOTE,
+    is_fat_loss_goal,
+)
+from utils.equipment_access import BODYWEIGHT_ONLY, map_equipment_access
 
 CardioType = Literal["none", "steady", "intervals", "custom"]
 
@@ -103,8 +108,13 @@ def apply_program_cardio(
     options: CoachCardioOptions | None,
 ) -> None:
     if is_fat_loss_goal(profile.get("current_goal"), profile.get("long_term_goal")):
+        cardio = (
+            FAT_LOSS_CARDIO_BODYWEIGHT_NOTE
+            if map_equipment_access(profile.get("equipment_access")) == BODYWEIGHT_ONLY
+            else FAT_LOSS_CARDIO_NOTE
+        )
         for day in program_days:
-            day.cardio = FAT_LOSS_CARDIO_NOTE
+            day.cardio = CardioPrescriptionSchema.model_validate(cardio)
     if options is not None:
         apply_coach_cardio(program_days, split_days, options)
 

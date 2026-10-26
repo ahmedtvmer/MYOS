@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/core/active_workout.dart';
 import 'package:myos_mobile/src/core/baselines.dart';
+import 'package:myos_mobile/src/core/models.dart';
 import 'package:myos_mobile/src/core/personal_records.dart';
 
 /// The frozen baseline the record calculator is tested against: a real history
@@ -360,6 +361,7 @@ void main() {
     ActiveWorkout summaryWorkout({
       required List<ActiveWorkoutSet> benchSets,
       bool inclineTicked = false,
+      List<WorkoutCardio> cardio = const <WorkoutCardio>[],
     }) =>
         ActiveWorkout(
           id: 'aw-1',
@@ -368,6 +370,7 @@ void main() {
           dayOrder: 2,
           dayName: 'Upper A',
           programVersion: 3,
+          cardio: cardio,
           exercises: <ActiveWorkoutExercise>[
             ActiveWorkoutExercise(
               exercise: <String, dynamic>{
@@ -475,6 +478,25 @@ void main() {
       // 105 × 5 + 110 × 5 + 40 × 10
       expect(stats.totalVolumeKg, 1475);
       expect(stats.volumeLabel, '1475');
+    });
+
+    test('summary totals stored Cardio calories and keeps per-entry estimates', () {
+      final WorkoutSummaryStats stats = workoutSummaryStats(summaryWorkout(
+        benchSets: <ActiveWorkoutSet>[
+          _set(id: 's1', weightKg: 105, reps: 5, rir: 1),
+        ],
+        cardio: const <WorkoutCardio>[
+          WorkoutCardio(machine: 'bike', minutes: 25, ticked: true,
+              caloriesKcal: 125, caloriesAreEstimate: true),
+          WorkoutCardio(machine: 'rower', minutes: 15, ticked: true,
+              caloriesKcal: 80),
+        ],
+      ));
+
+      expect(stats.cardioCaloriesKcal, 205);
+      expect(stats.cardioCaloriesAreEstimate, isTrue);
+      expect(stats.cardioEntries.map((WorkoutCardio entry) => entry.caloriesKcal),
+          <int?>[125, 80]);
     });
 
     test('zero-load body-weight sets are excluded from working-set totals', () {

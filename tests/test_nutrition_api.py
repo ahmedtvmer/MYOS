@@ -1063,6 +1063,150 @@ def test_nutrition_read_offers_goal_update_after_target_edit(api):
     assert client.get("/nutrition", headers=headers).json()["pending_goal"] == "lose"
 
 
+def test_nutrition_read_adds_half_extra_cardio_to_carbs_only(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "cardio-target", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "cardio-target", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("cardio-target")
+    today = _player_today(db, "cardio-target")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        session_id = "cardio-day-session"
+        ledger.conn.execute("INSERT INTO workout_sessions (id,session_date,split_name,started_at,completed_at) VALUES (?,?,?,?,?)",
+                            (session_id, today.isoformat(), "Day 1", "now", "now"))
+        ledger.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,calories_kcal,calories_are_estimate,logged_at) VALUES (?,?,?,?,?,?)",
+                            (session_id, "bike", 30, 301, 0, "now"))
+        prior_id = "cardio-before-local-midnight"
+        ledger.conn.execute("INSERT INTO workout_sessions (id,session_date,split_name,started_at,completed_at) VALUES (?,?,?,?,?)",
+                            (prior_id, (today - timedelta(days=1)).isoformat(), "Day 1", "now", "now"))
+        ledger.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,calories_kcal,calories_are_estimate,logged_at) VALUES (?,?,?,?,?,?)",
+                            (prior_id, "bike", 30, 1200, 0, "now"))
+        ledger.conn.commit()
+        stored = ledger.get_active_nutrition_plan()
+        saved_targets = json.loads(stored["targets_json"])
+    response = client.get("/nutrition", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cardio_burned_kcal"] == 301
+    assert body["cardio_adjustment_kcal"] == 150
+    assert body["targets"]["calories"] == saved_targets["calories"] + 150
+    assert body["targets"]["carbs_g"] == saved_targets["carbs_g"] + 38
+    for key in ("protein_g", "fat_g", "fiber_g", "water_ml"):
+        assert body["targets"][key] == saved_targets[key]
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        assert int(ledger.get_active_nutrition_plan()["id"]) == 1
+    adherence = client.put("/nutrition/adherence", headers=headers, json={"value": "roughly"})
+    assert adherence.status_code == 200
+    assert adherence.json()["targets"]["calories"] == saved_targets["calories"] + 150
+    assert adherence.json()["today_adherence"] == "roughly"
+
+
+def test_nutrition_read_does_not_adjust_prescribed_cardio(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "cardio-prescribed", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "cardio-prescribed", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("cardio-prescribed")
+    today = _player_today(db, "cardio-prescribed")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.save_training_program({"program_name": "Cardio plan", "weekly_frequency": 1,
+            "split_type": "custom", "days": [{"day_name": "Day 1", "day_order": 1,
+                "cardio": {"machine": "bike", "minutes": 30},
+                "exercises": [{"exercise_id": "unused", "target_sets": 1,
+                    "target_reps_min": 8, "target_reps_max": 8}]}]})
+        session_id = "prescribed-cardio-session"
+        ledger.conn.execute("INSERT INTO workout_sessions (id,session_date,split_name,started_at,completed_at,program_version,program_day_order) VALUES (?,?,?,?,?,?,?)",
+                            (session_id, today.isoformat(), "Day 1", "now", "now", 1, 1))
+        ledger.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,calories_kcal,calories_are_estimate,logged_at) VALUES (?,?,?,?,?,?)",
+                            (session_id, "bike", 30, 203, 0, "now"))
+        ledger.conn.commit()
+    body = client.get("/nutrition", headers=headers).json()
+    assert body["cardio_burned_kcal"] == 203
+    assert body["cardio_adjustment_kcal"] == 0
+
+
+def test_nutrition_read_parses_legacy_treadmill_settings_for_prescribed_calories(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "legacy-cardio-prescribed", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "legacy-cardio-prescribed", age=30, target=None)
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    account = db.get_active_account_by_username("legacy-cardio-prescribed")
+    today = _player_today(db, "legacy-cardio-prescribed")
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.save_training_program({"program_name": "Legacy cardio", "weekly_frequency": 1,
+            "split_type": "custom", "days": [{"day_name": "Day 1", "day_order": 1,
+                "cardio": "20 min treadmill, 5 km/h, 10% incline",
+                "exercises": [{"exercise_id": "unused", "target_sets": 1,
+                    "target_reps_min": 8, "target_reps_max": 8}]}]})
+        session_id = "legacy-prescribed-cardio-session"
+        ledger.conn.execute("INSERT INTO workout_sessions (id,session_date,split_name,started_at,completed_at,program_version,program_day_order) VALUES (?,?,?,?,?,?,?)",
+                            (session_id, today.isoformat(), "Day 1", "now", "now", 1, 1))
+        ledger.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,speed_kmh,incline_pct,calories_kcal,calories_are_estimate,logged_at) VALUES (?,?,?,?,?,?,?,?)",
+                            (session_id, "treadmill", 20, 5, 10, 163, 0, "now"))
+        ledger.conn.commit()
+    body = client.get("/nutrition", headers=headers).json()
+    assert body["cardio_adjustment_kcal"] == 0
+
+
+def test_pace_proposal_keeps_the_final_target_above_the_calorie_floor(api):
+    client, db = api
+    registered = client.post("/auth/register", json={"trainee_id": "cardio-pace-floor", "password": "correct-horse-1"}).json()
+    headers = {"Authorization": f"Bearer {registered['access_token']}"}
+    _seed_profile(db, "cardio-pace-floor", age=30, target=None)
+    account = db.get_active_account_by_username("cardio-pace-floor")
+    today = _player_today(db, "cardio-pace-floor")
+    start = today - timedelta(days=21)
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("UPDATE user_profile SET height_cm=175 WHERE id=1")
+        ledger.conn.commit()
+    client.post("/nutrition/setup", headers=headers, json={"sex": "male", "sex_confirmed": True,
+        "daily_activity": "mostly_sitting", "screening": {"pregnant_or_breastfeeding": False,
+        "medical_condition": False, "eating_disorder": False}})
+    with db.open_ledger(account["ledger_id"]) as ledger:
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        plan = ledger.get_active_nutrition_plan()
+        targets = json.loads(plan["targets_json"])
+        target = targets.get("daily", targets)
+        target["calories"] = 1650
+        target["weekly_rate_pct"] = 1.0
+        target["carbs_g"] = round((1650 - target["protein_g"] * 4 - target["fat_g"] * 9) / 4)
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET goal='lose', intensity='aggressive', targets_json=? WHERE id=?",
+                            (json.dumps(targets), plan["id"]))
+        ledger.conn.execute("CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+        session_id = "cardio-pace-floor-session"
+        ledger.conn.execute("INSERT INTO workout_sessions (id,session_date,split_name,started_at,completed_at) VALUES (?,?,?,?,?)",
+                            (session_id, today.isoformat(), "Extra Cardio", "now", "now"))
+        ledger.conn.execute("INSERT INTO session_cardio_entries (session_id,machine,minutes,calories_kcal,calories_are_estimate,logged_at) VALUES (?,?,?,?,?,?)",
+                            (session_id, "bike", 60, 600, 0, "now"))
+        ledger.conn.commit()
+        _seed_pace_weight_history(ledger, start, (70, 70, 70, 70))
+        ledger.conn.execute("DROP TRIGGER nutrition_plan_versions_no_update")
+        ledger.conn.execute("UPDATE nutrition_plan_versions SET created_at=? WHERE id=?",
+                            (start.isoformat() + "T00:00:00+00:00", plan["id"]))
+        ledger.conn.execute("CREATE TRIGGER nutrition_plan_versions_no_update BEFORE UPDATE ON nutrition_plan_versions BEGIN SELECT RAISE(ABORT, 'Nutrition plan versions are immutable'); END")
+        ledger.conn.commit()
+    weight_entry = client.post("/profile/weight", headers=headers, json={"weight_kg": 70})
+    assert weight_entry.status_code == 200, weight_entry.text
+    nutrition = client.get("/nutrition", headers=headers).json()
+    pending = nutrition["pace_proposal"]
+    assert pending is not None
+    floor = pending["payload"]["targets"]["calorie_floor"]
+    assert pending["payload"]["targets"]["calories"] >= int(floor + 0.999)
+    accepted = client.post(f"/nutrition/pace-proposals/{pending['id']}/decision",
+                            headers=headers, json={"decision": "accepted"})
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["targets"]["calories"] >= int(floor + 0.999)
+
+
 def test_goal_offer_dismissal_is_stored_until_another_profile_change(api):
     client, db = api
     registered = client.post("/auth/register", json={"trainee_id": "dismiss-offer", "password": "correct-horse-1"}).json()

@@ -365,7 +365,9 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
         for (final WarmupExercise movement in day.warmupExercises)
           ActiveWarmupMovement.fromPrescription(movement),
       ],
-      cardio: day.hasCardio ? WorkoutCardio(prescription: day.cardio!) : null,
+      cardio: day.hasCardio
+          ? <WorkoutCardio>[WorkoutCardio.fromPrescription(day.cardio)]
+          : const <WorkoutCardio>[],
       deload: prescription?.deload,
       programVersion: programVersion,
       exercises: <ActiveWorkoutExercise>[
@@ -588,12 +590,32 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
   ) =>
       _updateWarmupSet(movementIndex, setIndex, updatedSet);
 
-  Future<void> updateCardio(WorkoutCardio updatedCardio) async {
+  Future<void> updateCardio(int index, WorkoutCardio updatedCardio) async {
     final ActiveWorkout? current = state.workout;
-    if (current == null || current.cardio == null) {
+    if (current == null || index < 0 || index >= current.cardio.length) {
       return;
     }
-    await _persist(current.copyWith(cardio: updatedCardio));
+    final List<WorkoutCardio> updated = List<WorkoutCardio>.of(current.cardio);
+    updated[index] = updatedCardio;
+    await _persist(current.copyWith(cardio: updated));
+  }
+
+  Future<void> addCardio() async {
+    final ActiveWorkout? current = state.workout;
+    if (current == null || current.cardio.length >= 20) return;
+    await _persist(current.copyWith(cardio: <WorkoutCardio>[
+      ...current.cardio, WorkoutCardio(
+        entryId: 'cardio-${DateTime.now().microsecondsSinceEpoch}',
+      ),
+    ]));
+  }
+
+  Future<void> removeCardio(int index) async {
+    final ActiveWorkout? current = state.workout;
+    if (current == null || index < 0 || index >= current.cardio.length) return;
+    final List<WorkoutCardio> updated = List<WorkoutCardio>.of(current.cardio)
+      ..removeAt(index);
+    await _persist(current.copyWith(cardio: updated));
   }
 
   /// Toggles a set row between working and warm-up (`N ↔ W`); warm-ups never

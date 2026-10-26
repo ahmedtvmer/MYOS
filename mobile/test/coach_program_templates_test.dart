@@ -99,8 +99,9 @@ Future<void> _pumpLibrary(
   WidgetTester tester,
   FakeMyosApi fake, {
   String language = 'en',
+  Size logicalSize = const Size(540, 1200),
 }) async {
-  tester.view.physicalSize = const Size(1080, 2400);
+  tester.view.physicalSize = Size(logicalSize.width * 2, logicalSize.height * 2);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -386,6 +387,48 @@ void main() {
     expect(fake.programTemplateUpdateRequests, 1);
     expect(fake.lastProgramTemplateBody?['name'], 'Upper Block v2');
     expect(find.text('Upper Block v2'), findsOneWidget);
+  });
+
+  testWidgets('Arabic template editor edits a structured cardio prescription',
+      (tester) async {
+    final FakeMyosApi fake = _coachFake();
+    _seedTemplate(fake, id: 'tmpl:cardio', name: 'خطة');
+    final Map<String, dynamic> program =
+        fake.programTemplates.single['program'] as Map<String, dynamic>;
+    final Map<String, dynamic> day =
+        (program['days'] as List<dynamic>).single as Map<String, dynamic>;
+    day['cardio'] = <String, dynamic>{
+      'machine': 'treadmill', 'minutes': 20, 'minutes_max': 30,
+      'speed_kmh': 5.0, 'incline_pct': 8.0,
+    };
+
+    await _pumpLibrary(
+      tester,
+      fake,
+      language: 'ar',
+      logicalSize: const Size(360, 800),
+    );
+    await tester.tap(find.byKey(const Key('program_template_edit_tmpl:cardio')));
+    final Finder machine = find.byKey(const Key('program_draft_cardio_machine_0'));
+    await _pumpUntilFound(tester, machine);
+    expect(Directionality.of(tester.element(machine)), TextDirection.rtl);
+    expect(find.text('جهاز الكارديو'), findsOneWidget);
+    expect(find.text('الدقائق'), findsOneWidget);
+    final Finder maximum = find.byKey(const Key('program_draft_cardio_minutes_max_0'));
+    await tester.ensureVisible(maximum);
+    await tester.enterText(maximum, '35');
+    await tester.tap(find.byKey(const Key('program_draft_save')));
+    await _pumpUntilGone(tester, find.byKey(const Key('program_template_name')));
+
+    final Map<String, dynamic> savedProgram =
+        fake.lastProgramTemplateBody!['program'] as Map<String, dynamic>;
+    final Map<String, dynamic> savedDay =
+        (savedProgram['days'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(savedDay['cardio'], <String, dynamic>{
+      'machine': 'treadmill', 'minutes': 20, 'minutes_max': 35,
+      'speed_kmh': 5.0, 'incline_pct': 8.0, 'level': null,
+      'watts': null, 'distance_m': null,
+    });
   });
 
   testWidgets('creating a template with an exercise saves the prescription',

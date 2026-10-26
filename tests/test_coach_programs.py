@@ -427,6 +427,43 @@ def test_program_draft_split_catalog_lists_exact_choices_for_each_frequency(api)
     }
 
 
+def test_coach_program_draft_round_trips_structured_cardio(api):
+    client, _db, _ = api
+    coach_headers, _player_headers, assignment_id, _, _ = _assigned_player(api)
+    draft = _one_day_draft("sq")
+    draft["days"][0]["cardio"] = {
+        "machine": "bike",
+        "minutes": 25,
+        "level": 3,
+        "watts": 120,
+    }
+
+    saved = client.post(
+        _program_draft_path(assignment_id), headers=coach_headers, json=draft
+    )
+
+    assert saved.status_code == 200, saved.text
+    cardio = saved.json()["draft"]["days"][0]["cardio"]
+    assert cardio == {
+        "machine": "bike",
+        "minutes": 25,
+        "minutes_max": None,
+        "speed_kmh": None,
+        "incline_pct": None,
+        "level": 3,
+        "watts": 120,
+        "distance_m": None,
+    }
+    published = client.post(
+        f"/coach/assignments/{assignment_id}/program-draft/publish",
+        headers=coach_headers,
+    )
+    assert published.status_code == 200, published.text
+    active = client.get("/programs/active", headers=_player_headers).json()
+    assert active["days"][0]["cardio"]["machine"] == "bike"
+    assert active["days"][0]["cardio"]["minutes"] == 25
+
+
 def test_set_groups_survive_coach_publish_and_are_returned_in_logger_prescription(api):
     client, _db, _ = api
     coach_headers, player_headers, assignment_id, _, _ = _assigned_player(api)

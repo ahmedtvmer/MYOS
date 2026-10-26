@@ -330,7 +330,15 @@ _Arabic_: حركة إحماء
 _Avoid_: Warm-up exercise (confusable with an exercise's own ramped warm-up sets)
 
 **Cardio**:
-The conditioning work a training day prescribes, recorded in a workout by the minutes done. It counts toward no set totals.
+The conditioning work a training day prescribes, recorded in a workout as a Cardio entry: a Cardio machine, the minutes done and, optionally, the machine's settings (speed and incline, level, watts or distance). It counts toward no set totals.
+
+**Cardio machine**:
+The kind of cardio done: Treadmill, Stairmaster, Bike, Elliptical, Rower, Outdoor walk or run, or Other.
+_Arabic_: جهاز الكارديو
+
+**Cardio calories**:
+The net calories a Cardio entry burned above resting, estimated deterministically from the machine, its settings, the minutes and the Player's bodyweight. Half of the Cardio calories logged beyond the day's prescribed cardio are added to that day's calorie target.
+_Arabic_: سعرات الكارديو
 
 **Workout time**:
 The time a player has spent on the Active workout they are logging: measured from when that workout started to the present, with no pause, shown live in the logger and as the workout's total duration in its summary.

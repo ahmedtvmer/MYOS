@@ -119,6 +119,15 @@ void main() {
   testWidgets('Coach Nutrition segment saves targets and confirms authority once',
       (tester) async {
     final FakeMyosApi fake = _coachFake();
+    fake.coachPlayerNutrition['targets'] = <String, dynamic>{
+      'calories': 2130, 'protein_g': 100, 'carbs_g': 282, 'fat_g': 67,
+    };
+    fake.coachPlayerNutrition['target_options'] = <String, dynamic>{
+      'daily': <String, dynamic>{'calories': 1980, 'protein_g': 100,
+        'carbs_g': 245, 'fat_g': 67},
+    };
+    fake.coachPlayerNutrition['cardio_burned_kcal'] = 301;
+    fake.coachPlayerNutrition['cardio_adjustment_kcal'] = 150;
     fake.coachPlayerNutrition['adherence_days'] = List<Map<String, dynamic>>.generate(
       14, (int index) => <String, dynamic>{
         'date': '2026-10-${(index + 1).toString().padLeft(2, '0')}',
@@ -136,6 +145,8 @@ void main() {
     expect(find.text('Nutrition adherence · last 14 days'), findsOneWidget);
     expect(find.text('Weight trend'), findsOneWidget);
     expect(find.text('Next pace check'), findsOneWidget);
+    expect(find.text('Cardio burned ~301 kcal'), findsOneWidget);
+    expect(find.text('Cardio target adjustment +150 kcal'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.ensureVisible(find.text('Save targets'));
@@ -145,6 +156,7 @@ void main() {
     await tester.tap(find.text('Take over targets'));
     await tester.pumpAndSettle();
     expect(fake.coachNutritionSaveRequests.single['confirm_takeover'], isTrue);
+    expect(fake.coachNutritionSaveRequests.single['targets']['calories'], 1980);
 
     await tester.ensureVisible(find.text('Save targets'));
     await tester.tap(find.text('Save targets'));
@@ -286,27 +298,39 @@ void main() {
     expect(find.text('Overview'), findsNothing);
   });
 
-  testWidgets('the active assigned player\'s session shows Cardio minutes',
+  testWidgets(
+      'the active assigned player\'s Cardio appears in latest and recent history',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _coachFake();
+    final Map<String, dynamic> cardioEntry = <String, dynamic>{
+      'machine': 'bike',
+      'minutes': 25,
+      'speed_kmh': null,
+      'incline_pct': null,
+      'level': null,
+      'watts': null,
+      'distance_m': null,
+      'calories_kcal': 200,
+      'calories_are_estimate': true,
+    };
     (fake.coachPlayerSummary['latest_session'] as Map<String, dynamic>)[
-        'cardio'] = <String, dynamic>{
-      'prescription': 'Steady bike',
-      'minutes': 25,
-    };
+        'cardio'] = <Map<String, dynamic>>[
+      Map<String, dynamic>.of(cardioEntry),
+    ];
     (fake.coachPlayerSummary['recent_sessions'] as List<Map<String, dynamic>>)
-        .first['cardio'] = <String, dynamic>{
-      'prescription': 'Steady bike',
-      'minutes': 25,
-    };
+        .first['cardio'] = <Map<String, dynamic>>[
+      Map<String, dynamic>.of(cardioEntry),
+    ];
     await _pumpApp(tester, fake);
 
     await _openRosterEntry(tester);
     await _pumpUntilFound(tester, find.text('Weekly volume'));
 
-    expect(find.text('Cardio: 25 min'), findsOneWidget);
+    expect(find.text('Bike · Cardio: 25 min · ~200 kcal'), findsOneWidget);
+    expect(find.text('Total Cardio calories: ~200 kcal'), findsOneWidget);
     await _expandHistorySection(tester, 'recentSessions');
-    expect(find.text('Cardio: 25 min'), findsNWidgets(2));
+    expect(find.text('Bike · Cardio: 25 min · ~200 kcal'), findsNWidgets(2));
+    expect(find.text('Total Cardio calories: ~200 kcal'), findsNWidgets(2));
   });
 
   testWidgets('player segments separate Program from History and keep alerts',

@@ -828,6 +828,17 @@ class CoachCopy {
       : 'Notes must be at most ${ProgramDraftPrescription.maxProgramNotesLength} characters.';
   String get cardioNote =>
       isArabic ? 'ملاحظة اللياقة (اختيارية)' : 'Cardio note (optional)';
+  String get cardioMachine => MyosCopy(languageCode).cardioMachineLabel;
+  String get cardioNone => MyosCopy(languageCode).cardioNone;
+  String get cardioMinutesLabel => MyosCopy(languageCode).cardioMinutesLabel;
+  String get cardioMinutesMaxLabel => MyosCopy(languageCode).cardioMinutesMaxLabel;
+  String get cardioSpeed => MyosCopy(languageCode).cardioSpeedLabel;
+  String get cardioIncline => MyosCopy(languageCode).cardioInclineLabel;
+  String get cardioLevel => MyosCopy(languageCode).cardioLevelLabel;
+  String get cardioWatts => MyosCopy(languageCode).cardioWattsLabel;
+  String get cardioDistance => MyosCopy(languageCode).cardioDistanceLabel;
+  String cardioMachineName(String machine) =>
+      MyosCopy(languageCode).cardioMachineName(machine);
   String get noTrainingDays => isArabic
       ? 'أضف يوم تدريب لبدء البرنامج.'
       : 'Add a training day to start the program.';
@@ -1045,10 +1056,8 @@ class CoachCopy {
   String warmupMovements(int count) => isArabic
       ? 'حركات الإحماء: ${_count(count, ArabicCountNoun.warmupMovement)}'
       : 'Warm-up: $count movements';
-  String cardioMinutes(int? minutes) {
-    if (!isArabic) return 'Cardio: $minutes min';
-    return 'تمارين اللياقة: ${minutes == null ? 'غير محددة' : _count(minutes, ArabicCountNoun.minute)}';
-  }
+  String cardioMinutes(int? minutes) =>
+      MyosCopy(languageCode).cardioSessionDuration(minutes);
 
   String readiness(int score) =>
       isArabic ? 'الاستعداد ${_ltr('$score/5')}' : 'Readiness $score/5';

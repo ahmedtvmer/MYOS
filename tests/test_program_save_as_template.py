@@ -490,6 +490,33 @@ def test_reviewed_instructions_and_cardio_are_preserved_only_by_decision(
     assert copied["days"][0]["cardio"] == expected_cardio
 
 
+def test_structured_cardio_is_carried_into_a_saved_program_template(api):
+    client, db, _ = api
+    coach_headers, _, assignment_id, _, player_account_id = _assigned_player(api)
+    program = _program_with_player_notes().model_dump()
+    prescribed = {
+        "machine": "treadmill", "minutes": 20, "minutes_max": 30,
+        "speed_kmh": 5.0, "incline_pct": 8.0,
+    }
+    program["days"][0]["cardio"] = prescribed
+    player = db.get_account(player_account_id)
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.save_training_program(program, published_by_coach_account_id=None)
+    saved = client.post(
+        _active_path(assignment_id),
+        headers=coach_headers,
+        json={"name": "Cardio template", "expected_source_revision": _active_revision(
+            client, coach_headers, assignment_id
+        )},
+    )
+    assert saved.status_code == 201, saved.text
+    assert saved.json()["program"]["days"][0]["cardio"] == {
+        "machine": "treadmill", "minutes": 20, "minutes_max": 30,
+        "speed_kmh": 5.0, "incline_pct": 8.0, "level": None,
+        "watts": None, "distance_m": None,
+    }
+
+
 # --------------------------------------------------------------------------
 # Source-revision binding
 # --------------------------------------------------------------------------

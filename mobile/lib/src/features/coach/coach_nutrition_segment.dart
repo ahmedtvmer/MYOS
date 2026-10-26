@@ -76,6 +76,10 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
 
   void _showTargets(Map<String, dynamic>? targets) {
     final Map<String, dynamic>? options = _state?.targetOptions;
+    final Map<String, dynamic>? daily =
+        options?['daily'] is Map<String, dynamic>
+            ? options!['daily'] as Map<String, dynamic>
+            : targets;
     final Map<String, dynamic>? training =
         options?['training_day'] is Map<String, dynamic>
             ? options!['training_day'] as Map<String, dynamic>
@@ -85,7 +89,7 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
             ? options!['rest_day'] as Map<String, dynamic>
             : null;
     _separateDayTargets = training != null || rest != null;
-    _setTargetFields('daily', targets);
+    _setTargetFields('daily', daily);
     _setTargetFields('training_day', training);
     _setTargetFields('rest_day', rest);
   }
@@ -258,6 +262,10 @@ class _CoachNutritionSegmentState extends ConsumerState<CoachNutritionSegment> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _adherenceStrip(copy),
+        if (_state!.cardioBurnedKcal > 0)
+          ListTile(dense: true, leading: const Icon(Icons.directions_run),
+            title: Text(copy.cardioBurned(_state!.cardioBurnedKcal)),
+            subtitle: Text(copy.cardioAdjustment(_state!.cardioAdjustmentKcal))),
         const SizedBox(height: 16),
         Card(child: ListTile(
           leading: const Icon(Icons.water_drop_outlined),

@@ -1050,9 +1050,11 @@ class _CoachProgramDraftScreenState
     return PopScope<Object?>(
       canPop: _allowPop || !_hasUnsavedChanges,
       onPopInvokedWithResult: _onPopInvoked,
-      child: Scaffold(
-      key: const Key('coach_program_draft_screen'),
-      appBar: AppBar(
+      child: Directionality(
+        textDirection: copy.isArabic ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          key: const Key('coach_program_draft_screen'),
+          appBar: AppBar(
         leading: BackButton(onPressed: _requestPop),
         title: Text(widget.isTemplateMode ? copy.writeTemplate : copy.writeProgram),
         actions: <Widget>[
@@ -1219,6 +1221,7 @@ class _CoachProgramDraftScreenState
                     ),
                   ],
                 ),
+        ),
       ),
     );
   }
@@ -1551,7 +1554,9 @@ class _DraftDayEditor {
       : dayName = TextEditingController(
           text: source['day_name'] as String? ?? '',
         ),
-        cardio = TextEditingController(text: source['cardio'] as String? ?? ''),
+        cardio = TextEditingController(
+          text: source['cardio'] is String ? source['cardio'] as String : '',
+        ),
         warmups = <_DraftWarmupEditor>[
           for (final dynamic raw in
               source['warmup_exercises'] as List<dynamic>? ?? <dynamic>[])
@@ -1561,11 +1566,52 @@ class _DraftDayEditor {
           for (final dynamic raw
               in source['exercises'] as List<dynamic>? ?? <dynamic>[])
             _DraftExerciseEditor(Map<String, dynamic>.from(raw as Map)),
-        ];
+        ] {
+    final dynamic rawCardio = source['cardio'];
+    final Map<String, dynamic>? cardioMap = rawCardio is Map
+        ? Map<String, dynamic>.from(rawCardio)
+        : null;
+    useStructuredCardio = cardioMap != null;
+    cardioMachine = (cardioMap?['machine'] as String?) == 'outdoor'
+        ? 'outdoor_walk_run'
+        : cardioMap?['machine'] as String? ??
+            (rawCardio is String ? 'treadmill' : null);
+    cardioMinutes = TextEditingController(
+      text: cardioMap?['minutes']?.toString() ??
+          (rawCardio is String ? '25' : ''),
+    );
+    cardioMinutesMax = TextEditingController(
+      text: cardioMap?['minutes_max']?.toString() ?? '',
+    );
+    cardioSpeed = TextEditingController(
+      text: cardioMap?['speed_kmh']?.toString() ?? '',
+    );
+    cardioIncline = TextEditingController(
+      text: cardioMap?['incline_pct']?.toString() ?? '',
+    );
+    cardioLevel = TextEditingController(
+      text: cardioMap?['level']?.toString() ?? '',
+    );
+    cardioWatts = TextEditingController(
+      text: cardioMap?['watts']?.toString() ?? '',
+    );
+    cardioDistance = TextEditingController(
+      text: cardioMap?['distance_m']?.toString() ?? '',
+    );
+  }
 
   final Map<String, dynamic> source;
   final TextEditingController dayName;
   final TextEditingController cardio;
+  late String? cardioMachine;
+  late bool useStructuredCardio;
+  late final TextEditingController cardioMinutes;
+  late final TextEditingController cardioMinutesMax;
+  late final TextEditingController cardioSpeed;
+  late final TextEditingController cardioIncline;
+  late final TextEditingController cardioLevel;
+  late final TextEditingController cardioWatts;
+  late final TextEditingController cardioDistance;
   final List<_DraftWarmupEditor> warmups;
   final List<_DraftExerciseEditor> exercises;
 
@@ -1578,13 +1624,43 @@ class _DraftDayEditor {
       sourceCopy,
     )
       ..dayName.text = dayName.text
-      ..cardio.text = cardio.text;
+      ..cardio.text = cardio.text
+      ..cardioMachine = cardioMachine
+      ..useStructuredCardio = useStructuredCardio
+      ..cardioMinutes.text = cardioMinutes.text
+      ..cardioMinutesMax.text = cardioMinutesMax.text
+      ..cardioSpeed.text = cardioSpeed.text
+      ..cardioIncline.text = cardioIncline.text
+      ..cardioLevel.text = cardioLevel.text
+      ..cardioWatts.text = cardioWatts.text
+      ..cardioDistance.text = cardioDistance.text;
     duplicate
       ..warmups.addAll(warmups.map((_DraftWarmupEditor item) => item.copy()))
       ..exercises.addAll(
         exercises.map((_DraftExerciseEditor item) => item.copy()),
       );
     return duplicate;
+  }
+
+  void selectCardioMachine(String? machine) {
+    if (cardioMachine != machine) {
+      if (machine != 'treadmill') {
+        cardioSpeed.clear();
+        cardioIncline.clear();
+      }
+      if (!const <String>{'stairmaster', 'bike', 'elliptical'}.contains(machine)) {
+        cardioLevel.clear();
+      }
+      if (!const <String>{'bike', 'rower', 'other'}.contains(machine)) {
+        cardioWatts.clear();
+      }
+      if (!const <String>{'bike', 'elliptical', 'rower', 'outdoor_walk_run', 'other'}
+          .contains(machine)) {
+        cardioDistance.clear();
+      }
+      cardioMachine = machine;
+    }
+    useStructuredCardio = true;
   }
 
   Map<String, dynamic> toJson(
@@ -1604,12 +1680,30 @@ class _DraftDayEditor {
           for (final _DraftExerciseEditor exercise in exercises)
             exercise.toJson(copy),
         ],
-        'cardio': _trimToNull(cardio.text),
+        'cardio': useStructuredCardio
+            ? (cardioMachine == null ? null : <String, dynamic>{
+                'machine': cardioMachine,
+                'minutes': int.tryParse(cardioMinutes.text) ?? 0,
+                'minutes_max': int.tryParse(cardioMinutesMax.text),
+                'speed_kmh': double.tryParse(cardioSpeed.text),
+                'incline_pct': double.tryParse(cardioIncline.text),
+                'level': int.tryParse(cardioLevel.text),
+                'watts': int.tryParse(cardioWatts.text),
+                'distance_m': int.tryParse(cardioDistance.text),
+              })
+            : _trimToNull(cardio.text),
       };
 
   void dispose() {
     dayName.dispose();
     cardio.dispose();
+    cardioMinutes.dispose();
+    cardioMinutesMax.dispose();
+    cardioSpeed.dispose();
+    cardioIncline.dispose();
+    cardioLevel.dispose();
+    cardioWatts.dispose();
+    cardioDistance.dispose();
     for (final _DraftWarmupEditor movement in warmups) {
       movement.dispose();
     }

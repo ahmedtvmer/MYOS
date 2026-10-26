@@ -76,6 +76,50 @@ class MyosCopy {
   String get editDay => isArabic ? 'تعديل اليوم' : 'Edit day';
   // #323
   String get amrapLabel => isArabic ? 'أكبر عدد ممكن من التكرارات' : 'AMRAP';
+  String cardioMachineName(String machine) => (isArabic
+      ? const <String, String>{
+          'treadmill': 'جهاز المشي', 'stairmaster': 'جهاز الدرج',
+          'bike': 'دراجة', 'elliptical': 'جهاز إليبتيكال',
+          'rower': 'جهاز التجديف', 'outdoor_walk_run': 'مشي أو جري بالخارج',
+          'outdoor': 'مشي أو جري بالخارج', 'other': 'أخرى',
+        }
+      : const <String, String>{
+          'treadmill': 'Treadmill', 'stairmaster': 'Stairmaster',
+          'bike': 'Bike', 'elliptical': 'Elliptical', 'rower': 'Rower',
+          'outdoor_walk_run': 'Outdoor walk or run',
+          'outdoor': 'Outdoor walk or run', 'other': 'Other',
+        })[machine] ?? machine;
+  String get cardioMachineLabel => isArabic ? 'جهاز الكارديو' : 'Cardio machine';
+  String get cardioNone => isArabic ? 'بدون كارديو' : 'No cardio';
+  String get cardioMinutesLabel => isArabic ? 'الدقائق' : 'Minutes';
+  String get cardioMinutesMaxLabel => isArabic ? 'الحد الأقصى للدقائق' : 'Maximum minutes';
+  String get cardioSpeedLabel => isArabic ? 'السرعة (كم/ساعة)' : 'Speed (km/h)';
+  String get cardioInclineLabel => isArabic ? 'الميل (%)' : 'Incline (%)';
+  String get cardioLevelLabel => isArabic ? 'المستوى' : 'Level';
+  String get cardioWattsLabel => isArabic ? 'القدرة (واط)' : 'Watts';
+  String get cardioDistanceLabel => isArabic ? 'المسافة (م)' : 'Distance (m)';
+  String get cardioRangeError => isArabic
+      ? 'أدخل قيمة ضمن النطاق المسموح.'
+      : 'Enter a value within the allowed range.';
+  String get cardioMinuteUnit => isArabic ? 'دقيقة' : 'min';
+  String cardioMinutes(int minutes, {int? maximum}) {
+    final String duration = '$minutes${maximum == null ? '' : '–$maximum'}';
+    return isArabic ? '${_ltr(duration)} $cardioMinuteUnit' : '$duration $cardioMinuteUnit';
+  }
+  String cardioSpeedValue(num value) =>
+      '${isArabic ? _ltr('$value') : value} ${isArabic ? 'كم/ساعة' : 'km/h'}';
+  String cardioInclineValue(num value) =>
+      '${isArabic ? _ltr('$value') : value}% ${isArabic ? 'ميل' : 'incline'}';
+  String cardioLevelValue(num value) =>
+      '${isArabic ? 'المستوى' : 'level'} ${isArabic ? _ltr('$value') : value}';
+  String cardioWattsValue(num value) =>
+      '${isArabic ? _ltr('$value') : value} ${isArabic ? 'واط' : 'W'}';
+  String cardioDistanceValue(num value) =>
+      '${isArabic ? _ltr('$value') : value} ${isArabic ? 'م' : 'm'}';
+  String cardioSessionDuration(int? minutes) {
+    if (!isArabic) return 'Cardio: $minutes min';
+    return 'تمارين اللياقة: ${minutes == null ? 'غير محددة' : arabicCountPhrase(minutes, ArabicCountNoun.minute)}';
+  }
   String get rirPerSetGroup => isArabic ? 'حسب مجموعة التدريب' : 'By set group';
   String programBackoffSetsKept(int count) => isArabic
       ? 'تبقى مجموعات خفض الحمل كما هي (${_ltr('$count')})'

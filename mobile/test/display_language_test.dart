@@ -6,6 +6,7 @@ import 'package:myos_mobile/src/core/display_language.dart';
 import 'package:myos_mobile/src/core/display_language/assignment_copy.dart';
 import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
 import 'package:myos_mobile/src/core/display_language/workout_copy.dart';
+import 'package:myos_mobile/src/core/models.dart';
 import 'package:myos_mobile/src/core/browser_key_value_store.dart';
 import 'package:myos_mobile/src/core/training_status_projection.dart';
 
@@ -37,6 +38,23 @@ void main() {
     }
   });
 
+  test('Arabic Cardio prescription display translates units', () {
+    final ProgramCardio cardio = ProgramCardio(
+      machine: 'rower', minutes: 20, watts: 100, distanceM: 2000,
+    );
+    final String display = cardio.display(const MyosCopy('ar'));
+    expect(display, contains('جهاز التجديف'));
+    expect(display, contains('100'));
+    expect(display, contains('واط'));
+    expect(display, contains('2000'));
+    expect(display, contains('م'));
+    expect(display, isNot(contains(' W')));
+    expect(display, isNot(contains(' m')));
+    expect(const CoachCopy('ar').cardioMachineName('rower'),
+        const MyosCopy('ar').cardioMachineName('rower'));
+    expect(const WorkoutCopy('ar').cardioMachine('rower'),
+        const MyosCopy('ar').cardioMachineName('rower'));
+  });
   test('Progress Volume tab names the counted-sets-per-muscle chart', () {
     expect(const MyosCopy('en').volume, 'Volume');
     expect(const MyosCopy('ar').volume, 'مجموعات محسوبة لكل عضلة');

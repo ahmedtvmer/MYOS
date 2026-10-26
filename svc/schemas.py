@@ -15,6 +15,7 @@ from service.program_import_constants import (
 from utils.preferred_name import validate_preferred_name
 
 from agent.ProgramState import (
+    CardioPrescriptionSchema,
     GeneratedProgramSchema,
     PersistedProgramDaySchema,
     PersistedProgramExerciseSchema,
@@ -700,10 +701,17 @@ class WarmupMovementOut(BaseModel):
 
 
 class CardioOut(BaseModel):
-    """The cardio prescription and minutes recorded for one session."""
+    """One machine and its settings recorded during a workout."""
 
-    prescription: str
+    machine: str
     minutes: int
+    speed_kmh: float | None = None
+    incline_pct: float | None = None
+    level: float | None = None
+    watts: float | None = None
+    distance_m: float | None = None
+    calories_kcal: int | None = None
+    calories_are_estimate: bool = False
 
 
 class PlayerLatestSessionOut(BaseModel):
@@ -716,7 +724,7 @@ class PlayerLatestSessionOut(BaseModel):
     week_order: int | None = Field(default=None, ge=1, le=MAX_PROGRAM_WEEKS)
     program_version: int | None = None
     warmup_movements: list[WarmupMovementOut] = []
-    cardio: CardioOut | None = None
+    cardio: list[CardioOut] | None = None
 
 
 class CoachPlayerDivergenceOut(BaseModel):
@@ -753,7 +761,7 @@ class CoachPlayerLatestSessionOut(BaseModel):
     exercises: list[CoachPlayerSessionExerciseOut] = []
     divergences: list[CoachPlayerDivergenceOut] = []
     warmup_movements: list[WarmupMovementOut] = []
-    cardio: CardioOut | None = None
+    cardio: list[CardioOut] | None = None
 
 
 class CoachPlayerRecentSessionOut(BaseModel):
@@ -774,7 +782,7 @@ class CoachPlayerRecentSessionOut(BaseModel):
     exercises: list[CoachPlayerSessionExerciseOut] = []
     divergences: list[CoachPlayerDivergenceOut] = []
     warmup_movements: list[WarmupMovementOut] = []
-    cardio: CardioOut | None = None
+    cardio: list[CardioOut] | None = None
 
 
 class CoachPlayerScheduleOut(BaseModel):
@@ -1367,7 +1375,7 @@ class ProgramDraftDayIn(ProgramDraftInput):
     week_order: int = Field(default=1, ge=1, le=MAX_PROGRAM_WEEKS)
     warmup_exercises: list[ProgramDraftWarmupExerciseIn] = Field(default_factory=list)
     exercises: list[ProgramDraftExerciseIn] = Field(default_factory=list)
-    cardio: str | None = None
+    cardio: CardioPrescriptionSchema | str | None = None
 
 
 class ProgramDraftWeekIn(ProgramDraftInput):
@@ -1616,6 +1624,7 @@ class ProgramImportDraftRowIn(BaseModel):
     notes: Any = None
     load: ProgramLoadSchema | None = None
     group: Any = None
+    cardio: CardioPrescriptionSchema | None = None
 
 
 class ProgramImportCreateIn(BaseModel):
@@ -1879,8 +1888,13 @@ class WarmupMovementIn(BaseModel):
 
 
 class CardioIn(BaseModel):
-    prescription: str = Field(min_length=1, max_length=500)
+    machine: str = Field(pattern="^(treadmill|stairmaster|bike|elliptical|rower|outdoor_walk_run|other)$")
     minutes: int = Field(ge=1, le=600)
+    speed_kmh: float | None = Field(default=None, ge=0.1, le=40, allow_inf_nan=False)
+    incline_pct: float | None = Field(default=None, ge=-10, le=40, allow_inf_nan=False)
+    level: float | None = Field(default=None, ge=1, le=100, allow_inf_nan=False)
+    watts: float | None = Field(default=None, ge=1, le=2500, allow_inf_nan=False)
+    distance_m: float | None = Field(default=None, ge=1, le=100000, allow_inf_nan=False)
 
 
 class SessionCommitIn(BaseModel):
@@ -1890,7 +1904,16 @@ class SessionCommitIn(BaseModel):
     session_notes: str = Field(default="", max_length=2000)
     sets: list[ExerciseSetsIn] = Field(min_length=1)
     warmup_movements: list[WarmupMovementIn] = Field(default_factory=list)
-    cardio: CardioIn | None = None
+    cardio: list[CardioIn] | None = Field(default=None, max_length=20)
+
+    @field_validator("cardio", mode="before")
+    @classmethod
+    def _normalize_legacy_cardio(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        text = str(value.get("prescription") or "").lower()
+        machine = "treadmill" if "treadmill" in text or "incline" in text else "other"
+        return [{"machine": machine, **value}]
 
     # Offline-sync contract (ADR 020/033). When ``client_session_id`` is absent
     # the request keeps the legacy online-only behaviour; when present the

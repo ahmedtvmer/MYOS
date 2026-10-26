@@ -27,7 +27,7 @@ from database.migration_manager import PERFORMED_DATE_CORRECTIONS_DDL
 from database.migration_manager import PROGRAM_DRAFTS_DDL
 from database.migration_manager import PROGRAM_WEEKS_DDL
 from database.migration_manager import PROGRAM_VERSION_POSITIONS_DDL
-from database.migration_manager import SESSION_CARDIO_DDL
+from database.migration_manager import SESSION_CARDIO_DDL, SESSION_CARDIO_ENTRIES_DDL
 from database.migration_manager import SESSION_WARMUP_SETS_DDL
 from database.migration_manager import WEIGHT_HISTORY_DDL
 from database.migration_manager import get_ledger_schema_version
@@ -401,6 +401,7 @@ class SchemaMixin:
                 *ONBOARDING_ANALYTICS_DDL,
                 *SESSION_WARMUP_SETS_DDL,
                 *SESSION_CARDIO_DDL,
+                *SESSION_CARDIO_ENTRIES_DDL,
                 *CHECKPOINT_REVIEWS_DDL,
                 *DELOAD_CHOICES_DDL,
                 *INJURY_RECORDS_DDL,

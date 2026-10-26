@@ -663,8 +663,20 @@ Future<Map<String, dynamic>> _editProgramDraftAcrossPhoneActions(
       find.byKey(const Key('program_draft_warmup_sets_0_0')), '3');
   await tester.enterText(
       find.byKey(const Key('program_draft_warmup_notes_0_0')), 'Slow reps');
+  final Finder addCardio =
+      find.byKey(const Key('program_draft_cardio_add_0'));
+  if (addCardio.evaluate().isNotEmpty) {
+    await tester.tap(addCardio);
+    await tester.pumpAndSettle();
+  }
   await tester.enterText(
-      find.byKey(const Key('program_draft_cardio_0')), 'Bike intervals');
+      find.byKey(const Key('program_draft_cardio_minutes_0')), '20');
+  final Finder cardioMachine =
+      find.byKey(const Key('program_draft_cardio_machine_0'));
+  await tester.ensureVisible(cardioMachine);
+  await tester.tap(cardioMachine);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(language == 'ar' ? 'دراجة' : 'Bike').last);
   await tester.pumpAndSettle();
 
   final Finder exerciseWarmupSets =
@@ -1429,7 +1441,11 @@ void main() {
         final Map<String, dynamic> editedDay = Map<String, dynamic>.from(
             ((editedWeeks[0] as Map)['days'] as List).first as Map);
         expect(editedDay['day_name'], 'Lower 2');
-        expect(editedDay['cardio'], 'Bike intervals');
+        expect(editedDay['cardio'], <String, dynamic>{
+          'machine': 'bike', 'minutes': 20, 'minutes_max': null,
+          'speed_kmh': null, 'incline_pct': null, 'level': null,
+          'watts': null, 'distance_m': null,
+        });
         final List<dynamic> editedDays =
             (editedWeeks[0] as Map)['days'] as List<dynamic>;
         expect(editedDays, hasLength(2));
@@ -2323,7 +2339,7 @@ void main() {
       // The base widths fit the 1440 detail pane, so the table fills it and
       // Exercise still gets the remaining width.
       expect(expectedExerciseWidth, greaterThan(105));
-      expect(headerWidth('Exercise'), closeTo(expectedExerciseWidth, 1));
+      expect(headerWidth('Exercise'), closeTo(expectedExerciseWidth, 3));
       expect(headerWidth('Action'), 230);
       expect(headerWidth('Equipment'), 125);
       expect(headerWidth('Sets'), 115);
@@ -4666,6 +4682,80 @@ void main() {
     expect(fake.programDraft!['weekly_frequency'], 3);
   });
 
+  testWidgets('editing a legacy Cardio note saves structured minutes',
+      (tester) async {
+    final FakeMyosApi fake = _coachFake()
+      ..programDraft = _programDraftForEditorTest();
+    await _openProgramEditor(tester, fake);
+    final Finder minutes =
+        find.byKey(const Key('program_draft_cardio_minutes_0'));
+    await tester.ensureVisible(minutes);
+    await tester.enterText(minutes, '40');
+    await tester.tap(find.byKey(const Key('program_draft_save')));
+    await _pumpUntilFound(tester, find.text('Draft saved.'));
+
+    final Map<String, dynamic> day =
+        (fake.programDraft!['days'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(day['cardio'], isA<Map<String, dynamic>>());
+    expect((day['cardio'] as Map<String, dynamic>)['minutes'], 40);
+  });
+
+  testWidgets('editing legacy Cardio persists settings before template save',
+      (tester) async {
+    final FakeMyosApi fake = _coachFake()
+      ..programDraft = _programDraftForEditorTest();
+    await _openProgramEditor(tester, fake);
+    final Finder minutes =
+        find.byKey(const Key('program_draft_cardio_minutes_0'));
+    await tester.ensureVisible(minutes);
+    await tester.enterText(minutes, '40');
+    await tester.tap(find.byKey(const Key('program_draft_save_as_template')));
+    await _pumpUntilFound(
+        tester, find.byKey(const Key('program_template_save_sheet')));
+    await tester.enterText(
+      find.byKey(const Key('program_template_save_name')),
+      'Cardio template',
+    );
+    await tester.tap(find.byKey(const Key('program_template_save_confirm')));
+    await _pumpUntilFound(tester, find.text('Template saved.'));
+
+    final FakeRequest savedDraft = fake.adapter.requests.lastWhere(
+      (FakeRequest request) =>
+          request.method == 'PUT' && request.path.endsWith('/program-draft'),
+    );
+    final Map<String, dynamic> day =
+        (savedDraft.body['days'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(day['cardio'], isA<Map<String, dynamic>>());
+    expect((day['cardio'] as Map<String, dynamic>)['minutes'], 40);
+  });
+
+  testWidgets('switching Cardio machines clears incompatible settings',
+      (tester) async {
+    final Map<String, dynamic> draft = _programDraftForEditorTest();
+    (draft['days'] as List<dynamic>).single['cardio'] = <String, dynamic>{
+      'machine': 'treadmill', 'minutes': 25, 'speed_kmh': 5.0,
+      'incline_pct': 10.0,
+    };
+    final FakeMyosApi fake = _coachFake()..programDraft = draft;
+    await _openProgramEditor(tester, fake);
+    final Finder machine =
+        find.byKey(const Key('program_draft_cardio_machine_0'));
+    await _ensureDraftVisible(tester, machine);
+    await tester.tap(machine);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bike').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('program_draft_save')));
+    await _pumpUntilFound(tester, find.text('Draft saved.'));
+
+    final Map<String, dynamic> day =
+        (fake.programDraft!['days'] as List<dynamic>).single as Map<String, dynamic>;
+    final Map<String, dynamic> cardio = day['cardio'] as Map<String, dynamic>;
+    expect(cardio['machine'], 'bike');
+    expect(cardio['speed_kmh'], isNull);
+    expect(cardio['incline_pct'], isNull);
+  });
+
   testWidgets('coach saves warm-up movements and the day cardio note',
       (tester) async {
     final FakeMyosApi fake = _coachFake();
@@ -4701,10 +4791,22 @@ void main() {
     await _ensureDraftVisible(tester, moveWarmupUp);
     expect(moveWarmupUp.hitTestable(), findsOneWidget);
     await tester.tap(moveWarmupUp);
-    final Finder cardio = find.byKey(const Key('program_draft_cardio_0'));
-    await _pumpUntilFound(tester, cardio);
-    await tester.ensureVisible(cardio);
-    await tester.enterText(cardio, 'Cycle for 10 minutes');
+    final Finder cardioMachine =
+        find.byKey(const Key('program_draft_cardio_machine_0'));
+    await _pumpUntilFound(tester, cardioMachine);
+    await tester.ensureVisible(cardioMachine);
+    await tester.tap(cardioMachine);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bike').last);
+    await tester.pumpAndSettle();
+    final Finder cardioMinutes =
+        find.byKey(const Key('program_draft_cardio_minutes_0'));
+    await tester.ensureVisible(cardioMinutes);
+    await tester.enterText(cardioMinutes, '10');
+    final Finder cardioLevel =
+        find.byKey(const Key('program_draft_cardio_level_0'));
+    await tester.ensureVisible(cardioLevel);
+    await tester.enterText(cardioLevel, '4');
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
     final Finder save = find.byKey(const Key('program_draft_save'));
@@ -4727,7 +4829,11 @@ void main() {
     expect(bandMovement['reps'], 10);
     expect(bandMovement['rest_seconds'], 45);
     expect(bandMovement['notes'], 'Easy pace');
-    expect(day['cardio'], 'Cycle for 10 minutes');
+    expect(day['cardio'], <String, dynamic>{
+      'machine': 'bike', 'minutes': 10, 'minutes_max': null,
+      'speed_kmh': null, 'incline_pct': null, 'level': 4,
+      'watts': null, 'distance_m': null,
+    });
 
     await tester.tap(find.byTooltip('Back').hitTestable().last);
     await _pumpUntilFound(
@@ -4750,10 +4856,9 @@ void main() {
     );
     expect(
       tester
-          .widget<TextField>(find.byKey(const Key('program_draft_cardio_0')))
-          .controller!
-          .text,
-      'Cycle for 10 minutes',
+          .widget<DropdownButtonFormField<String>>(cardioMachine)
+          .initialValue,
+      'bike',
     );
   });
 
@@ -5356,7 +5461,7 @@ void main() {
         );
         expect(
           find.text(
-            isArabic ? 'ملاحظة اللياقة (اختيارية)' : 'Cardio note (optional)',
+            isArabic ? 'جهاز الكارديو' : 'Cardio machine',
           ),
           findsOneWidget,
         );

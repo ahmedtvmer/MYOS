@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:myos_mobile/src/core/display_language/workout_copy.dart';
 import 'package:myos_mobile/src/core/models.dart';
 import 'package:myos_mobile/src/core/token_store.dart';
 import 'package:myos_mobile/src/core/theme/myos_spacing.dart';
@@ -87,7 +88,9 @@ void _setSessionFlags(FakeMyosApi fake) {
         ],
       },
     ]
-    ..['cardio'] = <String, dynamic>{'prescription': 'Bike', 'minutes': 25}
+    ..['cardio'] = <Map<String, dynamic>>[
+      <String, dynamic>{'machine': 'bike', 'minutes': 25},
+    ]
     ..['program_version'] = 4
     ..['active_program_version_at_sync'] = 5
     ..['is_historical_program'] = true
@@ -219,7 +222,7 @@ void main() {
       expect(find.text('Skipped: Squat'), findsOneWidget);
       expect(find.text('Unplanned: Cable Row'), findsOneWidget);
       expect(find.textContaining('Warm-up:'), findsOneWidget);
-      expect(find.text('Cardio: 25 min'), findsOneWidget);
+      expect(find.text('Bike · Cardio: 25 min'), findsOneWidget);
       expect(find.text('Readiness 4/5'), findsOneWidget);
       expect(
         find.text('Logged against program v4 (current v5)'),
@@ -290,7 +293,7 @@ void main() {
             find.descendant(of: header, matching: find.text(label)),
           ).width;
       expect(headerWidth('Exercise'), greaterThan(290));
-      expect(headerWidth('Action'), 230);
+      expect(headerWidth('Action'), 260);
       expect(headerWidth('Sets'), 95);
       expect(headerWidth('Reps'), 70);
       expect(headerWidth('Volume (kg)'), 120);
@@ -329,10 +332,9 @@ void main() {
             'sets': <dynamic>[],
           },
         ]
-        ..['cardio'] = <String, dynamic>{
-          'prescription': 'Bike',
-          'minutes': 25,
-        }
+        ..['cardio'] = <Map<String, dynamic>>[
+          <String, dynamic>{'machine': 'bike', 'minutes': 25},
+        ]
         ..['program_version'] = 4
         ..['active_program_version_at_sync'] = 5
         ..['is_historical_program'] = true
@@ -413,7 +415,7 @@ void main() {
       expect(find.text('Elbow Flexion'), findsOneWidget);
       expect(find.text('2,000'), findsWidgets);
       expect(find.text('Warm-up: 1 movements'), findsOneWidget);
-      expect(find.text('Cardio: 25 min'), findsOneWidget);
+      expect(find.text('Bike · Cardio: 25 min'), findsOneWidget);
       expect(find.text('Readiness 2/5'), findsOneWidget);
       expect(
         find.text('Logged against program v4 (current v5)'),
@@ -651,7 +653,9 @@ void main() {
           sets: <WarmupSetLog>[],
         ),
       ],
-      cardio: const WorkoutCardio(prescription: 'Bike', minutes: 25),
+      cardio: const <WorkoutCardio>[WorkoutCardio(
+        machine: 'bike', minutes: 25, caloriesKcal: 156, caloriesAreEstimate: true,
+      )],
     );
     final CoachHistorySegment segment = CoachHistorySegment(
       data: CoachHistorySegmentData(
@@ -764,7 +768,8 @@ void main() {
       copy.divergence('Skipped', 'Squat'),
       copy.divergence('Unplanned', 'Cable Row'),
       copy.warmupMovements(1),
-      copy.cardioMinutes(25),
+      'دراجة · ${copy.cardioMinutes(25)} · ${const WorkoutCopy('ar').cardioCalories(156, estimate: true)}',
+      '${const WorkoutCopy('ar').cardioCaloriesTotal}: ${const WorkoutCopy('ar').cardioCalories(156, estimate: true)}',
       copy.readiness(4),
       copy.historicalProgram(4, 5),
       copy.correctedDate('2026-10-04', '2026-10-05'),

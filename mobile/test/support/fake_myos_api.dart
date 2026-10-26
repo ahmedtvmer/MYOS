@@ -446,6 +446,7 @@ class FakeMyosApi {
   int commitRequests = 0;
   bool commitFails = false;
   bool commitResponseLost = false;
+  int? cardioCaloriesKcalOnCommit;
   Map<String, dynamic>? checkpointOnCommit;
   int? commitRefusalStatusCode;
   String commitRefusalMessage = 'The workout could not be recorded.';
@@ -5446,6 +5447,18 @@ class FakeMyosApi {
       'new_prs': <dynamic>[],
       'divergences': <dynamic>[],
       'warmup_movements': body['warmup_movements'] ?? <dynamic>[],
+      if (body['cardio'] is List<dynamic>)
+        'cardio': (body['cardio'] as List<dynamic>).map((dynamic entry) {
+          final Map<String, dynamic> cardio =
+              Map<String, dynamic>.from(entry as Map<String, dynamic>);
+          return <String, dynamic>{
+            ...cardio,
+            'calories_kcal': cardioCaloriesKcalOnCommit,
+            'calories_are_estimate': true,
+          };
+        }).toList(),
+      if (cardioCaloriesKcalOnCommit != null)
+        'cardio_calories_kcal': cardioCaloriesKcalOnCommit,
       'program_version': requested,
       'active_program_version_at_sync': active,
       'is_historical_program': requested > 0 && requested < active,

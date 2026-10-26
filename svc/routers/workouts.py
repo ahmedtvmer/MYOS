@@ -243,7 +243,7 @@ async def commit_session(
                     program_version=program.version if program is not None else None
                 ),
                 warmup_movements=_warmup_movements_payload(db, body),
-                cardio=body.cardio.model_dump() if body.cardio is not None else None,
+                cardio=[entry.model_dump() for entry in body.cardio] if body.cardio is not None else None,
                 account_id=account_id_of(player), ledger=ledger,
                 client=analytics.client_context(request),
             )
@@ -283,7 +283,7 @@ async def commit_session(
             sync=sync,
             week_order=body.week_order,
             warmup_movements=_warmup_movements_payload(db, body),
-            cardio=body.cardio.model_dump() if body.cardio is not None else None,
+            cardio=[entry.model_dump() for entry in body.cardio] if body.cardio is not None else None,
             account_id=account_id_of(player),
             ledger=ledger,
             client=analytics.client_context(request),

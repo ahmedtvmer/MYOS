@@ -36,6 +36,26 @@ MIN_PROGRAM_LOAD_PCT_E1RM = 1.0
 MAX_PROGRAM_LOAD_PCT_E1RM = 100.0
 
 
+class CardioPrescriptionSchema(BaseModel):
+    """Structured cardio prescription attached to a Training day."""
+
+    model_config = {"extra": "forbid"}
+    machine: Literal["treadmill", "stairmaster", "bike", "elliptical", "rower", "outdoor_walk_run", "outdoor", "other"]
+    minutes: int = Field(ge=1, le=600)
+    minutes_max: int | None = Field(default=None, ge=1, le=600)
+    speed_kmh: float | None = Field(default=None, gt=0, le=50)
+    incline_pct: float | None = Field(default=None, ge=0, le=50)
+    level: int | None = Field(default=None, ge=1, le=100)
+    watts: int | None = Field(default=None, ge=1, le=2000)
+    distance_m: int | None = Field(default=None, ge=1, le=100000)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "CardioPrescriptionSchema":
+        if self.minutes_max is not None and self.minutes_max < self.minutes:
+            raise ValueError("minutes_max must be at least minutes.")
+        return self
+
+
 def program_exercise_working_sets(exercise: Any) -> int:
     """Return the prescribed working set count for a schema or exercise mapping."""
     groups = (exercise.get("set_groups") if isinstance(exercise, dict)
@@ -197,7 +217,7 @@ class ProgramDaySchema(BaseModel):
         max_length=MAX_EXERCISES_PER_DAY,
         description="Ordered exercises prescribed for the training day",
     )
-    cardio: str | None = Field(default=None, description="Optional cardio finisher note")
+    cardio: CardioPrescriptionSchema | str | None = Field(default=None, description="Optional structured cardio prescription or legacy note")
 
 
 class ProgramSchema(BaseModel):
@@ -242,7 +262,7 @@ class PersistedProgramDaySchema(BaseModel):
     exercises: list[PersistedProgramExerciseSchema] = Field(
         min_length=1, max_length=MAX_EXERCISES_PER_DAY
     )
-    cardio: str | None = None
+    cardio: CardioPrescriptionSchema | str | None = None
 
 
 class PersistedProgramWeekSchema(BaseModel):
@@ -313,7 +333,7 @@ class CustomDayPlan(BaseModel):
             f"does not exceed {MAX_EXERCISES_PER_DAY}"
         ),
     )
-    cardio: str | None = Field(default=None, description="Optional cardio note")
+    cardio: CardioPrescriptionSchema | str | None = Field(default=None, description="Optional structured cardio prescription or legacy note")
 
 
 class DynamicSplitPlan(BaseModel):

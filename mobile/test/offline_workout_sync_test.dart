@@ -33,7 +33,7 @@ WorkoutDraft _draft({
   String? clientSessionId,
   String capturedAt = '2026-09-26T11:00:00.000Z',
   List<WarmupMovementDraft> warmupMovements = const <WarmupMovementDraft>[],
-  WorkoutCardio? cardio,
+  List<WorkoutCardio> cardio = const <WorkoutCardio>[],
 }) =>
     WorkoutDraft(
       clientSessionId: clientSessionId ?? newClientSessionId(),
@@ -148,34 +148,63 @@ Map<String, dynamic> _benchBaseline() => <String, dynamic>{
 
 void main() {
   group('draft storage', () {
+    test('legacy cardio drafts classify non-finisher free text as other', () {
+      final WorkoutCardio cardio = WorkoutCardio.fromJson(
+        <String, dynamic>{'prescription': 'Steady bike', 'minutes': 25, 'ticked': true},
+      );
+      expect(cardio.machine, 'other');
+      expect(cardio.minutes, 25);
+      expect(cardio.ticked, isTrue);
+    });
     test('Cardio state persists and only ticked Cardio reaches commit', () {
       final WorkoutDraft unticked = _draft(
         accountId: _accountA,
-        cardio: const WorkoutCardio(
-          prescription: 'Steady bike after lifting',
+        cardio: const <WorkoutCardio>[WorkoutCardio(
+          machine: 'bike',
           minutes: 25,
-        ),
+        )],
       );
       final WorkoutDraft restored = WorkoutDraft.fromJson(unticked.toJson());
-      expect(restored.cardio!.minutes, 25);
-      expect(restored.cardio!.ticked, isFalse);
+      expect(restored.cardio.single.minutes, 25);
+      expect(restored.cardio.single.ticked, isFalse);
       expect(restored.toCommitBody().containsKey('cardio'), isFalse);
       final Map<String, dynamic> earlierDraftJson =
           Map<String, dynamic>.of(unticked.toJson())..remove('cardio');
-      expect(WorkoutDraft.fromJson(earlierDraftJson).cardio, isNull);
+      expect(WorkoutDraft.fromJson(earlierDraftJson).cardio, isEmpty);
 
       final WorkoutDraft ticked = _draft(
         accountId: _accountA,
-        cardio: const WorkoutCardio(
-          prescription: 'Steady bike after lifting',
+        cardio: const <WorkoutCardio>[WorkoutCardio(
+          machine: 'bike',
           minutes: 25,
           ticked: true,
-        ),
+        )],
       );
-      expect(ticked.toCommitBody()['cardio'], <String, dynamic>{
-        'prescription': 'Steady bike after lifting',
-        'minutes': 25,
-      });
+      expect(ticked.toCommitBody()['cardio'], <Map<String, dynamic>>[
+        <String, dynamic>{'machine': 'bike', 'minutes': 25},
+      ]);
+    });
+
+    test('multiple machine entries and settings survive draft serialization', () {
+      final WorkoutDraft draft = _draft(
+        accountId: _accountA,
+        cardio: const <WorkoutCardio>[
+          WorkoutCardio(machine: 'treadmill', minutes: 25, speedKmh: 5,
+              inclinePct: 10, ticked: true),
+          WorkoutCardio(machine: 'bike', minutes: 15, level: 4, ticked: true),
+        ],
+      );
+      final WorkoutDraft restored = WorkoutDraft.fromJson(draft.toJson());
+      expect(restored.cardio.map((WorkoutCardio entry) => entry.machine),
+          <String>['treadmill', 'bike']);
+      expect(restored.cardio.first.inclinePct, 10);
+      expect(restored.toCommitBody()['cardio'], <Map<String, dynamic>>[
+        <String, dynamic>{
+          'machine': 'treadmill', 'minutes': 25, 'speed_kmh': 5,
+          'incline_pct': 10,
+        },
+        <String, dynamic>{'machine': 'bike', 'minutes': 15, 'level': 4},
+      ]);
     });
 
     test('persists across a simulated restart (new service, same storage)',

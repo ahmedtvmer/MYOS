@@ -1741,10 +1741,16 @@ ARABIC_LOSE_GOAL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     )
 )
 
-FAT_LOSS_CARDIO_NOTE = (
-    "Fat-loss finisher: 20-30 min incline treadmill walk (8-12% incline, brisk ~4-5 km/h) "
-    "or moderate cycling, after the session"
-)
+FAT_LOSS_CARDIO_NOTE = {
+    "machine": "treadmill",
+    "minutes": 25,
+    "speed_kmh": 5.0,
+    "incline_pct": 10.0,
+}
+FAT_LOSS_CARDIO_BODYWEIGHT_NOTE = {
+    "machine": "outdoor_walk_run",
+    "minutes": 25,
+}
 
 
 def classify_goal(

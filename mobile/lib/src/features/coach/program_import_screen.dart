@@ -492,6 +492,7 @@ class _CoachProgramImportScreenState
             'tempo': row['tempo'],
             'notes': row['notes'],
             'load': row['load'],
+            'cardio': row['cardio'],
           })
       .toList(growable: false);
 

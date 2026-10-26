@@ -24,6 +24,7 @@ from agent.progression_engine import (
     set_e1rm,
 )
 from core.effort import min_rir_label, rir_from_rpe
+from core.cardio_calories import estimate_cardio_calories
 from database.exercise_resolution import resolve_exercise_display_row
 from core.deload_choices import DELOAD_CHOICE_APPLY, DELOAD_CHOICE_UNDO
 from core.warmup import calculate_warmup_sets
@@ -548,7 +549,7 @@ def _persist_session(
     sync: SyncMetadata,
     ledger: Any,
     warmup_movements: list[dict[str, Any]] | None = None,
-    cardio: dict[str, Any] | None = None,
+    cardio: list[dict[str, Any]] | None = None,
     active_program_version_at_sync: int | None = None,
     display_language: str = "en",
 ) -> dict[str, Any]:
@@ -698,6 +699,28 @@ def _persist_session(
     ledger.log_workout_sets_batch(all_sets_to_batch)
     warmup_movements = warmup_movements or []
     ledger.log_session_warmup_movements(session_id, warmup_movements, now_iso)
+    if cardio is not None:
+        weight_rows = ledger.list_weight_history("0001-01-01", today_date)
+        weight_estimate = False
+        if weight_rows:
+            weight = weight_rows[-1]["weight_kg"]
+        else:
+            later_weights = ledger.list_weight_history(today_date, "9999-12-31")
+            if later_weights:
+                weight = later_weights[0]["weight_kg"]
+                weight_estimate = True
+            else:
+                weight = profile.get("weight_kg")
+        estimated_cardio = []
+        for entry in cardio:
+            result = estimate_cardio_calories(entry, None if weight is None else float(weight))
+            result["estimate"] = result["estimate"] or weight_estimate
+            estimated_cardio.append({
+                **entry,
+                "calories_kcal": result["kcal"],
+                "calories_are_estimate": result["estimate"],
+            })
+        cardio = estimated_cardio
     ledger.log_session_cardio(session_id, cardio, now_iso)
 
     prescribed_ids = {str(ex.exercise_id) for ex in day_plan.exercises}
@@ -797,6 +820,8 @@ def _persist_session(
         "divergences": divergences,
         **({"warmup_movements": warmup_movements} if warmup_movements else {}),
         **({"cardio": cardio} if cardio is not None else {}),
+        **({"cardio_calories_kcal": sum(entry["calories_kcal"] for entry in cardio)}
+           if cardio is not None else {}),
         # Version visibility (ADR 034): what the draft was logged against vs.
         # the program active when the commit landed. ``is_historical_program``
         # is the explicit flag both the player and assigned coach render.
@@ -875,7 +900,7 @@ def commit_session(
     sync: SyncMetadata | None = None,
     ledger: Any | None = None,
     warmup_movements: list[dict[str, Any]] | None = None,
-    cardio: dict[str, Any] | None = None,
+    cardio: list[dict[str, Any]] | None = None,
     *,
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT,
 ) -> CommitOutcome:
@@ -972,7 +997,7 @@ def commit_logged_session(
     now_iso: str | None = None,
     ledger: Any | None = None,
     warmup_movements: list[dict[str, Any]] | None = None,
-    cardio: dict[str, Any] | None = None,
+    cardio: list[dict[str, Any]] | None = None,
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT,
 ) -> CommitOutcome:
     """Idempotently commits one offline-captured workout (ADR 020/033/034).

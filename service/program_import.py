@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, Iterable, Protocol
 
 from fastapi import BackgroundTasks
 from openpyxl import Workbook, load_workbook
+from pydantic import ValidationError
 
 from agent.ProgramState import (
+    CardioPrescriptionSchema,
     MAX_PROGRAM_LOAD_KG,
     MAX_PROGRAM_LOAD_PCT_E1RM,
     MIN_PROGRAM_LOAD_KG,
@@ -70,6 +72,8 @@ if TYPE_CHECKING:
 TEMPLATE_COLUMNS = (
     "week", "day", "day_name", "order", "exercise", "group", "sets", "reps", "rir", "rpe",
     "load_kg", "load_pct_e1rm", "rest_sec", "tempo", "notes",
+    "cardio_machine", "cardio_minutes", "cardio_minutes_max", "cardio_speed_kmh",
+    "cardio_incline_pct", "cardio_level", "cardio_watts", "cardio_distance_m",
 )
 _REP_RANGE = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 _LOAD_PLACEHOLDERS = frozenset({"", "—", "-", "n/a", "none"})
@@ -159,6 +163,14 @@ class ProgramImportRow:
     suggestion_terms: tuple[str, ...] = ()
     input_exercise_name: str | None = None
     group: ImportValue = None
+    cardio_machine: ImportValue = None
+    cardio_minutes: ImportValue = None
+    cardio_minutes_max: ImportValue = None
+    cardio_speed_kmh: ImportValue = None
+    cardio_incline_pct: ImportValue = None
+    cardio_level: ImportValue = None
+    cardio_watts: ImportValue = None
+    cardio_distance_m: ImportValue = None
 
 
 @dataclass(frozen=True)
@@ -2983,6 +2995,14 @@ def _template_row(
         approximation_markers=tuple(markers),
         week_order=week_order if has_week_column else None,
         group=cells.get("group"),
+        cardio_machine=cells.get("cardio_machine"),
+        cardio_minutes=cells.get("cardio_minutes"),
+        cardio_minutes_max=cells.get("cardio_minutes_max"),
+        cardio_speed_kmh=cells.get("cardio_speed_kmh"),
+        cardio_incline_pct=cells.get("cardio_incline_pct"),
+        cardio_level=cells.get("cardio_level"),
+        cardio_watts=cells.get("cardio_watts"),
+        cardio_distance_m=cells.get("cardio_distance_m"),
     )
 
 
@@ -3191,6 +3211,10 @@ def _normalise_row(
         if "pct_e1rm" in parsed_loads else None
     )
 
+    cardio, cardio_error = _import_cardio(source)
+    if cardio_error is not None:
+        errors.append(cardio_error)
+
     normalized = {
         "source_row": source.source_row,
         "week": week,
@@ -3216,6 +3240,7 @@ def _normalise_row(
         "tempo": tempo,
         "notes": notes or None,
         "load": load,
+        "cardio": cardio,
         "errors": errors,
         "warnings": warnings,
     }
@@ -3224,6 +3249,101 @@ def _normalise_row(
     if text_import:
         normalized["input_exercise_name"] = source.input_exercise_name
     return normalized
+
+
+def _import_cardio(source: ProgramImportRow) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    raw = {
+        "machine": source.cardio_machine,
+        "minutes": source.cardio_minutes,
+        "minutes_max": source.cardio_minutes_max,
+        "speed_kmh": source.cardio_speed_kmh,
+        "incline_pct": source.cardio_incline_pct,
+        "level": source.cardio_level,
+        "watts": source.cardio_watts,
+        "distance_m": source.cardio_distance_m,
+    }
+    if all(not _cell_text(value) for value in raw.values()):
+        return None, None
+    if not _cell_text(raw["machine"]):
+        return None, _row_error(
+            "program_import.cardio_machine_required.v1", source.source_row,
+            "cardio_machine", "Choose a Cardio machine when entering Cardio settings.",
+        )
+
+    parsed, error_row = _parse_cardio_settings(raw, source.source_row)
+    if error_row is not None:
+        return None, error_row
+    try:
+        prescription = CardioPrescriptionSchema.model_validate(parsed)
+    except ValidationError as error:
+        invalid_field = next(
+            (str(issue["loc"][0]) for issue in error.errors() if issue.get("loc")),
+            "machine",
+        )
+        return None, _cardio_import_error(
+            source.source_row, invalid_field,
+            "Cardio machine settings are outside supported ranges.",
+        )
+    return prescription.model_dump(), None
+
+
+def _parse_cardio_settings(
+    raw: dict[str, Any], source_row: int
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    parsed: dict[str, Any] = {"machine": _cell_text(raw["machine"]).casefold()}
+    for field_name in ("minutes", "minutes_max", "level", "watts", "distance_m"):
+        parsed_value, error_row = _parse_cardio_integer_field(
+            source_row, field_name, raw[field_name]
+        )
+        if error_row is not None:
+            return {}, error_row
+        parsed[field_name] = parsed_value
+    for field_name in ("speed_kmh", "incline_pct"):
+        parsed_value, error_row = _parse_cardio_decimal_field(
+            source_row, field_name, raw[field_name]
+        )
+        if error_row is not None:
+            return {}, error_row
+        parsed[field_name] = parsed_value
+    return parsed, None
+
+
+def _parse_cardio_integer_field(
+    source_row: int, field_name: str, value: Any
+) -> tuple[int | None, dict[str, Any] | None]:
+    if not _cell_text(value):
+        return None, None
+    parsed_value = _parse_integer(value)
+    if parsed_value is None:
+        return None, _cardio_import_error(
+            source_row, field_name, "Enter a whole number for this Cardio setting."
+        )
+    return parsed_value, None
+
+
+def _parse_cardio_decimal_field(
+    source_row: int, field_name: str, value: Any
+) -> tuple[float | None, dict[str, Any] | None]:
+    if not _cell_text(value):
+        return None, None
+    try:
+        parsed_value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        parsed_value = float("nan")
+    if not math.isfinite(parsed_value):
+        return None, _cardio_import_error(
+            source_row, field_name, "Enter a number for this Cardio setting."
+        )
+    return parsed_value, None
+
+
+def _cardio_import_error(
+    source_row: int, field_name: str, message: str
+) -> dict[str, Any]:
+    return _row_error(
+        "program_import.cardio_invalid.v1", source_row,
+        f"cardio_{field_name}", message,
+    )
 
 
 def _normalise_template_week(
@@ -3502,6 +3622,14 @@ def _confirmed_row(row: dict[str, Any]) -> ProgramImportRow:
         notes=row.get("notes"),
         load=row.get("load"),
         group=row.get("group"),
+        cardio_machine=(row.get("cardio") or {}).get("machine"),
+        cardio_minutes=(row.get("cardio") or {}).get("minutes"),
+        cardio_minutes_max=(row.get("cardio") or {}).get("minutes_max"),
+        cardio_speed_kmh=(row.get("cardio") or {}).get("speed_kmh"),
+        cardio_incline_pct=(row.get("cardio") or {}).get("incline_pct"),
+        cardio_level=(row.get("cardio") or {}).get("level"),
+        cardio_watts=(row.get("cardio") or {}).get("watts"),
+        cardio_distance_m=(row.get("cardio") or {}).get("distance_m"),
         original_text="",
         confirmed_exercise_id=row["exercise_id"],
         week_order=row.get("week_order", 1),
@@ -3572,6 +3700,14 @@ def _confirmed_rows_by_day(
             "week_order": week_order,
             "warmup_exercises": [], "exercises": [], "cardio": None,
         })
+        incoming_cardio = row.get("cardio")
+        if incoming_cardio is not None:
+            if day["cardio"] is not None and day["cardio"] != incoming_cardio:
+                raise ProgramImportError(
+                    "program_import.cardio_conflict.v1",
+                    f"Rows in day {day_number} have different Cardio prescriptions.",
+                )
+            day["cardio"] = incoming_cardio
         group_number = _parse_integer(row.get("group"))
         if row.get("group") not in (None, "") and (group_number is None or group_number < 1):
             source_row = row.get("source_row", "?")
