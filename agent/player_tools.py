@@ -16,6 +16,7 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
 
 from database.ledger.profile import PLAYER_PROFILE_STORAGE_DEFAULTS
+from agent.focus_muscles import FOCUS_REVIEW_MUSCLES
 from service.injuries import render_public_injury_record
 from service.nutrition import assistant_projection
 from service.player_weight_context import render_player_weight_context
@@ -53,6 +54,12 @@ class ProgramRationaleArgs(BaseModel):
     exercise_id: str | None = None
     week_order: int | None = None
     page: int = 0
+
+
+class ActiveProgramArgs(BaseModel):
+    """Optional day scope for the active program."""
+
+    day_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -199,46 +206,102 @@ def _read_player_nutrition(ledger: Any) -> dict[str, Any]:
     return assistant_projection(ledger, today)
 
 
-def _read_active_program(ledger: Any) -> dict[str, Any]:
+def _read_active_program(ledger: Any, args: ActiveProgramArgs | None = None) -> dict[str, Any]:
     program = ledger.get_active_program()
     if program is None:
         return {"status": "not_set", "active_program": "not set"}
+    from core.weak_points import WEAK_POINT_MUSCLES
+    from agent.ProgramState import program_exercise_working_sets
 
+    all_days = list(getattr(program, "days", ()) or ())
+    selected_name = args.day_name.strip().casefold() if args and args.day_name else None
+    if selected_name:
+        matching = [day for day in all_days if str(getattr(day, "day_name", "")).casefold() == selected_name]
+        if not matching:
+            return {"status": "not_found", "day_names": [str(getattr(day, "day_name", "not set")) for day in all_days]}
+        all_days = matching
+    exercise_ids = sorted({
+        str(getattr(exercise, "exercise_id", ""))
+        for day in all_days for exercise in (getattr(day, "exercises", ()) or ())
+        if getattr(exercise, "exercise_id", None)
+    })
+    targets = ledger.volume_review_exercise_targets(exercise_ids)
+    summary: dict[str, int] = {muscle: 0 for muscle in WEAK_POINT_MUSCLES}
+    other_muscles: dict[str, int] = {}
     days = []
-    for day in getattr(program, "days", ()) or ():
+    for day in all_days:
         exercises = []
         for exercise in getattr(day, "exercises", ()) or ():
-            raw_rpe = getattr(exercise, "target_rpe", None)
-            try:
-                rir = 10 - float(raw_rpe) if raw_rpe is not None else "not set"
-            except (TypeError, ValueError):
-                rir = "not set"
-            exercises.append(
-                {
-                    "name": str(getattr(exercise, "exercise_name", "not set")),
-                    "sets": getattr(exercise, "working_sets", getattr(exercise, "target_sets", "not set")),
-                    "reps_min": getattr(exercise, "target_reps_min", "not set"),
-                    "reps_max": getattr(exercise, "target_reps_max", "not set"),
-                    "rir": rir,
-                    "set_groups": [
-                        {"sets": group.sets, "reps_min": group.reps_min,
-                         "reps_max": group.reps_max, "rir": group.target_rir}
-                        for group in getattr(exercise, "set_groups", ()) or ()
-                    ],
-                    "rest_seconds": getattr(exercise, "rest_seconds", "not set"),
-                }
+            sets = program_exercise_working_sets(exercise)
+            muscle = targets.get(str(getattr(exercise, "exercise_id", "")))
+            if muscle:
+                normalized_muscle = str(muscle).strip().casefold()
+                matching_groups = [
+                    group for group, names in FOCUS_REVIEW_MUSCLES.items()
+                    if normalized_muscle in {name.casefold() for name in names}
+                ]
+                if matching_groups:
+                    for group in matching_groups:
+                        summary[group] += sets
+                else:
+                    other_muscles[str(muscle).strip()] = other_muscles.get(str(muscle).strip(), 0) + sets
+            name = str(getattr(exercise, "exercise_name", "not set"))
+            reps_min = getattr(exercise, "target_reps_min", None)
+            reps_max = getattr(exercise, "target_reps_max", None)
+            rir = 10 - float(getattr(exercise, "target_rpe", 8.5))
+            rest = getattr(exercise, "rest_seconds", None)
+            groups = getattr(exercise, "set_groups", ()) or ()
+            flat = (
+                sets, reps_min, reps_max, rir,
+                getattr(exercise, "load", None),
+                False,
             )
+            groups_differ = bool(groups) and any(
+                (group.sets, group.reps_min, group.reps_max, group.target_rir,
+                 group.load, group.amrap_last_set) != flat
+                for group in groups
+            )
+            if selected_name:
+                row = {
+                    "name": name, "sets": sets, "reps_min": reps_min,
+                    "reps_max": reps_max, "rir": rir, "muscle": muscle or "not set",
+                }
+                row["rest_seconds"] = rest if rest is not None else "not set"
+                if groups_differ:
+                    row["set_groups"] = [
+                        {
+                            "sets": group.sets, "reps_min": group.reps_min,
+                            "reps_max": group.reps_max, "rir": group.target_rir,
+                            **({"load": group.load.model_dump()} if group.load else {}),
+                            **({"amrap_last_set": True} if group.amrap_last_set else {}),
+                        }
+                        for group in groups
+                    ]
+            else:
+                row = {"n": name, "s": sets, "r": reps_min, "R": reps_max, "m": muscle or "not set"}
+                if groups_differ:
+                    row["g"] = [
+                        {
+                            "s": group.sets, "r": group.reps_min, "R": group.reps_max,
+                            "i": group.target_rir,
+                            **({"l": {"k": group.load.kind, "v": group.load.value}} if group.load else {}),
+                            **({"a": True} if group.amrap_last_set else {}),
+                        }
+                        for group in groups
+                    ]
+            exercises.append(row)
+        day_name = str(getattr(day, "day_name", "not set"))
         days.append(
-            {
-                "day": str(getattr(day, "day_name", "not set")),
-                "exercises": exercises,
-            }
+            {"day": day_name, "exercises": exercises}
+            if selected_name else {"d": day_name, "e": exercises}
         )
     return {
-        "status": "ok",
-        "weekly_frequency": getattr(program, "weekly_frequency", "not set"),
-        "split_type": _not_set(getattr(program, "split_type", None)),
-        "days": days,
+        "status": "ok", "f": getattr(program, "weekly_frequency", "not set"),
+        "split": _not_set(getattr(program, "split_type", None)), "days": days,
+        **({} if selected_name else {
+            "weekly_sets_by_muscle": summary, "other_muscles": other_muscles,
+            "message": "Weak point groups can overlap. Request a day_name scope for RIR and rest.",
+        }),
     }
 
 
@@ -266,10 +329,13 @@ PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
         name="get_active_program",
         description=(
             "Read the current player's active Training program, including its training days "
-            "and prescribed exercises. Use this before answering questions about the program."
+            "and weekly sets by muscle. Compact keys: d=day, e=exercises, n=name, s=sets, "
+            "r/R=reps min/max, m=muscle, g=set groups. Request day_name for full RIR/rest. "
+            "Weak point groups can overlap. Use this before program questions."
         ),
-        args_schema=EmptyToolArgs,
+        args_schema=ActiveProgramArgs,
         reader=_read_active_program,
+        args_reader=lambda ledger, args: _read_active_program(ledger, args),
         status_en="Checking your Training program…",
         status_ar="ببص على برنامجك التدريبي…",
     ),
@@ -342,6 +408,16 @@ def _encode_tool_result(tool_result: Any) -> str:
     )
     if len(rendered.encode("utf-8")) <= MAX_TOOL_RESULT_BYTES:
         return rendered
+    if isinstance(tool_result, dict) and "weekly_sets_by_muscle" in tool_result:
+        compact = {
+            "status": "summary_only",
+            "weekly_sets_by_muscle": tool_result["weekly_sets_by_muscle"],
+            "day_names": [day.get("d", "") for day in tool_result.get("days", [])],
+            "message": "Ask for a day_name scope to read a full day.",
+        }
+        compact_rendered = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+        if len(compact_rendered.encode("utf-8")) <= MAX_TOOL_RESULT_BYTES:
+            return compact_rendered
     # Keep the tool message valid JSON and bounded. The assistant can explain
     # that this result was too large and ask the player to narrow the question.
     return json.dumps(
