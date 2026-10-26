@@ -453,17 +453,7 @@ def _apply_cardio_day_adjustment(ledger: Any, state: dict[str, Any], today: date
 
 
 def _cardio_day_records(ledger: Any, today: date) -> tuple[list[Any], int]:
-    sessions = ledger.conn.execute(
-        "SELECT id, program_version, program_week_order, program_day_order "
-        "FROM workout_sessions WHERE session_date = ?",
-        (today.isoformat(),),
-    ).fetchall()
-    logged = ledger.conn.execute(
-        "SELECT COALESCE(SUM(c.calories_kcal), 0) FROM session_cardio_entries c "
-        "JOIN workout_sessions s ON s.id = c.session_id WHERE s.session_date = ?",
-        (today.isoformat(),),
-    ).fetchone()[0]
-    return sessions, int(logged or 0)
+    return ledger.get_cardio_day_records(today.isoformat())
 
 
 def _prescribed_cardio_calories(ledger: Any, sessions: list[Any], weight: float | None) -> int:

@@ -336,6 +336,19 @@ class LedgerWorkoutsMixin:
             return None
         return [dict(row) for row in rows]
 
+    def get_cardio_day_records(self, session_date: str) -> tuple[list[Any], int]:
+        sessions = self.conn.execute(
+            "SELECT id, program_version, program_week_order, program_day_order "
+            "FROM workout_sessions WHERE session_date = ?",
+            (str(session_date),),
+        ).fetchall()
+        logged = self.conn.execute(
+            "SELECT COALESCE(SUM(c.calories_kcal), 0) FROM session_cardio_entries c "
+            "JOIN workout_sessions s ON s.id = c.session_id WHERE s.session_date = ?",
+            (str(session_date),),
+        ).fetchone()[0]
+        return sessions, int(logged or 0)
+
     def list_session_cardio_by_session(self) -> dict[str, list[dict[str, Any]]]:
         rows = self.conn.execute(
             "SELECT session_id,machine,minutes,speed_kmh,incline_pct,level,watts,distance_m,"

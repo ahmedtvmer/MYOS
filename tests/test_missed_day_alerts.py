@@ -22,6 +22,7 @@ from service import coach as coach_service
 from service import missed_day_alerts as alerts_service
 from service import nutrition_alerts
 from service import workouts as workouts_service
+from service.weight_history import player_local_date
 from svc.app import create_app
 from svc.dependencies import get_db
 
@@ -184,8 +185,8 @@ def test_fiber_water_targets_do_not_change_adherence_or_create_alerts(api):
     _, player_headers, assignment_id, coach_account_id = _assign(api)
     assignment = db.get_active_assignment_for_coach(coach_account_id, assignment_id)
     player = db.get_account(assignment["player_account_id"])
-    today = date(2026, 10, 25)
     with db.open_ledger(player["ledger_id"]) as ledger:
+        today = player_local_date(ledger, str(player["ledger_id"]))
         ledger.save_nutrition_plan(NutritionPlanVersion(
             "maintain", {"code": "default"}, None, "mostly_sitting",
             {"calories": 2000, "protein_g": 100, "carbs_g": 250, "fat_g": 67,
