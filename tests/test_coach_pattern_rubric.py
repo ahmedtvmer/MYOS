@@ -13,6 +13,7 @@ from agent.program_generator import (
 from agent.program_blueprints import SLOT_SPECS, SLOT_STAPLES
 from agent.program_rules import SPLIT_OPTIONS_BY_FREQUENCY
 from agent.focus_muscles import FOCUS_MUSCLE_SLOTS
+from core.weak_points import WEAK_POINT_MUSCLES
 
 
 MUSCLE_GROUPS = {
@@ -356,6 +357,94 @@ def test_focus_chest_generation_supports_every_frequency_and_equipment(
         assert actual_weekly_sets >= set_reason["target_weekly_sets"]
 
 
+def test_arm_focus_extras_add_exposure_on_lightest_eligible_days(fresh_store):
+    fresh_store.switch_user("focus_arms_new_exposure")
+    program = _focus_draft(fresh_store, "ppl_x_ul", 5, ("biceps", "triceps"))
+    extras = _focus_extra_records(program)
+    by_muscle = {item["muscle"]: item for item in program.program_rationale["focus_muscles"]}
+    assert any("leg" in day.day_name.casefold() or "lower" in day.day_name.casefold()
+               for day, _item in extras)
+    for muscle in ("biceps", "triceps"):
+        focus = by_muscle[muscle]
+        assert focus["day_choice_reason"]["code"] in {
+            "focus.new_weekly_exposure", "focus.lightest_training_day",
+        }
+        assert focus["day_choice_reason"]["params"]["exposures_after"] > focus["day_choice_reason"]["params"]["exposures_before"]
+
+
+def test_focus_extras_are_capped_at_two_per_day(fresh_store):
+    fresh_store.switch_user("focus_day_cap")
+    program = _focus_draft(fresh_store, "ppl_x_ul", 5, ("biceps", "triceps"))
+    counts = {}
+    for day, _item in _focus_extra_records(program):
+        counts[day.day_order] = counts.get(day.day_order, 0) + 1
+    assert max(counts.values()) <= 2
+
+
+def test_chest_focus_extra_never_crosses_to_lower_body(fresh_store):
+    fresh_store.switch_user("focus_chest_no_cross_region")
+    program = _focus_draft(fresh_store, "ppl_x_ul", 5, ("chest",))
+    focus = program.program_rationale["focus_muscles"][0]
+    day = next(day for day in program.days if day.day_order == focus["day_order"])
+    assert "leg" not in day.day_name.casefold() and "lower" not in day.day_name.casefold()
+    assert focus["day_choice_reason"]["params"]["day_order"] == day.day_order
+
+
+def test_focus_region_policy_covers_weak_point_vocabulary():
+    from agent import focus_muscles
+
+    policy = focus_muscles.FOCUS_REGION_POLICY
+    assert set(policy) == set(WEAK_POINT_MUSCLES)
+    expected = {
+        **{muscle: ("upper", ()) for muscle in (
+            "chest", "upper_chest", "back", "shoulders",
+        )},
+        **{muscle: ("upper", ("lower",)) for muscle in (
+            "side_delts", "biceps", "triceps", "forearms",
+        )},
+        **{muscle: ("lower", ()) for muscle in ("quads", "hamstrings", "glutes")},
+        "adductors": ("lower", ("upper",)),
+        "calves": ("lower", ("upper",)),
+        "abs": ("neutral", ("upper", "lower")),
+    }
+    assert {
+        muscle: (entry["home_region"], entry["isolation_cross_regions"])
+        for muscle, entry in policy.items()
+    } == expected
+
+
+def test_abs_focus_extra_adds_exposure_to_upper_day(fresh_store):
+    fresh_store.switch_user("focus_abs_new_exposure")
+    program = _focus_draft(fresh_store, "ppl_x_ul", 5, ("abs",))
+    focus = program.program_rationale["focus_muscles"][0]
+    day = next(day for day in program.days if day.day_order == focus["day_order"])
+    assert day.day_name.casefold().startswith("upper")
+    assert not any(exercise.slot_key == "abs" for exercise in day.exercises[1:])
+    extra = next(item for _day, item in _focus_extra_records(program))
+    assert extra["rationale"]["day_choice"]["code"] == "focus.new_weekly_exposure"
+
+
+def test_every_focus_extra_keeps_its_own_day_choice_reason(fresh_store, monkeypatch):
+    import agent.program_generator as generator
+
+    fresh_store.switch_user("focus_multiple_extra_reasons")
+    original_generate_days = generator._generate_program_days
+
+    def baseline_ten(profile, request, split_plan, ledger):
+        days, rationale = original_generate_days(profile, request, split_plan, ledger)
+        back_exercises = [ex for day in days for ex in day.exercises if ex.slot_key in FOCUS_MUSCLE_SLOTS["back"]]
+        back_exercises[0].target_sets += 2
+        return days, rationale
+
+    monkeypatch.setattr(generator, "_generate_program_days", baseline_ten)
+    program = _focus_draft(fresh_store, "ppl", 3, ("back",))
+    focus = program.program_rationale["focus_muscles"][0]
+    assert len(focus["extras"]) == 2
+    assert all(extra["day_choice_reason"]["code"] for extra in focus["extras"])
+    rationale_extras = [item for _day, item in _focus_extra_records(program)]
+    assert all(item["rationale"]["day_choice"]["code"] for item in rationale_extras)
+
+
 def _focus_draft(db, split_type, frequency, muscles=()):
     profile = {
         "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 70.0,
@@ -582,7 +671,10 @@ def test_generated_programs_pass_the_coach_pattern_rubric(
             assert exercise_record["position"] == position
             assert exercise_record["exercise_id"] == program_day.exercises[position - 1].exercise_id
             exercise_reasons = exercise_record["rationale"]
-            assert set(exercise_reasons) == {"selection", "position", "prescription"}
+            expected_reasons = {"selection", "position", "prescription"}
+            if exercise_reasons["selection"]["code"] == "selection.focus_muscle_extra":
+                expected_reasons.add("day_choice")
+            assert set(exercise_reasons) == expected_reasons
             assert exercise_reasons["selection"]["code"].startswith("selection.")
             assert exercise_reasons["position"]["code"].startswith("position.")
             assert set(exercise_reasons["prescription"]) == {"sets", "reps", "rir", "rest"}

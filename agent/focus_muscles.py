@@ -4,6 +4,23 @@ from core.weak_points import WEAK_POINT_MUSCLES
 
 FOCUS_MULTIPLIER = 1.3
 
+FOCUS_REGION_POLICY = {
+    "chest": {"home_region": "upper", "isolation_cross_regions": ()},
+    "upper_chest": {"home_region": "upper", "isolation_cross_regions": ()},
+    "back": {"home_region": "upper", "isolation_cross_regions": ()},
+    "shoulders": {"home_region": "upper", "isolation_cross_regions": ()},
+    "side_delts": {"home_region": "upper", "isolation_cross_regions": ("lower",)},
+    "biceps": {"home_region": "upper", "isolation_cross_regions": ("lower",)},
+    "triceps": {"home_region": "upper", "isolation_cross_regions": ("lower",)},
+    "forearms": {"home_region": "upper", "isolation_cross_regions": ("lower",)},
+    "quads": {"home_region": "lower", "isolation_cross_regions": ()},
+    "hamstrings": {"home_region": "lower", "isolation_cross_regions": ()},
+    "glutes": {"home_region": "lower", "isolation_cross_regions": ()},
+    "adductors": {"home_region": "lower", "isolation_cross_regions": ("upper",)},
+    "calves": {"home_region": "lower", "isolation_cross_regions": ("upper",)},
+    "abs": {"home_region": "neutral", "isolation_cross_regions": ("upper", "lower")},
+}
+
 FOCUS_EXTRA_TABLE = {
     "chest": {
         "candidate_slots": ("chest_fly", "incline_press", "flat_press"),
@@ -72,5 +89,6 @@ FOCUS_REVIEW_MUSCLES = {
 }
 
 assert set(FOCUS_EXTRA_TABLE) == set(WEAK_POINT_MUSCLES)
+assert set(FOCUS_REGION_POLICY) == set(WEAK_POINT_MUSCLES)
 assert set(FOCUS_MUSCLE_SLOTS) == set(WEAK_POINT_MUSCLES)
 assert set(FOCUS_REVIEW_MUSCLES) == set(WEAK_POINT_MUSCLES)

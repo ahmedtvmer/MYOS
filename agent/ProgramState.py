@@ -321,6 +321,9 @@ class CustomDayPlan(BaseModel):
         default="full",
         description="Warm-up block family; exactly one of upper, lower, full or arms (use full for whole-body days)",
     )
+    family: Literal["upper", "lower", "full", "arms"] | None = Field(
+        default=None, description="Blueprint training region used for Focus extra placement",
+    )
     sets_family: str | None = Field(
         default=None, description="Working-set profile: standard, leg, arms or full (defaults from warmup_family)"
     )

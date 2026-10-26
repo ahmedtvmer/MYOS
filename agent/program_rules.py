@@ -244,6 +244,7 @@ def _plan_from_blueprint_days(split_name: str, days: list, day_order_reason_code
                 day_name=day.name,
                 target_slots=list(day.slots),
                 warmup_family=day.family,
+                family=day.family,
                 sets_family=day.sets_family,
                 double_slots=list(day.double_slots),
                 cardio=day.cardio,
