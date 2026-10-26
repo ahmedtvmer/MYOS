@@ -166,6 +166,8 @@ def test_owner_issued_invite_grants_capability_without_reissuing_token(api, monk
         "has_password": True,
         "linked_sign_ins": [],
         "recovery_email_verified": False,
+        "google_email": None,
+        "product_emails_opted_in": False,
         "plans": {
             "lifter": {"plan": "free", "status": "active"},
             "coach": {"plan": "pro", "status": "active"},
@@ -213,6 +215,20 @@ def test_coach_invite_redemption_returns_saved_display_language(api):
     )
     assert redeemed.status_code == 200, redeemed.text
     assert redeemed.json()["display_language"] == "ar"
+
+
+def test_coach_invite_redemption_returns_google_email_and_product_consent(api):
+    client, db, _ = api
+    registered = client.post("/auth/register", json={"trainee_id": "coach-contact", "password": "correct-horse-1"})
+    account = db.get_active_account_by_username("coach-contact")
+    db.link_sign_in("google", "coach-contact-sub", account["account_id"])
+    db.update_linked_sign_in_email("google", "coach-contact-sub", "coach@gmail.com", True)
+    db.set_product_email_consent(account["account_id"], True)
+    invite = _issue(db, "coach-contact", actor="cli")
+    redeemed = client.post("/coach/invite/redeem", headers=_authed(registered.json()["access_token"]), json={"token": invite["token"]})
+    assert redeemed.status_code == 200
+    assert redeemed.json()["google_email"] == "coach@gmail.com"
+    assert redeemed.json()["product_emails_opted_in"] is True
 
 
 def test_invite_is_bound_to_the_invited_account(api):

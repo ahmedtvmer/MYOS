@@ -35,6 +35,9 @@ def list_account_rows(
 ) -> tuple[list[dict[str, Any]], int]:
     """Filters accounts, then returns one newest-first page and the total."""
     accounts = db.list_accounts(include_deleted=filters.show_deleted)
+    for account in accounts:
+        account["recovery_email"] = db.get_account_email(account["account_id"])
+        account["google_email"] = db.get_linked_sign_in_email(account["account_id"])
     if filters.show_deleted:
         total = len(accounts)
         offset = (filters.page - 1) * ACCOUNT_PAGE_SIZE
@@ -84,6 +87,22 @@ def find_by_recovery_email(db: Any, email: Any) -> dict[str, Any] | None:
     return account if db.is_live_account(account) else None
 
 
+def find_by_any_email(db: Any, email: Any) -> dict[str, Any] | None:
+    normalized = password_reset.normalize_email(email)
+    if normalized is None:
+        return None
+    account_id = db.get_account_by_email(normalized)
+    if account_id is None:
+        with db.catalog_locked() as conn:
+            row = conn.execute(
+                "SELECT account_id FROM linked_sign_ins WHERE provider = 'google' AND email = ?",
+                (normalized,),
+            ).fetchone()
+        account_id = str(row[0]) if row else None
+    account = db.get_account(account_id) if account_id else None
+    return account if db.is_live_account(account) else None
+
+
 def mask_recovery_email(email: str | None) -> str:
     """Returns the owner-view mask without exposing the local part."""
     if not email or "@" not in email:
@@ -104,7 +123,9 @@ def account_metadata(db: Any, account: dict[str, Any], now: datetime | None = No
         "onboarded": account_onboarded(db, account),
         "plans": plans_service.plans_for_account(db, account),
         "assignments": db.active_assignment_summary(account_id),
-        "recovery_email": mask_recovery_email(db.get_account_email(account_id)),
+        "recovery_email": db.get_account_email(account_id) or "Not set",
+        "recovery_email_masked": mask_recovery_email(db.get_account_email(account_id)),
+        "google_email": db.get_linked_sign_in_email(account_id) or "Not set",
         "recovery_email_verified": db.is_recovery_email_verified(account_id),
         "usage_month": model_metering.account_usage_totals(
             db, account_id, month_start.isoformat(), month_end.isoformat()

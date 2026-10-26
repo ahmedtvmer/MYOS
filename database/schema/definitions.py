@@ -882,8 +882,8 @@ class SchemaMixin:
                 -- Linked sign-in (CONTEXT.md): an external identity attached to
                 -- exactly one account, keyed on (provider, subject) where the
                 -- subject is the provider's immutable subject (Google's ``sub``).
-                -- Never matched by email; no email, name or picture from the
-                -- provider is stored. ``provider`` is data, so another provider
+                -- Never matched by email. Only normalized Google email and its
+                -- verification claim are stored as data. ``provider`` is data, so another provider
                 -- needs no schema change (issue #113). An account holds at most
                 -- one link per provider: UNIQUE(account_id, provider) (#114).
                 CREATE TABLE IF NOT EXISTS linked_sign_ins (
@@ -920,6 +920,7 @@ class SchemaMixin:
             self._ensure_model_usage_turn_id_column()
             self._ensure_model_usage_cached_input_tokens_column()
             self._ensure_linked_sign_in_account_provider()
+            self._ensure_google_email_and_product_contact()
             self._ensure_program_request_week_columns()
             self._ensure_coach_invites_revoked_at()
             self.catalog_conn.execute("DROP TRIGGER IF EXISTS first_touch_acquisition_no_update")
@@ -1286,3 +1287,18 @@ class SchemaMixin:
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_linked_sign_in_account_provider"
             " ON linked_sign_ins(account_id, provider)"
         )
+
+    def _ensure_google_email_and_product_contact(self) -> None:
+        """Catalog migration for linked Google email and explicit product contact consent (#514)."""
+        with self._catalog_lock, self.catalog_conn:
+            columns = self._table_columns(self.catalog_conn.cursor(), "linked_sign_ins")
+            if "email" not in columns:
+                self.catalog_conn.execute("ALTER TABLE linked_sign_ins ADD COLUMN email TEXT")
+            if "email_verified" not in columns:
+                self.catalog_conn.execute(
+                    "ALTER TABLE linked_sign_ins ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"
+                )
+            self.catalog_conn.execute(
+                "CREATE TABLE IF NOT EXISTS product_email_consent ("
+                "account_id TEXT PRIMARY KEY, consented_at TEXT NOT NULL)"
+            )

@@ -1,8 +1,10 @@
 """Server-rendered owner admin pages and their separate browser session."""
 
 import asyncio
+import csv
 import hashlib
 import html
+import io
 import ipaddress
 import math
 import os
@@ -204,6 +206,24 @@ async def admin_accounts_list(
     return _document("Accounts", body)
 
 
+@router.get("/product-email-contacts.csv", include_in_schema=False)
+async def admin_product_email_contacts(request: Request, db: Annotated[Any, Depends(get_db)]):
+    security = request.app.state.admin_security
+    session = security.get_session(request.cookies.get(SESSION_COOKIE))
+    if session is None:
+        return not_found_response()
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["email"])
+    writer.writerows((_spreadsheet_safe_cell(email),) for email in await asyncio.to_thread(db.list_product_email_contacts))
+    return Response(output.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="product-email-contacts.csv"'})
+
+
+def _spreadsheet_safe_cell(cell: str) -> str:
+    return "'" + cell if cell.startswith(("=", "+", "-", "@", "\t", "\r")) else cell
+
+
 @router.get("/usage", response_class=HTMLResponse, include_in_schema=False)
 async def admin_usage_page(request: Request, db: Annotated[Any, Depends(get_db)]):
     security = request.app.state.admin_security
@@ -357,7 +377,7 @@ async def admin_account_detail(
     }:
         coach_email_outcome = ""
     coach_email_result = (
-        {"outcome": coach_email_outcome, "masked_email": metadata["recovery_email"]}
+        {"outcome": coach_email_outcome, "masked_email": metadata["recovery_email_masked"]}
         if coach_email_outcome
         else None
     )
@@ -463,7 +483,7 @@ def _live_coach_invites(db: Any, account_id: str) -> list[dict[str, Any]]:
 
 
 def _coach_invite_email_availability(metadata: dict[str, Any]) -> dict[str, str | bool]:
-    masked_email = metadata["recovery_email"]
+    masked_email = metadata["recovery_email_masked"]
     if masked_email == "Not set":
         return {"available": False, "reason": "missing", "masked_email": masked_email}
     if not metadata["recovery_email_verified"]:
@@ -624,7 +644,7 @@ async def _email_lookup_response(
     security: admin_auth.AdminSecurity,
     email: str,
 ) -> RedirectResponse:
-    account = await asyncio.to_thread(admin_accounts_service.find_by_recovery_email, db, email)
+    account = await asyncio.to_thread(admin_accounts_service.find_by_any_email, db, email)
     await _write_admin_audit(
         db,
         audit_log.AuditEvent(
@@ -1328,7 +1348,7 @@ def _accounts_page(view: _AccountsPageView) -> str:
         else ""
     )
     return (
-        "<main><h1>Accounts</h1>"
+        '<main><h1>Accounts</h1><p><a href="/admin/product-email-contacts.csv">Export opted-in product-email contacts</a></p>'
         + deletion_notice
         + _account_filter_forms(query, view.csrf_token)
         + deleted_note
@@ -1354,7 +1374,7 @@ def _username_filter_form(query: AccountListQuery) -> str:
     inactive_value = html.escape(str(query.inactive_days or ""), quote=True)
     return (
         '<form class="filters" method="get" action="/admin/accounts">'
-        '<label for="q">Username</label>'
+        '<label for="q">Search username or account id</label>'
         f'<input id="q" name="q" value="{search_value}" maxlength="64">'
         f'<label><input type="checkbox" name="coach" value="1"{coach_checked}> Coach</label>'
         f'<label><input type="checkbox" name="not_onboarded" value="1"{onboarding_checked}> Not onboarded</label>'
@@ -1369,7 +1389,7 @@ def _email_lookup_form(csrf_token: str) -> str:
     return (
         '<form method="post" action="/admin/accounts/email">'
         f'<input type="hidden" name="csrf_token" value="{html.escape(csrf_token, quote=True)}">'
-        '<label for="recovery_email">Find by recovery email</label>'
+        '<label for="recovery_email">Find by recovery or Google email</label>'
         '<input id="recovery_email" name="email" type="email" autocomplete="off" required>'
         '<button type="submit">Find account</button></form>'
     )
@@ -1398,6 +1418,8 @@ def _live_account_row(account: dict[str, Any]) -> str:
         f'<p><a href="/admin/accounts/{account_id}">{username}</a></p>'
         f"<p>Account id: {account_id}{analytics_link}</p><p>Created: {created}</p>"
         f"<p>Last active day: {last_seen}</p><p>Last app build: {last_build}</p>"
+        f"<p>Recovery email: {html.escape(account.get('recovery_email') or 'Not set')}</p>"
+        f"<p>Google email: {html.escape(account.get('google_email') or 'Not set')}</p>"
         f"<p>Capabilities: {html.escape(', '.join(_capability_labels(account)))}</p>"
         "</li>"
     )
@@ -1629,7 +1651,7 @@ def _password_card(
     reset_result: dict[str, str],
 ) -> str:
     account_id = html.escape(account["account_id"], quote=True)
-    masked_email = metadata["recovery_email"]
+    masked_email = metadata["recovery_email_masked"]
     if not account["is_player"]:
         return '<section class="health-panel"><h2>Password</h2><p>Password reset is unavailable.</p></section>'
     outcome = reset_result.get("outcome", "")
@@ -1701,6 +1723,7 @@ def _account_metadata_fields(account: dict[str, Any], metadata: dict[str, Any]) 
         + _metadata_field("Onboarded", "Yes" if metadata["onboarded"] else "No")
         + _metadata_field("Active assignment", _assignment_summary(metadata["assignments"]))
         + _metadata_field("Recovery email", metadata["recovery_email"])
+        + _metadata_field("Google email", metadata["google_email"])
     )
 
 

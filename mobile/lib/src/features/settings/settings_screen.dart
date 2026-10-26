@@ -41,6 +41,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _selectorRevision = 0;
   bool _savingLanguage = false;
   bool _savingAnalytics = false;
+  bool _savingProductEmails = false;
+  bool? _productEmailsOptedIn;
+
+  Future<void> _setProductEmails(bool value) async {
+    setState(() => _savingProductEmails = true);
+    try {
+      final bool confirmed = await ref
+          .read(authControllerProvider.notifier)
+          .setProductEmailConsent(value);
+      if (mounted) setState(() => _productEmailsOptedIn = confirmed);
+    } on ApiException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(SettingsCopy(ref.read(displayLanguageProvider)).productEmailsSaveFailed)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingProductEmails = false);
+    }
+  }
 
   Future<void> _openRecoveryEmail() async {
     await context.push(recoveryEmailSettingsPath);
@@ -263,6 +283,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: session?.account.traineeId,
                   trailing: const SizedBox(width: MyosIconSizes.medium),
                   onTap: null,
+                ),
+                if (session?.account.googleEmail != null) ...<Widget>[
+                  Divider(height: 1, color: c.border),
+                  MyosSettingsTile(
+                    key: const Key('connected_google_email'),
+                    icon: Icons.account_circle_outlined,
+                    title: ui.connectedGoogleAccount,
+                    subtitle: session!.account.googleEmail,
+                    subtitleTextDirection: TextDirection.ltr,
+                    onTap: null,
+                  ),
+                ],
+                Divider(height: 1, color: c.border),
+                SwitchListTile.adaptive(
+                  key: const Key('product_emails_opt_in'),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: MyosSpacing.sm),
+                  title: Text(ui.productEmails),
+                  subtitle: Text(ui.productEmailsLead),
+                  value: _productEmailsOptedIn ?? session?.account.productEmailsOptedIn ?? false,
+                  onChanged: session == null || _savingProductEmails ? null : _setProductEmails,
                 ),
                 Divider(height: 1, color: c.border),
                 MyosSettingsTile(

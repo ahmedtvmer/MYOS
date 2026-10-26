@@ -146,6 +146,9 @@ def sign_in(db: Any, identity: GoogleIdentity) -> dict[str, Any]:
     account = db.get_account(account_id) if account_id else None
     if db.is_live_account(account):
         auth_service.clear_account_login_failures(db, account["account_id"])
+        db.update_linked_sign_in_email(
+            PROVIDER, identity.sub, _normalized_google_email(identity), identity.email_verified is True
+        )
         _verify_matching_recovery_email(db, account["account_id"], identity)
         return {
             "kind": "session",
@@ -204,6 +207,12 @@ def complete_signup(db: Any, completion: GoogleSignupCompletion) -> dict[str, An
         db.record_first_touch_acquisition_once(account_id, first_touch)
         try:
             db.link_sign_in(PROVIDER, completion.subject, account_id, linked_at=linked_at)
+            db.update_linked_sign_in_email(
+                PROVIDER,
+                completion.subject,
+                _normalized_google_email(completion.identity),
+                bool(completion.identity and completion.identity.email_verified is True),
+            )
         except sqlite3.IntegrityError:
             # UNIQUE(provider, subject): the other completion won the race, and
             # unwinding here takes the freshly created account with it.
@@ -245,8 +254,14 @@ def link_account(db: Any, account_id: str, identity: GoogleIdentity) -> dict[str
         return {"ok": False, "error": "Trainee ledger not found."}
     linked_at = datetime.now(UTC).isoformat()
     with db.catalog_transaction():
+        account = db.get_account(account_id)
+        if not db.is_live_account(account) or not account["is_player"]:
+            return {"ok": False, "error": "Trainee ledger not found."}
         holder = db.get_linked_sign_in_account_id(PROVIDER, subject)
         if holder == account_id:
+            db.update_linked_sign_in_email(
+                PROVIDER, subject, _normalized_google_email(identity), identity.email_verified is True
+            )
             _verify_matching_recovery_email(db, account_id, identity)
             return {"ok": True, "message": "Google account already connected."}
         if holder is not None:
@@ -258,6 +273,9 @@ def link_account(db: Any, account_id: str, identity: GoogleIdentity) -> dict[str
             raise SignInMethodError(DIFFERENT_GOOGLE, "google.different_account.v1")
         try:
             db.link_sign_in(PROVIDER, subject, account_id, linked_at=linked_at)
+            db.update_linked_sign_in_email(
+                PROVIDER, subject, _normalized_google_email(identity), identity.email_verified is True
+            )
         except sqlite3.IntegrityError:
             raise _link_conflict(db, account_id, subject) from None
         _verify_matching_recovery_email(db, account_id, identity)
@@ -268,6 +286,10 @@ def _verified_email(identity: GoogleIdentity) -> str | None:
     if identity.email_verified is not True:
         return None
     return password_reset.normalize_email(identity.email)
+
+
+def _normalized_google_email(identity: GoogleIdentity | None) -> str | None:
+    return password_reset.normalize_email(identity.email) if identity is not None else None
 
 
 def _verify_matching_recovery_email(

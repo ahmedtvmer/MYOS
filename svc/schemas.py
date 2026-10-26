@@ -355,6 +355,8 @@ class AccountOut(BaseModel):
     display_language: DisplayLanguage
     analytics_allowed: bool = True
     recovery_email_verified: bool = False
+    google_email: str | None = None
+    product_emails_opted_in: bool = False
     coach_ai_enabled: bool = False
     coach_roster_ai_enabled: bool = False
 
@@ -988,6 +990,10 @@ class AccountDeleteIn(BaseModel):
 
 class EmailUpdateIn(BaseModel):
     email: str = Field(min_length=3, max_length=254)
+
+
+class ProductEmailConsentIn(BaseModel):
+    opted_in: bool
 
 
 class RecoveryEmailOut(BaseModel):

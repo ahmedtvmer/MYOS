@@ -161,6 +161,14 @@
       "kind": "method",
       "signature": "(self, account_id: str) -> str | None"
     },
+    "get_linked_sign_in_email": {
+      "kind": "method",
+      "signature": "(self, account_id: str, provider: str = 'google') -> str | None"
+    },
+    "get_product_email_consent": {
+      "kind": "method",
+      "signature": "(self, account_id: str) -> tuple[bool, str | None]"
+    },
     "get_accounts_by_ids": {
       "kind": "method",
       "signature": "(self, account_ids: list[str]) -> list[dict[str, typing.Any]]"
@@ -352,6 +360,10 @@
     "list_accounts": {
       "kind": "method",
       "signature": "(self, *, include_deleted: bool = False) -> list[dict[str, typing.Any]]"
+    },
+    "list_product_email_contacts": {
+      "kind": "method",
+      "signature": "(self) -> list[str]"
     },
     "list_active_assignments_for_coach": {
       "kind": "method",
@@ -565,6 +577,10 @@
       "kind": "method",
       "signature": "(self, account_id: str, email: str) -> None"
     },
+    "set_product_email_consent": {
+      "kind": "method",
+      "signature": "(self, account_id: str, allowed: bool) -> bool"
+    },
     "set_account_last_seen_at": {
       "kind": "method",
       "signature": "(self, account_id: str, day: str, build: int | None = None) -> None"
@@ -612,6 +628,10 @@
     "update_coach_alert_details": {
       "kind": "method",
       "signature": "(self, alert_id: str, details: dict[str, typing.Any]) -> int"
+    },
+    "update_linked_sign_in_email": {
+      "kind": "method",
+      "signature": "(self, provider: str, subject: str, email: str | None, email_verified: bool) -> None"
     },
     "update_program_template": {
       "kind": "method",

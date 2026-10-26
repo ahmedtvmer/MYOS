@@ -50,6 +50,9 @@ class SettingsCopy {
       ? 'اكتب اسمًا صالحًا من 60 حرفًا أو أقل.'
       : 'Enter a printable name of 60 characters or fewer.';
   String get account => isArabic ? 'الحساب' : 'Account';
+  String get connectedGoogleAccount => isArabic ? 'حساب Google المتصل' : 'Connected Google account';
+  String get productEmails => isArabic ? 'رسائل المنتجات' : 'Product emails';
+  String get productEmailsLead => isArabic ? 'تلقي إعلانات وتحديثات المنتج عبر البريد الإلكتروني.' : 'Receive product announcements by email.';
   String get username => isArabic ? 'اسم المستخدم' : 'Username';
   String get linkedSignIn => isArabic ? 'تسجيل الدخول المرتبط' : 'Linked sign-in';
   String get linkedSignInSubtitle => isArabic
@@ -150,6 +153,9 @@ class SettingsCopy {
   String get analyticsSaveFailed => isArabic
       ? 'تعذر حفظ تفضيل التحليلات. حاول مرة أخرى.'
       : 'Could not save your analytics preference. Please try again.';
+  String get productEmailsSaveFailed => isArabic
+      ? 'تعذر حفظ تفضيل رسائل المنتجات. حاول مرة أخرى.'
+      : 'Could not save your product email preference. Try again.';
   String get credits => isArabic ? 'الاعتمادات' : 'Credits';
   String get logOut => isArabic ? 'تسجيل الخروج' : 'Log out';
   String get styleLead => isArabic

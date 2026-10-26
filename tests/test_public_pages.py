@@ -355,6 +355,11 @@ def test_policy_source_file_exists_and_every_section_is_served(api):
     # with whitespace and emphasis markers normalised away, because the prose
     # wraps across lines and bolds its lead-ins.
     flat = " ".join(source.split()).replace("**", "")
+    from service import privacy_policy
+    assert privacy_policy.POLICY_VERSION == "1.9"
+    assert privacy_policy.POLICY_EFFECTIVE_DATE == "2026-10-27"
+    assert "Effective date: 2026-10-27 — Policy version 1.9" in body
+    assert "This is the only email sent to you." not in flat
     for phrase in (
         "assignment you explicitly accept",
         "Free text you type can contain identifying information",
@@ -370,8 +375,14 @@ def test_policy_source_file_exists_and_every_section_is_served(api):
         "verified Google email",
         "keep a verified Google email as your recovery email",
         "already used as another account's recovery email",
+        "For each linked Google sign-in, its normalized Google email and Google's",
+        "use it for owner support and show it to you in Settings",
+        "may be sent only to a verified address on an account that explicitly opts in",
+        "product announcements may go to your verified contact address only while you have opted in",
+        "Addresses are never used to link or merge accounts",
     ):
         assert phrase in flat, f"missing from {POLICY_PATH.name}: {phrase!r}"
+    assert "This is the only email sent to you." not in flat
 
 
 # --------------------------------------------------------------------------

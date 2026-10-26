@@ -34,6 +34,11 @@ The identity a person uses to access MYOS. An account can have player and coach 
 The email address used for password recovery. It lives in the shared catalog with the account, separately from training data. An account can use MYOS before the address is verified, but password recovery requires a verified address.
 _Arabic_: البريد الإلكتروني للاسترداد
 
+**Product emails**:
+Optional product announcements sent only to an account that has explicitly
+opted in. Consent starts off and can be withdrawn in Settings.
+_Arabic_: رسائل المنتجات
+
 **Player**:
 An account holder using MYOS for their own training. A player may also be a coach.
 _Arabic_: لاعب
@@ -308,7 +313,7 @@ Arabic written in Latin letters and digits, such as "3ayez a8ayar el bench". The
 _Avoid_: Arabizi, Franco
 
 **Linked sign-in**:
-An external identity, such as a Google account, attached to exactly one MYOS account and usable to sign in to it. Sign-in and connection match only by provider and subject; accounts are never linked or merged by email. Google's verified email may be kept as the recovery email when a new account is created and no live account already uses it. On an existing account, it can verify the current unverified recovery email only when the addresses match; it never replaces a different address. It never replaces the account's username. An account always keeps at least one way to sign in, so a Linked sign-in can be removed only while the account has a password.
+An external identity, such as a Google account, attached to exactly one MYOS account and usable to sign in to it. Sign-in and connection match only by provider and subject; accounts are never linked or merged by email. A linked Google sign-in stores its normalized email and verification state as account data. Google's verified email may be kept as the recovery email when a new account is created and no live account already uses it. On an existing account, it can verify the current unverified recovery email only when the addresses match; it never replaces a different address. It never replaces the account's username. An account always keeps at least one way to sign in, so a Linked sign-in can be removed only while the account has a password.
 
 **Workout**:
 A single training session recorded by a player, distinct from an individual exercise within it.

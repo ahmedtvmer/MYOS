@@ -82,6 +82,10 @@ class FakeMyosApi {
   bool displayLanguageUpdateFails = false;
   bool analyticsPreferenceUpdateFails = false;
   bool analyticsAllowed = true;
+  bool productEmailsOptedIn = false;
+  bool? productEmailsResponseOverride;
+  bool productEmailsSaveFails = false;
+  String? googleEmail;
   bool coach = false;
   bool playerCapability = true;
   // Account deletion (issue #40). `accountDeleted` makes every authenticated
@@ -835,6 +839,8 @@ class FakeMyosApi {
         return _updateDisplayLanguage(request);
       case '/auth/analytics-preference':
         return _updateAnalyticsPreference(request);
+      case '/auth/product-email-consent':
+        return _updateProductEmailConsent(request);
       case '/auth/email':
         return _recoveryEmail(request);
       case '/auth/email/change':
@@ -1267,6 +1273,8 @@ class FakeMyosApi {
       'analytics_allowed': analyticsAllowed,
       'recovery_email_verified':
           recoveryEmail != null && recoveryEmailVerified,
+      'google_email': googleEmail,
+      'product_emails_opted_in': productEmailsOptedIn,
     });
   }
 
@@ -1299,6 +1307,17 @@ class FakeMyosApi {
     analyticsAllowed = request.body['analytics_allowed'] as bool;
     return FakeResponse(
         200, <String, dynamic>{'analytics_allowed': analyticsAllowed});
+  }
+
+  FakeResponse _updateProductEmailConsent(FakeRequest request) {
+    if (!_authorized(request)) {
+      return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
+    }
+    if (productEmailsSaveFails) {
+      return const FakeResponse(503, <String, dynamic>{'detail': 'offline'});
+    }
+    productEmailsOptedIn = request.body['opted_in'] as bool;
+    return FakeResponse(200, <String, dynamic>{'opted_in': productEmailsResponseOverride ?? productEmailsOptedIn});
   }
 
   Map<String, dynamic> _plansBody() => <String, dynamic>{

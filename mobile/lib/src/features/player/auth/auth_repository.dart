@@ -291,6 +291,9 @@ class AuthRepository {
   Future<({String email, bool verified})> setRecoveryEmail(String email) =>
       _api.setRecoveryEmail(email);
 
+  Future<bool> setProductEmailConsent(bool optedIn) =>
+      _api.setProductEmailConsent(optedIn);
+
   Future<void> sendRecoveryEmailVerificationCode() =>
       _api.sendRecoveryEmailVerificationCode();
 

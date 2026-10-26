@@ -373,6 +373,8 @@ def test_current_account_reports_capabilities_from_durable_registry(api):
         "has_password": True,
         "linked_sign_ins": [],
         "recovery_email_verified": False,
+        "google_email": None,
+        "product_emails_opted_in": False,
         "plans": {
             "lifter": {"plan": "free", "status": "active"},
             "coach": None,

@@ -171,7 +171,7 @@ def test_first_sign_in_creates_account_only_after_the_username_is_picked(api):
     assert rows[0][0] == "google" and rows[0][1] == "sub-alice-token" and rows[0][2] == account["account_id"]
     with db.catalog_locked() as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(linked_sign_ins)")}
-    assert columns == {"provider", "subject", "account_id", "linked_at"}
+    assert columns == {"provider", "subject", "account_id", "linked_at", "email", "email_verified"}
 
     # The session this returns works like any other.
     session = client.get("/auth/me", headers=_headers(completed.json()["access_token"]))
@@ -225,6 +225,115 @@ def test_returning_google_sign_in_goes_straight_in_with_remember_me(api):
     # Two sign-ins, one account, one link.
     assert len(_link_rows(db)) == 1
     assert len(_accounts(client)) == 1
+
+
+def test_google_email_collision_does_not_change_sub_based_sign_in(api):
+    client, db, verifier = api
+    google_account = _create_account_with_recovery_email(client, db, "googleowner", "owner@example.com")
+    recovery_account = _create_account_with_recovery_email(client, db, "recoveryowner", "shared@example.com")
+    identity = GoogleIdentity(sub="fixed-google-sub", email=" Shared@Example.com ", email_verified=True)
+    verifier.identities["shared-token"] = identity
+    db.link_sign_in("google", identity.sub, google_account["account_id"])
+    db.update_linked_sign_in_email("google", identity.sub, "shared@example.com", True)
+    response = client.post("/auth/google", json={"id_token": "shared-token"})
+    assert response.status_code == 200
+    assert response.json()["trainee_id"] == "googleowner"
+    assert recovery_account["account_id"] != google_account["account_id"]
+    assert db.get_active_account_by_username("googleowner")["account_id"] == google_account["account_id"]
+
+
+def test_linking_refuses_account_deleted_before_link_transaction(api, monkeypatch):
+    _client, db, _verifier = api
+    registered = _client.post(
+        "/auth/register",
+        json={"trainee_id": "linkrace", "password": "StrongPass123"},
+    )
+    assert registered.status_code == 201
+    account = db.get_active_account_by_username("linkrace")
+    identity = GoogleIdentity(sub="linkrace-sub", email="race@gmail.com", email_verified=True)
+    original_transaction = db.catalog_transaction
+    first = [True]
+
+    def delete_before_transaction(*args, **kwargs):
+        if first[0]:
+            first[0] = False
+            with db.catalog_locked() as conn:
+                conn.execute(
+                    "UPDATE accounts SET status='deleted', deleted_at='2026-10-27T00:00:00+00:00' WHERE account_id=?",
+                    (account["account_id"],),
+                )
+                conn.commit()
+        return original_transaction(*args, **kwargs)
+
+    monkeypatch.setattr(db, "catalog_transaction", delete_before_transaction)
+    from service.google_sign_in import link_account
+
+    result = link_account(db, account["account_id"], identity)
+    assert result["ok"] is False
+    assert db.get_linked_sign_in_account_id("google", identity.sub) is None
+
+
+def test_google_sign_in_refreshes_changed_normalized_link_email(api):
+    client, db, verifier = api
+    verifier.identities["changing-email-token"] = GoogleIdentity(
+        sub="changing-email-sub", given_name="Change", email="First@Example.com", email_verified=True
+    )
+    signup = _sign_in_for_ticket(client, "changing-email-token")
+    complete = client.post(
+        "/auth/google/complete",
+        json={"signup_ticket": signup["signup_ticket"], "username": "changing-email", "id_token": "changing-email-token"},
+    )
+    assert complete.status_code == 200
+    account = db.get_active_account_by_username("changing-email")
+    assert db.get_linked_sign_in_email(account["account_id"]) == "first@example.com"
+
+    verifier.identities["changing-email-token"] = GoogleIdentity(
+        sub="changing-email-sub", given_name="Change", email=" Second@Example.com ", email_verified=True
+    )
+    signed_in = client.post("/auth/google", json={"id_token": "changing-email-token"})
+    assert signed_in.status_code == 200
+    assert db.get_linked_sign_in_email(account["account_id"]) == "second@example.com"
+    me = client.get("/auth/me", headers=_headers(signed_in.json()["access_token"]))
+    assert me.json()["google_email"] == "second@example.com"
+    with db.catalog_locked() as conn:
+        verified = conn.execute(
+            "SELECT email_verified FROM linked_sign_ins WHERE provider = 'google' AND subject = ?",
+            ("changing-email-sub",),
+        ).fetchone()[0]
+    assert verified == 1
+
+
+def test_product_email_consent_is_opt_in_and_cleared_on_withdrawal(api):
+    client, db, _verifier = api
+    registered = client.post("/auth/register", json={"trainee_id": "consent-player", "password": "StrongPass123"})
+    assert registered.status_code == 201
+    headers = _headers(registered.json()["access_token"])
+    me = client.get("/auth/me", headers=headers)
+    assert me.json()["product_emails_opted_in"] is False
+    consent = client.put("/auth/product-email-consent", json={"opted_in": True}, headers=headers)
+    assert consent.status_code == 200
+    is_opted_in, consented_at = db.get_product_email_consent(db.get_active_account_by_username("consent-player")["account_id"])
+    assert is_opted_in and consented_at
+    assert client.get("/auth/me", headers=headers).json()["product_emails_opted_in"] is True
+    assert client.put("/auth/product-email-consent", json={"opted_in": False}, headers=headers).status_code == 200
+    assert client.get("/auth/me", headers=headers).json()["product_emails_opted_in"] is False
+    assert db.get_product_email_consent(db.get_active_account_by_username("consent-player")["account_id"]) == (False, None)
+
+
+def test_account_deletion_removes_google_email_and_product_consent(api):
+    client, db, _verifier = api
+    registered = client.post("/auth/register", json={"trainee_id": "deletecontact", "password": "StrongPass123"})
+    assert registered.status_code == 201
+    account = db.get_active_account_by_username("deletecontact")
+    db.link_sign_in("google", "deletecontact-sub", account["account_id"])
+    db.update_linked_sign_in_email("google", "deletecontact-sub", "delete@gmail.com", True)
+    db.set_product_email_consent(account["account_id"], True)
+    from service import account_deletion
+
+    deletion = account_deletion.delete_account(db, account["account_id"], "StrongPass123")
+    assert deletion["ok"] is True
+    assert db.get_linked_sign_in_email(account["account_id"]) is None
+    assert db.get_product_email_consent(account["account_id"]) == (False, None)
 
 
 def test_verified_recovery_email_match_returns_only_a_nudge_and_writes_nothing(api, caplog):
@@ -343,9 +452,10 @@ def test_signup_email_taken_after_sign_in_is_not_saved(api):
     assert me.status_code == 200
     assert me.json()["recovery_email_verified"] is False
     assert google_email not in complete.text
+    assert db.get_linked_sign_in_email(account["account_id"]) == google_email
 
 
-def test_email_conflict_hint_keeps_google_email_out_of_separate_signup(api, caplog):
+def test_email_conflict_hint_keeps_google_email_out_of_recovery_but_stores_link_data(api, caplog):
     client, db, verifier = api
     google_email = "separate.owner@example.com"
     _create_account_with_recovery_email(client, db, "recovery-owner", google_email)
@@ -377,6 +487,7 @@ def test_email_conflict_hint_keeps_google_email_out_of_separate_signup(api, capl
     assert me.json()["recovery_email_verified"] is False
     assert google_email not in complete.text
     assert google_email not in caplog.text
+    assert db.get_linked_sign_in_email(account["account_id"]) == google_email
     with db.catalog_locked() as conn:
         assert conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0
 
@@ -485,6 +596,7 @@ def test_google_signup_string_email_verified_does_not_store_email(api):
     assert account is not None
     assert db.get_account_email(account["account_id"]) is None
     assert db.is_recovery_email_verified(account["account_id"]) is False
+    assert db.get_linked_sign_in_email(account["account_id"]) == "string-verified@example.com"
 
 
 def test_google_signup_without_completion_token_keeps_verified_email_empty(api):
@@ -557,6 +669,7 @@ def test_google_sign_in_and_connect_do_not_verify_without_boolean_true(api, oper
     assert response.status_code == 200, response.text
     assert db.get_account_email(account["account_id"]) == "current.owner@example.com"
     assert db.is_recovery_email_verified(account["account_id"]) is False
+    assert db.get_linked_sign_in_email(account["account_id"]) == "current.owner@example.com"
 
 
 def test_google_signup_rolls_back_account_link_and_recovery_email_after_write_failure(api, monkeypatch):
