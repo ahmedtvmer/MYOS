@@ -1619,10 +1619,10 @@ void main() {
     expect(find.text('Bench Press'), findsWidgets);
     await tester.tap(find.byTooltip('Increase working sets for Bench Press'));
     await tester.pump();
-    expect(find.bySemanticsLabel('Bench Press: 3 working sets'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bench Press: 4 working sets'), findsOneWidget);
     await tester.tap(find.byTooltip('Decrease working sets for Bench Press'));
     await tester.pump();
-    expect(find.bySemanticsLabel('Bench Press: 2 working sets'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bench Press: 3 working sets'), findsOneWidget);
     final Finder benchHandle = find.bySemanticsLabel('Reorder Bench Press');
     final Offset benchStart = tester.getCenter(benchHandle);
     await tester.dragFrom(benchStart, benchStart + const Offset(0, 120));
@@ -1641,7 +1641,7 @@ void main() {
         <String, dynamic>{'source_index': 1, 'exercise_id': 'overhead_press', 'target_sets': 3},
         <String, dynamic>{'source_index': 2, 'exercise_id': 'barbell_row', 'target_sets': 3},
         <String, dynamic>{'source_index': 3, 'exercise_id': 'lat_pulldown', 'target_sets': 3},
-        <String, dynamic>{'source_index': 0, 'exercise_id': 'bench_press', 'target_sets': 2},
+        <String, dynamic>{'source_index': 0, 'exercise_id': 'bench_press', 'target_sets': 3},
       ],
     });
     expect(
@@ -1656,8 +1656,81 @@ void main() {
       tester.getTopLeft(find.text('Lat Pulldown')).dy,
       lessThan(tester.getTopLeft(find.text('Bench Press').last).dy),
     );
-    expect(find.textContaining('2 × 5–8'), findsOneWidget);
+    expect(find.textContaining('3 × 5–8'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('Edit day add flow starts at two sets and allows one through four in both languages', (tester) async {
+    for (final String language in <String>['en', 'ar']) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      final FakeMyosApi fake = _signedInFake()..programVersion = 1;
+      await _pumpProgram(tester, fake, languageCode: language);
+      await tester.tap(find.byKey(const Key('program_edit_day_1')));
+      await tester.pumpAndSettle();
+      final String addLabel = language == 'ar' ? 'إضافة تمرين إلى البرنامج' : 'Add exercise';
+      expect(find.text(addLabel), findsOneWidget);
+      await tester.tap(find.text(addLabel));
+      await tester.pumpAndSettle();
+      expect(find.text(language == 'ar' ? 'عرض كل المعدات' : 'Show all equipment'), findsOneWidget);
+      expect(find.text(language == 'ar' ? 'حسب المعدات المتاحة' : 'Equipment access'), findsOneWidget);
+      await tester.tap(find.text(language == 'ar' ? 'عرض كل المعدات' : 'Show all equipment'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Bicep Curl');
+      await tester.tap(find.text(language == 'ar' ? 'بحث' : 'Search').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bicep Curl').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Bicep Curl'), findsWidgets);
+      expect(find.text('2'), findsWidgets);
+      await tester.tap(find.byTooltip(language == 'ar'
+          ? 'تقليل مجموعات التدريب لتمرين Bicep Curl'
+          : 'Decrease working sets for Bicep Curl'));
+      await tester.pump();
+      expect(find.bySemanticsLabel(language == 'ar'
+          ? 'عدد مجموعات التدريب لتمرين Bicep Curl: مجموعة تدريب واحدة'
+          : 'Bicep Curl: 1 working set'), findsOneWidget);
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byTooltip(language == 'ar'
+            ? 'زيادة مجموعات التدريب لتمرين Bicep Curl'
+            : 'Increase working sets for Bicep Curl'));
+        await tester.pump();
+      }
+      expect(find.bySemanticsLabel(language == 'ar'
+          ? 'عدد مجموعات التدريب لتمرين Bicep Curl: '
+              '\u20664\u2069 مجموعات تدريب'
+          : 'Bicep Curl: 4 working sets'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('program_edit_save_button')));
+      await tester.pumpAndSettle();
+      final List<dynamic> requested = fake.programEditRequests.single['exercises'] as List<dynamic>;
+      expect((requested.last as Map<String, dynamic>)['show_all_equipment'], isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('Edit day previews and shows a non-blocking volume warning', (tester) async {
+    for (final String language in <String>['en', 'ar']) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      final FakeMyosApi fake = _signedInFake()
+        ..programVersion = 1
+        ..programEditPreviewWarnings = <Map<String, dynamic>>[
+          <String, dynamic>{'muscle': 'Chest', 'weekly_sets': 11, 'ceiling': 10},
+        ];
+      await _pumpProgram(tester, fake, languageCode: language);
+      await tester.tap(find.byKey(const Key('program_edit_day_1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('program_edit_save_button')));
+      await tester.pumpAndSettle();
+      expect(find.text(language == 'ar' ? 'تنبيه بشأن حجم التدريب' : 'Volume warning'), findsOneWidget);
+      expect(
+        find.textContaining(language == 'ar'
+            ? 'سيصل تدريب الصدر إلى'
+            : 'Chest will reach 11 weekly working sets'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(language == 'ar' ? 'حفظ على أي حال' : 'Save anyway'));
+      await tester.pumpAndSettle();
+      expect(fake.programEditRequests.where((row) => row['preview'] != true), hasLength(1));
+    }
   });
 
   testWidgets('Edit day keeps duplicate rows within their own set caps',
@@ -1723,7 +1796,7 @@ void main() {
     await tester.tap(find.byKey(const Key('program_edit_increase_2')));
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Bench Press: 2 working sets'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bench Press: 3 working sets'), findsOneWidget);
     expect(find.bySemanticsLabel('Bench Press: 4 working sets'), findsOneWidget);
     await tester.tap(find.byKey(const Key('program_edit_save_button')));
     await tester.pumpAndSettle();
@@ -1732,7 +1805,7 @@ void main() {
       <String, dynamic>{
         'source_index': 0,
         'exercise_id': 'bench_press',
-        'target_sets': 2,
+        'target_sets': 3,
       },
       <String, dynamic>{
         'source_index': 1,
@@ -1893,7 +1966,7 @@ void main() {
     expect(
       find.bySemanticsLabel(
         'عدد مجموعات التدريب لتمرين Bench Press: '
-        '\u20663\u2069 مجموعات تدريب',
+        '\u20664\u2069 مجموعات تدريب',
       ),
       findsOneWidget,
     );

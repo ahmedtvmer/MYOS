@@ -2,11 +2,12 @@
 
 from copy import deepcopy
 from agent.ProgramState import program_exercise_working_sets
+from agent.program_blueprints import experience_level_for_training_age
 from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
-from agent.program_rationale import CHANGE_PROGRAM_EDIT_REMOVED, CHANGE_PROGRAM_EDIT_REORDERED, CHANGE_PROGRAM_EDIT_TRIMMED
+from agent.program_rationale import CHANGE_PROGRAM_EDIT_REMOVED, CHANGE_PROGRAM_EDIT_REORDERED, CHANGE_PROGRAM_EDIT_TRIMMED, CHANGE_PROGRAM_EDIT_ADDED, CHANGE_PROGRAM_EDIT_RAISED
 from agent.program_weeks import (
     flatten_program_days,
     find_program_day,
@@ -26,6 +27,8 @@ class ProgramEditErrorCode(str, Enum):
     COACH_CONTROLLED = "coach_controlled"
     NO_ACTIVE_PROGRAM = "no_active_program"
     PROGRAM_CHANGED = "program_changed"
+    EXERCISE_NOT_AVAILABLE = "exercise_not_available"
+    DAY_LIMIT = "day_limit"
 
 
 PROGRAM_EDIT_ERRORS = {
@@ -37,6 +40,8 @@ PROGRAM_EDIT_ERRORS = {
     ProgramEditErrorCode.COACH_CONTROLLED: COACH_CONTROLLED_ERROR,
     ProgramEditErrorCode.NO_ACTIVE_PROGRAM: "No active program.",
     ProgramEditErrorCode.PROGRAM_CHANGED: "The program changed since this edit was opened.",
+    ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE: "That exercise is not available in the Exercise library.",
+    ProgramEditErrorCode.DAY_LIMIT: "A training day can have at most 10 working-set exercises.",
 }
 PROGRAM_EDIT_MESSAGE_CODES = {
     ProgramEditErrorCode.DAY_NOT_FOUND: "program.edit.day_not_found.v1",
@@ -47,6 +52,8 @@ PROGRAM_EDIT_MESSAGE_CODES = {
     ProgramEditErrorCode.COACH_CONTROLLED: "program.coach_controls.v1",
     ProgramEditErrorCode.NO_ACTIVE_PROGRAM: "program.no_active.v1",
     ProgramEditErrorCode.PROGRAM_CHANGED: "program.edit.changed.v1",
+    ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE: "program.edit.exercise_not_available.v1",
+    ProgramEditErrorCode.DAY_LIMIT: "program.edit.day_limit.v1",
 }
 
 
@@ -55,6 +62,7 @@ class ProgramEditExercise:
     source_index: int
     exercise_id: str
     target_sets: int
+    show_all_equipment: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,6 +75,7 @@ class ProgramEdit:
     week_order: int | None = None
     day_order: int | None = None
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT
+    preview: bool = False
 
 
 @dataclass(frozen=True)
@@ -85,10 +94,26 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     prepared, failure = _prepare_program_edit(active, edit_request)
     if failure:
         return failure
+    if len(edit_request.exercises) > 10:
+        return _failure(ProgramEditErrorCode.DAY_LIMIT)
+    if any(item.source_index < 0 for item in edit_request.exercises):
+        profile = ledger.get_player_profile() or {}
+        from utils.equipment_access import equipment_access_allows
+        for item in edit_request.exercises:
+            if item.source_index >= 0:
+                continue
+            candidate = db.get_exercise_library_entry(item.exercise_id)
+            if (candidate is None or not db.is_exercise_library_exercise_visible(item.exercise_id)
+                    or (not item.show_all_equipment and not equipment_access_allows(profile.get("equipment_access"), candidate.get("equipment")))):
+                return _failure(ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE)
     previous_version = active.version
     if _is_unchanged(prepared.day["exercises"], edit_request.exercises):
-        return _updated_program_result(ledger, previous_version)
+        warnings = _volume_warnings(
+            ledger, active.model_dump(), ledger.get_player_profile() or {}, current_position.current_week
+        )
+        return {**_updated_program_result(ledger, previous_version), "volume_warnings": warnings}
     _apply_program_edit(prepared, edit_request.exercises)
+    _prepare_added_prescriptions(db, ledger, prepared.day, edit_request.exercises)
     from service.program_rationale_changes import (
         carry_program_rationale,
         occurrence_mappings_for_days,
@@ -104,6 +129,9 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     if old_day and new_day:
         source_positions[day_key] = {}
         for target_position, requested in enumerate(edit_request.exercises, 1):
+            if requested.source_index < 0:
+                changes_by_target[(*day_key, target_position)] = [{"code": CHANGE_PROGRAM_EDIT_ADDED, "params": {"exercise_id": requested.exercise_id, "by": "player"}}]
+                continue
             from_position = requested.source_index + 1
             source_positions[day_key][target_position] = from_position
             old = old_day["exercises"][requested.source_index]
@@ -112,12 +140,12 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
             before = int(old.get("target_sets", 0))
             after = int(new.get("target_sets", 0))
             if before != after:
-                entries.append({"code": CHANGE_PROGRAM_EDIT_TRIMMED, "params": {"from_sets": before, "to_sets": after}})
+                entries.append({"code": CHANGE_PROGRAM_EDIT_RAISED if after > before else CHANGE_PROGRAM_EDIT_TRIMMED, "params": {"from_sets": before, "to_sets": after}})
             if from_position != target_position:
                 entries.append({"code": CHANGE_PROGRAM_EDIT_REORDERED, "params": {"from_position": from_position, "to_position": target_position}})
             if entries:
                 changes_by_target[(*day_key, target_position)] = entries
-        kept_positions = set(source_positions[day_key].values())
+        kept_positions = {item.source_index + 1 for item in edit_request.exercises if item.source_index >= 0}
         removed_entries = [
             {"week_order": day_key[0], "day_order": day_key[1],
              "exercise_id": str(exercise["exercise_id"]), "code": CHANGE_PROGRAM_EDIT_REMOVED}
@@ -130,6 +158,9 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     )
     carry_program_rationale(active, prepared.program_copy,
                             occurrence_mappings=mappings, removed_entries=removed_entries)
+    warnings = _volume_warnings(ledger, prepared.program_copy, ledger.get_player_profile() or {}, current_position.current_week)
+    if edit_request.preview:
+        return {**prepared.program_copy, "previous_version": active.version, "volume_warnings": warnings}
     prepared.program_copy.pop("created_at", None)
     ledger.save_training_program(
         prepared.program_copy,
@@ -139,7 +170,29 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
     updated = ledger.get_active_program()
     if updated is not None:
         capture_program_edited(edit_request.actor, updated, client=edit_request.client)
-    return _updated_program_result(ledger, previous_version)
+    return {**_updated_program_result(ledger, previous_version), "volume_warnings": warnings}
+
+
+def _volume_warnings(ledger: Any, program: dict[str, Any], profile: dict[str, Any], current_week: int) -> list[dict[str, Any]]:
+    from agent.focus_muscles import FOCUS_REVIEW_MUSCLES
+    from agent.program_weeks import normalize_program_weeks
+    from agent.ProgramState import program_exercise_working_sets
+    level = experience_level_for_training_age(float(profile.get("training_age_years") or 0))
+    ceilings = {"beginner": 8, "intermediate": 10, "advanced": 13}
+    weeks = normalize_program_weeks(program)
+    days = next((week["days"] for week in weeks if int(week["week_order"]) == current_week), weeks[0]["days"] if weeks else [])
+    exercises = [exercise for day in days for exercise in day.get("exercises", [])]
+    targets = ledger.volume_review_exercise_targets(sorted({str(ex["exercise_id"]) for ex in exercises}))
+    totals: dict[str, int] = {}
+    for exercise in exercises:
+        muscle = targets.get(str(exercise["exercise_id"]))
+        if muscle:
+            totals[muscle] = totals.get(muscle, 0) + program_exercise_working_sets(exercise)
+    focus_keys = {str(item.get("muscle", "")) for item in (program.get("program_rationale") or {}).get("focus_muscles", []) if isinstance(item, dict)}
+    focus_groups = {group.lower() for key in focus_keys for group in FOCUS_REVIEW_MUSCLES.get(key, set())}
+    return [{"muscle": muscle, "weekly_sets": sets, "ceiling": round(ceilings[level] * (1.3 if muscle.lower() in focus_groups else 1.0))}
+            for muscle, sets in sorted(totals.items())
+            if sets > round(ceilings[level] * (1.3 if muscle.lower() in focus_groups else 1.0))]
 
 
 def _active_program_for_edit(db: Any, ledger: Any, edit_request: ProgramEdit) -> tuple[Any, dict[str, Any] | None]:
@@ -182,23 +235,23 @@ def _validate_program_edit(
     current_exercises: list[dict[str, Any]],
     requested_exercises: list[ProgramEditExercise],
 ) -> dict[str, Any] | None:
-    requested_indexes = [exercise.source_index for exercise in requested_exercises]
+    requested_indexes = [exercise.source_index for exercise in requested_exercises if exercise.source_index >= 0]
     if len(set(requested_indexes)) != len(requested_indexes):
         return _failure(ProgramEditErrorCode.DUPLICATE_EXERCISE)
+    by_exercise: dict[str, list[ProgramEditExercise]] = {}
+    for exercise in requested_exercises:
+        by_exercise.setdefault(exercise.exercise_id, []).append(exercise)
+    if any(len(items) > 1 and any(item.source_index < 0 for item in items) for items in by_exercise.values()):
+        return _failure(ProgramEditErrorCode.DUPLICATE_EXERCISE)
     if any(
-        exercise.source_index < 0
-        or exercise.source_index >= len(current_exercises)
+        exercise.source_index >= len(current_exercises)
         or str(current_exercises[exercise.source_index]["exercise_id"]) != exercise.exercise_id
-        for exercise in requested_exercises
+        for exercise in requested_exercises if exercise.source_index >= 0
     ):
         return _failure(ProgramEditErrorCode.EXERCISE_NOT_ON_DAY)
     if any(
         exercise.target_sets < 1
-        or exercise.target_sets > (
-            int(current_exercises[exercise.source_index]["set_groups"][0]["sets"])
-            if len(current_exercises[exercise.source_index].get("set_groups") or []) > 1
-            else program_exercise_working_sets(current_exercises[exercise.source_index])
-        )
+        or exercise.target_sets > 4
         for exercise in requested_exercises
     ):
         return _failure(ProgramEditErrorCode.INVALID_SET_COUNT)
@@ -227,6 +280,9 @@ def _apply_program_edit(
     current_exercises = prepared.day["exercises"]
     prepared.day["exercises"] = []
     for requested in requested_exercises:
+        if requested.source_index < 0:
+            prepared.day["exercises"].append({"exercise_id": requested.exercise_id, "target_sets": requested.target_sets})
+            continue
         exercise_copy = deepcopy(current_exercises[requested.source_index])
         groups = exercise_copy.get("set_groups") or []
         if groups:
@@ -236,6 +292,30 @@ def _apply_program_edit(
         else:
             exercise_copy["target_sets"] = requested.target_sets
         prepared.day["exercises"].append(exercise_copy)
+
+
+def _prepare_added_prescriptions(db: Any, ledger: Any, day: dict[str, Any], requested: list[ProgramEditExercise]) -> None:
+    from agent.program_rules import exercise_mechanic, get_target_rep_window
+    profile = ledger.get_player_profile() or {}
+    from agent.program_blueprints import (
+        REST_SECONDS_RANGES_BY_CLASS,
+        TARGET_RIR_BY_EXPERIENCE_AND_CLASS,
+        WARMUP_SET_RANGES_BY_CLASS,
+    )
+    level = experience_level_for_training_age(float(profile.get("training_age_years") or 0))
+    for exercise, item in zip(day["exercises"], requested):
+        if item.source_index >= 0:
+            continue
+        row = db.get_exercise_library_entry(item.exercise_id)
+        mechanic = exercise_mechanic(row)
+        prescription_class = "calf_abs" if (row.get("primary_muscle") or "").lower() in {"calves", "abs"} else ("medium_compound" if mechanic == "compound" else "isolation")
+        rir = TARGET_RIR_BY_EXPERIENCE_AND_CLASS[(level, prescription_class)]
+        warmup_sets = WARMUP_SET_RANGES_BY_CLASS[prescription_class][0]
+        rest_min, rest_max = REST_SECONDS_RANGES_BY_CLASS[prescription_class]
+        reps = get_target_rep_window(mechanic, profile.get("rep_preference", "balanced"))
+        exercise.update({"exercise_name": row["name"], "target_reps_min": reps[0], "target_reps_max": reps[1],
+            "target_rpe": 10 - rir, "rest_seconds": (rest_min + rest_max) // 2, "warmup_sets": warmup_sets,
+            "set_groups": [{"sets": item.target_sets, "reps_min": reps[0], "reps_max": reps[1], "target_rir": rir}]})
 
 
 def _updated_program_result(ledger: Any, previous_version: int) -> dict[str, Any]:

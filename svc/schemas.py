@@ -1758,6 +1758,7 @@ class ProgramEditExerciseIn(BaseModel):
     source_index: int
     exercise_id: str = Field(min_length=1, max_length=200)
     target_sets: int
+    show_all_equipment: bool = False
 
 
 class ProgramEditIn(BaseModel):
@@ -1769,7 +1770,8 @@ class ProgramEditIn(BaseModel):
     week_order: int | None = Field(default=None, ge=1, le=MAX_PROGRAM_WEEKS)
     day_order: int | None = Field(default=None, ge=1, le=MAX_PROGRAM_DAYS)
     expected_active_version: int = Field(ge=1)
-    exercises: list[ProgramEditExerciseIn] = Field(max_length=MAX_EXERCISES_PER_DAY)
+    preview: bool = False
+    exercises: list[ProgramEditExerciseIn] = Field(max_length=MAX_EXERCISES_PER_DAY + 1)
 
 
 class ActiveProgramOut(PersistedProgramSchema):
@@ -1796,6 +1798,7 @@ class ProgramSubstitutionOut(PersistedProgramSchema):
 class ProgramEditOut(PersistedProgramSchema):
     previous_version: int
     player_controls_program: bool
+    volume_warnings: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class PlayerProgramRequestIn(BaseModel):

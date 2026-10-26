@@ -120,6 +120,8 @@ async def search_exercises(
     equipment_category: list[str] | None = Query(None),
     load_type: list[str] | None = Query(None),
     replacing_exercise_id: str | None = None,
+    filter_equipment_access: bool = False,
+    show_all_equipment: bool = False,
 ):
     """Search the Exercise library by name, target muscle or curated filters.
 
@@ -134,7 +136,7 @@ async def search_exercises(
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    if not (query or target_muscle or filters.has_curated_filters):
+    if not (query or target_muscle or filters.has_curated_filters or filter_equipment_access):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -143,12 +145,12 @@ async def search_exercises(
             ),
         )
     filter_browse = bool(
-        (target_muscle or filters.has_curated_filters) and not (query or "").strip()
+        (target_muscle or filters.has_curated_filters or filter_equipment_access) and not (query or "").strip()
     )
     # Replace filter-only browsing is unbounded so it never drops matching rows.
     limit = None if filter_browse else 10
     equipment_access = None
-    if filter_browse:
+    if (filter_browse or filter_equipment_access) and not (filter_equipment_access and show_all_equipment):
         equipment_access = map_equipment_access(
             (ledger.get_player_profile() or {}).get("equipment_access", COMMERCIAL_GYM)
         )
@@ -161,6 +163,9 @@ async def search_exercises(
         filters=filters,
         replacing_exercise_id=replacing_exercise_id,
     )
+    if filter_equipment_access and not show_all_equipment:
+        from utils.equipment_access import equipment_access_allows
+        exercises = [row for row in exercises if equipment_access_allows(equipment_access, row.get("equipment"))]
     return {
         # Filter-only browsing suggests options; typed searches stay bounded.
         "exercises": exercises,

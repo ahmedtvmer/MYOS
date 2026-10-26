@@ -355,6 +355,8 @@ class FakeMyosApi {
   final List<Map<String, dynamic>> programSubstitutionUndoRequests =
       <Map<String, dynamic>>[];
   final List<Map<String, dynamic>> programEditRequests = <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>> programEditPreviewRequests = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> programEditPreviewWarnings = <Map<String, dynamic>>[];
   final Map<int, List<Map<String, dynamic>>> _programDaysByVersion =
       <int, List<Map<String, dynamic>>>{};
   // When true, `GET /programs/active` fails with a transient 500 (offline
@@ -4741,6 +4743,14 @@ class FakeMyosApi {
     }
     final Map<String, dynamic> payload =
         Map<String, dynamic>.from(request.body);
+    if (payload['preview'] == true) {
+      programEditPreviewRequests.add(payload);
+      return FakeResponse(200, <String, dynamic>{
+        ..._activeProgramBody(),
+        'previous_version': programVersion ?? 1,
+        'volume_warnings': programEditPreviewWarnings,
+      });
+    }
     programEditRequests.add(payload);
     final int previousVersion = programVersion ?? 1;
     final List<Map<String, dynamic>> programDays =
@@ -4770,7 +4780,22 @@ class FakeMyosApi {
       for (final dynamic rawEdit in requested) {
         final Map<String, dynamic> edit = Map<String, dynamic>.from(rawEdit as Map);
         final int sourceIndex = edit['source_index'] as int;
-        if (sourceIndex < 0 || sourceIndex >= currentExercises.length) continue;
+        if (sourceIndex < 0) {
+          final String exerciseId = '${edit['exercise_id']}';
+          editedExercises.add(<String, dynamic>{
+            'exercise_id': exerciseId,
+            'exercise_name': exerciseId == 'bicep_curl' ? 'Bicep Curl' : exerciseId,
+            'target_sets': edit['target_sets'],
+            'target_reps_min': 8,
+            'target_reps_max': 12,
+            'target_rpe': 8,
+            'set_groups': <Map<String, dynamic>>[
+              <String, dynamic>{'sets': edit['target_sets'], 'reps_min': 8, 'reps_max': 12, 'target_rir': 2},
+            ],
+          });
+          continue;
+        }
+        if (sourceIndex >= currentExercises.length) continue;
         final Map<String, dynamic> currentExercise =
             currentExercises[sourceIndex] as Map<String, dynamic>;
         if (currentExercise['exercise_id'] != edit['exercise_id']) continue;

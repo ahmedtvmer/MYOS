@@ -276,7 +276,7 @@ A permanent change of one exercise in the player's own program, made by the play
 _Arabic_: تبديل تمرين في البرنامج
 
 **Program edit**:
-A permanent change to one training day of the player's own program, made while the player holds Program authority: removing working-set exercises, lowering their working-set counts, or reordering them. It never adds an exercise, and one save creates one program version. It is distinct from Exercise substitution, which swaps an exercise, and from reordering or deleting sets in an Active workout, which changes that workout only.
+A permanent change to one training day of the player's own program, made while the player holds Program authority: adding or removing working-set exercises, changing their working-set counts from one to four, or reordering them. One save creates one program version. It is distinct from Exercise substitution, which swaps an exercise, and from reordering or deleting sets in an Active workout, which changes that workout only.
 _Avoid_: Program customization
 
 **Unplanned exercise**:

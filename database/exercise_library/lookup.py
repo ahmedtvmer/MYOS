@@ -405,7 +405,7 @@ class ExerciseLookupMixin:
             not clean and (has_filter or has_replacement_reference)
         )
         if (limit is not None and limit <= 0) or (
-            not clean and not has_filter and not has_replacement_reference
+            not clean and not has_filter and not has_replacement_reference and not filter_browse
         ):
             return []
         filter_clause, filter_params = _exercise_filter_predicate(

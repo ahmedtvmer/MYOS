@@ -957,8 +957,46 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     int expectedVersion,
     List<ProgramEditExerciseEntry> exercises,
   ) async {
-    final TrainingProgram updated =
-        await ref.read(apiClientProvider).editProgramDay(
+    final api = ref.read(apiClientProvider);
+    final List<Map<String, dynamic>> warnings = await api.previewProgramDay(
+      dayName: day.dayName,
+      weekOrder: day.weekOrder,
+      dayOrder: day.dayOrder,
+      expectedActiveVersion: expectedVersion,
+      exercises: exercises,
+    );
+    if (!mounted) return;
+    if (warnings.isNotEmpty) {
+      final MyosCopy copy = displayCopyOf(context);
+      final bool saveAnyway = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              title: Text(copy.programVolumeWarningTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (final Map<String, dynamic> warning in warnings)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(copy.programVolumeWarning(
+                        '${warning['muscle'] ?? ''}',
+                        (warning['weekly_sets'] as num?)?.toInt() ?? 0,
+                        (warning['ceiling'] as num?)?.toInt() ?? 0,
+                      )),
+                    ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(copy.cancel)),
+                FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(copy.saveProgramEditAnyway)),
+              ],
+            ),
+          ) ??
+          false;
+      if (!saveAnyway || !mounted) return;
+    }
+    final TrainingProgram updated = await api.editProgramDay(
               dayName: day.dayName,
               weekOrder: day.weekOrder,
               dayOrder: day.dayOrder,

@@ -553,6 +553,223 @@ def test_program_edit_removes_reorders_and_trims_one_day_once(api, recording_ana
     assert events[0]["distinct_id"] == db.get_active_account_by_username("player")["account_id"]
 
 
+def test_program_edit_http_preview_adds_and_raises_then_active_program_reads_it(api):
+    client, db = api
+    original_program = _program().model_copy(update={"program_rationale": {
+        "days": [{"day_order": 1, "exercises": [
+            {"position": index, "exercise_id": exercise_id, "rationale": {"selection": {"code": f"selection.original_{index}"}}}
+            for index, exercise_id in enumerate(("sq", "bp", "row"), 1)
+        ]}],
+    }})
+    headers = _make_player_with_program(client, db, original_program)
+    payload = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 4},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+        {"source_index": -1, "exercise_id": "ohp", "target_sets": 2},
+    ])
+    preview = client.post("/programs/active/edits", headers=headers, json={**payload, "preview": True})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["version"] == 1
+    assert db.ledger.get_active_program().version == 1
+    assert "volume_warnings" in preview.json()
+
+    saved = client.post("/programs/active/edits", headers=headers, json=payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["version"] == 2
+    active = client.get("/programs/active", headers=headers)
+    assert active.status_code == 200, active.text
+    assert [(row["exercise_id"], row["target_sets"]) for row in active.json()["days"][0]["exercises"]] == [
+        ("sq", 4), ("bp", 3), ("row", 3), ("ohp", 2),
+    ]
+    assert active.json()["days"][0]["exercises"][-1]["warmup_sets"] == 1
+    workout_day = client.get("/workouts/prescription", headers=headers, params={"day_order": 1})
+    assert workout_day.status_code == 200, workout_day.text
+    assert any(row["exercise_id"] == "ohp" for row in workout_day.json()["targets"])
+    changes = active.json()["program_rationale"]["days"][0]["exercises"]
+    assert changes[0]["changes"][-1]["code"] == "change.program_edit_raised"
+    assert changes[-1]["changes"][0]["code"] == "change.program_edit_added"
+    rationale_by_id = {row["exercise_id"]: row for row in changes}
+    assert rationale_by_id["bp"]["rationale"]["selection"]["code"] == "selection.original_2"
+    assert rationale_by_id["row"]["rationale"]["selection"]["code"] == "selection.original_3"
+    from agent.player_tools import build_player_read_tools
+    tools, _ = build_player_read_tools(db.ledger)
+    program_tool = next(tool for tool in tools if tool.name == "get_active_program")
+    tool_result = program_tool.invoke({})
+    assert "Overhead Press" in str(tool_result)
+
+
+def test_program_edit_rejects_out_of_access_addition_unless_marked_show_all(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    profile = db.ledger.get_player_profile() or {}
+    profile["equipment_access"] = "Bodyweight only"
+    db.ledger.upsert_player_profile(profile)
+    filtered_search = client.get("/workouts/exercises", headers=headers, params={
+        "filter_equipment_access": True,
+    })
+    assert filtered_search.status_code == 200
+    assert filtered_search.json()["exercises"] == []
+    show_all_search = client.get("/workouts/exercises", headers=headers, params={
+        "filter_equipment_access": True, "show_all_equipment": True,
+    })
+    assert "ohp" in [row["id"] for row in show_all_search.json()["exercises"]]
+    request = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 3},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+        {"source_index": -1, "exercise_id": "ohp", "target_sets": 2},
+    ])
+    denied = client.post("/programs/active/edits", headers=headers, json=request)
+    assert denied.status_code == 400
+    assert denied.json()["code"] == "exercise_not_available"
+    request["exercises"][-1]["show_all_equipment"] = True
+    accepted = client.post("/programs/active/edits", headers=headers, json=request)
+    assert accepted.status_code == 200, accepted.text
+
+
+def test_program_edit_api_rejects_hidden_and_duplicate_additions(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    duplicate = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 3},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+        {"source_index": -1, "exercise_id": "bp", "target_sets": 2},
+    ])
+    response = client.post("/programs/active/edits", headers=headers, json=duplicate)
+    assert response.status_code == 400
+    assert response.json()["code"] == "duplicate_exercise"
+    db.catalog_conn.execute("INSERT OR REPLACE INTO exercise_curated_fields (exercise_id, primary_muscle, hidden) VALUES ('ohp', 'Shoulders', 1)")
+    hidden = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 3},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+        {"source_index": -1, "exercise_id": "ohp", "target_sets": 2},
+    ])
+    response = client.post("/programs/active/edits", headers=headers, json=hidden)
+    assert response.status_code == 400
+    assert response.json()["code"] == "exercise_not_available"
+
+
+@pytest.mark.parametrize("set_count", [0, 5])
+def test_program_edit_api_rejects_set_counts_outside_one_to_four(api, set_count):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    payload = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": set_count},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+    ])
+    response = client.post("/programs/active/edits", headers=headers, json=payload)
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_set_count"
+
+
+def test_program_edit_api_rejects_an_eleventh_working_set_exercise(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    for index in range(8):
+        db.catalog_conn.execute(
+            "INSERT INTO exercises (id, name, body_part, target_muscle, equipment, instructions, image_path, gif_path) VALUES (?, ?, 'Arms', 'Biceps', 'cable', '', '', '')",
+            (f"extra-{index}", f"Extra {index}"),
+        )
+    db.catalog_conn.commit()
+    exercises = [
+        {"source_index": index, "exercise_id": exercise_id, "target_sets": 3}
+        for index, exercise_id in enumerate(("sq", "bp", "row"))
+    ] + [
+        {"source_index": -1, "exercise_id": f"extra-{index}", "target_sets": 2}
+        for index in range(8)
+    ]
+    response = client.post("/programs/active/edits", headers=headers,
+                           json=_program_edit_request(exercises))
+    assert response.status_code == 400
+    assert response.json()["code"] == "day_limit"
+
+
+@pytest.mark.parametrize(
+    ("focus", "training_age", "expected_ceiling"),
+    [(False, 0, 8), (True, 0, 10), (True, 3, 13), (True, 6, 17)],
+)
+def test_program_edit_preview_warns_at_normal_or_focus_volume_ceiling(
+    api, focus, training_age, expected_ceiling
+):
+    client, db = api
+    rationale = {"focus_muscles": [{"muscle": "quads"}]} if focus else None
+    program = _program().model_copy(update={"program_rationale": rationale})
+    headers = _make_player_with_program(client, db, program)
+    profile = db.ledger.get_player_profile() or {}
+    profile["training_age_years"] = training_age
+    db.ledger.upsert_player_profile(profile)
+    if focus:
+        assert db.ledger.get_active_program().program_rationale["focus_muscles"] == [{"muscle": "quads"}]
+    db.catalog_conn.executemany(
+        "INSERT OR REPLACE INTO exercise_curated_fields (exercise_id, primary_muscle) VALUES (?, 'Quads')",
+        [(exercise_id,) for exercise_id in ("sq", "bp", "row")],
+    )
+    exercises = [
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 4},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 4},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+    ]
+    response = client.post(
+        "/programs/active/edits", headers=headers,
+        json={**_program_edit_request(exercises), "preview": True},
+    )
+    assert response.status_code == 200, response.text
+    quads = [item for item in response.json()["volume_warnings"] if item["muscle"].lower() == "quads"]
+    assert quads and quads[0]["ceiling"] == expected_ceiling
+    assert db.ledger.get_active_program().version == 1
+
+
+def test_program_edit_unchanged_preview_still_returns_volume_warnings(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    db.catalog_conn.executemany(
+        "INSERT OR REPLACE INTO exercise_curated_fields (exercise_id, primary_muscle) VALUES (?, 'Quads')",
+        [(exercise_id,) for exercise_id in ("sq", "bp", "row")],
+    )
+    unchanged = [
+        {"source_index": index, "exercise_id": exercise_id, "target_sets": 3}
+        for index, exercise_id in enumerate(("sq", "bp", "row"))
+    ]
+    preview = client.post(
+        "/programs/active/edits", headers=headers,
+        json={**_program_edit_request(unchanged), "preview": True},
+    )
+    assert preview.status_code == 200, preview.text
+    quads = [item for item in preview.json()["volume_warnings"] if item["muscle"].lower() == "quads"]
+    assert quads and quads[0]["weekly_sets"] > quads[0]["ceiling"] == 8
+    assert db.ledger.get_active_program().version == 1
+
+
+def test_program_edit_adds_calves_with_their_movement_class_rest(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    exercise_id = "test_calf_raise"
+    db.catalog_conn.execute(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES (?, 'Standing Calf Raise', 'Calves', 'calves', 'Machine')",
+        (exercise_id,),
+    )
+    db.catalog_conn.execute(
+        "INSERT INTO exercise_curated_fields (exercise_id, primary_muscle, primary_action) VALUES (?, 'Calves', 'ankle plantar flexion')",
+        (exercise_id,),
+    )
+    exercises = [
+        {"source_index": index, "exercise_id": source_id, "target_sets": 3}
+        for index, source_id in enumerate(("sq", "bp", "row"))
+    ] + [{"source_index": -1, "exercise_id": exercise_id, "target_sets": 2}]
+    saved = client.post(
+        "/programs/active/edits", headers=headers,
+        json=_program_edit_request(exercises),
+    )
+    assert saved.status_code == 200, saved.text
+    added = saved.json()["days"][0]["exercises"][-1]
+    assert added["warmup_sets"] == 0
+    assert added["rest_seconds"] == 105
+
+
 def test_program_edit_changes_first_group_sets_and_retains_backoff_sets(api):
     client, db = api
     program = _program()
@@ -698,7 +915,7 @@ def test_program_edit_caps_duplicate_entry_at_its_own_prescription(api):
         "/programs/active/edits",
         headers=headers,
         json=_program_edit_request(
-            [{"source_index": 1, "exercise_id": "bp", "target_sets": 3}]
+                [{"source_index": 1, "exercise_id": "bp", "target_sets": 5}]
         ),
     )
 
@@ -757,9 +974,9 @@ def test_program_edit_no_op_returns_current_version_without_analytics(api, recor
             "exercise_not_on_day",
         ),
         (
-            _program_edit_request([{"source_index": -1, "exercise_id": "bp", "target_sets": 1}]),
+            _program_edit_request([{"source_index": -1, "exercise_id": "not-found", "target_sets": 1}]),
             400,
-            "exercise_not_on_day",
+            "exercise_not_available",
         ),
         (
             _program_edit_request([{"source_index": 0, "exercise_id": "bp", "target_sets": 3}]),
@@ -783,7 +1000,7 @@ def test_program_edit_no_op_returns_current_version_without_analytics(api, recor
             "invalid_set_count",
         ),
         (
-            _program_edit_request([{"source_index": 0, "exercise_id": "sq", "target_sets": 4}]),
+            _program_edit_request([{"source_index": 0, "exercise_id": "sq", "target_sets": 5}]),
             400,
             "invalid_set_count",
         ),
@@ -836,4 +1053,21 @@ def test_program_edit_refuses_when_a_coach_holds_program_authority(api):
     assert response.status_code == 403
     assert response.json()["code"] == "coach_controlled"
     assert response.json()["detail"] == "Your assigned coach controls your program. Ask your coach for changes."
+    assert db.ledger.get_active_program().version == 1
+
+
+def test_program_edit_preview_rejects_a_stale_active_version(api):
+    client, db = api
+    headers = _make_player_with_program(client, db)
+    payload = _program_edit_request([
+        {"source_index": 0, "exercise_id": "sq", "target_sets": 3},
+        {"source_index": 1, "exercise_id": "bp", "target_sets": 3},
+        {"source_index": 2, "exercise_id": "row", "target_sets": 3},
+    ], version=9)
+    response = client.post(
+        "/programs/active/edits", headers=headers,
+        json={**payload, "preview": True},
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "program_changed"
     assert db.ledger.get_active_program().version == 1
