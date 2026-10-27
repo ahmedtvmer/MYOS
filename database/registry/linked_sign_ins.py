@@ -1,8 +1,8 @@
 """RegistryLinkedSignInsMixin: external identities attached to an account (#113).
 
 A Linked sign-in (CONTEXT.md) is keyed on ``(provider, subject)`` — Google's
-``sub`` today — and is never matched by email, so no email, name, or picture
-from the provider is ever stored. The provider column is data, so adding
+``sub`` today — and is never matched by email. The normalized Google email and
+verification claim are stored as data only. The provider column is data, so adding
 another provider needs no schema change. The rows live in the shared catalog,
 not in a player's ledger, because the sign-in runs logged out and cannot know
 which ledger to open.
@@ -53,6 +53,26 @@ class RegistryLinkedSignInsMixin:
                 "INSERT INTO linked_sign_ins (provider, subject, account_id, linked_at) VALUES (?, ?, ?, ?)",
                 (str(provider), str(subject), str(account_id), now),
             )
+
+    def update_linked_sign_in_email(self, provider: str, subject: str, email: str | None,
+                                    email_verified: bool) -> None:
+        """Refreshes provider contact data for a link without changing its identity key."""
+        self.ensure_account_schema()
+        with self.catalog_transaction():
+            self.catalog_conn.execute(
+                "UPDATE linked_sign_ins SET email = ?, email_verified = ? WHERE provider = ? AND subject = ?",
+                (email, int(email_verified), str(provider), str(subject)),
+            )
+
+    def get_linked_sign_in_email(self, account_id: str, provider: str = "google") -> str | None:
+        """Returns only the stored provider email, never the external subject."""
+        self.ensure_account_schema()
+        with self._catalog_lock:
+            row = self.catalog_conn.execute(
+                "SELECT email FROM linked_sign_ins WHERE account_id = ? AND provider = ?",
+                (str(account_id), str(provider)),
+            ).fetchone()
+        return str(row[0]) if row and row[0] else None
 
     def list_linked_sign_in_providers(self, account_id: str) -> list[str]:
         """Providers attached to this account, deduplicated and stably ordered.

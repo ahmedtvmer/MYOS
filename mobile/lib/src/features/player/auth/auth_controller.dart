@@ -703,6 +703,26 @@ class AuthController extends StateNotifier<AuthState> {
     );
   }
 
+  /// Saves account-level product-email consent and refreshes the local session.
+  Future<bool> setProductEmailConsent(bool optedIn) async {
+    final AccountSession? current = state.session;
+    if (current == null) return false;
+    final bool confirmed = await _repository.setProductEmailConsent(optedIn);
+    final AccountSession? latest = state.session;
+    if (latest == null || latest.account.accountId != current.account.accountId) {
+      return confirmed;
+    }
+    state = AuthState.authenticated(
+      AccountSession(
+        account: latest.account.copyWith(productEmailsOptedIn: confirmed),
+        onboarded: current.onboarded,
+        hasRecoveryEmail: current.hasRecoveryEmail,
+        recoveryEmail: current.recoveryEmail,
+      ),
+    );
+    return confirmed;
+  }
+
   /// Saves or corrects the recovery email and records its verification state.
   Future<bool> setRecoveryEmail(String email) async {
     final AccountSession? before = state.session;

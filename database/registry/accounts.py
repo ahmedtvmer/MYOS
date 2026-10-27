@@ -199,6 +199,46 @@ class RegistryAccountsMixin:
             self._commit_catalog()
             return cursor.rowcount == 1
 
+    def set_product_email_consent(self, account_id: str, allowed: bool) -> bool:
+        """Stores explicit product-email consent; withdrawal removes its timestamp."""
+        self.ensure_account_schema()
+        with self.catalog_transaction(immediate=True):
+            if not self.is_live_account(self.get_account(account_id)):
+                return False
+            if allowed:
+                self.catalog_conn.execute(
+                    "INSERT OR IGNORE INTO product_email_consent (account_id, consented_at) VALUES (?, ?)",
+                    (str(account_id), datetime.now(UTC).isoformat()),
+                )
+            else:
+                self.catalog_conn.execute("DELETE FROM product_email_consent WHERE account_id = ?", (str(account_id),))
+        return True
+
+    def get_product_email_consent(self, account_id: str) -> tuple[bool, str | None]:
+        self.ensure_account_schema()
+        with self._catalog_lock:
+            row = self.catalog_conn.execute(
+                "SELECT consented_at FROM product_email_consent WHERE account_id = ?", (str(account_id),)
+            ).fetchone()
+        return (row is not None, str(row[0]) if row else None)
+
+    def list_product_email_contacts(self) -> list[str]:
+        """Opted-in contacts with a verified recovery or Google email."""
+        self.ensure_account_schema()
+        with self._catalog_lock:
+            rows = self.catalog_conn.execute(
+                "SELECT COALESCE(CASE WHEN e.verified = 1 THEN e.email END, "
+                "CASE WHEN g.email_verified = 1 THEN g.email END) FROM product_email_consent c "
+                "JOIN accounts a ON a.account_id = c.account_id "
+                "LEFT JOIN trainee_emails e ON e.trainee_id = a.account_id "
+                "LEFT JOIN linked_sign_ins g ON g.account_id = a.account_id AND g.provider = 'google' "
+                "WHERE a.status = 'active' AND a.deleted_at IS NULL "
+                "AND COALESCE(CASE WHEN e.verified = 1 THEN e.email END, "
+                "CASE WHEN g.email_verified = 1 THEN g.email END) IS NOT NULL "
+                "ORDER BY a.username COLLATE NOCASE"
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
     def set_account_analytics_allowed(
         self,
         account_id: str,

@@ -51,6 +51,7 @@ from svc.schemas import (
     DisplayLanguageIn,
     AccountPlansOut,
     EmailUpdateIn,
+    ProductEmailConsentIn,
     ForgotPasswordIn,
     GoogleCompleteIn,
     GoogleLinkIn,
@@ -486,9 +487,11 @@ async def read_current_account(
             auth_service.account_has_password(db, account),
             db.list_linked_sign_in_providers(account["account_id"]),
             db.is_recovery_email_verified(account["account_id"]),
+            db.get_linked_sign_in_email(account["account_id"]),
+            db.get_product_email_consent(account["account_id"])[0],
         )
 
-    account, plans, lifter_allowance, coach_allowance, has_password, linked_sign_ins, recovery_email_verified = await asyncio.to_thread(_run)
+    account, plans, lifter_allowance, coach_allowance, has_password, linked_sign_ins, recovery_email_verified, google_email, product_emails_opted_in = await asyncio.to_thread(_run)
     return AccountOut(
         account_id=account["account_id"],
         trainee_id=account["username"],
@@ -501,9 +504,26 @@ async def read_current_account(
         display_language=account["display_language"],
         analytics_allowed=account["analytics_allowed"],
         recovery_email_verified=recovery_email_verified,
+        google_email=google_email,
+        product_emails_opted_in=product_emails_opted_in,
         coach_ai_enabled=coach_ai_service.coach_ai_enabled(),
         coach_roster_ai_enabled=coach_roster_ai_service.coach_roster_ai_enabled(),
     )
+
+
+@router.put("/product-email-consent")
+async def update_product_email_consent(
+    body: ProductEmailConsentIn,
+    account: Annotated[VerifiedAccount, Depends(get_verified_account)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    saved = await asyncio.to_thread(db.set_product_email_consent, account.account_id, body.opted_in)
+    if not saved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    opted_in, _consented_at = await asyncio.to_thread(
+        db.get_product_email_consent, account.account_id
+    )
+    return {"opted_in": opted_in}
 
 
 @router.put("/display-language")

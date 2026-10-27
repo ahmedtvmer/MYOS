@@ -67,6 +67,8 @@ async def redeem_coach_invite(
         result["linked_sign_ins"] = db.list_linked_sign_in_providers(result["account_id"])
         result["display_language"] = account["display_language"]
         result["recovery_email_verified"] = db.is_recovery_email_verified(result["account_id"])
+        result["google_email"] = db.get_linked_sign_in_email(result["account_id"])
+        result["product_emails_opted_in"] = db.get_product_email_consent(result["account_id"])[0]
         return result
 
     result = await asyncio.to_thread(_run)
@@ -79,6 +81,8 @@ async def redeem_coach_invite(
         linked_sign_ins=result["linked_sign_ins"],
         display_language=result["display_language"],
         recovery_email_verified=result["recovery_email_verified"],
+        google_email=result["google_email"],
+        product_emails_opted_in=result["product_emails_opted_in"],
         coach_ai_enabled=coach_ai_service.coach_ai_enabled(),
         coach_roster_ai_enabled=coach_roster_ai_service.coach_roster_ai_enabled(),
     )

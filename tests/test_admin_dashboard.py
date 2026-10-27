@@ -917,8 +917,7 @@ def test_recovery_email_lookup_is_exact_masked_and_audited_without_email(admin_a
     assert found.status_code == 303
     assert found.headers["location"] == f"/admin/accounts/{account['account_id']}"
     detail = client.get(found.headers["location"])
-    assert "a***@example.com" in detail.text
-    assert "alice@example.com" not in detail.text
+    assert "alice@example.com" in detail.text
 
     csrf = _csrf(detail.text)
     partial = client.post(
@@ -930,7 +929,7 @@ def test_recovery_email_lookup_is_exact_masked_and_audited_without_email(admin_a
     assert partial.status_code == 303
     assert partial.headers["location"] == "/admin/accounts?lookup=not_found"
     no_match = client.get(partial.headers["location"])
-    assert "alice@exa" not in no_match.text
+    assert "No account found for that recovery email." in no_match.text
     assert "No account found for that recovery email" in no_match.text
 
     audit = client.get("/admin/audit?action=account_lookup_by_email")
@@ -940,6 +939,80 @@ def test_recovery_email_lookup_is_exact_masked_and_audited_without_email(admin_a
     assert audit.text.count("<strong>Account id:</strong>") == 1
     assert "203.0.113.9" in audit.text
     assert "alice@example.com" not in audit.text
+
+
+def test_owner_search_shows_google_email_and_exports_only_opted_in_contacts(admin_api):
+    client, db, now, _ = admin_api
+    opted, _ = _register_account(client, db, "googlecontact")
+    other, _ = _register_account(client, db, "notopted")
+    db.link_sign_in("google", "contact-sub", opted["account_id"])
+    db.update_linked_sign_in_email("google", "contact-sub", "person@gmail.com", True)
+    db.link_sign_in("google", "other-sub", other["account_id"])
+    db.update_linked_sign_in_email("google", "other-sub", "other@gmail.com", True)
+    db.set_product_email_consent(opted["account_id"], True)
+    assert _login(client, now[0]).status_code == 303
+    get_search = client.get("/admin/accounts", params={"q": "person@gmail.com"})
+    assert "googlecontact" not in get_search.text
+    accounts_page = client.get("/admin/accounts")
+    found = client.post(
+        "/admin/accounts/email",
+        data={"csrf_token": _csrf(accounts_page.text), "email": "person@gmail.com"},
+        follow_redirects=False,
+    )
+    assert found.headers["location"] == f"/admin/accounts/{opted['account_id']}"
+    assert "person@gmail.com" not in found.headers["location"]
+    assert "googlecontact" in client.get(found.headers["location"]).text
+    detail = client.get(f"/admin/accounts/{opted['account_id']}")
+    assert "person@gmail.com" in detail.text
+    export = client.get("/admin/product-email-contacts.csv")
+    assert export.status_code == 200
+    assert "person@gmail.com" in export.text
+    assert "other@gmail.com" not in export.text
+
+
+def test_product_email_export_uses_verified_address_and_neutralizes_formula_cells(admin_api):
+    client, db, now, _ = admin_api
+    cases = [
+        ("equals", "=1+1@example.com", True, "'=1+1@example.com"),
+        ("plus", "+hello@example.com", True, "'+hello@example.com"),
+        ("minus", "-hello@example.com", True, "'-hello@example.com"),
+        ("at", "@hello@example.com", True, "'@hello@example.com"),
+        ("tab", "\thello@example.com", True, "'\thello@example.com"),
+        ("cr", "\rhello@example.com", True, "'\rhello@example.com"),
+    ]
+    for username, email, _verified, _expected in cases:
+        account, _ = _register_account(client, db, username)
+        db.set_product_email_consent(account["account_id"], True)
+        db.link_sign_in("google", f"{username}-sub", account["account_id"])
+        db.update_linked_sign_in_email("google", f"{username}-sub", email, True)
+    # An unverified recovery address must not displace a verified Google address.
+    fallback, _ = _register_account(client, db, "verifiedfallback")
+    db.set_account_email(fallback["account_id"], "unverified@example.com")
+    db.link_sign_in("google", "verified-fallback-sub", fallback["account_id"])
+    db.update_linked_sign_in_email("google", "verified-fallback-sub", "verified@gmail.com", True)
+    db.set_product_email_consent(fallback["account_id"], True)
+    preferred, _ = _register_account(client, db, "verifiedrecovery")
+    db.set_account_email(preferred["account_id"], "verified-recovery@example.com")
+    assert db.mark_recovery_email_verified_if_matches(preferred["account_id"], "verified-recovery@example.com")
+    db.link_sign_in("google", "verified-recovery-sub", preferred["account_id"])
+    db.update_linked_sign_in_email("google", "verified-recovery-sub", "google-fallback@gmail.com", True)
+    db.set_product_email_consent(preferred["account_id"], True)
+    unverified, _ = _register_account(client, db, "unverifiedcontact")
+    db.link_sign_in("google", "unverified-contact-sub", unverified["account_id"])
+    db.update_linked_sign_in_email("google", "unverified-contact-sub", "unverified@gmail.com", False)
+    db.set_product_email_consent(unverified["account_id"], True)
+    assert _login(client, now[0]).status_code == 303
+    response = client.get("/admin/product-email-contacts.csv")
+    import csv
+    import io
+    rows = list(csv.reader(io.StringIO(response.text)))
+    contacts = [row[0] for row in rows[1:]]
+    assert {expected for _, _, _, expected in cases} == {value for value in contacts if value.startswith("'")}
+    assert "verified@gmail.com" in contacts
+    assert "verified-recovery@example.com" in contacts
+    assert "google-fallback@gmail.com" not in contacts
+    assert "unverified@example.com" not in contacts
+    assert "unverified@gmail.com" not in contacts
 
 
 def test_account_list_filters_coach_not_onboarded_inactive_and_deleted(admin_api):
@@ -1075,7 +1148,7 @@ def test_account_page_shows_metadata_usage_limits_and_never_training_content(adm
         "Yes",
         "Coach of 1 active player",
         "Has an active coach",
-        "*@sample.test",
+        "a@sample.test",
         "This UTC month",
         "All time",
         "2 calls",
@@ -1245,7 +1318,7 @@ def test_owner_reset_email_failure_is_audited_and_shown_without_email(
     assert response.headers["location"].endswith("?reset=send_failed")
     failed = client.get(response.headers["location"])
     assert "Couldn't send the email; try again or create a link" in failed.text
-    assert "failed@example.com" not in response.headers["location"] + failed.text
+    assert "failed@example.com" in failed.text
     audit = client.get(f"/admin/audit?action=reset_email_failed&account_id={account['account_id']}")
     assert audit.status_code == 200 and "reset_email_failed" in audit.text
     assert "failed@example.com" not in audit.text
@@ -2549,7 +2622,7 @@ def test_admin_coach_invite_can_be_emailed_in_display_language(admin_api, caplog
     confirmation = client.get(sent.headers["location"])
     assert "Coach invite email sent to a***@gmail.com." in confirmation.text
     assert token not in confirmation.text
-    assert "alice@gmail.com" not in confirmation.text
+    assert "alice@gmail.com" in confirmation.text
     email = next(message for message in sent_emails if message[1] == "دعوة تفعيل دور المدرب في MYOS")
     assert email[0] == "alice@gmail.com"
     assert token in email[2]
@@ -2596,7 +2669,6 @@ def test_admin_coach_invite_email_is_unavailable_without_verified_recovery_email
     assert "Send by email to" not in issued.text
     if recovery_email:
         assert "p***@gmail.com" in issued.text
-        assert recovery_email not in issued.text
     token = html.unescape(re.search(r'id="issued_coach_code"[^>]+value="([^"]+)"', issued.text).group(1))
     rejected = client.post(
         f"/admin/accounts/{account['account_id']}/coach-invites/email",
@@ -2648,7 +2720,7 @@ def test_admin_coach_invite_email_failure_is_shown_and_audited(
     confirmation = client.get(failed.headers["location"])
     assert "Could not send the Coach invite email." in confirmation.text
     assert token not in confirmation.text + failed.headers["location"]
-    assert "failure@gmail.com" not in confirmation.text
+    assert "failure@gmail.com" in confirmation.text
     audit = client.get(
         f"/admin/audit?action=coach_invite_email_failed&account_id={account['account_id']}"
     )

@@ -292,6 +292,8 @@ class Account {
     this.displayLanguage = 'en',
     this.analyticsAllowed = true,
     this.recoveryEmailVerified = false,
+    this.googleEmail,
+    this.productEmailsOptedIn = false,
     this.lifterAiAllowance,
     this.coachAiAllowance,
   });
@@ -321,6 +323,8 @@ class Account {
       displayLanguage: normalizeDisplayLanguage(json['display_language']),
       analyticsAllowed: json['analytics_allowed'] as bool? ?? true,
       recoveryEmailVerified: json['recovery_email_verified'] as bool? ?? false,
+      googleEmail: json['google_email'] as String?,
+      productEmailsOptedIn: json['product_emails_opted_in'] as bool? ?? false,
       lifterAiAllowance: json['lifter_ai_allowance'] is Map<String, dynamic>
           ? AiAllowance.fromJson(json['lifter_ai_allowance'] as Map<String, dynamic>)
           : null,
@@ -360,6 +364,8 @@ class Account {
 
   /// Whether `/auth/me` confirms the current recovery email address.
   final bool recoveryEmailVerified;
+  final String? googleEmail;
+  final bool productEmailsOptedIn;
 
   /// Current durable Lifter request/resource state, refreshed with the account.
   final AiAllowance? lifterAiAllowance;
@@ -380,6 +386,8 @@ class Account {
     String? displayLanguage,
     bool? analyticsAllowed,
     bool? recoveryEmailVerified,
+    String? googleEmail,
+    bool? productEmailsOptedIn,
     AiAllowance? lifterAiAllowance,
     AiAllowance? coachAiAllowance,
   }) =>
@@ -399,6 +407,9 @@ class Account {
         analyticsAllowed: analyticsAllowed ?? this.analyticsAllowed,
         recoveryEmailVerified:
             recoveryEmailVerified ?? this.recoveryEmailVerified,
+        googleEmail: googleEmail ?? this.googleEmail,
+        productEmailsOptedIn:
+            productEmailsOptedIn ?? this.productEmailsOptedIn,
         lifterAiAllowance: lifterAiAllowance ?? this.lifterAiAllowance,
         coachAiAllowance: coachAiAllowance ?? this.coachAiAllowance,
       );

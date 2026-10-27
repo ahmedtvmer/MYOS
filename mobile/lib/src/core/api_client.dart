@@ -532,6 +532,21 @@ class ApiClient {
     return _parseAccount(response.data);
   }
 
+  Future<bool> setProductEmailConsent(bool optedIn) async {
+    final response = await _send(() => _dio.put<dynamic>(
+          '/auth/product-email-consent',
+          data: <String, dynamic>{'opted_in': optedIn},
+        ));
+    final dynamic body = response.data;
+    final Object? saved = body is Map<String, dynamic> ? body['opted_in'] : null;
+    if (saved is! bool) {
+      throw const ApiException(
+        'Could not confirm your product email preference. Please retry.',
+      );
+    }
+    return saved;
+  }
+
   /// The `POST /auth/google` answer (#113/#115): a session when the Google
   /// subject is already linked, otherwise the ticket that opens the picker.
   Future<GoogleAuthStart> googleSignIn({required String idToken}) async {

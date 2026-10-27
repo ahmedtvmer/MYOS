@@ -11,6 +11,7 @@ import 'package:myos_mobile/src/features/shared/mode_switch.dart';
 import 'package:myos_mobile/src/providers.dart';
 
 import 'support/fake_myos_api.dart';
+import 'support/fake_api_adapter.dart';
 
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
   for (int i = 0; i < 40; i++) {
@@ -118,6 +119,96 @@ Future<void> _pumpApp(
 }
 
 void main() {
+  testWidgets('Settings shows linked Google email and product opt-in in English',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = FakeMyosApi()
+      ..googleEmail = 'lifter@gmail.com';
+    await _pumpApp(
+      tester,
+      mode: AppMode.player,
+      size: const Size(390, 844),
+      fakeApi: fake,
+    );
+    await _expectVisible(tester, 'Connected Google account');
+    await _expectVisible(tester, 'lifter@gmail.com');
+    await _expectVisible(tester, 'Product emails');
+    final Finder toggle = find.byKey(const Key('product_emails_opt_in'));
+    await tester.ensureVisible(toggle);
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(fake.productEmailsOptedIn, isTrue);
+    await _expectVisible(tester, 'lifter@gmail.com');
+
+  });
+
+  testWidgets('Settings reconciles consent from server and shows save errors',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = FakeMyosApi()
+      ..productEmailsResponseOverride = false;
+    await _pumpApp(tester,
+        mode: AppMode.player, size: const Size(390, 844), fakeApi: fake);
+    await _expectVisible(tester, 'Product emails');
+    final Finder toggle = find.byKey(const Key('product_emails_opt_in'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+
+    fake.productEmailsSaveFails = true;
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('Could not save your product email preference. Try again.'), findsOneWidget);
+  });
+
+  testWidgets('Settings disables consent toggle while saving',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = FakeMyosApi();
+    final Completer<void> requestStarted = Completer<void>();
+    final Completer<void> allowResponse = Completer<void>();
+    fake.adapter.beforeRespond = (FakeRequest request) async {
+      if (request.path == '/auth/product-email-consent') {
+        requestStarted.complete();
+        await allowResponse.future;
+      }
+    };
+    await _pumpApp(tester,
+        mode: AppMode.player, size: const Size(390, 844), fakeApi: fake);
+    await _expectVisible(tester, 'Product emails');
+    final Finder toggle = find.byKey(const Key('product_emails_opt_in'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    for (int i = 0; i < 10 && !requestStarted.isCompleted; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(requestStarted.isCompleted, isTrue);
+    expect(tester.widget<SwitchListTile>(toggle).onChanged, isNull);
+    allowResponse.complete();
+    await tester.pumpAndSettle();
+    expect(fake.adapter.requests.where((FakeRequest request) =>
+        request.path == '/auth/product-email-consent').length, 1);
+  });
+
+  testWidgets('Settings shows linked Google email and product opt-in in Arabic',
+      (WidgetTester tester) async {
+    final FakeMyosApi arabic = FakeMyosApi()
+      ..googleEmail = 'lifter@gmail.com'
+      ..displayLanguage = 'ar';
+    await _pumpApp(
+      tester,
+      mode: AppMode.player,
+      size: const Size(390, 844),
+      displayLanguage: 'ar',
+      fakeApi: arabic,
+    );
+    await _expectVisible(tester, 'حساب Google المتصل');
+    await _expectVisible(tester, 'lifter@gmail.com');
+    await _expectVisible(tester, 'رسائل المنتجات');
+    final Finder toggle = find.byKey(const Key('product_emails_opt_in'));
+    await tester.ensureVisible(toggle);
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+  });
+
   testWidgets('Assistant preference Settings edit and delete saved items',
       (WidgetTester tester) async {
     final FakeMyosApi fake = FakeMyosApi()

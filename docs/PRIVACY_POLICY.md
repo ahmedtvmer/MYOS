@@ -31,16 +31,26 @@ served over https from the address of this page.
   make an authenticated request.
 - Your **recovery email**, if you have added one. It is required before you can
   use the app, it lives in the shared account store (not in your training
-  data), and it is used only to send password-reset links and to answer
-  password-recovery requests. If you sign up with Google, MYOS may keep a
+  data). We use it for password-reset links, password-recovery support, and
+  owner support. If you explicitly opt in to product emails, it is the
+  preferred contact address when verified. If you sign up with Google, MYOS may keep a
   verified Google email as your recovery email when it is not already used as
   another account's recovery email; that address is marked verified at signup.
   If the address already belongs to a live account, MYOS shows a reminder but
-  does not store Google's address if you create a separate account, and you
-  must add and verify a recovery email with a code. When you later sign in with
+  does not use Google's address as the recovery email if you create a separate
+  account, and you must add and verify a recovery email with a code. The
+  normalized Google email and verification state are still stored on that
+  linked sign-in. When you later sign in with
   or connect Google, its verified email can verify your current unverified
   recovery email only when the addresses match. It never replaces a different
   address and is never used to link or merge accounts.
+- For each linked Google sign-in, its normalized Google email and Google's
+  verification state, even when it differs from your recovery email. We use
+  it for owner support and show it to you in Settings. Product announcements
+  may be sent only to a verified address on an account that explicitly opts
+  in; you can turn this off in Settings at any time. The contact address is
+  your verified recovery email when available, otherwise your verified linked
+  Google email. Addresses are never used to link or merge accounts.
 - **Sign-in tokens** (short-lived JSON Web Tokens). If you tick "Keep me signed
   in", the token lasts up to 30 days; otherwise about 2 hours. You can end a
   session at any time by logging out.
@@ -82,7 +92,9 @@ Your training record is stored privately for your account and includes:
 ### Emails we send
 
 - A **password-reset link** containing a single-use token that expires in 30
-  minutes, sent to your recovery email. This is the only email sent to you.
+  minutes, sent to your recovery email. This is not the only email we may send:
+  product announcements may go to your verified contact address only while you
+  have opted in, and you can withdraw consent in Settings at any time.
 - A **notice to your coach** when you redeem their invite; it contains your
   username, and nothing about your training.
 - A **notice to your coach** when you ask them for a program change; it says
