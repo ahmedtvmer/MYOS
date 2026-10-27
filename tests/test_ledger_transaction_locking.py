@@ -1,5 +1,6 @@
 """Ledger write-lock scope regressions for issue #368."""
 
+import sqlite3
 import threading
 from pathlib import Path
 
@@ -115,3 +116,51 @@ def test_issue_368_same_ledger_transactions_wait_for_the_first_commit(store):
             second_thread.join(timeout=2)
         first_handle.close()
         second_handle.close()
+
+
+def test_writer_reservation_failure_restores_connection_and_next_rollback(store):
+    holder = store.open_ledger("reservation-player")
+    target = store.open_ledger("reservation-player")
+    _set_busy_timeout(store, target, milliseconds=1)
+    holder_ready = threading.Event()
+    release_holder = threading.Event()
+
+    def hold_writer() -> None:
+        with holder.ledger_transaction():
+            holder_ready.set()
+            release_holder.wait(timeout=2)
+
+    thread = threading.Thread(target=hold_writer)
+    original_isolation = target.conn.isolation_level
+    thread.start()
+    try:
+        assert holder_ready.wait(timeout=2)
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            with target.ledger_transaction():
+                pass
+    finally:
+        release_holder.set()
+        thread.join(timeout=2)
+
+    assert not thread.is_alive()
+    assert target._local.ledger_tx_depth == 0
+    assert target.conn.isolation_level == original_isolation
+    assert target.conn.in_transaction is False
+
+    target.conn.execute("CREATE TABLE IF NOT EXISTS transaction_failure_probe (value TEXT)")
+    target.conn.execute("DELETE FROM transaction_failure_probe")
+    target.conn.execute("INSERT INTO transaction_failure_probe VALUES ('before')")
+    target.commit_ledger()
+    with pytest.raises(RuntimeError, match="rollback this write"):
+        with target.ledger_transaction():
+            target.conn.execute("UPDATE transaction_failure_probe SET value = 'after'")
+            raise RuntimeError("rollback this write")
+
+    target.close()
+    reopened = store.open_ledger("reservation-player")
+    try:
+        value = reopened.conn.execute("SELECT value FROM transaction_failure_probe").fetchone()[0]
+        assert value == "before"
+    finally:
+        reopened.close()
+        holder.close()

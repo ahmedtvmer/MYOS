@@ -80,21 +80,20 @@ class TrainingLedger(
         self._local.ledger_tx_depth = depth + 1
         outermost = depth == 0
         original_isolation = conn.isolation_level
-        if outermost:
-            conn.isolation_level = None
-            # SQLite BEGIN IMMEDIATE reserves attached catalog writers too.
-            # Reserve this ledger's writer with a main-only no-op update.
-            conn.execute("BEGIN")
-            conn.execute("UPDATE main.user_profile SET id = id WHERE id = 1")
         try:
-            yield
-        except Exception:
             if outermost:
-                conn.execute("ROLLBACK")
-            raise
-        else:
+                conn.isolation_level = None
+                # SQLite BEGIN IMMEDIATE reserves attached catalog writers too.
+                # Reserve this ledger's writer with a main-only no-op update.
+                conn.execute("BEGIN")
+                conn.execute("UPDATE main.user_profile SET id = id WHERE id = 1")
+            yield
             if outermost:
                 conn.execute("COMMIT")
+        except BaseException:
+            if outermost and conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
         finally:
             self._local.ledger_tx_depth = depth
             if outermost:
