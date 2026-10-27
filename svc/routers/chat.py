@@ -33,10 +33,33 @@ from svc.schemas import (
     AssistantPreferenceOut,
     AssistantPreferenceUpdateIn,
     ChatMessageIn,
+    ChatProgramEditDecisionIn,
 )
 from utils.text_scrubber import PIPELINE_ERROR_RESPONSE
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.post("/program-edit-previews/decision")
+async def decide_program_edit_preview(
+    body: ChatProgramEditDecisionIn,
+    player: Annotated[Any, Depends(get_verified_player)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    from service.chat_program_edit import resolve_chat_program_edit
+
+    result = await asyncio.to_thread(
+        resolve_chat_program_edit, db, ledger, account_id_of(player), body.preview_id,
+        confirm=body.confirm, include_optional=body.include_optional,
+    )
+    if result.get("error") == "preview_expired":
+        raise HTTPException(status_code=409, detail="Program edit preview expired.")
+    if result.get("error") == "program_changed":
+        raise HTTPException(status_code=409, detail="Program changed since preview.")
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Program edit failed."))
+    return {"cancelled": bool(result.get("cancelled")), "version": result.get("version")}
 
 
 @router.get("/history")
@@ -45,7 +68,10 @@ async def read_history(
     ledger: Annotated[Any, Depends(get_ledger)],
     db: Annotated[Any, Depends(get_db)],
 ):
-    return await asyncio.to_thread(chat_service.get_history, db, str(player), ledger)
+    return await asyncio.to_thread(
+        chat_service.get_history, db, str(player), ledger,
+        player_account_id=account_id_of(player),
+    )
 
 
 @router.delete("/history", status_code=status.HTTP_204_NO_CONTENT)
@@ -174,6 +200,8 @@ def _run_turn(
             done_payload["lifter_allowance"] = allowance
         if state.get("request_suggestion") is not None:
             done_payload["request_suggestion"] = state["request_suggestion"]
+        if state.get("program_edit_preview") is not None:
+            done_payload["program_edit_preview"] = state["program_edit_preview"]
         out.put(("done", done_payload))
     except Exception:
         if disconnected.is_set():

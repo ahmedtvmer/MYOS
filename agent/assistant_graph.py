@@ -384,6 +384,12 @@ RE_PROGRAM_MUTATION = re.compile(
     r"\b(?:(?:rebuild|regenerate)(?:\s+(?:my|the))?(?:\s+(?:split|routine|program))?|new\s+split|(?:change|switch|update)\s+(?:(?:my|the)\s+)?(?:split(?!\s+squat)|routine|program))\b",
     re.IGNORECASE,
 )
+RE_PROGRAM_DAY_EDIT = re.compile(
+    r"\b(?:add|put|move|remove|take|change|set|augment)\b.{0,90}\b(?:to|from|on|onto|off|with)\b.{0,50}\b(?:day|days|program|workout)s?\b|"
+    r"\b(?:add|put|move|remove|take|change|set|augment)\b.{0,60}\b(?:leg|upper|lower)\s+days?\b",
+    re.IGNORECASE,
+)
+RE_ARABIC_PROGRAM_DAY_EDIT = re.compile(r"(?:ضيف|حط|زود|زوّد|انقل|شيل|احذف).{0,100}(?:يوم|أيام|الرجل|الجزء السفلي|البرنامج)")
 RE_DELOAD_ENGLISH_CHOICE = re.compile(
     r"^\s*(?:(?:please|can you|could you|would you|will you|i want to|i'd like to)\s+)*"
     r"(?P<verb>undo|skip|cancel|remove|reverse|apply|use|enable)\s+(?:my\s+|the\s+)?deload"
@@ -967,6 +973,8 @@ def _authorized_action(query: str, intent: str) -> bool:
     command = _action_command(query)
     if intent == "program_mutation":
         return bool(RE_PROGRAM_MUTATION.match(command))
+    if intent == "program_edit":
+        return bool(RE_PROGRAM_DAY_EDIT.search(command) or RE_ARABIC_PROGRAM_DAY_EDIT.search(command))
     return bool(RE_EXPLICIT_SWAP.match(command) or RE_SINGLE_SWAP.match(command)) and not bool(RE_PROGRAM_MUTATION.match(command))
 
 
@@ -1000,11 +1008,16 @@ def _classify_single_clause(clause: str, telemetry: str = "", messages: Sequence
     if RE_NUTRITION.search(c):
         return {"intent": "coaching_qa", "intent_metadata": {}, "query": c}
 
+    if RE_PROGRAM_DAY_EDIT.search(c) or RE_ARABIC_PROGRAM_DAY_EDIT.search(c):
+        return {"intent": "program_edit", "intent_metadata": {"raw_query": c}, "query": c}
+
     choice = _deload_choice(c)
     if choice:
         return {"intent": "deload_choice", "intent_metadata": {"choice": choice}, "query": c}
 
     if _authorized_action(c, "program_mutation"):
+        if RE_PROGRAM_DAY_EDIT.search(c) or RE_ARABIC_PROGRAM_DAY_EDIT.search(c):
+            return {"intent": "program_edit", "intent_metadata": {"raw_query": c}, "query": c}
         return {
             "intent": "program_mutation",
             "intent_metadata": {"target_frequency": _extract_frequency(c)},
@@ -1802,9 +1815,9 @@ def _goal_confirmation_kind(query: str) -> str | None:
     normalized = re.sub(r"[\u064b-\u065f\u0670]", "", normalized)
     normalized = re.sub(r"[.!?,،؟؛]+", " ", normalized)
     normalized = " ".join(normalized.split())
-    if re.fullmatch(r"(?:yes|yes please|sure|okay|ok|نعم|أيوه|أيوة|ايوه|ايوة|ماشي|تمام)", normalized):
+    if re.fullmatch(r"(?:yes|yes please|sure|okay|ok|confirm|نعم|أيوه|أيوة|ايوه|ايوة|ماشي|تمام)", normalized):
         return "yes"
-    if re.fullmatch(r"(?:no|no thanks|لا|لأ|مش عايز|مش عايزة|مش عاوز)", normalized):
+    if re.fullmatch(r"(?:no|no thanks|cancel|لا|لأ|مش عايز|مش عايزة|مش عاوز)", normalized):
         return "no"
     return None
 
@@ -2095,6 +2108,22 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     arabic_dominant = _is_arabic_dominant(query)
 
     ledger, _store = _graph_context(config)
+    if ledger is not None:
+        pending_edit = ledger.get_pending_chat_program_edit()
+        if pending_edit is not None:
+            latest_assistant = next((_get_message_text(item) for item in reversed(messages[:-1])
+                                     if isinstance(item, AIMessage)), "")
+            if latest_assistant.strip() == pending_edit["offer_text"].strip():
+                answer = _program_edit_confirmation_kind(query, pending_edit)
+                if answer in {"yes", "no"}:
+                    return {"intent": "program_edit_confirmation", "intent_metadata": {
+                        "preview_id": pending_edit["offer_id"], "confirm": answer == "yes",
+                        "include_optional": _chat_edit_optional_selection(query, pending_edit),
+                    }}
+                if _is_program_edit_clarification(query, pending_edit):
+                    return {"intent": "program_edit_reprompt", "intent_metadata": {
+                        "preview_id": pending_edit["offer_id"]}}
+            ledger.clear_pending_chat_program_edit()
     pending = None
     if ledger is not None:
         from service import injuries as injuries_service
@@ -2277,6 +2306,7 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
             "telemetry_intercept",
             "deload_choice",
             "catalog_search",
+            "program_edit",
         }:
             return {k: v for k, v in deterministic.items() if k != "query"}
         return _classify_arabic_intent(query, config)
@@ -2311,7 +2341,7 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     try:
         res = _classify_intent_with_llm(query)
         metadata: dict[str, Any] = {}
-        if res.intent not in {"exercise_substitution", "program_mutation", "catalog_search", "coaching_qa"}:
+        if res.intent not in {"exercise_substitution", "program_mutation", "program_edit", "catalog_search", "coaching_qa"}:
             return {"intent": "coaching_qa", "intent_metadata": {}}
         if res.intent in {"exercise_substitution", "program_mutation"} and not _authorized_action(query, res.intent):
             return {"intent": "coaching_qa", "intent_metadata": {}}
@@ -4036,6 +4066,195 @@ def _run_program_mutation(
     return _program_mutation_result(prog, query, state)
 
 
+def _chat_edit_optional_selection(query: str, pending: dict[str, Any]) -> list[str]:
+    normalized = unicodedata.normalize("NFKC", query).casefold()
+    arabic_terms = {
+        "biceps": ("باي", "بايسبس"), "triceps": ("تراي", "ترايسبس"),
+        "side_delts": ("كتف جانبي", "الكتف الجانبي"),
+        "forearms": ("سواعد", "الساعد"), "abs": ("بطن", "البطن"),
+    }
+    return [item["exercise_id"] for item in pending["proposal"].get("optional", [])
+            if item["muscle"].replace("_", " ") in normalized
+            or any(term in normalized for term in arabic_terms.get(item["muscle"], ()))]
+
+
+def _positive_rebuild_request(query: str) -> bool:
+    for match in RE_PROGRAM_MUTATION.finditer(query):
+        prefix = query[max(0, match.start() - 28):match.start()]
+        if re.search(r"(?:\b(?:don't|do\s+not|never|not)\s+)$|(?:ما\s*تعملش|ماتعملش|مش\s*)$", prefix, re.I):
+            continue
+        return True
+    return False
+
+
+def _build_chat_rebuild_preview(query: str, ledger: Any):
+    from agent.ProgramState import PersistedProgramSchema
+    from agent.program_generator import (
+        ProgramGenerationRequest,
+        _build_program,
+        _generation_profile,
+        _resolve_generation,
+    )
+
+    profile = _generation_profile(ledger)
+    request = ProgramGenerationRequest(query, None, _extract_frequency(query))
+    frequency = _resolve_generation(profile, request)
+    generated, _markdown = _build_program(profile, request, frequency, ledger)
+    return PersistedProgramSchema.model_validate(generated.model_dump())
+
+
+def _program_edit_confirmation_kind(query: str, pending: dict[str, Any]) -> str | None:
+    normalized = unicodedata.normalize("NFKC", query).strip().casefold()
+    if any(mark in normalized for mark in ("?", "؟")) or re.search(
+        r"\b(?:but|not|don't|do not|no|never|should|would|could|without|exclude|omit|skip)\b|مش|ما\s*تضيفش|ماتضيفش|لا", normalized
+    ):
+        return None
+    affirmative = r"(?:yes|yeah|yep|confirm|confirmed|أيوه|ايوه|تمام|ماشي|نعم)"
+    match = re.fullmatch(rf"{affirmative}[.!،,\s]*(.*?)[.!،,\s]*", normalized)
+    if match:
+        selection = match.group(1).strip()
+        if selection in {"", "please", "thanks"}:
+            return "yes"
+        if _is_complete_optional_selection(selection, pending):
+            return "yes"
+    if re.fullmatch(r"(?:no|cancel|decline|لا|لأ|الغاء|إلغاء)[.!،,\s]*", normalized):
+        return "no"
+    return None
+
+
+def _is_complete_optional_selection(selection: str, pending: dict[str, Any]) -> bool:
+    english = re.fullmatch(r"include\s+(.+)", selection)
+    arabic = re.fullmatch(r"ضيف\s+(.+)", selection)
+    if not english and not arabic:
+        return False
+    separator = r"\s*(?:,|and)\s*" if english else r"\s*(?:،|و)\s*"
+    selected = [part.strip() for part in re.split(separator, (english or arabic).group(1))]
+    aliases = {"biceps": {"باي", "بايسبس"}, "triceps": {"تراي", "ترايسبس"},
+        "side_delts": {"كتف جانبي", "الكتف الجانبي"}, "forearms": {"forearms", "forearm", "سواعد", "الساعد"},
+        "abs": {"abs", "ab", "بطن", "البطن"}}
+    offered = {item["muscle"] for item in pending["proposal"].get("optional", [])}
+    allowed = {term for muscle in offered for term in
+               {muscle.replace("_", " "), *aliases.get(muscle, set())}}
+    return bool(selected) and all(part in allowed for part in selected)
+
+
+def _is_program_edit_clarification(query: str, pending: dict[str, Any]) -> bool:
+    if not pending.get("proposal", {}).get("optional"):
+        return False
+    normalized = unicodedata.normalize("NFKC", query).casefold()
+    return bool(re.search(r"forearms?|forearm|سواعد|الساعد|include|أضيف|اضيف", normalized))
+
+
+def program_edit_reprompt_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    ledger, _store = _graph_context(config)
+    pending = ledger.get_pending_chat_program_edit() if ledger else None
+    if pending is None or pending["offer_id"] != state.get("intent_metadata", {}).get("preview_id"):
+        return _response("That Program edit preview is no longer available.")
+    preview = _program_edit_preview_payload(pending)
+    offered = [item["muscle"].replace("_", " ") for item in pending["proposal"].get("optional", [])]
+    optional_names = ", ".join(offered)
+    reply = f"Please answer the preview with a clear yes or no. You can also say yes, include {optional_names}." \
+        if resolve_reply_language(_get_message_text(state["messages"][-1]), state.get("display_language", "en")) == "en" \
+        else f"رد على المعاينة بنعم أو لا بوضوح. وممكن تقول: أيوه، ضيف {optional_names}."
+    ledger.update_pending_chat_program_edit_offer(pending["offer_id"], reply)
+    return {**_response(reply), "program_edit_preview": preview}
+
+
+def _program_edit_preview_payload(pending: dict[str, Any]) -> dict[str, Any]:
+    proposal = pending["proposal"]
+    return {"id": pending["offer_id"], "days": proposal.get("preview_days", []),
+            "warnings": proposal.get("warnings", []), "optional": proposal.get("optional", [])}
+
+
+def _chat_edit_summary(proposal: dict[str, Any], language: str) -> str:
+    lines = []
+    for day in proposal["preview_days"]:
+        name = f"Week {day['week_order']} · {day['day_name']}" if language == "en" else f"الأسبوع {day['week_order']} · {day['day_name']}"
+        exercises = []
+        for exercise in day["exercises"]:
+            if language == "en":
+                exercises.append(
+                    f"{exercise['name']} — {exercise['sets']} sets, "
+                    f"{exercise['reps_min']}-{exercise['reps_max']} reps, "
+                    f"{exercise['rir']} RIR, {exercise['rest_seconds']}s rest"
+                )
+            else:
+                exercises.append(
+                    f"{exercise['name']} — {exercise['sets']} مجموعات، "
+                    f"{exercise['reps_min']}-{exercise['reps_max']} تكرار، "
+                    f"{exercise['rir']} RIR، راحة {exercise['rest_seconds']} ثانية"
+                )
+        lines.append(f"{name}: " + ", ".join(exercises))
+    return "\n".join(lines)
+
+
+def program_edit_confirmation_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    ledger, store = _graph_context(config)
+    metadata = state.get("intent_metadata", {})
+    query = _get_message_text(state["messages"][-1])
+    language = resolve_reply_language(query, state.get("display_language", "en"))
+    from service.chat_program_edit import resolve_chat_program_edit
+    result = resolve_chat_program_edit(
+        store, ledger, state.get("player_account_id"), metadata["preview_id"],
+        confirm=bool(metadata.get("confirm")), include_optional=metadata.get("include_optional"),
+    )
+    if result.get("cancelled"):
+        reply = "Okay, I cancelled the Program edit." if language == "en" else "تمام، ألغيت تعديل البرنامج."
+        return _response(reply)
+    if "error" in result:
+        reply = "That Program edit preview expired or the program changed. Nothing was saved." if language == "en" else "المعاينة انتهت أو البرنامج اتغير. مفيش حاجة اتحفظت."
+        return _response(reply)
+    reply = "I saved the Program edit as one new version." if language == "en" else "حفظت تعديل البرنامج في إصدار جديد واحد."
+    changed = result.get("changed", True)
+    return _response(reply, program_updated=changed,
+                     program_change="edited" if changed else None)
+
+
+def program_edit_chat_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    query = _get_message_text(state["messages"][-1])
+    language = resolve_reply_language(query, state.get("display_language", "en"))
+    _ledger, store = _graph_context(config)
+    account_id = state.get("player_account_id")
+    assignment = store.get_active_assignment_for_player(account_id) if store and account_id else None
+    active = _ledger.get_active_program() if _ledger else None
+    from service.programs import coach_controls_program
+    if coach_controls_program(assignment, active):
+        reply = ("Your coach controls this Program. You can send a Program request for these changes."
+                 if language == "en" else "مدربك هو المسؤول عن برنامجك. تقدر تبعت طلب برنامج بالتغييرات دي.")
+        suggestion = _split_change_request_suggestion(query, state.get("intent_metadata", {}))
+        return _response(reply, request_suggestion=suggestion)
+    regenerated = _positive_rebuild_request(query)
+    base_program = None
+    if regenerated:
+        try:
+            base_program = _build_chat_rebuild_preview(query, _ledger)
+        except ValueError:
+            logger.warning("Program rebuild preview could not validate the requested plan")
+            return _response("Could not build a rebuild preview. Nothing changed.")
+    from service.chat_program_edit import plan_chat_program_edit
+    planned = plan_chat_program_edit(store, _ledger, account_id, query, base_program=base_program)
+    if "error" in planned:
+        reply = planned.get("message") or ("I couldn't build that Program edit preview. Nothing changed." if language == "en" else "مقدرتش أجهز معاينة التعديل. مفيش حاجة اتغيرت.")
+        return _response(reply)
+    proposal = planned["proposal"]
+    optional_names = ", ".join(item["name"] for item in proposal.get("optional", []))
+    summary = _chat_edit_summary(proposal, language)
+    if language == "en":
+        reply = f"{'Rebuild + additions' if regenerated else 'Program edit'} preview:\n{summary}\n\nConfirm or cancel."
+    else:
+        title = "معاينة إعادة بناء البرنامج والإضافات" if regenerated else "معاينة تعديل البرنامج"
+        reply = f"{title}:\n{summary}\n\nأكد أو ألغِ."
+    if optional_names:
+        reply += (f"\nOptional: {optional_names}." if language == "en" else f"\nاختياري: {optional_names}.")
+    offer_text = finalize_coach_output(reply)
+    preview_id = _ledger.set_pending_chat_program_edit(proposal, offer_text)
+    preview = {"id": preview_id, "days": proposal["preview_days"],
+               "warnings": proposal["warnings"], "optional": proposal["optional"]}
+    return {**_response(offer_text), "program_edit_preview": preview,
+            "program_updated": False,
+            "program_change": None}
+
+
 def program_mutation_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
     ledger, store = _graph_context(config)
     query = _get_message_text(state["messages"][-1])
@@ -4225,12 +4444,14 @@ def _response(
     content: str,
     program_updated: bool = False,
     request_suggestion: dict[str, Any] | None = None,
+    program_change: str | None = None,
 ) -> dict[str, Any]:
     cleaned = finalize_coach_output(content)
     return {
         "response_content": cleaned,
         "program_updated": program_updated,
         "request_suggestion": request_suggestion,
+        "program_change": program_change,
         "messages": [AIMessage(content=cleaned)],
     }
 
@@ -4666,7 +4887,7 @@ def _invoke_player_tool_loop(
 ) -> Any:
     """Invokes the same bounded read-tool loop for non-streaming graph callers."""
     ledger, _store = _graph_context(config)
-    tools, definitions = build_player_read_tools(ledger)
+    tools, definitions = build_player_read_tools(ledger, _store, state.get("player_account_id"))
     bound_model = llm.bind_tools(tools)
     messages = list(payload)
     for _round in range(MAX_PLAYER_TOOL_ROUNDS):
@@ -4756,6 +4977,16 @@ def composite_intent_node(state: AssistantState, config: dict[str, Any] | None =
         return _apply_validated_swap(state, config, arabic_swap)
 
     sub_intents = meta.get("sub_intents") or state.get("active_intents") or []
+    program_edit_subs = [sub for sub in sub_intents if sub.get("intent") == "program_edit"]
+    if len(program_edit_subs) > 1:
+        combined_edit = {
+            **program_edit_subs[0],
+            "query": " and ".join(str(sub.get("query") or "") for sub in program_edit_subs),
+        }
+        first_edit_index = next(index for index, sub in enumerate(sub_intents)
+                                if sub.get("intent") == "program_edit")
+        sub_intents = [sub for sub in sub_intents if sub.get("intent") != "program_edit"]
+        sub_intents.insert(first_edit_index, combined_edit)
     original_msgs = list(state.get("messages", []))
     original_query = meta.get("raw_query") or (_get_message_text(original_msgs[-1]) if original_msgs else "")
     clinical = _clinical_turn_metadata(original_query, sub_intents)
@@ -4770,6 +5001,7 @@ def composite_intent_node(state: AssistantState, config: dict[str, Any] | None =
     any_program_updated = False
     program_change = None
     request_suggestion = None
+    program_edit_preview = None
 
     handler_map = {
         "clinical_intercept": clinical_intercept_node,
@@ -4778,6 +5010,7 @@ def composite_intent_node(state: AssistantState, config: dict[str, Any] | None =
         "exercise_history": exercise_history_node,
         "exercise_substitution": exercise_substitution_node,
         "program_mutation": program_mutation_node,
+        "program_edit": program_edit_chat_node,
         "deload_choice": deload_choice_node,
         "catalog_search": catalog_search_node,
         "injury_area_clarification": injury_area_clarification_node,
@@ -4806,6 +5039,8 @@ def composite_intent_node(state: AssistantState, config: dict[str, Any] | None =
             if res.get("program_updated"):
                 any_program_updated = True
                 program_change = res.get("program_change", program_change)
+            if res.get("program_edit_preview") is not None:
+                program_edit_preview = res["program_edit_preview"]
             if request_suggestion is None:
                 request_suggestion = res.get("request_suggestion")
             content = res.get("response_content", "")
@@ -4820,13 +5055,19 @@ def composite_intent_node(state: AssistantState, config: dict[str, Any] | None =
             responses.append(f"Could not complete action for: '{sub_query}'.")
 
     combined_response = "\n\n---\n\n".join(responses) if responses else "Actions processed."
-    return {
+    result = {
         "program_updated": any_program_updated,
         "program_change": program_change,
         "request_suggestion": request_suggestion,
         "response_content": combined_response,
         "messages": [AIMessage(content=combined_response)],
     }
+    if program_edit_preview is not None:
+        ledger, _store = _graph_context(config)
+        if ledger is not None:
+            ledger.update_pending_chat_program_edit_offer(program_edit_preview["id"], combined_response)
+        result["program_edit_preview"] = program_edit_preview
+    return result
 
 
 def _safe_node(handler):
@@ -4864,6 +5105,9 @@ builder.add_node("exercise_history", _safe_node(exercise_history_node))
 builder.add_node("exercise_substitution", _safe_node(exercise_substitution_node))
 builder.add_node("arabic_swap_clarification", _safe_node(arabic_swap_clarification_node))
 builder.add_node("program_mutation", _safe_node(program_mutation_node))
+builder.add_node("program_edit", _safe_node(program_edit_chat_node))
+builder.add_node("program_edit_confirmation", _safe_node(program_edit_confirmation_node))
+builder.add_node("program_edit_reprompt", _safe_node(program_edit_reprompt_node))
 builder.add_node("deload_choice", _safe_node(deload_choice_node))
 builder.add_node("catalog_search", _safe_node(catalog_search_node))
 builder.add_node("injury_area_clarification", _safe_node(injury_area_clarification_node))
@@ -4889,6 +5133,9 @@ builder.add_conditional_edges(
         "exercise_substitution": "exercise_substitution",
         "arabic_swap_clarification": "arabic_swap_clarification",
         "program_mutation": "program_mutation",
+        "program_edit": "program_edit",
+        "program_edit_confirmation": "program_edit_confirmation",
+        "program_edit_reprompt": "program_edit_reprompt",
         "deload_choice": "deload_choice",
         "catalog_search": "catalog_search",
         "injury_area_clarification": "injury_area_clarification",
@@ -4904,7 +5151,7 @@ builder.add_conditional_edges(
 
 for node in [
     "clinical_intercept", "banned_movement", "telemetry_intercept",
-    "exercise_substitution", "arabic_swap_clarification", "program_mutation",
+    "exercise_substitution", "arabic_swap_clarification", "program_mutation", "program_edit", "program_edit_confirmation", "program_edit_reprompt",
     "catalog_search", "injury_area_clarification", "injury_status_update",
     "injury_physician_followup", "exercise_clearance_update", "exercise_clearance_disambiguation",
     "assistant_preference_delete_confirmed",
@@ -5066,6 +5313,9 @@ def stream_assistant_turn(
             "exercise_substitution": exercise_substitution_node,
             "arabic_swap_clarification": arabic_swap_clarification_node,
             "program_mutation": program_mutation_node,
+            "program_edit": program_edit_chat_node,
+            "program_edit_confirmation": program_edit_confirmation_node,
+            "program_edit_reprompt": program_edit_reprompt_node,
             "deload_choice": deload_choice_node,
             "catalog_search": catalog_search_node,
             "injury_area_clarification": injury_area_clarification_node,
@@ -5093,7 +5343,7 @@ def stream_assistant_turn(
             telemetry = {}
         else:
             payload = build_prompt_payload(state)
-            tools, definitions = build_player_read_tools(ledger)
+            tools, definitions = build_player_read_tools(ledger, store, state.get("player_account_id"))
             bound_model = llm.bind_tools(tools)
             model_messages = list(payload)
 
@@ -5196,5 +5446,6 @@ def stream_assistant_turn(
         program_updated=bool(result and result.get("program_updated")),
         program_change=result.get("program_change") if result else None,
         request_suggestion=result.get("request_suggestion") if result else None,
+        program_edit_preview=result.get("program_edit_preview") if result else None,
     )
     state["messages"] = original_messages + [AIMessage(content=content)]

@@ -477,6 +477,7 @@ class FakeMyosApi {
   // When true, the done frame reports `program_updated: true`.
   bool chatProgramUpdated = false;
   Map<String, dynamic>? chatRequestSuggestion;
+  Map<String, dynamic>? chatProgramEditPreview;
   Map<String, dynamic>? chatDoneAllowance;
   List<String> chatStatuses = <String>[];
   List<String> chatReplyChunks = <String>['Keep your ', 'elbows tucked.'];
@@ -651,6 +652,12 @@ class FakeMyosApi {
     }
     if (path.startsWith('/chat/preferences')) {
       return _assistantPreferences(request);
+    }
+    if (path == '/chat/program-edit-previews/decision') {
+      return FakeResponse(200, <String, dynamic>{
+        'cancelled': request.body['confirm'] != true,
+        'version': 2,
+      });
     }
     if (path == '/chat/history') {
       return _chatHistoryResponse(request);
@@ -2235,6 +2242,9 @@ class FakeMyosApi {
     final String allowanceJson = chatDoneAllowance == null
         ? ''
         : ', "lifter_allowance": ${jsonEncode(chatDoneAllowance)}';
+    final String programEditJson = chatProgramEditPreview == null
+        ? ''
+        : ', "program_edit_preview": ${jsonEncode(chatProgramEditPreview)}';
     chatHistory.add(<String, dynamic>{
       'id': 'chat-${++_chatSeq}',
       'role': 'assistant',
@@ -2248,7 +2258,7 @@ class FakeMyosApi {
         'data: {"token": ${jsonEncode(chunk)}}\n\n',
       'data: {"done": true, "response_content": ${jsonEncode(reply)}, '
           '"program_updated": ${chatProgramUpdated ? 'true' : 'false'}, '
-          '"outcome": "completed"$suggestionJson$allowanceJson}\n\n',
+          '"outcome": "completed"$suggestionJson$allowanceJson$programEditJson}\n\n',
     ]);
   }
 

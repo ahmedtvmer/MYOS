@@ -7,7 +7,9 @@ from agent.player_tools import build_player_read_tools
 def _program(*, rationale=None, authored=False):
     exercises = [
         SimpleNamespace(
-            exercise_id=f"id-{index}", exercise_name=f"Lift {index}", note="Coach note"
+            exercise_id=f"id-{index}", exercise_name=f"Lift {index}", note="Coach note",
+            target_sets=3, target_reps_min=8, target_reps_max=12,
+            target_rpe=8, rest_seconds=120, set_groups=[],
         )
         for index in range(1, 5)
     ]
@@ -24,6 +26,46 @@ def _program(*, rationale=None, authored=False):
 def _reader(program):
     tools, _ = build_player_read_tools(SimpleNamespace(get_active_program=lambda: program))
     return next(tool for tool in tools if tool.name == "get_program_rationale")
+
+
+def test_active_program_reports_player_authority_without_assignment():
+    program = _program()
+    ledger = SimpleNamespace(
+        get_active_program=lambda: program,
+        get_program_position=lambda _program: SimpleNamespace(current_week=1),
+        volume_review_exercise_targets=lambda _ids: {},
+    )
+    store = SimpleNamespace(get_active_assignment_for_player=lambda _account_id: None)
+
+    tools, _definitions = build_player_read_tools(ledger, store, "player-id")
+    result = json.loads(next(tool for tool in tools if tool.name == "get_active_program").invoke({}))
+
+    assert result["program_authority"] == "player"
+
+
+def test_active_program_reports_coach_authority_and_display_name():
+    program = _program(authored=True)
+    program.created_at = "2026-10-27T12:00:00+00:00"
+    ledger = SimpleNamespace(
+        get_active_program=lambda: program,
+        get_program_position=lambda _program: SimpleNamespace(current_week=1),
+        volume_review_exercise_targets=lambda _ids: {},
+    )
+    store = SimpleNamespace(
+        get_active_assignment_for_player=lambda _account: {
+            "coach_account_id": "coach", "started_at": "2026-10-27T11:00:00+00:00"
+        },
+        get_account=lambda _account: {"username": "coach-handle"},
+        get_coach_profile=lambda _account: {
+            "display_name": "Coach Display", "bio": "", "specialization": ""
+        },
+    )
+
+    tools, _definitions = build_player_read_tools(ledger, store, "player-id")
+    result = json.loads(next(tool for tool in tools if tool.name == "get_active_program").invoke({}))
+
+    assert result["program_authority"] == "coach"
+    assert result["coach"] == "Coach Display"
 
 
 def test_program_rationale_reader_scopes_by_day_or_exercise_and_keeps_unknown_codes():

@@ -27,7 +27,8 @@ from agent import player_prompt
 from agent import player_tools
 from agent.ProgramState import (
     GeneratedProgramSchema, ProgramDaySchema, ProgramExerciseSchema,
-    ProgramSetGroupSchema, program_exercise_working_sets,
+    ProgramSetGroupSchema, PersistedProgramSchema, PersistedProgramDaySchema,
+    PersistedProgramExerciseSchema, program_exercise_working_sets,
 )
 from agent import program_generator, program_rules
 from agent.focus_muscles import FOCUS_REVIEW_MUSCLES
@@ -132,6 +133,108 @@ def _register(client, username, password="correct-horse-1"):
 
 def _authed(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def test_program_edit_preview_decision_endpoint_is_player_scoped(api):
+    client, db = api
+    first = _register(client, "edit-preview-first")
+    second = _register(client, "edit-preview-second")
+    with db.open_ledger("edit-preview-first") as ledger:
+        rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+        day = PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]),
+                target_sets=3, target_reps_min=8, target_reps_max=12)])
+        ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Full Body",
+            weekly_frequency=1, days=[day]).model_dump())
+        active = ledger.get_active_program()
+        preview_id = ledger.set_pending_chat_program_edit(
+            {"expected_version": active.version, "days": [{
+                "day_name": "Leg A", "day_order": 1, "week_order": 1,
+                "exercises": [
+                    {"source_index": 0, "exercise_id": str(rows[0][0]), "target_sets": 3},
+                    {"source_index": -1, "exercise_id": str(rows[1][0]), "target_sets": 2},
+                ],
+            }], "optional": []},
+            "Preview",
+        )
+    stranger = client.post("/chat/program-edit-previews/decision",
+        headers=_authed(second["access_token"]),
+        json={"preview_id": preview_id, "confirm": False})
+    assert stranger.status_code == 409
+    owner = client.post("/chat/program-edit-previews/decision",
+        headers=_authed(first["access_token"]),
+        json={"preview_id": preview_id, "confirm": True})
+    assert owner.status_code == 200, owner.text
+    assert owner.json()["cancelled"] is False
+    assert owner.json()["version"] == active.version + 1
+    with db.open_ledger("edit-preview-first") as ledger:
+        assert ledger.get_active_program().version == active.version + 1
+
+
+def test_chat_sse_done_frame_contains_structured_program_edit_preview(api):
+    client, db = api
+    registered = _register(client, "program-edit-sse-preview")
+    with db.open_ledger("program-edit-sse-preview") as ledger:
+        squat = db.catalog_conn.execute(
+            "SELECT id, name FROM exercises WHERE id = 'sq'"
+        ).fetchone()
+        day = PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(squat[0]),
+                exercise_name=str(squat[1]), target_sets=3,
+                target_reps_min=8, target_reps_max=12)])
+        ledger.save_training_program(PersistedProgramSchema(program_name="Plan",
+            split_type="Full Body", weekly_frequency=1, days=[day]).model_dump())
+
+    response = client.post("/chat/messages", headers=_authed(registered["access_token"]),
+        json={"content": "change squat to 4 sets on leg days"})
+
+    assert response.status_code == 200
+    assert '"program_edit_preview"' in response.text
+    assert '"id"' in response.text and '"days"' in response.text
+
+
+def test_active_program_tool_context_reports_player_authority_without_coach(api, monkeypatch):
+    client, db = api
+    _force_free_form_coaching_intent(monkeypatch)
+    registered = _register(client, "player-authority-chat")
+    with db.open_ledger("player-authority-chat") as ledger:
+        row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+        day = PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]),
+                target_sets=3, target_reps_min=8, target_reps_max=12)])
+        ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Full Body",
+            weekly_frequency=1, days=[day]).model_dump())
+    model = ScriptedChatModel([
+        ToolCallsTurn(calls=[{"name": "get_active_program", "args": {}, "id": "authority-tool"}]),
+        "You hold Program authority.",
+    ])
+    monkeypatch.setattr(assistant_graph, "llm", model)
+    response = client.post("/chat/messages", headers=_authed(registered["access_token"]),
+        json={"content": "Who controls my program?"})
+
+    assert response.status_code == 200
+    assert '"program_authority":"player"' in _last_rendered(model)
+
+
+def test_chat_history_hides_preview_after_coach_takes_program_authority(api):
+    client, db = api
+    _, headers, _assignment_id = _assigned_player(api, "program-edit-history-coach")
+    coach_id = db.get_active_account_by_username("coach")["account_id"]
+    with db.open_ledger("program-edit-history-coach") as ledger:
+        ledger.save_training_program({
+            "program_name": "Coach plan", "split_type": "Full Body", "weekly_frequency": 1,
+            "days": [_day_plan().model_dump()],
+        }, published_by_coach_account_id=coach_id)
+        active = ledger.get_active_program()
+        offer = "Program edit preview. Confirm or cancel."
+        ledger.set_pending_chat_program_edit({"expected_version": active.version,
+            "days": [], "preview_days": [], "warnings": [], "optional": []}, offer)
+        ledger.add_chat_message("assistant", offer)
+
+    response = client.get("/chat/history", headers=headers)
+
+    assert response.status_code == 200
+    assert "program_edit_preview" not in response.json()[-1]
 
 
 def _force_free_form_coaching_intent(monkeypatch):

@@ -76,6 +76,7 @@ class ProgramEdit:
     day_order: int | None = None
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT
     preview: bool = False
+    via: str = "program_tab"
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,10 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
         for target_position, requested in enumerate(edit_request.exercises, 1):
             if requested.source_index < 0:
                 prescription = prepared.day["exercises"][target_position - 1].get("program_edit_prescription_rationale", {})
-                changes_by_target[(*day_key, target_position)] = [{"code": CHANGE_PROGRAM_EDIT_ADDED, "params": {"exercise_id": requested.exercise_id, "by": "player", "prescription": prescription}}]
+                params = {"exercise_id": requested.exercise_id, "by": "player", "prescription": prescription}
+                if edit_request.via == "chat":
+                    params["via"] = "chat"
+                changes_by_target[(*day_key, target_position)] = [{"code": CHANGE_PROGRAM_EDIT_ADDED, "params": params}]
                 continue
             from_position = requested.source_index + 1
             source_positions[day_key][target_position] = from_position
@@ -142,15 +146,22 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
             before = int(old.get("target_sets", 0))
             after = int(new.get("target_sets", 0))
             if before != after:
-                entries.append({"code": CHANGE_PROGRAM_EDIT_RAISED if after > before else CHANGE_PROGRAM_EDIT_TRIMMED, "params": {"from_sets": before, "to_sets": after}})
+                params = {"from_sets": before, "to_sets": after}
+                if edit_request.via == "chat":
+                    params.update({"by": "player", "via": "chat"})
+                entries.append({"code": CHANGE_PROGRAM_EDIT_RAISED if after > before else CHANGE_PROGRAM_EDIT_TRIMMED, "params": params})
             if from_position != target_position:
-                entries.append({"code": CHANGE_PROGRAM_EDIT_REORDERED, "params": {"from_position": from_position, "to_position": target_position}})
+                params = {"from_position": from_position, "to_position": target_position}
+                if edit_request.via == "chat":
+                    params.update({"by": "player", "via": "chat"})
+                entries.append({"code": CHANGE_PROGRAM_EDIT_REORDERED, "params": params})
             if entries:
                 changes_by_target[(*day_key, target_position)] = entries
         kept_positions = {item.source_index + 1 for item in edit_request.exercises if item.source_index >= 0}
         removed_entries = [
             {"week_order": day_key[0], "day_order": day_key[1],
-             "exercise_id": str(exercise["exercise_id"]), "code": CHANGE_PROGRAM_EDIT_REMOVED}
+             "exercise_id": str(exercise["exercise_id"]), "code": CHANGE_PROGRAM_EDIT_REMOVED,
+             **({"params": {"by": "player", "via": "chat"}} if edit_request.via == "chat" else {})}
             for position, exercise in enumerate(old_day["exercises"], 1)
             if position not in kept_positions
         ]
@@ -337,6 +348,75 @@ def _updated_program_result(ledger: Any, previous_version: int) -> dict[str, Any
     if updated is None:
         return _failure(ProgramEditErrorCode.NO_ACTIVE_PROGRAM)
     return {**updated.model_dump(), "previous_version": previous_version}
+
+
+def edit_active_program_days(db: Any, ledger: Any, edits: list[ProgramEdit]) -> dict[str, Any]:
+    """Validates every requested day then publishes all edits as one version."""
+    if not edits:
+        return _failure(ProgramEditErrorCode.EMPTY_DAY)
+    active = ledger.get_active_program()
+    if active is None:
+        return _failure(ProgramEditErrorCode.NO_ACTIVE_PROGRAM)
+    expected = edits[0].expected_active_version
+    if any(edit.expected_active_version != expected for edit in edits):
+        return _failure(ProgramEditErrorCode.PROGRAM_CHANGED)
+    class PreviewLedger:
+        def __init__(self, current):
+            self.current = current
+        def get_active_program(self):
+            return self.current
+        def __getattr__(self, name):
+            return getattr(ledger, name)
+
+    preview_ledger = PreviewLedger(active)
+    warnings: list[dict[str, Any]] = []
+    result: dict[str, Any] = active.model_dump()
+    for edit in edits:
+        result = edit_active_program_day(
+            db, preview_ledger, replace(edit, preview=True, via="chat")
+        )
+        if "code" in result:
+            return result
+        warnings.extend(result.get("volume_warnings", []))
+        from agent.ProgramState import PersistedProgramSchema
+        preview_ledger.current = PersistedProgramSchema.model_validate(result)
+    result["volume_warnings"] = list({
+        (item.get("muscle"), item.get("weekly_sets"), item.get("ceiling")): item
+        for item in warnings
+    }.values())
+    result["previous_version"] = active.version
+    if all(edit.preview for edit in edits):
+        return result
+    if _same_program_exercises(active.model_dump().get("days", []), result.get("days", [])):
+        return {**_updated_program_result(ledger, active.version), "volume_warnings": list({
+            (item.get("muscle"), item.get("weekly_sets"), item.get("ceiling")): item
+            for item in warnings
+        }.values())}
+    position = ledger.get_program_position(active)
+    result.pop("previous_version", None)
+    result.pop("volume_warnings", None)
+    result.pop("created_at", None)
+    ledger.save_training_program(
+        result, published_by_coach_account_id=None, starting_position=position
+    )
+    updated = ledger.get_active_program()
+    if updated is not None:
+        capture_program_edited(edits[0].actor, updated, client=edits[0].client)
+    return {**_updated_program_result(ledger, active.version), "volume_warnings": list({
+        (item.get("muscle"), item.get("weekly_sets"), item.get("ceiling")): item
+        for item in warnings
+    }.values())}
+
+
+def _same_program_exercises(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> bool:
+    def signature(days):
+        return [
+            (int(day.get("week_order", 1)), int(day.get("day_order", 0)),
+             [(str(item.get("exercise_id")), program_exercise_working_sets(item))
+              for item in day.get("exercises", [])])
+            for day in days
+        ]
+    return signature(before) == signature(after)
 
 
 def _failure(code: ProgramEditErrorCode) -> dict[str, Any]:

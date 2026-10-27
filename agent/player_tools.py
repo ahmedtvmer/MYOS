@@ -209,10 +209,24 @@ def _read_player_nutrition(ledger: Any) -> dict[str, Any]:
     return assistant_projection(ledger, today)
 
 
-def _read_active_program(ledger: Any, args: ActiveProgramArgs | None = None) -> dict[str, Any]:
+def _read_active_program(ledger: Any, args: ActiveProgramArgs | None = None, store: Any = None, player_account_id: str | None = None) -> dict[str, Any]:
     program = ledger.get_active_program()
     if program is None:
-        return {"status": "not_set", "active_program": "not set"}
+        return {"status": "not_set", "active_program": "not set", "program_authority": "player"}
+    authority = "player"
+    coach_name = None
+    if store is not None and player_account_id:
+        assignment = store.get_active_assignment_for_player(player_account_id)
+        from service.programs import coach_controls_program
+        if coach_controls_program(assignment, program):
+            authority = "coach"
+            coach = store.get_account(assignment["coach_account_id"])
+            if coach:
+                from service.assignments import coach_identity
+
+                coach_name = coach_identity(
+                    store, assignment["coach_account_id"], coach
+                )["display_name"]
     from core.weak_points import WEAK_POINT_MUSCLES
     from agent.ProgramState import program_exercise_working_sets
 
@@ -340,6 +354,8 @@ def _read_active_program(ledger: Any, args: ActiveProgramArgs | None = None) -> 
     return {
         "status": "ok", "f": getattr(program, "weekly_frequency", "not set"),
         "split": _not_set(getattr(program, "split_type", None)), "days": days,
+        "program_authority": authority,
+        **({"coach": coach_name} if coach_name else {}),
         **({} if selected_name else {
             "weekly_sets_by_muscle": summary, "other_muscles": other_muscles,
             "message": "Weak point groups can overlap. Request a day_name scope for RIR and rest.",
@@ -454,8 +470,19 @@ def _encode_tool_result(tool_result: Any) -> str:
     if len(rendered.encode("utf-8")) <= MAX_TOOL_RESULT_BYTES:
         return rendered
     if isinstance(tool_result, dict) and "weekly_sets_by_muscle" in tool_result:
+        compact_days = dict(tool_result)
+        authority = compact_days.pop("program_authority", "player")
+        compact_days["auth"] = authority
+        compact_days.pop("message", None)
+        compact_days_rendered = json.dumps(
+            compact_days, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        )
+        if len(compact_days_rendered.encode("utf-8")) <= MAX_TOOL_RESULT_BYTES:
+            return compact_days_rendered
         compact = {
             "status": "summary_only",
+            "auth": "coach" if tool_result.get("program_authority") == "coach" else "player",
+            **({"coach": tool_result["coach"]} if tool_result.get("coach") else {}),
             "weekly_sets_by_muscle": tool_result["weekly_sets_by_muscle"],
             "other_muscles": tool_result.get("other_muscles", {}),
             "message": "Ask for a day_name or exercise_name scope to read prescriptions.",
@@ -505,7 +532,7 @@ def cap_tool_results_for_prompt(
     return capped_messages
 
 
-def build_player_read_tools(ledger: Any) -> tuple[list[StructuredTool], dict[str, PlayerReadTool]]:
+def build_player_read_tools(ledger: Any, store: Any = None, player_account_id: str | None = None) -> tuple[list[StructuredTool], dict[str, PlayerReadTool]]:
     """Builds this turn's tools; their readers close over only its own ledger."""
     tools: list[StructuredTool] = []
     definitions = {definition.name: definition for definition in PLAYER_READ_TOOL_REGISTRY}
@@ -513,6 +540,8 @@ def build_player_read_tools(ledger: Any) -> tuple[list[StructuredTool], dict[str
         if definition.args_reader is not None:
             def reader(_definition=definition, **kwargs: Any) -> str:
                 args = _definition.args_schema(**kwargs)
+                if _definition.name == "get_active_program":
+                    return _encode_tool_result(_read_active_program(ledger, args, store, player_account_id))
                 return _encode_tool_result(_definition.args_reader(ledger, args))
         else:
             def reader(_definition=definition) -> str:

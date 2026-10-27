@@ -169,6 +169,8 @@ Future<void> _pumpHome(
 }
 
 Future<void> _acceptDisclosure(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const Key('chat_disclosure_accept')));
+  await tester.pump();
   await tester.tap(find.byKey(const Key('chat_disclosure_accept')));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
@@ -373,7 +375,7 @@ void main() {
     expect(find.text('قبل أن تبدأ'), findsOneWidget);
     expect(
       find.text(
-        'يستخدم المساعد نموذج ذكاء اصطناعي مستضاف. تُرسل رسالتك وآخر 10 رسائل واسمك المفضل وإعدادات المساعد إلى مزوده. تُرسل أيضًا تفاصيل الملف أو البرنامج التي يبحث عنها للإجابة. قد يكشف النص الحر هويتك؛ تجنب كتابة ما لا ترغب في معالجته هناك.',
+        const MyosCopy('ar').hostedChatDisclosure,
       ),
       findsOneWidget,
     );
@@ -1055,6 +1057,108 @@ void main() {
         find.byKey(const ValueKey<String>('logger.progress')), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('logger.deload')), findsOneWidget);
     expect(find.text('Deload applied'), findsOneWidget);
+  });
+
+  testWidgets('chat Program edit preview renders optional toggle and confirms',
+      (tester) async {
+    final FakeMyosApi fake = _fakePlayer('program-edit-card')
+      ..chatProgramEditPreview = <String, dynamic>{
+        'id': 'preview-1',
+        'days': <Map<String, dynamic>>[
+          <String, dynamic>{'day_name': 'Leg A', 'week_order': 1, 'exercises': <Map<String, dynamic>>[
+            <String, dynamic>{'name': 'Cable Curl', 'sets': 2, 'reps_min': 10,
+              'reps_max': 15, 'rir': 1, 'rest_seconds': 90, 'optional': false,
+              'set_groups': <Map<String, dynamic>>[
+                <String, dynamic>{'sets': 2, 'reps_min': 8, 'reps_max': 12, 'rir': 2},
+                <String, dynamic>{'sets': 2, 'reps_min': 12, 'reps_max': 15, 'rir': 3},
+              ]},
+            <String, dynamic>{'name': 'Wrist Curl', 'sets': 2, 'reps_min': 12,
+              'reps_max': 20, 'rir': 1, 'rest_seconds': 60, 'optional': true},
+          ]},
+        ],
+        'warnings': <dynamic>[],
+        'optional': <Map<String, dynamic>>[
+          <String, dynamic>{'exercise_id': 'wrist-1', 'name': 'Wrist Curl',
+            'muscle': 'forearms', 'sets': 2},
+        ],
+      };
+    final InMemoryChatCacheStore store = InMemoryChatCacheStore();
+    final InMemoryWorkoutCacheStore workoutCache = InMemoryWorkoutCacheStore();
+    await _pumpChat(tester, fake, store: store, workoutCache: workoutCache);
+    await _acceptDisclosure(tester);
+    await tester.enterText(find.byKey(const Key('chat_composer')), 'add biceps');
+    await tester.tap(find.byKey(const Key('chat_send')));
+    await _pumpUntilFound(tester, find.byKey(const Key('chat_program_edit_preview')));
+
+    expect(find.textContaining('Cable Curl'), findsOneWidget);
+    expect(find.textContaining('Week 1 · Leg A'), findsOneWidget);
+    expect(find.textContaining('2 × 8-12 reps, 2 RIR; 2 × 12-15 reps, 3 RIR'), findsOneWidget);
+    expect(find.byKey(const Key('chat_program_edit_optional_wrist-1')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('chat_program_edit_optional_wrist-1')));
+    await tester.tap(find.byKey(const Key('chat_program_edit_confirm')));
+    await tester.pumpAndSettle();
+
+    final FakeRequest decision = fake.adapter.requests.lastWhere(
+      (FakeRequest request) => request.path == '/chat/program-edit-previews/decision');
+    expect(decision.body['confirm'], isTrue);
+    expect(decision.body['include_optional'], <String>['wrist-1']);
+    expect(fake.adapter.requests.any((FakeRequest request) =>
+        request.method == 'GET' && request.path == '/programs/active'), isTrue);
+    expect(await workoutCache.readProgram('account-program-edit-card'), isNotNull);
+  });
+
+  testWidgets('chat Program edit preview uses Arabic Confirm and Cancel labels',
+      (tester) async {
+    final FakeMyosApi fake = _fakePlayer('program-edit-ar')
+      ..chatProgramEditPreview = <String, dynamic>{
+        'id': 'preview-ar',
+        'days': <Map<String, dynamic>>[
+          <String, dynamic>{'day_name': 'Leg A', 'exercises': <Map<String, dynamic>>[
+            <String, dynamic>{'name': 'Cable Curl', 'sets': 2, 'reps_min': 10,
+              'reps_max': 15, 'rir': 1, 'rest_seconds': 90, 'optional': false},
+          ]},
+        ],
+        'warnings': <dynamic>[],
+        'optional': <dynamic>[],
+      };
+    await _pumpChat(tester, fake,
+        store: InMemoryChatCacheStore(), languageCode: 'ar');
+    await _acceptDisclosure(tester);
+    await tester.enterText(
+        find.byKey(const Key('chat_composer')), 'حط باي على أيام الرجل');
+    await tester.tap(find.byKey(const Key('chat_send')));
+    await _pumpUntilFound(tester, find.byKey(const Key('chat_program_edit_preview')));
+
+    expect(find.text('تأكيد'), findsOneWidget);
+    expect(find.text('إلغاء'), findsOneWidget);
+    expect(find.textContaining('تكرار'), findsOneWidget);
+  });
+
+  testWidgets('reopened chat restores a pending Program edit card', (tester) async {
+    final FakeMyosApi fake = _fakePlayer('program-edit-history')
+      ..chatHistory.add(<String, dynamic>{
+        'id': 'offer-history',
+        'role': 'assistant',
+        'content': 'Program edit preview. Confirm or cancel.',
+        'program_edit_preview': <String, dynamic>{
+          'id': 'preview-history',
+          'days': <Map<String, dynamic>>[
+            <String, dynamic>{'day_name': 'Leg A', 'week_order': 1,
+              'exercises': <Map<String, dynamic>>[
+                <String, dynamic>{'name': 'Cable Curl', 'sets': 2, 'reps_min': 10,
+                  'reps_max': 15, 'rir': 1, 'rest_seconds': 90},
+              ]},
+          ],
+          'optional': <dynamic>[],
+          'warnings': <dynamic>[],
+        },
+      });
+    await _pumpChat(tester, fake, store: InMemoryChatCacheStore());
+    await _acceptDisclosure(tester);
+
+    expect(find.byKey(const Key('chat_program_edit_preview')), findsOneWidget);
+    expect(find.textContaining('Cable Curl'), findsOneWidget);
+    expect(find.byKey(const Key('chat_program_edit_confirm')), findsOneWidget);
   });
 
   testWidgets('clearing history requires confirmation and clears the service',

@@ -742,4 +742,4 @@ class LedgerTrainingProgramMixin:
             "UPDATE user_profile SET weekly_frequency = ?, updated_at = ? WHERE id = 1",
             (min(max(int(frequency), 1), 5), datetime.now(UTC).isoformat()),
         )
-        self.conn.commit()
+        self._commit_ledger()

@@ -11,6 +11,7 @@ class ChatMessage {
     this.createdAt,
     this.kind = 'message',
     this.requestSuggestion,
+    this.programEditPreview,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -20,6 +21,9 @@ class ChatMessage {
         createdAt:
             json['created_at'] is String ? json['created_at'] as String : null,
         kind: json['kind'] is String ? json['kind'] as String : 'message',
+        programEditPreview: json['program_edit_preview'] is Map<String, dynamic>
+            ? json['program_edit_preview'] as Map<String, dynamic>
+            : null,
       );
 
   final String id;
@@ -34,6 +38,7 @@ class ChatMessage {
 
   /// A transient action from this streamed reply; never part of stored history.
   final ProgramRequestDraft? requestSuggestion;
+  final Map<String, dynamic>? programEditPreview;
 
   bool get isUser => role == 'user';
 
@@ -47,6 +52,8 @@ class ChatMessage {
         'content': content,
         if (createdAt != null) 'created_at': createdAt,
         'kind': kind,
+        if (programEditPreview != null)
+          'program_edit_preview': programEditPreview,
       };
 
   static String _string(dynamic value) => value is String ? value : '';
@@ -80,6 +87,7 @@ class ChatDone extends ChatStreamEvent {
     this.lifterAllowance,
     this.coachAllowance,
     this.requestSuggestion,
+    this.programEditPreview,
   });
 
   final String responseContent;
@@ -88,6 +96,7 @@ class ChatDone extends ChatStreamEvent {
   final AiAllowance? lifterAllowance;
   final AiAllowance? coachAllowance;
   final ProgramRequestDraft? requestSuggestion;
+  final Map<String, dynamic>? programEditPreview;
 }
 
 /// The turn failed; [detail] is the service's fixed, non-leaking message.

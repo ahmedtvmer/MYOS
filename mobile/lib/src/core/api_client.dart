@@ -3049,8 +3049,34 @@ class ApiClient {
               )
             : null,
         requestSuggestion: _parseRequestSuggestion(frame['request_suggestion']),
+        programEditPreview:
+            frame['program_edit_preview'] is Map<String, dynamic>
+                ? frame['program_edit_preview'] as Map<String, dynamic>
+                : null,
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> decideChatProgramEditPreview({
+    required String previewId,
+    required bool confirm,
+    List<String> includeOptional = const <String>[],
+  }) async {
+    final response = await _send(
+      () => _dio.post<dynamic>(
+        '/chat/program-edit-previews/decision',
+        data: <String, dynamic>{
+          'preview_id': previewId,
+          'confirm': confirm,
+          'include_optional': includeOptional,
+        },
+      ),
+    );
+    if (response.data is! Map<String, dynamic>) {
+      const String message = 'The service returned invalid Program edit data.';
+      throw ApiException(message, failureMessage: _invalidServiceDataFailure(message));
+    }
+    return response.data as Map<String, dynamic>;
   }
 
   ProgramRequestDraft? _parseRequestSuggestion(dynamic suggestion) =>

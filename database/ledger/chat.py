@@ -11,6 +11,53 @@ from typing import Any
 
 
 class LedgerChatMixin:
+    def set_pending_chat_program_edit(self, proposal: dict[str, Any], offer_text: str) -> str:
+        offer_id = str(uuid.uuid4())
+        now = datetime.now(UTC).isoformat()
+        self.conn.execute(
+            "INSERT INTO assistant_goal_weak_point_pending "
+            "(id, muscles_json, offer_id, kind, offer_text, created_at) VALUES (1, ?, ?, 'program_edit', ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET muscles_json = excluded.muscles_json, "
+            "offer_id = excluded.offer_id, kind = excluded.kind, offer_text = excluded.offer_text, "
+            "created_at = excluded.created_at",
+            (json.dumps(proposal), offer_id, offer_text, now),
+        )
+        self._commit_ledger()
+        return offer_id
+
+    def get_pending_chat_program_edit(self) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT muscles_json, offer_id, offer_text, created_at "
+            "FROM assistant_goal_weak_point_pending WHERE id = 1 AND kind = 'program_edit'"
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            created = datetime.fromisoformat(row["created_at"])
+            proposal = json.loads(row["muscles_json"])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            self.clear_pending_chat_program_edit()
+            return None
+        if (datetime.now(UTC) - created).total_seconds() > 1800 or not isinstance(proposal, dict):
+            self.clear_pending_chat_program_edit()
+            return None
+        return {"proposal": proposal, "offer_id": row["offer_id"], "offer_text": row["offer_text"]}
+
+    def clear_pending_chat_program_edit(self) -> None:
+        self.conn.execute(
+            "DELETE FROM assistant_goal_weak_point_pending WHERE id = 1 AND kind = 'program_edit'"
+        )
+        self._commit_ledger()
+
+    def update_pending_chat_program_edit_offer(self, offer_id: str, offer_text: str) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE assistant_goal_weak_point_pending SET offer_text = ?, created_at = ? "
+            "WHERE id = 1 AND kind = 'program_edit' AND offer_id = ?",
+            (offer_text, datetime.now(UTC).isoformat(), offer_id),
+        )
+        self._commit_ledger()
+        return cursor.rowcount == 1
+
     def set_pending_goal_weak_point_suggestion(
         self, muscles: list[str], kind: str, offer_text: str
     ) -> None:

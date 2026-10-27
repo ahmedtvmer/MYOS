@@ -154,6 +154,20 @@ def test_phase1_tier1_program_mutations():
     logger.info("✅ Phase 1 Tier 1: Program mutations & frequencies verified.")
 
 
+def test_compound_program_edits_route_to_program_edit():
+    from agent.assistant_graph import router_node
+    for query in (
+        "rebuild my program and augment leg days with bi, tri and side delt, maybe forearms",
+        "add biceps and triceps to my leg days",
+        "put side delts on leg days",
+        "move lateral raises to leg days",
+        "change barbell squat to 4 sets on leg days",
+        "زوّد برنامجي وحط باي وتراي على أيام الرجل",
+    ):
+        routed = router_node({"messages": [HumanMessage(content=query)]})
+        assert routed["intent"] == "program_edit"
+
+
 def test_deload_choice_routing_is_deterministic_in_english_and_arabic(monkeypatch, scripted_chat_model):
     cases = [
         ("undo the deload", "undo"),

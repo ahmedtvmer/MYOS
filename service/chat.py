@@ -9,7 +9,10 @@ from agent.prompts import DEFAULT_ASSISTANT_STYLE
 from service._base import ledger_scope
 
 
-def get_history(db: Any, ledger_id: str, ledger: Any | None = None) -> list[dict[str, Any]]:
+def get_history(
+    db: Any, ledger_id: str, ledger: Any | None = None,
+    *, player_account_id: str | None = None,
+) -> list[dict[str, Any]]:
     with ledger_scope(db, ledger, ledger_id) as ledger:
         history = ledger.get_chat_history()
         # Label the session-commit pointer as a debrief so the client renders it
@@ -18,6 +21,24 @@ def get_history(db: Any, ledger_id: str, ledger: Any | None = None) -> list[dict
             message["kind"] = chat_message_kind(
                 str(message.get("role", "")), str(message.get("content", ""))
             )
+        pending = ledger.get_pending_chat_program_edit()
+        if pending is not None:
+            active = ledger.get_active_program()
+            from service.programs import player_controls_program
+            if (active is None or active.version != pending["proposal"].get("expected_version")
+                    or not player_controls_program(db, ledger, player_account_id or ledger_id)):
+                ledger.clear_pending_chat_program_edit()
+            else:
+                message = next((item for item in reversed(history)
+                                if item.get("role") == "assistant"
+                                and item.get("content", "").strip() == pending["offer_text"].strip()), None)
+                if message is not None:
+                    proposal = pending["proposal"]
+                    message["program_edit_preview"] = {
+                        "id": pending["offer_id"], "days": proposal.get("preview_days", []),
+                        "warnings": proposal.get("warnings", []),
+                        "optional": proposal.get("optional", []),
+                    }
         return history
 
 

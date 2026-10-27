@@ -44,6 +44,159 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
+class _ProgramEditPreviewCard extends StatefulWidget {
+  const _ProgramEditPreviewCard({
+    required this.preview,
+    required this.arabic,
+    required this.onDecision,
+  });
+
+  final Map<String, dynamic> preview;
+  final bool arabic;
+  final Future<bool> Function(bool confirm, List<String> selectedOptional)
+      onDecision;
+
+  @override
+  State<_ProgramEditPreviewCard> createState() =>
+      _ProgramEditPreviewCardState();
+}
+
+class _ProgramEditPreviewCardState extends State<_ProgramEditPreviewCard> {
+  final Set<String> _selected = <String>{};
+  bool _busy = false;
+
+  String _exercisePrescription(Map<String, dynamic> exercise) {
+    final List<dynamic> groups = exercise['set_groups'] is List<dynamic>
+        ? exercise['set_groups'] as List<dynamic>
+        : <dynamic>[];
+    if (groups.length > 1) {
+      final String prescriptions = groups
+          .whereType<Map<String, dynamic>>()
+          .map((Map<String, dynamic> group) =>
+              '${group['sets']} × ${group['reps_min']}-${group['reps_max']} '
+              '${widget.arabic ? 'تكرار' : 'reps'}, ${group['rir']} RIR')
+          .join('; ');
+      return '${exercise['name']} · $prescriptions · '
+          '${widget.arabic ? 'راحة' : 'rest'} ${exercise['rest_seconds']}s';
+    }
+    final String optional = exercise['optional'] == true
+        ? (widget.arabic ? 'اختياري: ' : 'Optional: ')
+        : '';
+    if (widget.arabic) {
+      return '$optional${exercise['name']} · ${exercise['sets']} مجموعات · '
+          '${exercise['reps_min']}-${exercise['reps_max']} تكرار · '
+          '${exercise['rir']} RIR · راحة ${exercise['rest_seconds']} ثانية';
+    }
+    return '$optional${exercise['name']} · ${exercise['sets']} sets · '
+        '${exercise['reps_min']}-${exercise['reps_max']} reps · '
+        '${exercise['rir']} RIR · ${exercise['rest_seconds']}s';
+  }
+
+  Future<void> _decide(bool confirm) async {
+    setState(() => _busy = true);
+    final bool resolved =
+        await widget.onDecision(confirm, _selected.toList(growable: false));
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!resolved) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(widget.arabic
+            ? 'المعاينة انتهت أو حصل خطأ. حدّث المحادثة.'
+            : 'The preview expired or could not be saved. Refresh chat.'),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<dynamic> days = widget.preview['days'] is List<dynamic>
+        ? widget.preview['days'] as List<dynamic>
+        : <dynamic>[];
+    final List<dynamic> optional = widget.preview['optional'] is List<dynamic>
+        ? widget.preview['optional'] as List<dynamic>
+        : <dynamic>[];
+    final List<dynamic> warnings = widget.preview['warnings'] is List<dynamic>
+        ? widget.preview['warnings'] as List<dynamic>
+        : <dynamic>[];
+    return Card(
+      key: const Key('chat_program_edit_preview'),
+      child: Padding(
+        padding: const EdgeInsets.all(MyosSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(widget.arabic ? 'معاينة تعديل البرنامج' : 'Program edit preview',
+                style: Theme.of(context).textTheme.titleSmall),
+            for (final dynamic day in days)
+              if (day is Map<String, dynamic>) ...<Widget>[
+                const SizedBox(height: MyosSpacing.xs),
+                Text(day['week_order'] == null
+                    ? (day['day_name']?.toString() ?? '')
+                    : '${widget.arabic ? 'الأسبوع' : 'Week'} ${day['week_order']} · ${day['day_name']}'),
+                for (final dynamic exercise in
+                    (day['exercises'] is List<dynamic>
+                        ? day['exercises'] as List<dynamic>
+                        : <dynamic>[]))
+                  if (exercise is Map<String, dynamic>)
+                    Padding(
+                      padding: const EdgeInsets.only(left: MyosSpacing.sm),
+                      child: Text(_exercisePrescription(exercise)),
+                    ),
+              ],
+            for (final dynamic option in optional)
+              if (option is Map<String, dynamic>)
+                CheckboxListTile(
+                  key: Key('chat_program_edit_optional_${option['exercise_id']}'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _selected.contains(option['exercise_id']?.toString()),
+                  title: Text(
+                    '${widget.arabic ? 'اختياري' : 'Optional'}: ${option['name']} '
+                    '(${option['sets']} ${widget.arabic ? 'مجموعات' : 'sets'})',
+                  ),
+                  onChanged: _busy
+                      ? null
+                      : (bool? checked) {
+                          final String id = option['exercise_id'].toString();
+                          setState(() {
+                            if (checked == true) {
+                              _selected.add(id);
+                            } else {
+                              _selected.remove(id);
+                            }
+                          });
+                        },
+                ),
+            for (final dynamic warning in warnings)
+              if (warning is Map<String, dynamic>)
+                Text(widget.arabic
+                    ? 'مراجعة الحجم: ${warning['muscle']}'
+                    : 'Volume review: ${warning['muscle']}'),
+            const SizedBox(height: MyosSpacing.sm),
+            Wrap(
+              spacing: MyosSpacing.sm,
+              children: <Widget>[
+                MyosButton(
+                  key: const Key('chat_program_edit_confirm'),
+                  label: widget.arabic ? 'تأكيد' : 'Confirm',
+                  expand: false,
+                  onPressed: _busy ? null : () => _decide(true),
+                ),
+                MyosButton(
+                  key: const Key('chat_program_edit_cancel'),
+                  label: widget.arabic ? 'إلغاء' : 'Cancel',
+                  variant: MyosButtonVariant.tertiary,
+                  expand: false,
+                  onPressed: _busy ? null : () => _decide(false),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
 
@@ -64,6 +217,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   FailureMessage? _sendFailure;
   String? _failedContent;
   bool _retryAddsBubble = true;
+  final Set<String> _resolvedProgramEditPreviews = <String>{};
 
   String? get _accountId =>
       ref.read(authControllerProvider).session?.account.accountId;
@@ -239,7 +393,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               :final bool programUpdated,
               :final String outcome,
               :final AiAllowance? lifterAllowance,
-              :final ProgramRequestDraft? requestSuggestion
+              :final ProgramRequestDraft? requestSuggestion,
+              :final Map<String, dynamic>? programEditPreview
             ):
             if (outcome == 'truncated') {
               finished = true;
@@ -268,6 +423,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   role: 'assistant',
                   content: reply,
                   requestSuggestion: requestSuggestion,
+                  programEditPreview: programEditPreview,
                 ),
               ];
               _streamingText = null;
@@ -657,6 +813,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _assistantReplyContent(ChatMessage message) {
     final ProgramRequestDraft? suggestion = message.requestSuggestion;
+    final Map<String, dynamic>? editPreview = message.programEditPreview;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -675,8 +832,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onPressed: () => _openRequestSuggestion(suggestion),
           ),
         ],
+        if (editPreview != null &&
+            !_resolvedProgramEditPreviews.contains(editPreview['id']))
+          _ProgramEditPreviewCard(
+            preview: editPreview,
+            arabic: _chatCopy(context).isArabic,
+            onDecision: (bool confirm, List<String> selected) =>
+                _decideProgramEdit(editPreview, confirm, selected),
+          ),
       ],
     );
+  }
+
+  Future<bool> _decideProgramEdit(
+    Map<String, dynamic> preview,
+    bool confirm,
+    List<String> selectedOptional,
+  ) async {
+    try {
+      await ref.read(apiClientProvider).decideChatProgramEditPreview(
+            previewId: preview['id'] as String,
+            confirm: confirm,
+            includeOptional: selectedOptional,
+          );
+      _setStateIfMounted(() =>
+          _resolvedProgramEditPreviews.add(preview['id'] as String));
+      if (confirm) unawaited(_refreshProgramCache());
+      return true;
+    } on Object {
+      unawaited(_loadHistory());
+      return false;
+    }
   }
 
   Future<void> _openRequestSuggestion(ProgramRequestDraft initialDraft) async {

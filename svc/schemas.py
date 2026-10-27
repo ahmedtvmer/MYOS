@@ -2012,6 +2012,12 @@ class ChatMessageIn(BaseModel):
     content: str = Field(min_length=1, max_length=CHAT_MESSAGE_MAX_CHARS)
 
 
+class ChatProgramEditDecisionIn(BaseModel):
+    preview_id: str = Field(min_length=1, max_length=64)
+    confirm: bool
+    include_optional: list[str] = Field(default_factory=list, max_length=10)
+
+
 class AssistantPreferenceUpdateIn(BaseModel):
     text: str = Field(min_length=1, max_length=200)
 

@@ -69,7 +69,7 @@ class TrainingLedger(
 
     # Ledger transactions: re-entrant, on this handle's connection (ADR 020/033).
     @contextmanager
-    def ledger_transaction(self) -> Iterator[None]:
+    def ledger_transaction(self, *, immediate: bool = False) -> Iterator[None]:
         """Runs a group of ledger writes atomically.
 
         Re-entrant: nested calls join the outermost transaction. On error the
@@ -82,7 +82,7 @@ class TrainingLedger(
         original_isolation = conn.isolation_level
         if outermost:
             conn.isolation_level = None
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
             # Reserve this ledger's writer slot without locking attached catalog.
             conn.execute("UPDATE main.user_profile SET id = id WHERE 0")
         try:
