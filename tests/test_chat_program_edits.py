@@ -507,9 +507,15 @@ def test_moving_lateral_raises_moves_them_off_the_upper_day(fresh_store):
     assert any(exercise.exercise_id == str(rows[0][0]) for exercise in lower_day.exercises)
 
 
-def test_coach_controlled_chat_edit_offers_program_request(fresh_store):
+@pytest.mark.parametrize(("query", "expected_reply"), [
+    ("add biceps to leg days",
+     "Your assigned coach controls your program. You can review and send a request to your coach."),
+    ("ضيف باي على أيام الرجل من فضلك",
+     "يتولى مدربك المعيّن التحكم في برنامجك التدريبي. يمكنك مراجعة طلب وإرساله إلى مدربك."),
+])
+def test_coach_controlled_chat_edit_offers_program_request(fresh_store, query, expected_reply):
     from agent.assistant_graph import program_edit_chat_node
-    state = {"messages": [HumanMessage(content="add biceps to leg days")],
+    state = {"messages": [HumanMessage(content=query)],
         "player_account_id": "00000000-0000-4000-8000-000000000001",
         "display_language": "en", "intent_metadata": {}}
     program = PersistedProgramSchema(program_name="Plan", split_type="Upper Lower",
@@ -533,7 +539,7 @@ def test_coach_controlled_chat_edit_offers_program_request(fresh_store):
 
     assert result["program_updated"] is False
     assert result["request_suggestion"]["kind"] == "split_change"
-    assert "Program request" in result["response_content"]
+    assert result["response_content"] == expected_reply
 
 
 def test_unrelated_yes_cannot_confirm_pending_chat_preview(fresh_store):

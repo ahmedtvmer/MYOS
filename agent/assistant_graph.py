@@ -1008,7 +1008,10 @@ def _classify_single_clause(clause: str, telemetry: str = "", messages: Sequence
     if RE_NUTRITION.search(c):
         return {"intent": "coaching_qa", "intent_metadata": {}, "query": c}
 
-    if RE_PROGRAM_DAY_EDIT.search(c) or RE_ARABIC_PROGRAM_DAY_EDIT.search(c):
+    if (
+        (RE_PROGRAM_DAY_EDIT.search(c) or RE_ARABIC_PROGRAM_DAY_EDIT.search(c))
+        and not _authorized_action(c, "program_mutation")
+    ):
         return {"intent": "program_edit", "intent_metadata": {"raw_query": c}, "query": c}
 
     choice = _deload_choice(c)
@@ -1016,8 +1019,6 @@ def _classify_single_clause(clause: str, telemetry: str = "", messages: Sequence
         return {"intent": "deload_choice", "intent_metadata": {"choice": choice}, "query": c}
 
     if _authorized_action(c, "program_mutation"):
-        if RE_PROGRAM_DAY_EDIT.search(c) or RE_ARABIC_PROGRAM_DAY_EDIT.search(c):
-            return {"intent": "program_edit", "intent_metadata": {"raw_query": c}, "query": c}
         return {
             "intent": "program_mutation",
             "intent_metadata": {"target_frequency": _extract_frequency(c)},
@@ -4093,6 +4094,8 @@ def _chat_edit_optional_selection(query: str, pending: dict[str, Any]) -> list[s
 
 def _positive_rebuild_request(query: str) -> bool:
     for match in RE_PROGRAM_MUTATION.finditer(query):
+        if not re.match(r"(?:rebuild|regenerate|new\s+split)\b", match.group(0), re.IGNORECASE):
+            continue
         prefix = query[max(0, match.start() - 28):match.start()]
         if re.search(r"(?:\b(?:don't|do\s+not|never|not)\s+)$|(?:ما\s*تعملش|ماتعملش|مش\s*)$", prefix, re.I):
             continue
@@ -4249,8 +4252,7 @@ def program_edit_chat_node(state: AssistantState, config: dict[str, Any] | None 
     active = _ledger.get_active_program() if _ledger else None
     from service.programs import coach_controls_program
     if coach_controls_program(assignment, active):
-        reply = ("Your coach controls this Program. You can send a Program request for these changes."
-                 if language == "en" else "مدربك هو المسؤول عن برنامجك. تقدر تبعت طلب برنامج بالتغييرات دي.")
+        reply = _coach_program_refusal(query)
         suggestion = _split_change_request_suggestion(query, state.get("intent_metadata", {}))
         return _response(reply, request_suggestion=suggestion)
     regenerated = _positive_rebuild_request(query)
