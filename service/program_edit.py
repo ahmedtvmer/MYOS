@@ -63,6 +63,7 @@ class ProgramEditExercise:
     exercise_id: str
     target_sets: int
     show_all_equipment: bool = False
+    prescription: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -324,6 +325,9 @@ def _prepare_added_prescriptions(db: Any, ledger: Any, day: dict[str, Any], requ
     for exercise, item in zip(day["exercises"], requested):
         if item.source_index >= 0:
             continue
+        if item.prescription is not None:
+            exercise.update(deepcopy(item.prescription))
+            continue
         row = db.get_exercise_library_entry(item.exercise_id)
         mechanic = exercise_mechanic(row)
         prescription_class = "calf_abs" if (row.get("primary_muscle") or "").lower() in {"calves", "abs"} else ("medium_compound" if mechanic == "compound" else "isolation")
@@ -350,7 +354,7 @@ def _updated_program_result(ledger: Any, previous_version: int) -> dict[str, Any
     return {**updated.model_dump(), "previous_version": previous_version}
 
 
-def edit_active_program_days(db: Any, ledger: Any, edits: list[ProgramEdit]) -> dict[str, Any]:
+def edit_active_program_days(db: Any, ledger: Any, edits: list[ProgramEdit], *, baseline_program: Any = None) -> dict[str, Any]:
     """Validates every requested day then publishes all edits as one version."""
     if not edits:
         return _failure(ProgramEditErrorCode.EMPTY_DAY)
@@ -387,7 +391,10 @@ def edit_active_program_days(db: Any, ledger: Any, edits: list[ProgramEdit]) -> 
     result["previous_version"] = active.version
     if all(edit.preview for edit in edits):
         return result
-    if _same_program_exercises(active.model_dump().get("days", []), result.get("days", [])):
+    baseline = baseline_program or active
+    unchanged = (_same_program_content(baseline, result) if baseline_program is not None else
+        _same_program_exercises(baseline.model_dump().get("days", []), result.get("days", [])))
+    if unchanged:
         return {**_updated_program_result(ledger, active.version), "volume_warnings": list({
             (item.get("muscle"), item.get("weekly_sets"), item.get("ceiling")): item
             for item in warnings
@@ -417,6 +424,13 @@ def _same_program_exercises(before: list[dict[str, Any]], after: list[dict[str, 
             for day in days
         ]
     return signature(before) == signature(after)
+
+
+def _same_program_content(before: Any, after: dict[str, Any]) -> bool:
+    before_payload = before.model_dump()
+    ignored = {"version", "created_at", "previous_version", "volume_warnings"}
+    return ({key: value for key, value in before_payload.items() if key not in ignored}
+            == {key: value for key, value in after.items() if key not in ignored})
 
 
 def _failure(code: ProgramEditErrorCode) -> dict[str, Any]:

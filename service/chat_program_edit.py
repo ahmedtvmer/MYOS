@@ -1,6 +1,8 @@
 """Planning and resolving confirmed Player chat Program edits."""
 
 import re
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -126,10 +128,10 @@ def _collect_requested_day_edits(context, edit_days, move_sources, moved_ids, ge
 
 
 def _scoped_exercise_ids(db, named_remove, named_change, mentioned, muscle_ids, operation):
-    removed = ({str(row["id"]) for row in (db.find_exercises_by_name(named_remove, limit=10) or [])}
-               if named_remove and not mentioned else (muscle_ids if operation["is_remove"] else set()))
-    changed = ({str(row["id"]) for row in (db.find_exercises_by_name(named_change[0], limit=10) or [])}
-               if named_change and not mentioned else (muscle_ids if operation["is_change"] else set()))
+    removed = (_operation_scope_ids(db, named_remove, mentioned, muscle_ids)
+               if named_remove else (muscle_ids if operation["is_remove"] else set()))
+    changed = (_operation_scope_ids(db, named_change[0], mentioned, muscle_ids)
+               if named_change else (muscle_ids if operation["is_change"] else set()))
     if (named_remove and not removed) or (named_change and not changed) or (
         (operation["is_remove"] or operation["is_change"]) and mentioned and not muscle_ids
     ):
@@ -140,6 +142,13 @@ def _scoped_exercise_ids(db, named_remove, named_change, mentioned, muscle_ids, 
     ):
         return {"error": "exercise_not_on_day"}
     return {"removed": removed, "changed": changed}
+
+
+def _operation_scope_ids(db, name, mentioned, muscle_ids):
+    normalized = re.sub(r"[^a-z0-9]+", " ", name.casefold()).strip()
+    if normalized in mentioned or normalized in {"bi", "tri", "side delt", "forearm", "abs"}:
+        return set(muscle_ids)
+    return {str(row["id"]) for row in (db.find_exercises_by_name(name, limit=10) or [])}
 
 
 def _assemble_day_edits(context, edit_days, move_sources, candidates, used_ids, scoped_ids, generation_context):
@@ -228,13 +237,21 @@ def _build_preview_proposal(context, requests, base_program):
     preview = edit_active_program_days(context.db, context.planning_ledger, edits)
     if "code" in preview:
         return {"error": preview["code"], "message": preview.get("message")}
-    preview_days = _preview_days(preview, [day for day, _ in days])
+    changed_ids = set()
+    for day, items in days:
+        for item in items:
+            original = day.get("exercises", [])
+            if item.source_index < 0 or item.target_sets != program_exercise_working_sets(original[item.source_index]):
+                changed_ids.add((context.week_order, int(day["day_order"]), item.exercise_id))
+    selected_preview_days = preview.get("days", []) if base_program is not None else [day for day, _ in days]
+    preview_days = _preview_days(preview, selected_preview_days, requested_ids=changed_ids)
     optional_rows = requests["optional_rows"]
     if optional_rows:
         preview, preview_days, optional_rows = _preview_optional_edits(
             context, days, optional_rows, preview, preview_days
         )
     proposal = {"expected_version": program.version,
+        "original_query": context.query,
         **({"rebuild_base_program": base_program.model_dump() if hasattr(base_program, "model_dump") else base_program} if base_program is not None else {}),
         "rebuild_label": base_program is not None,
         **({"rebuild_frequency": program.weekly_frequency} if base_program is not None else {}),
@@ -243,7 +260,16 @@ def _build_preview_proposal(context, requests, base_program):
             "week_order": context.week_order, "exercises": [_exercise_payload(item) for item in items]}
             for day, items in days],
         "optional": optional_rows, "preview_days": preview_days,
+        "profile_fingerprint": _profile_fingerprint(context.ledger.get_player_profile() or {}),
         "warnings": preview.get("volume_warnings", [])}
+    prescriptions = {(int(day.get("week_order", 1)), int(day["day_order"]), str(row.get("exercise_id"))): row
+        for day in preview.get("days", []) for row in day.get("exercises", [])}
+    for day in proposal["days"]:
+        for exercise in day["exercises"]:
+            if exercise["source_index"] < 0:
+                row = prescriptions.get((int(day["week_order"]), int(day["day_order"]), exercise["exercise_id"]))
+                if row:
+                    exercise["prescription"] = _stored_prescription(row)
     return {"proposal": proposal, "version": program.version}
 
 
@@ -263,7 +289,8 @@ def _preview_optional_edits(context, days, optional_rows, preview, preview_days)
     for option in optional_rows:
         row = prescriptions.get((option["day_order"], option["exercise_id"]), {})
         option.update({"reps_min": row.get("target_reps_min"), "reps_max": row.get("target_reps_max"),
-            "rir": 10 - float(row.get("target_rpe", 8.5)), "rest_seconds": row.get("rest_seconds")})
+            "rir": 10 - float(row.get("target_rpe", 8.5)), "rest_seconds": row.get("rest_seconds"),
+            "prescription": _stored_prescription(row) if row else None})
     preview["volume_warnings"] = optional_preview.get("volume_warnings", preview.get("volume_warnings", []))
     return preview, preview_days, optional_rows
 
@@ -443,11 +470,12 @@ def _exercise_payload(item):
             "target_sets": item.target_sets}
 
 
-def _preview_days(program, selected_days, optional_ids=None):
+def _preview_days(program, selected_days, optional_ids=None, requested_ids=None):
     by_order = {(int(day.get("week_order", 1)), int(day["day_order"])): day
                 for day in program.get("days", [])}
     optional_ids = optional_ids or set()
     result = []
+    requested_ids = requested_ids or set()
     for original in selected_days:
         week_order = int(original.get("week_order", 1))
         day = by_order[(week_order, int(original["day_order"]))]
@@ -462,8 +490,24 @@ def _preview_days(program, selected_days, optional_ids=None):
                     "rir": group.get("target_rir"), "load": group.get("load"),
                     "amrap_last_set": group.get("amrap_last_set", False)}
                     for group in item.get("set_groups", [])],
-                "optional": str(item.get("exercise_id")) in optional_ids} for item in day.get("exercises", [])]})
+                "optional": str(item.get("exercise_id")) in optional_ids,
+                "requested_edit": (week_order, int(original["day_order"]),
+                    str(item.get("exercise_id"))) in requested_ids} for item in day.get("exercises", [])]})
     return result
+
+
+def _stored_prescription(row):
+    return {key: row[key] for key in ("exercise_name", "target_sets", "target_reps_min", "target_reps_max",
+        "target_rpe", "rest_seconds", "warmup_sets", "set_groups", "program_edit_prescription_rationale")
+        if key in row}
+
+
+def _profile_fingerprint(profile):
+    inputs = ("weekly_frequency", "equipment_access", "injuries_or_limitations", "rep_preference",
+        "training_age_years", "weak_points", "stress_and_sleep", "gender")
+    payload = json.dumps({key: profile.get(key) for key in inputs}, sort_keys=True,
+        separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _is_lower_day(db, day):
@@ -499,13 +543,18 @@ def _resolve_chat_program_edit_in_transaction(
     if pending is None or pending["offer_id"] != preview_id:
         return {"error": "preview_expired"}
     proposal = pending["proposal"]
+    if not confirm:
+        ledger.clear_pending_chat_program_edit()
+        active = ledger.get_active_program()
+        return {"cancelled": True, "version": active.version if active is not None else None}
     active = ledger.get_active_program()
     if active is None or active.version != proposal.get("expected_version"):
         ledger.clear_pending_chat_program_edit()
-        return {"error": "program_changed"}
-    if not confirm:
+        return {"error": "program_changed", "original_query": proposal.get("original_query")}
+    if (proposal.get("profile_fingerprint") is not None
+            and proposal["profile_fingerprint"] != _profile_fingerprint(ledger.get_player_profile() or {})):
         ledger.clear_pending_chat_program_edit()
-        return {"cancelled": True, "version": active.version}
+        return {"error": "profile_changed", "original_query": proposal.get("original_query")}
     if not player_controls_program(db, ledger, player_account_id):
         ledger.clear_pending_chat_program_edit()
         return {"error": "coach_controls"}
@@ -524,7 +573,8 @@ def _resolve_chat_program_edit_in_transaction(
             if (int(option.get("week_order", day.get("week_order", 1))) == int(day["week_order"])
                     and int(option["day_order"]) == int(day["day_order"])
                     and option["exercise_id"] in selected):
-                items.append(ProgramEditExercise(-1, option["exercise_id"], int(option["sets"])))
+                items.append(ProgramEditExercise(-1, option["exercise_id"], int(option["sets"]),
+                    prescription=option.get("prescription")))
         edits.append(ProgramEdit(
             day_name=day["day_name"], expected_active_version=active.version,
             exercises=items, player_account_id=player_account_id,
@@ -532,8 +582,9 @@ def _resolve_chat_program_edit_in_transaction(
             week_order=int(day["week_order"]), day_order=int(day["day_order"]),
             via="chat",
         ))
-    result = edit_active_program_days(db, edit_ledger, edits)
-    if proposal.get("rebuild_base_program") is not None and "code" not in result:
+    result = edit_active_program_days(db, edit_ledger, edits,
+        baseline_program=active if proposal.get("rebuild_base_program") is not None else None)
+    if proposal.get("rebuild_base_program") is not None and "code" not in result and result.get("version") != active.version:
         ledger.update_player_frequency(int(proposal["rebuild_frequency"]))
     ledger.clear_pending_chat_program_edit()
     result["changed"] = result.get("version") != active.version

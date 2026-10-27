@@ -737,3 +737,206 @@ def test_egyptian_arabic_program_edit_previews_and_confirms(fresh_store):
     followup["display_language"] = "ar"
     list(stream_assistant_turn(followup, ledger=ledger, store=db))
     assert followup["program_updated"] is True
+
+
+@pytest.mark.parametrize("query", [
+    "rebuild my program; add biceps to leg days",
+    "rebuild my program and add biceps to leg days",
+    "rebuild my program then add biceps to leg days",
+    "add biceps to leg days and rebuild my program",
+    "add biceps to leg days, then rebuild my program",
+    "جدّد برنامجي؛ وحط باي على أيام الرجل",
+])
+def test_all_rebuild_edit_clause_orders_are_preview_only(fresh_store, query):
+    from service.chat import build_turn_state
+
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+    ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Lower",
+        weekly_frequency=2, days=[PersistedProgramDaySchema(day_name=f"Leg {i}", day_order=i,
+            exercises=[PersistedProgramExerciseSchema(exercise_id=str(rows[i-1][0]),
+                exercise_name=str(rows[i-1][1]), target_sets=3, target_reps_min=8,
+                target_reps_max=12)]) for i in (1, 2)]).model_dump())
+    ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175,
+        "weight_kg": 80, "equipment_access": "Commercial gym", "injuries_or_limitations": "None",
+        "weekly_frequency": 4, "training_age_years": 3, "rep_preference": "balanced"})
+    before = ledger.get_active_program().version
+    state = build_turn_state("player", [HumanMessage(content=query)], player_account_id=account_id)
+    list(stream_assistant_turn(state, ledger=ledger, store=db))
+    assert state.get("program_edit_preview"), state.get("response_content")
+    assert ledger.get_active_program().version == before
+    answer = "أيوه" if "جدّد" in query else "yes"
+    confirmation = build_turn_state("player", [AIMessage(content=state["response_content"]),
+        HumanMessage(content=answer)], player_account_id=account_id)
+    list(stream_assistant_turn(confirmation, ledger=ledger, store=db))
+    assert confirmation["program_updated"] is True
+    assert ledger.get_active_program().version == before + 1
+
+
+@pytest.mark.parametrize("reply", ["no", "cancel", "لا", "لأ", "مش عايز"])
+def test_plain_decline_resolves_pending_program_edit(fresh_store, reply):
+    from agent.assistant_graph import router_node
+
+    db, ledger = fresh_store, fresh_store.ledger
+    offer = "Program edit preview. Confirm or cancel."
+    ledger.set_pending_chat_program_edit({"expected_version": 1, "days": [], "optional": []}, offer)
+    state = {"messages": [AIMessage(content=offer), HumanMessage(content=reply)],
+        "player_account_id": "00000000-0000-4000-8000-000000000001", "display_language": "en"}
+    result = router_node(state, {"configurable": {"ledger": ledger, "store": db}})
+    assert result["intent"] == "program_edit_confirmation"
+    assert result["intent_metadata"]["confirm"] is False
+
+
+def test_plain_no_cancels_offer_with_explicit_reply(fresh_store):
+    from service.chat import build_turn_state
+
+    db, ledger = fresh_store, fresh_store.ledger
+    offer = "Program edit preview. Confirm or cancel."
+    ledger.set_pending_chat_program_edit({"expected_version": 1, "days": [], "optional": []}, offer)
+    state = build_turn_state("player", [AIMessage(content=offer), HumanMessage(content="no")],
+        player_account_id="00000000-0000-4000-8000-000000000001")
+    list(stream_assistant_turn(state, ledger=ledger, store=db))
+    assert "cancelled" in state["response_content"].casefold()
+    assert ledger.get_pending_chat_program_edit() is None
+
+
+def test_named_triceps_exercise_removal_does_not_expand_to_muscle(fresh_store):
+    db, ledger = fresh_store, fresh_store.ledger
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises WHERE lower(name) LIKE '%triceps%' ORDER BY name LIMIT 2").fetchall()
+    assert len(rows) >= 2
+    extra = db.catalog_conn.execute("SELECT id, name FROM exercises WHERE id NOT IN (?, ?) ORDER BY id LIMIT 1",
+        (rows[0][0], rows[1][0])).fetchone()
+    day = PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+        PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=3,
+            target_reps_min=8, target_reps_max=12)
+        for row in [*rows, extra]])
+    ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Lower",
+        weekly_frequency=1, days=[day]).model_dump())
+    planned = plan_chat_program_edit(db, ledger, "00000000-0000-4000-8000-000000000001",
+        f"remove {rows[0][1]} from leg days")
+    assert "error" not in planned
+    retained = planned["proposal"]["days"][0]["exercises"]
+    assert [item["exercise_id"] for item in retained] == [str(rows[1][0]), str(extra[0])]
+    changed = plan_chat_program_edit(db, ledger, "00000000-0000-4000-8000-000000000001",
+        f"change {rows[0][1]} to 4 sets on leg days")
+    assert "error" not in changed
+    prescriptions = {item["exercise_id"]: item["target_sets"]
+        for item in changed["proposal"]["days"][0]["exercises"]}
+    assert prescriptions[str(rows[0][0])] == 4
+    assert prescriptions[str(rows[1][0])] == 3
+
+
+def test_player_writer_transaction_does_not_reserve_catalog_writer(fresh_store):
+    db, ledger = fresh_store, fresh_store.ledger
+    row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    import threading
+
+    started = threading.Event()
+    finished = threading.Event()
+    def catalog_write():
+        started.set()
+        db.catalog_conn.execute("UPDATE exercises SET name = name WHERE id = ?", (row[0],))
+        db.catalog_conn.commit()
+        finished.set()
+
+    with ledger.ledger_transaction(immediate=True):
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(catalog_write)
+            assert started.wait(1)
+            assert finished.wait(2), "player writer lock blocked the shared catalog"
+            future.result()
+
+
+def test_rebuild_preview_includes_all_days_and_marks_requested_addition(fresh_store):
+    from service.chat import build_turn_state
+
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    rows = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 2").fetchall()
+    ledger.save_training_program(PersistedProgramSchema(program_name="Old", split_type="Lower",
+        weekly_frequency=1, days=[PersistedProgramDaySchema(day_name="Leg A", day_order=1,
+            exercises=[PersistedProgramExerciseSchema(exercise_id=str(rows[0][0]), exercise_name=str(rows[0][1]),
+                target_sets=3, target_reps_min=8, target_reps_max=12)])]).model_dump())
+    ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175, "weight_kg": 80,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "weekly_frequency": 4,
+        "training_age_years": 3, "rep_preference": "balanced"})
+    state = build_turn_state("player", [HumanMessage(content="rebuild my program and add biceps to leg days")],
+        player_account_id=account_id)
+    list(stream_assistant_turn(state, ledger=ledger, store=db))
+    preview = state["program_edit_preview"]
+    assert len(preview["days"]) >= 4
+    assert any(exercise["requested_edit"] for day in preview["days"] for exercise in day["exercises"])
+
+
+def test_profile_change_stales_chat_preview_and_preserves_exact_plan(fresh_store):
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    row = db.find_exercises_by_name("barbell squat", limit=1)[0]
+    ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Lower",
+        weekly_frequency=1, days=[PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(row["id"]), exercise_name=row["name"],
+                target_sets=3, target_reps_min=8, target_reps_max=12)])]).model_dump())
+    ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175, "weight_kg": 80,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "weekly_frequency": 1,
+        "training_age_years": 3, "rep_preference": "balanced"})
+    planned = plan_chat_program_edit(db, ledger, account_id, "add biceps to leg days")
+    assert "error" not in planned
+    previewed = planned["proposal"]["days"][0]["exercises"][-1]["prescription"]
+    preview_id = ledger.set_pending_chat_program_edit(planned["proposal"], "preview")
+    before = ledger.get_active_program().version
+    ledger.upsert_player_profile({"training_age_years": 0})
+    from service.chat import build_turn_state
+    stale_state = build_turn_state("player", [AIMessage(content="preview"), HumanMessage(content="yes")],
+        player_account_id=account_id)
+    list(stream_assistant_turn(stale_state, ledger=ledger, store=db))
+    assert stale_state.get("program_edit_preview")
+    assert stale_state["program_edit_preview"]["id"] != preview_id
+    assert ledger.get_active_program().version == before
+    assert "fresh" in stale_state["response_content"].lower() or "preview" in stale_state["response_content"].lower()
+    assert previewed["target_reps_min"] is not None
+
+    refreshed = plan_chat_program_edit(db, ledger, account_id, "add triceps to leg days")
+    assert "error" not in refreshed
+    added = refreshed["proposal"]["days"][0]["exercises"][-1]
+    prescription = added["prescription"]
+    preview_id = ledger.set_pending_chat_program_edit(refreshed["proposal"], "fresh preview")
+    saved = resolve_chat_program_edit(db, ledger, account_id, preview_id, confirm=True)
+    assert "error" not in saved
+    committed = next(item for day in ledger.get_active_program().days for item in day.exercises
+        if str(item.exercise_id) == added["exercise_id"])
+    assert committed.target_reps_min == prescription["target_reps_min"]
+    assert committed.target_reps_max == prescription["target_reps_max"]
+    assert committed.target_rpe == prescription["target_rpe"]
+    assert committed.rest_seconds == prescription["rest_seconds"]
+
+
+def test_rebuild_no_op_edit_still_saves_against_persisted_program(fresh_store):
+    from agent.assistant_graph import _build_chat_rebuild_preview
+    from agent.ProgramState import program_exercise_working_sets
+    from service.chat_program_edit import _is_lower_day
+
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    old_row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    ledger.save_training_program(PersistedProgramSchema(program_name="Old", split_type="Lower",
+        weekly_frequency=1, days=[PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(old_row[0]), exercise_name=str(old_row[1]),
+                target_sets=3, target_reps_min=8, target_reps_max=12)])]).model_dump())
+    ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175, "weight_kg": 80,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "weekly_frequency": 1,
+        "training_age_years": 3, "rep_preference": "balanced"})
+    candidate = _build_chat_rebuild_preview("rebuild my program for 4 days", ledger)
+    lower_day = next(day for day in candidate.days if _is_lower_day(db, day.model_dump()))
+    exercise = lower_day.exercises[0]
+    target_sets = program_exercise_working_sets(exercise.model_dump())
+    query = f"rebuild my program for 4 days and change {exercise.exercise_name} to {target_sets} sets on leg days"
+    regenerated = _build_chat_rebuild_preview(query, ledger)
+    planned = plan_chat_program_edit(db, ledger, account_id, query, base_program=regenerated)
+    assert "error" not in planned
+    preview_id = ledger.set_pending_chat_program_edit(planned["proposal"], "rebuild preview")
+    before = ledger.get_active_program().version
+    result = resolve_chat_program_edit(db, ledger, account_id, preview_id, confirm=True)
+    assert "error" not in result
+    assert ledger.get_active_program().version == before + 1
+    assert ledger.get_active_program().weekly_frequency == 4

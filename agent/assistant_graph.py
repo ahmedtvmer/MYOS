@@ -2107,6 +2107,11 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     telemetry = state.get("telemetry_context") or ""
     arabic_dominant = _is_arabic_dominant(query)
 
+    if _positive_rebuild_request(query) and (
+        RE_PROGRAM_DAY_EDIT.search(query) or RE_ARABIC_PROGRAM_DAY_EDIT.search(query)
+    ):
+        return {"intent": "program_edit", "intent_metadata": {"raw_query": query}}
+
     ledger, _store = _graph_context(config)
     if ledger is not None:
         pending_edit = ledger.get_pending_chat_program_edit()
@@ -4084,6 +4089,9 @@ def _positive_rebuild_request(query: str) -> bool:
         if re.search(r"(?:\b(?:don't|do\s+not|never|not)\s+)$|(?:ما\s*تعملش|ماتعملش|مش\s*)$", prefix, re.I):
             continue
         return True
+    normalized = RE_ARABIC_DIACRITICS.sub("", unicodedata.normalize("NFKC", query))
+    if re.search(r"(?:جدد|جدّد|اعمل|أنشئ|انشئ)\s+(?:لي\s+)?(?:ال)?برنامج", normalized):
+        return not re.search(r"(?:ما\s*تعملش|ماتعملش|مش\s+عايز|لا\s+تجدد)", normalized)
     return False
 
 
@@ -4105,6 +4113,8 @@ def _build_chat_rebuild_preview(query: str, ledger: Any):
 
 def _program_edit_confirmation_kind(query: str, pending: dict[str, Any]) -> str | None:
     normalized = unicodedata.normalize("NFKC", query).strip().casefold()
+    if re.fullmatch(r"(?:no|cancel|decline|لا|لأ|الغاء|إلغاء|مش\s+عايز)[.!،,\s]*", normalized):
+        return "no"
     if any(mark in normalized for mark in ("?", "؟")) or re.search(
         r"\b(?:but|not|don't|do not|no|never|should|would|could|without|exclude|omit|skip)\b|مش|ما\s*تضيفش|ماتضيفش|لا", normalized
     ):
@@ -4117,8 +4127,6 @@ def _program_edit_confirmation_kind(query: str, pending: dict[str, Any]) -> str 
             return "yes"
         if _is_complete_optional_selection(selection, pending):
             return "yes"
-    if re.fullmatch(r"(?:no|cancel|decline|لا|لأ|الغاء|إلغاء)[.!،,\s]*", normalized):
-        return "no"
     return None
 
 
@@ -4202,7 +4210,16 @@ def program_edit_confirmation_node(state: AssistantState, config: dict[str, Any]
         reply = "Okay, I cancelled the Program edit." if language == "en" else "تمام، ألغيت تعديل البرنامج."
         return _response(reply)
     if "error" in result:
-        reply = "That Program edit preview expired or the program changed. Nothing was saved." if language == "en" else "المعاينة انتهت أو البرنامج اتغير. مفيش حاجة اتحفظت."
+        if result.get("original_query") and result["error"] in {"profile_changed", "program_changed"}:
+            refreshed_state = dict(state)
+            refreshed_state["messages"] = [
+                *state["messages"][:-1], HumanMessage(content=result["original_query"])
+            ]
+            refreshed = program_edit_chat_node(refreshed_state, config)
+            if refreshed.get("program_edit_preview"):
+                return refreshed
+        reply = ("That Program edit preview expired or changed. Nothing was saved; ask for a fresh preview."
+                 if language == "en" else "المعاينة انتهت أو اتغيرت. مفيش حاجة اتحفظت؛ اطلب معاينة جديدة.")
         return _response(reply)
     reply = "I saved the Program edit as one new version." if language == "en" else "حفظت تعديل البرنامج في إصدار جديد واحد."
     changed = result.get("changed", True)
