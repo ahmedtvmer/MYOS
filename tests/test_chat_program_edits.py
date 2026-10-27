@@ -774,6 +774,32 @@ def test_all_rebuild_edit_clause_orders_are_preview_only(fresh_store, query):
     assert ledger.get_active_program().version == before + 1
 
 
+@pytest.mark.parametrize("query", [
+    "my knee hurts; rebuild my program and add biceps to leg days",
+    "ركبتي بتوجعني؛ جدّد برنامجي وحط باي على أيام الرجل",
+])
+def test_clinical_clause_records_injury_before_rebuild_edit(fresh_store, query):
+    from service.chat import build_turn_state
+
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    row = db.catalog_conn.execute("SELECT id, name FROM exercises ORDER BY id LIMIT 1").fetchone()
+    ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Lower",
+        weekly_frequency=1, days=[PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(row[0]), exercise_name=str(row[1]), target_sets=3,
+                target_reps_min=8, target_reps_max=12)])]).model_dump())
+    ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175, "weight_kg": 80,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "weekly_frequency": 4,
+        "training_age_years": 3, "rep_preference": "balanced"})
+    before = ledger.get_active_program().version
+    state = build_turn_state("player", [HumanMessage(content=query)], player_account_id=account_id)
+    list(stream_assistant_turn(state, ledger=ledger, store=db))
+    assert state["intent"] == "clinical_intercept"
+    assert state.get("program_edit_preview") is None
+    assert ledger.get_active_program().version == before
+    assert any(record["body_area"] == "knee" for record in ledger.list_injury_records())
+
+
 @pytest.mark.parametrize("reply", ["no", "cancel", "لا", "لأ", "مش عايز"])
 def test_plain_decline_resolves_pending_program_edit(fresh_store, reply):
     from agent.assistant_graph import router_node
@@ -848,7 +874,7 @@ def test_player_writer_transaction_does_not_reserve_catalog_writer(fresh_store):
             future.result()
 
 
-def test_rebuild_preview_includes_all_days_and_marks_requested_addition(fresh_store):
+def test_rebuild_preview_with_optional_item_includes_all_days(fresh_store):
     from service.chat import build_turn_state
 
     db, ledger = fresh_store, fresh_store.ledger
@@ -861,12 +887,13 @@ def test_rebuild_preview_includes_all_days_and_marks_requested_addition(fresh_st
     ledger.upsert_player_profile({"gender": "male", "age": 30, "height_cm": 175, "weight_kg": 80,
         "equipment_access": "Commercial gym", "injuries_or_limitations": "None", "weekly_frequency": 4,
         "training_age_years": 3, "rep_preference": "balanced"})
-    state = build_turn_state("player", [HumanMessage(content="rebuild my program and add biceps to leg days")],
+    state = build_turn_state("player", [HumanMessage(content="rebuild my program and add biceps to leg days, maybe forearms")],
         player_account_id=account_id)
     list(stream_assistant_turn(state, ledger=ledger, store=db))
     preview = state["program_edit_preview"]
     assert len(preview["days"]) >= 4
     assert any(exercise["requested_edit"] for day in preview["days"] for exercise in day["exercises"])
+    assert preview["optional"]
 
 
 def test_profile_change_stales_chat_preview_and_preserves_exact_plan(fresh_store):
@@ -940,3 +967,33 @@ def test_rebuild_no_op_edit_still_saves_against_persisted_program(fresh_store):
     assert "error" not in result
     assert ledger.get_active_program().version == before + 1
     assert ledger.get_active_program().weekly_frequency == 4
+
+
+@pytest.mark.parametrize(("language", "reply", "expected"), [
+    ("en", "yes", "already matches"),
+    ("ar", "أيوه", "مطابق"),
+])
+def test_unchanged_chat_confirm_says_nothing_changed(fresh_store, language, reply, expected):
+    from service.chat import build_turn_state
+
+    db, ledger = fresh_store, fresh_store.ledger
+    account_id = "00000000-0000-4000-8000-000000000001"
+    squat = db.find_exercises_by_name("barbell squat", limit=1)[0]
+    ledger.save_training_program(PersistedProgramSchema(program_name="Plan", split_type="Lower",
+        weekly_frequency=1, days=[PersistedProgramDaySchema(day_name="Leg A", day_order=1, exercises=[
+            PersistedProgramExerciseSchema(exercise_id=str(squat["id"]), exercise_name=squat["name"],
+                target_sets=3, target_reps_min=8, target_reps_max=12)])]).model_dump())
+    active = ledger.get_active_program()
+    proposal = {"expected_version": active.version, "profile_fingerprint": None, "days": [{
+        "day_name": "Leg A", "day_order": 1, "week_order": 1, "exercises": [
+            {"source_index": 0, "exercise_id": str(squat["id"]), "target_sets": 3}]}], "optional": []}
+    offer = "Program edit preview. Confirm or cancel."
+    ledger.set_pending_chat_program_edit(proposal, offer)
+    state = build_turn_state("player", [AIMessage(content=offer), HumanMessage(content=reply)],
+        player_account_id=account_id)
+    state["display_language"] = language
+    before = active.version
+    list(stream_assistant_turn(state, ledger=ledger, store=db))
+    assert state["program_updated"] is False
+    assert expected in state["response_content"].casefold()
+    assert ledger.get_active_program().version == before

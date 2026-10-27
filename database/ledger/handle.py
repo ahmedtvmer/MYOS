@@ -82,11 +82,10 @@ class TrainingLedger(
         original_isolation = conn.isolation_level
         if outermost:
             conn.isolation_level = None
-            # SQLite BEGIN IMMEDIATE reserves writer slots for every attached
-            # database. Start deferred, then reserve only this ledger's main DB.
+            # SQLite BEGIN IMMEDIATE reserves attached catalog writers too.
+            # Reserve this ledger's writer with a main-only no-op update.
             conn.execute("BEGIN")
-            if immediate:
-                conn.execute("UPDATE main.user_profile SET id = id WHERE id = 1")
+            conn.execute("UPDATE main.user_profile SET id = id WHERE id = 1")
         try:
             yield
         except Exception:

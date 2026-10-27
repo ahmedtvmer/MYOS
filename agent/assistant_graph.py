@@ -446,7 +446,7 @@ RE_INQUISITIVE_PREFIX = re.compile(
     re.IGNORECASE,
 )
 RE_CLAUSE_SPLIT = re.compile(
-    r"(?:[;\n]+|(?:\.|\?|\!)\s+|\s+(?:and\s+also|and\s+then|also|plus|then)\s+|\s+and\s+(?=(?:swap|replace|substitute|switch|change|how|what|why|is|can|could|should|rebuild|new\s+split|search|find|behind[\s-]the[\s-]neck|upright[\s-]rows?)\b))",
+    r"(?:[;؛\n]+|(?:\.|\?|\!)\s+|\s+(?:and\s+also|and\s+then|also|plus|then)\s+|\s+and\s+(?=(?:swap|replace|substitute|switch|change|how|what|why|is|can|could|should|rebuild|new\s+split|search|find|behind[\s-]the[\s-]neck|upright[\s-]rows?)\b))",
     re.IGNORECASE,
 )
 RE_EXERCISE_PERFORMANCE_QUERY = re.compile(
@@ -2107,28 +2107,7 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
     telemetry = state.get("telemetry_context") or ""
     arabic_dominant = _is_arabic_dominant(query)
 
-    if _positive_rebuild_request(query) and (
-        RE_PROGRAM_DAY_EDIT.search(query) or RE_ARABIC_PROGRAM_DAY_EDIT.search(query)
-    ):
-        return {"intent": "program_edit", "intent_metadata": {"raw_query": query}}
-
     ledger, _store = _graph_context(config)
-    if ledger is not None:
-        pending_edit = ledger.get_pending_chat_program_edit()
-        if pending_edit is not None:
-            latest_assistant = next((_get_message_text(item) for item in reversed(messages[:-1])
-                                     if isinstance(item, AIMessage)), "")
-            if latest_assistant.strip() == pending_edit["offer_text"].strip():
-                answer = _program_edit_confirmation_kind(query, pending_edit)
-                if answer in {"yes", "no"}:
-                    return {"intent": "program_edit_confirmation", "intent_metadata": {
-                        "preview_id": pending_edit["offer_id"], "confirm": answer == "yes",
-                        "include_optional": _chat_edit_optional_selection(query, pending_edit),
-                    }}
-                if _is_program_edit_clarification(query, pending_edit):
-                    return {"intent": "program_edit_reprompt", "intent_metadata": {
-                        "preview_id": pending_edit["offer_id"]}}
-            ledger.clear_pending_chat_program_edit()
     pending = None
     if ledger is not None:
         from service import injuries as injuries_service
@@ -2151,12 +2130,41 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
             injuries_service.consume_pending_clarification(ledger, pending["id"])
         return {"intent": "clinical_intercept", "intent_metadata": clinical, "active_intents": []}
 
-    safety_classification = _classify_single_clause(query, telemetry, messages)
-    if safety_classification and safety_classification.get("intent") == "banned_movement":
+    safety_classification = next((classified for clause in RE_CLAUSE_SPLIT.split(query)
+        if (classified := _classify_single_clause(clause, telemetry, messages)) is not None
+        and classified.get("intent") in {"banned_movement", "telemetry_intercept"}), None)
+    has_program_change = bool(
+        RE_PROGRAM_DAY_EDIT.search(query)
+        or RE_ARABIC_PROGRAM_DAY_EDIT.search(query)
+        or _positive_rebuild_request(query)
+    )
+    if safety_classification and has_program_change:
         if ledger is not None:
             ledger.clear_pending_assistant_preference_deletion()
             ledger.clear_pending_goal_weak_point_suggestion()
         return {key: value for key, value in safety_classification.items() if key != "query"}
+
+    if ledger is not None:
+        pending_edit = ledger.get_pending_chat_program_edit()
+        if pending_edit is not None:
+            latest_assistant = next((_get_message_text(item) for item in reversed(messages[:-1])
+                                     if isinstance(item, AIMessage)), "")
+            if latest_assistant.strip() == pending_edit["offer_text"].strip():
+                answer = _program_edit_confirmation_kind(query, pending_edit)
+                if answer in {"yes", "no"}:
+                    return {"intent": "program_edit_confirmation", "intent_metadata": {
+                        "preview_id": pending_edit["offer_id"], "confirm": answer == "yes",
+                        "include_optional": _chat_edit_optional_selection(query, pending_edit),
+                    }}
+                if _is_program_edit_clarification(query, pending_edit):
+                    return {"intent": "program_edit_reprompt", "intent_metadata": {
+                        "preview_id": pending_edit["offer_id"]}}
+            ledger.clear_pending_chat_program_edit()
+
+    if _positive_rebuild_request(query) and (
+        RE_PROGRAM_DAY_EDIT.search(query) or RE_ARABIC_PROGRAM_DAY_EDIT.search(query)
+    ):
+        return {"intent": "program_edit", "intent_metadata": {"raw_query": query}}
 
     if ledger is not None:
         goal_write = _goal_write_intent(
@@ -4221,8 +4229,13 @@ def program_edit_confirmation_node(state: AssistantState, config: dict[str, Any]
         reply = ("That Program edit preview expired or changed. Nothing was saved; ask for a fresh preview."
                  if language == "en" else "المعاينة انتهت أو اتغيرت. مفيش حاجة اتحفظت؛ اطلب معاينة جديدة.")
         return _response(reply)
-    reply = "I saved the Program edit as one new version." if language == "en" else "حفظت تعديل البرنامج في إصدار جديد واحد."
     changed = result.get("changed", True)
+    if changed:
+        reply = ("I saved the Program edit as one new version." if language == "en"
+                 else "حفظت تعديل البرنامج في إصدار جديد واحد.")
+    else:
+        reply = ("Your Program already matches this. There is nothing to change." if language == "en"
+                 else "برنامجك مطابق بالفعل. لا يوجد شيء لتغييره.")
     return _response(reply, program_updated=changed,
                      program_change="edited" if changed else None)
 

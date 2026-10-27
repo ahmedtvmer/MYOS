@@ -62,7 +62,7 @@ def plan_chat_program_edit(
 @dataclass
 class _EditPlanningContext:
     db: Any
-    ledger: Any
+    player_ledger: Any
     planning_ledger: Any
     program: Any
     player_account_id: str
@@ -74,7 +74,7 @@ class _EditPlanningContext:
 
 
 def _build_requested_day_edits(context: _EditPlanningContext) -> dict[str, Any]:
-    db, ledger, operation = context.db, context.ledger, context.operation
+    db, ledger, operation = context.db, context.player_ledger, context.operation
     move_sources = _move_side_delt_sources(
         db, context.days, context.target_days, context.query, operation["required"]
     )
@@ -96,7 +96,7 @@ def _build_requested_day_edits(context: _EditPlanningContext) -> dict[str, Any]:
 
 
 def _collect_requested_day_edits(context, edit_days, move_sources, moved_ids, generation_context):
-    db, ledger = context.db, context.ledger
+    db, ledger = context.db, context.player_ledger
     context.operation["target_days"] = context.target_days
     operation = context.operation
     name = operation["named_request"]
@@ -193,7 +193,7 @@ def _append_requested_exercises(context, day, requested, candidates, used_ids, m
         requested.append(ProgramEditExercise(-1, str(candidate["id"]), 2))
         used_ids.add(str(candidate["id"]))
     for muscle in context.operation["required"]:
-        candidate, _slot = _select_focus_candidate(muscle, used_ids, generation_context, context.ledger)
+        candidate, _slot = _select_focus_candidate(muscle, used_ids, generation_context, context.player_ledger)
         exercise_id = moved_source["exercise_id"] if muscle == "side_delts" and move_sources and not moved_target else (str(candidate["id"]) if candidate else None)
         if exercise_id is None:
             return {"error": "exercise_unavailable", "muscle": muscle}
@@ -203,7 +203,7 @@ def _append_requested_exercises(context, day, requested, candidates, used_ids, m
             else 2))
         used_ids.add(exercise_id)
     for muscle in context.operation["optional_muscles"]:
-        candidate, slot = _select_focus_candidate(muscle, used_ids, generation_context, context.ledger)
+        candidate, slot = _select_focus_candidate(muscle, used_ids, generation_context, context.player_ledger)
         if candidate is not None:
             used_ids.add(str(candidate["id"]))
             optional_rows.append({"day_order": int(day["day_order"]), "week_order": context.week_order,
@@ -250,6 +250,9 @@ def _build_preview_proposal(context, requests, base_program):
         preview, preview_days, optional_rows = _preview_optional_edits(
             context, days, optional_rows, preview, preview_days
         )
+        if base_program is not None:
+            preview_days = _preview_days(preview, preview.get("days", []),
+                {option["exercise_id"] for option in optional_rows}, requested_ids=changed_ids)
     proposal = {"expected_version": program.version,
         "original_query": context.query,
         **({"rebuild_base_program": base_program.model_dump() if hasattr(base_program, "model_dump") else base_program} if base_program is not None else {}),
@@ -260,7 +263,7 @@ def _build_preview_proposal(context, requests, base_program):
             "week_order": context.week_order, "exercises": [_exercise_payload(item) for item in items]}
             for day, items in days],
         "optional": optional_rows, "preview_days": preview_days,
-        "profile_fingerprint": _profile_fingerprint(context.ledger.get_player_profile() or {}),
+        "profile_fingerprint": _profile_fingerprint(context.player_ledger.get_player_profile() or {}),
         "warnings": preview.get("volume_warnings", [])}
     prescriptions = {(int(day.get("week_order", 1)), int(day["day_order"]), str(row.get("exercise_id"))): row
         for day in preview.get("days", []) for row in day.get("exercises", [])}
