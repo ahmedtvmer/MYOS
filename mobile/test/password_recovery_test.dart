@@ -71,7 +71,7 @@ void main() {
     // matches its path and the screen reads the token from the query string.
     await _openResetLink(
       tester,
-      'https://mayos-api.fly.dev/reset-password?token=deep-link-token-1',
+      'https://api.mayos.online/reset-password?token=deep-link-token-1',
     );
 
     expect(find.text('Reset password'), findsOneWidget);
@@ -96,7 +96,7 @@ void main() {
 
     await _openResetLink(
       tester,
-      'https://mayos-api.fly.dev/reset-password?token=deep-link-token-1',
+      'https://api.mayos.online/reset-password?token=deep-link-token-1',
     );
     final Finder fields = find.byType(TextField);
     await tester.enterText(fields.at(1), 'new-horse-123');
@@ -119,7 +119,7 @@ void main() {
 
     await _openResetLink(
       tester,
-      'https://mayos-api.fly.dev/reset-password?token=stale-token',
+      'https://api.mayos.online/reset-password?token=stale-token',
     );
     final Finder fields = find.byType(TextField);
     await tester.enterText(fields.at(1), 'new-horse-123');

@@ -11,7 +11,7 @@ import pytest
 
 
 def test_generated_worker_must_not_precache_api_origin_or_document():
-    api = "https://mayos-api.fly.dev"
+    api = "https://api.mayos.online"
     assert_service_worker_safe('self.__WB_MANIFEST = [{"url":"main.dart.js"}]', api)
     for worker in (
         f'self.__WB_MANIFEST = [{{"url":"{api}/v1/me"}}]',
@@ -32,7 +32,7 @@ def test_generated_precache_excludes_canvas_kit_symbols_and_notices():
         '{url:"assets/example.symbols"},{url:"assets/NOTICES"}]);'
     )
     try:
-        assert_service_worker_safe(worker, "https://mayos-api.fly.dev")
+        assert_service_worker_safe(worker, "https://api.mayos.online")
     except ValueError as error:
         assert "precache" in str(error)
     else:
@@ -65,7 +65,7 @@ def test_workbox_generated_and_assembled_manifest_has_required_assets_and_routes
         "canvaskit/webparagraph/canvaskit.js", "canvaskit/canvaskit.js.symbols",
         "assets/AssetManifest.bin", "assets/AssetManifest.bin.json",
         "assets/FontManifest.json", "assets/fonts/app.ttf", "assets/images/app.png",
-        "assets/NOTICES", "https://mayos-api.fly.dev/should-not-cache",
+        "assets/NOTICES", "https://api.mayos.online/should-not-cache",
     ]
     for relative in files:
         destination = build / relative
@@ -125,7 +125,7 @@ def test_workbox_generated_and_assembled_manifest_has_required_assets_and_routes
         or url in ("flutter.js", "assets/AssetManifest.bin")
         or url.endswith(".symbols")
         or Path(url).name == "NOTICES"
-        or "mayos-api.fly.dev" in url
+        or "api.mayos.online" in url
         for url in urls
     )
     assert "NetworkOnly" in worker and "1e4" in worker and "AbortController" in worker
@@ -137,7 +137,7 @@ def test_workbox_generated_and_assembled_manifest_has_required_assets_and_routes
     landing.mkdir()
     (landing / "index.html").write_text("landing", encoding="utf-8")
     output = tmp_path / "pages"
-    monkeypatch.setenv("MAYOS_API_BASE_URL", "https://mayos-api.fly.dev")
+    monkeypatch.setenv("MAYOS_API_BASE_URL", "https://api.mayos.online")
     assemble(build, landing, output)
     assembled_worker = (output / "app/service-worker.js").read_text(encoding="utf-8")
     assembled_urls = re.findall(

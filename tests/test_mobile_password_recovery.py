@@ -86,8 +86,8 @@ def _set_recovery_email(client, token, email="alice@example.com"):
 
 
 def test_reset_link_uses_configured_base(monkeypatch):
-    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://mayos-api.fly.dev/")
-    assert email_sender.build_reset_link("tok-123") == "https://mayos-api.fly.dev/reset-password?token=tok-123"
+    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://api.mayos.online/")
+    assert email_sender.build_reset_link("tok-123") == "https://api.mayos.online/reset-password?token=tok-123"
 
 
 def test_reset_link_defaults_to_the_api_local_base(monkeypatch):
@@ -176,7 +176,7 @@ def test_assetlinks_normalizes_and_skips_invalid(api, monkeypatch, caplog):
         f"{valid_lower}, not-a-fingerprint ,{valid_no_colons}",
     )
     with caplog.at_level(logging.WARNING, logger="service.app_links"):
-        resp = client.get("/.well-known/assetlinks.json")
+        resp = client.get("/.well-known/assetlinks.json", headers={"host": "api.mayos.online"})
     assert resp.status_code == 200
     target = resp.json()[0]["target"]
     assert target["package_name"] == "com.mayos.mayos_mobile"
@@ -304,7 +304,7 @@ def test_forgot_reset_round_trip_email_body_and_session_revocation(
     verify_recovery_email(client, old_token, monkeypatch)
     assert client.get("/dashboard/exercises", headers=_authed(old_token)).status_code == 200
 
-    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://mayos-api.fly.dev")
+    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://api.mayos.online")
     captured = _capture_reset_link(monkeypatch)
     _reset_limiter()
     forgot = client.post("/auth/forgot-password", json={"email": "alice@example.com"})
@@ -316,7 +316,7 @@ def test_forgot_reset_round_trip_email_body_and_session_revocation(
     assert "secure web page" in body
     assert "single-use" in body
     assert "expires in 30 minutes" in body
-    link = re.search(r"https://mayos-api\.fly\.dev/reset-password\?token=\S+", body)
+    link = re.search(r"https://api\.mayos\.online/reset-password\?token=\S+", body)
     assert link is not None, body
     token = link.group(0).split("token=", 1)[1]
 
@@ -336,7 +336,7 @@ def test_forgot_password_sends_notice_only_for_unmatched_addresses(api, monkeypa
     token = _register(client, "alice")
     _set_recovery_email(client, token)
     verify_recovery_email(client, token, monkeypatch)
-    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://mayos-api.fly.dev/")
+    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://api.mayos.online/")
     monkeypatch.setenv("SMTP_HOST", "")
 
     known = client.post("/auth/forgot-password", json={"email": "alice@example.com"})
@@ -398,7 +398,7 @@ def test_forgot_password_sends_notice_only_for_unmatched_addresses(api, monkeypa
     assert deliveries[1] == (
         "notice",
         "second-person@example.com",
-        "https://mayos-api.fly.dev/register",
+        "https://api.mayos.online/register",
         "en",
     )
 
@@ -619,7 +619,7 @@ def test_coach_account_completes_forgot_reset_login(api, monkeypatch, verify_rec
     assert client.get("/auth/me", headers=_authed(token)).json()["capabilities"]["coach"] is True
 
     captured = _capture_reset_link(monkeypatch)
-    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://mayos-api.fly.dev")
+    monkeypatch.setenv("RESET_LINK_BASE_URL", "https://api.mayos.online")
     _reset_limiter()
     forgot = client.post("/auth/forgot-password", json={"email": "coachlet@example.com"})
     assert forgot.status_code == 202

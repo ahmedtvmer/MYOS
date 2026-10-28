@@ -505,6 +505,7 @@ This document records the architectural, algorithmic, and heuristic decisions im
 
 ### ADR 048: The closed trial runs on provider subdomains; an owned domain comes before public launch
 * **Status**: Accepted for the closed trial
+* **Amendment (2026-10-28)**: MYOS adopts the owned domain `mayos.online`; the landing page is at the root and the app at `/app` per ADR 086. The API, reset links, App Links, and legal pages use `api.mayos.online`; legacy hosts remain during transition.
 * **Decision**: During the closed trial the API stays on `mayos-api.fly.dev` and the web app is served from a free static-host subdomain. No custom domain is bought for the trial. Password-reset links, Android App Links, the Play privacy-policy URL, CORS, and the Google OAuth JavaScript origins all point at these provider hostnames. Before public launch MYOS moves to an owned domain (`myos.app` or `myos.site`, both unregistered on 2026-09-28): the web app, API, reset and App Link hosts, OAuth origins, and Play listing URLs move together, and the Android build accepts both the old and new App Link hosts for one release so trial installs keep working.
 * **Rationale**: The trial is small, free, and invite-only, so trust signals from a branded domain are not worth a recurring cost yet. The price is a planned migration: a new Android build, a Play listing change, and new OAuth origins at launch. That migration must happen before web checkout (ADR 023), because payment pages and receipts should never live on a provider subdomain.
 

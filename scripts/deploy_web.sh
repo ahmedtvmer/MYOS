@@ -14,7 +14,7 @@
 #   GOOGLE_WEB_CLIENT_ID                          (Google sign-in button)
 #   POSTHOG_CLIENT_KEY                            (public PostHog project key)
 # Optional env: PAGES_PROJECT (default mayos), MAYOS_API_BASE_URL
-# (default https://mayos-api.fly.dev; must match the CSP connect-src in
+# (default https://api.mayos.online; must match the CSP connect-src in
 # mobile/web/_headers), PAGES_BRANCH (default main).
 set -euo pipefail
 
@@ -36,7 +36,7 @@ if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]] && ! npx --yes wrangler@latest whoami >/
   exit 1
 fi
 project="${PAGES_PROJECT:-mayos}"
-api_url="${MAYOS_API_BASE_URL:-https://mayos-api.fly.dev}"
+api_url="${MAYOS_API_BASE_URL:-https://api.mayos.online}"
 branch="${PAGES_BRANCH:-main}"
 [[ "${1:-}" == "--preview" ]] && branch="preview"
 

@@ -1,9 +1,8 @@
 # Cloudflare Pages setup (issue #129)
 
-One-time, owner-only setup of the free web host for the closed trial (ADR 048).
-The web app is served from `<project>.pages.dev`, separate from the Fly API
-(`https://mayos-api.fly.dev`). Deploying builds to it is #130; this page only
-creates the host, the credentials the deploy uses, and the origin allow-lists.
+Owner-only setup notes for the mayos.online web deployment (ADR 048/086). The
+landing page is served at `https://mayos.online/`, the Flutter app at
+`https://mayos.online/app/`, and the API at `https://api.mayos.online`.
 
 Nothing here goes in the repository: the API token and account ID live in your
 shell or password manager.
@@ -69,37 +68,55 @@ The API allows browser origins from `UI_BASE_URL`, a comma-separated list
 
 ```toml
 [env]
-  UI_BASE_URL = "https://mayos.pages.dev"
+  UI_BASE_URL = "https://mayos.online,https://www.mayos.online,https://mayos.pages.dev"
 ```
 
-then `fly deploy`. (`fly.toml` already carries `https://mayos.pages.dev`, the origin of the project created for #129; change it if yours differs.) (`fly secrets set UI_BASE_URL="https://mayos.pages.dev"`
-also works and restarts the Machine, but keep it in one place only: a secret
-overrides `[env]`.)
+The first origin is also the `/register` redirect target. `fly.toml` carries
+these production origins. A `UI_BASE_URL` Fly secret overrides `[env]` in
+`fly.toml`, so update or unset any existing secret during deployment.
 
-Check it from any terminal; the response must echo the Pages origin:
+Check it from any terminal; the response must echo the apex origin:
 
 ```bash
-curl -si -X OPTIONS https://mayos-api.fly.dev/healthz \
-  -H "Origin: https://mayos.pages.dev" \
+curl -si -X OPTIONS https://api.mayos.online/healthz \
+  -H "Origin: https://mayos.online" \
   -H "Access-Control-Request-Method: GET" | grep -i access-control-allow-origin
-# access-control-allow-origin: https://mayos.pages.dev
+# access-control-allow-origin: https://mayos.online
 ```
 
-## 5. Google Cloud (#112): swap `myos.app` for the Pages origin
+## 5. Google Cloud (#112): add the owned web origin
 
 In the project that owns the web OAuth client:
 
-1. **Google Auth Platform → Clients** (or **APIs & Services → Credentials**) →
-   the *Web application* client → **Authorized JavaScript origins**: remove
-   `https://myos.app`, add the Pages origin, **Save**.
-2. **Google Auth Platform → Branding** → **Authorized domains**: remove
-   `myos.app`, add the Pages host without scheme (e.g. `mayos.pages.dev`;
-   `pages.dev` is a public suffix, so the project host is the registrable
-   domain), **Save**.
+1. **Google Auth Platform → Clients** → the *Web application* client →
+   **Authorized JavaScript origins**: add `https://mayos.online`. Keep
+   `https://mayos.pages.dev` through the transition release; remove it after.
+2. **Google Auth Platform → Branding** → **Authorized domains**: add
+   `mayos.online`; remove the Pages domain after the transition release.
 
 Origin changes can take a few minutes to reach sign-in.
 
 ## 6. Close the loop
 
-Comment the final origin on #129 (e.g. "Pages origin: https://mayos.pages.dev")
-and tick the checklist. #130 reads it for the deploy script, headers and CSP.
+The transition Pages origin `https://mayos.pages.dev` remains allowed during the
+transition release; `https://mayos.online` is the primary production origin.
+
+## 7. Host redirects (Cloudflare dashboard)
+
+Create an account-level **Bulk Redirect** list entry: source `mayos.pages.dev`,
+target `https://mayos.online`, status 301. Turn **Preserve query string**,
+**Subpath matching**, and **Preserve path suffix** on; leave **Include
+subdomains** off so `*.mayos.pages.dev` previews stay available.
+
+In the `mayos.online` zone, add a **Redirect Rule** with condition hostname
+equals `www.mayos.online` and dynamic target
+`concat("https://mayos.online", http.request.uri.path)`. Set status 301 and
+preserve the query string. These are dashboard rules, not Pages `_redirects`
+entries, which cannot match on hostname.
+
+## 8. Fly custom domain for the API
+
+The owner has attached `api.mayos.online` to Fly and issued its certificate. For
+reference, the Fly steps are `fly certs add api.mayos.online` and DNS-only A/AAAA
+records pointing to the Fly app's assigned addresses. Keep the records
+DNS-only; Cloudflare proxying can prevent Fly certificate validation.

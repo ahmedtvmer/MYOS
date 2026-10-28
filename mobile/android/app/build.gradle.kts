@@ -84,10 +84,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Host for the App Link reset intent-filter. Override per deployment
-        // with -PappLinkHost=api.example.com; defaults to the fly.toml app host.
+        // Primary App Link host. Legacy fly.dev links stay accepted in the manifest.
+        // Override the primary host per deployment with -PappLinkHost=api.example.com.
         manifestPlaceholders["appLinkHost"] =
-            (project.findProperty("appLinkHost") as String?) ?: "mayos-api.fly.dev"
+            (project.findProperty("appLinkHost") as String?) ?: "api.mayos.online"
     }
 
     signingConfigs {

@@ -43,6 +43,8 @@ def api(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("MAYOS_CLIENT_IP_HEADER", raising=False)
     monkeypatch.delenv("PRIVACY_CONTACT_EMAIL", raising=False)
     monkeypatch.delenv("FLY_APP_NAME", raising=False)
+    monkeypatch.delenv("LEGACY_PUBLIC_HOST", raising=False)
+    monkeypatch.delenv("CANONICAL_PUBLIC_HOST", raising=False)
     limiter._storage.reset()
     clear_policy_cache()
     catalog_path = tmp_path / "catalog.db"
@@ -94,6 +96,84 @@ def _delete_form(
     return client.post("/account/delete-request", data=data)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/privacy",
+        "/account/delete-request",
+        "/reset-password?token=abc&display_language=ar",
+        "/register",
+    ],
+)
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_legacy_public_html_get_and_head_redirect_to_canonical_host(api, monkeypatch, path, method):
+    client, _db = api
+    monkeypatch.setenv("LEGACY_PUBLIC_HOST", "mayos-api.fly.dev")
+    monkeypatch.setenv("CANONICAL_PUBLIC_HOST", "api.mayos.online")
+    response = client.request(
+        method, path, headers={"host": "mayos-api.fly.dev"}, follow_redirects=False
+    )
+    path_only, _, query = path.partition("?")
+    expected = f"https://api.mayos.online{path_only}" + (f"?{query}" if query else "")
+    assert response.status_code == 308
+    assert response.headers["location"] == expected
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_status"),
+    [
+        ("/auth/me", 401),
+        ("/.well-known/assetlinks.json", 200),
+        ("/healthz", 200),
+        ("/readyz", 503),
+    ],
+)
+def test_legacy_non_html_routes_are_not_redirected(api, monkeypatch, path, expected_status):
+    client, _db = api
+    monkeypatch.setenv("LEGACY_PUBLIC_HOST", "mayos-api.fly.dev")
+    monkeypatch.setenv("CANONICAL_PUBLIC_HOST", "api.mayos.online")
+    monkeypatch.setenv(
+        "ANDROID_APP_SHA256_CERT_FINGERPRINTS",
+        "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:"
+        "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99",
+    )
+    response = client.get(path, headers={"host": "mayos-api.fly.dev"}, follow_redirects=False)
+    assert response.status_code == expected_status
+    if path == "/.well-known/assetlinks.json":
+        assert response.json()[0]["target"]["package_name"] == "com.mayos.mayos_mobile"
+
+
+def test_legacy_page_post_is_not_redirected(api, monkeypatch):
+    client, _db = api
+    monkeypatch.setenv("LEGACY_PUBLIC_HOST", "mayos-api.fly.dev")
+    monkeypatch.setenv("CANONICAL_PUBLIC_HOST", "api.mayos.online")
+    response = client.post(
+        "/account/delete-request",
+        headers={"host": "mayos-api.fly.dev"},
+        data={},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+
+
+def test_canonical_public_page_is_not_redirected(api, monkeypatch):
+    client, _db = api
+    monkeypatch.setenv("LEGACY_PUBLIC_HOST", "mayos-api.fly.dev")
+    monkeypatch.setenv("CANONICAL_PUBLIC_HOST", "api.mayos.online")
+    response = client.get("/privacy", headers={"host": "api.mayos.online"}, follow_redirects=False)
+    assert response.status_code == 200
+
+
+def test_legacy_public_html_redirect_is_disabled_without_mapping(api, monkeypatch):
+    client, _db = api
+    monkeypatch.delenv("LEGACY_PUBLIC_HOST", raising=False)
+    monkeypatch.delenv("CANONICAL_PUBLIC_HOST", raising=False)
+    response = client.get("/privacy", headers={"host": "mayos-api.fly.dev"}, follow_redirects=False)
+    assert response.status_code == 200
+
+
 def test_app_version_policy_is_public_and_uses_configured_values(api, monkeypatch):
     client, _db = api
     monkeypatch.delenv("MIN_ANDROID_BUILD", raising=False)
@@ -104,7 +184,6 @@ def test_app_version_policy_is_public_and_uses_configured_values(api, monkeypatc
         "min_build": 0,
         "store_url": "https://play.google.com/store/apps/details?id=com.mayos.mayos_mobile",
     }
-
     monkeypatch.setenv("MIN_ANDROID_BUILD", "321")
     monkeypatch.setenv("ANDROID_STORE_URL", "https://play.example.test/myos")
 
@@ -115,6 +194,17 @@ def test_app_version_policy_is_public_and_uses_configured_values(api, monkeypatc
         "min_build": 321,
         "store_url": "https://play.example.test/myos",
     }
+
+
+def test_register_is_exempt_from_android_build_policy(api, monkeypatch):
+    client, _db = api
+    monkeypatch.setenv("MIN_ANDROID_BUILD", "50")
+    monkeypatch.setenv("UI_BASE_URL", "https://mayos.online")
+    response = client.get(
+        "/register", headers={"X-MAYOS-Build": "1"}, follow_redirects=False
+    )
+    assert response.status_code == 302
+    assert response.headers["location"] == "https://mayos.online/register"
 
 
 def test_android_build_below_policy_gets_structured_upgrade_required(api, monkeypatch):

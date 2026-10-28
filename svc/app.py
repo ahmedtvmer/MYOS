@@ -74,9 +74,13 @@ _APP_VERSION_POLICY_EXEMPT_PATHS = frozenset(
         "/privacy",
         "/account/delete-request",
         "/reset-password",
+        "/register",
         "/.well-known/assetlinks.json",
         "/app/version-policy",
     }
+)
+_LEGACY_PUBLIC_HTML_PATHS = frozenset(
+    {"/privacy", "/account/delete-request", "/reset-password", "/register"}
 )
 
 
@@ -477,6 +481,29 @@ def create_app() -> FastAPI:
             response = await call_next(request)
         _apply_admin_security_headers(response)
         return response
+
+    @app.middleware("http")
+    async def redirect_legacy_public_pages(request: Request, call_next):
+        legacy_host = os.getenv("LEGACY_PUBLIC_HOST", "").strip().lower()
+        canonical_host = os.getenv("CANONICAL_PUBLIC_HOST", "").strip().lower()
+        request_host = (request.url.hostname or "").lower()
+        if (
+            legacy_host
+            and canonical_host
+            and request_host == legacy_host
+            and request.method in {"GET", "HEAD"}
+            and request.url.path in _LEGACY_PUBLIC_HTML_PATHS
+        ):
+            location = request.url.replace(scheme="https", netloc=canonical_host)
+            return Response(
+                status_code=308,
+                headers={
+                    "Location": str(location),
+                    "Cache-Control": "no-store",
+                    "Referrer-Policy": "no-referrer",
+                },
+            )
+        return await call_next(request)
 
     @app.middleware("http")
     async def enforce_android_build_policy(request: Request, call_next):

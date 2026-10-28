@@ -68,12 +68,14 @@ swap_size_mb = 512
   HF_HOME = "/app/.cache/huggingface"
   # Password-reset / App Link base: this app's public host. It must be identical
   # in RESET_LINK_BASE_URL, the Android App Link intent-filter host
-  # (-PappLinkHost, default mayos-api.fly.dev) and where
+  # (-PappLinkHost, default api.mayos.online) and where
   # /.well-known/assetlinks.json is served. Read by service/email_sender.py.
-  RESET_LINK_BASE_URL = "https://mayos-api.fly.dev"
-  # CORS origin(s) for the web app, comma-separated (Cloudflare Pages origin,
-  # #129; see docs/CLOUDFLARE_PAGES_SETUP.md). Not used for reset links.
-  UI_BASE_URL = "https://mayos.pages.dev"
+  RESET_LINK_BASE_URL = "https://api.mayos.online"
+  # Browser CORS origins, comma-separated. First origin is the registration link target.
+  UI_BASE_URL = "https://mayos.online,https://www.mayos.online,https://mayos.pages.dev"
+  # Redirect browser HTML pages on the old API hostname to the owned API domain.
+  LEGACY_PUBLIC_HOST = "mayos-api.fly.dev"
+  CANONICAL_PUBLIC_HOST = "api.mayos.online"
   # Hosted-model usage controls (#39, ADR 038). Limits are per immutable account,
   # enforced before any model call or stream starts. The spend alert is deduped
   # once per UTC month; OWNER_ALERT_EMAIL is a `fly secrets set` value, not [env].

@@ -85,7 +85,7 @@ def test_assembled_page_has_working_destinations(tmp_path):
     assert by_contact["instagram"]["href"] == "https://instagram.com/ahmedtvmer"
     assert by_contact["tiktok"]["href"] == "https://tiktok.com/@ahmedforges"
     assert by_contact["email"]["href"] == "mailto:ahmedtamerhejazi@gmail.com"
-    assert by_id["privacy-link"]["href"] == "https://mayos-api.fly.dev/privacy"
+    assert by_id["privacy-link"]["href"] == "https://api.mayos.online/privacy"
 
 
 def test_assembled_page_has_expected_copy_in_both_languages(tmp_path):

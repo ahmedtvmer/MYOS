@@ -197,7 +197,7 @@ def assemble(flutter_build: Path, landing: Path, output: Path) -> None:
     if worker.exists():
         assert_service_worker_safe(
             worker.read_text(encoding="utf-8"),
-            os.environ.get("MAYOS_API_BASE_URL", "https://mayos-api.fly.dev"),
+            os.environ.get("MAYOS_API_BASE_URL", "https://api.mayos.online"),
         )
     routes = parse_router_routes(ROUTER.read_text(encoding="utf-8"))
     redirects = render_redirects(routes)
@@ -205,7 +205,7 @@ def assemble(flutter_build: Path, landing: Path, output: Path) -> None:
         shutil.rmtree(output)
     shutil.copytree(landing, output)
     config = {
-        "apiBaseUrl": os.environ.get("MAYOS_API_BASE_URL", "https://mayos-api.fly.dev"),
+        "apiBaseUrl": os.environ.get("MAYOS_API_BASE_URL", "https://api.mayos.online"),
         "posthogKey": os.environ.get("POSTHOG_CLIENT_KEY", ""),
         "businessEmail": "ahmedtamerhejazi@gmail.com",
         "instagramHandle": "ahmedtvmer",

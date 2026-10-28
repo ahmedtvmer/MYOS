@@ -58,8 +58,8 @@ GOOGLE_WEB_CLIENT_ID="$(sed -n 's/^GOOGLE_WEB_CLIENT_ID="\([^"]*\)"$/\1/p' ../.e
 flutter build apk --release \
   --target-platform android-arm64 \
   --split-per-abi \
-  -PappLinkHost=mayos-api.fly.dev \
-  --dart-define=MAYOS_API_BASE_URL=https://mayos-api.fly.dev \
+  -PappLinkHost=api.mayos.online \
+  --dart-define=MAYOS_API_BASE_URL=https://api.mayos.online \
   --dart-define="GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID"
 
 # Build the shared web client for an HTTPS API.

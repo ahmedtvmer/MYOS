@@ -67,7 +67,8 @@ export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 | `POSTHOG_PROJECT_ID` | unset | MYOS PostHog project id used by the private persons API |
 | `POSTHOG_API_HOST` | `https://eu.posthog.com` | Private PostHog API host; change only for a different PostHog deployment |
 | `UI_BASE_URL` | `http://localhost:7357` | CORS origins: one, or several comma-separated (web app host + local Flutter web dev). Not used for reset links |
-| `RESET_LINK_BASE_URL` | `http://localhost:8000` | Reset-link / App Link base; must match the App Link host |
+| `RESET_LINK_BASE_URL` | `http://localhost:8000` | Reset-link / App Link base; production is `https://api.mayos.online` |
+| `LEGACY_PUBLIC_HOST` / `CANONICAL_PUBLIC_HOST` | unset | Optional legacy browser-page redirect pair; Fly production maps `mayos-api.fly.dev` to `api.mayos.online` |
 | `ANDROID_APP_PACKAGE` | `com.mayos.mayos_mobile` | App Link `assetlinks.json` package |
 | `ANDROID_APP_SHA256_CERT_FINGERPRINTS` | unset (⇒ 404) | App Link signing-cert SHA-256 fingerprints (case/colons optional; normalised) |
 | `MAYOS_CLIENT_IP_HEADER` | unset | Single trusted caller-IP header; set to `cf-connecting-ip` behind Cloudflare Tunnel |
@@ -1125,6 +1126,8 @@ returns 404 instead of silently falling back to a local copy.
 
 ### 10.9 Password reset: App Link and hosted fallback (issue #38, ADR 037)
 
+The owned API hostname is `api.mayos.online`; its Fly custom-domain certificate is added with `fly certs add api.mayos.online`. DNS A/AAAA records for this hostname must be DNS-only and point to Fly. The previous `mayos-api.fly.dev` hostname continues serving the API for existing Android installs.
+
 The reset email links to `<RESET_LINK_BASE_URL>/reset-password?token=…`. When the
 app is installed, Android opens that https URL as an **App Link** directly in the
 app; otherwise the API's hosted page at the same path completes the reset in a
@@ -1134,7 +1137,7 @@ browser.
 
 1. `RESET_LINK_BASE_URL` (the link the API emails),
 2. the Android App Link intent-filter host (`-PappLinkHost`, default
-   `mayos-api.fly.dev`), and
+   `api.mayos.online`), and
 3. the host serving `/.well-known/assetlinks.json` (the same API).
 
 A mismatch (for example an `app` redirect, www, or a different region hostname)
@@ -1145,7 +1148,7 @@ from `fly.toml`; the first two are configuration and may live in `[env]`):
 
 | Name | Value | Notes |
 | :--- | :--- | :--- |
-| `RESET_LINK_BASE_URL` | `https://${APP}.fly.dev` | Reset-link / App Link base. No `UI_BASE_URL` fallback; unset ⇒ localhost dev base |
+| `RESET_LINK_BASE_URL` | `https://api.mayos.online` | Reset-link / App Link base. No `UI_BASE_URL` fallback; unset ⇒ localhost dev base |
 | `ANDROID_APP_PACKAGE` | `com.mayos.mayos_mobile` | Defaults if unset |
 | `ANDROID_APP_SHA256_CERT_FINGERPRINTS` | comma-separated SHA-256 | Upload key **and** Play App Signing cert; case/colons optional, normalised; none ⇒ 404 |
 | `SMTP_HOST` | SMTP relay host | **Unset ⇒ console-dev** (reset links only logged; unsafe on a shared host) |
@@ -1156,7 +1159,7 @@ from `fly.toml`; the first two are configuration and may live in `[env]`):
 
 ```bash
 # Reset-link base (must equal the -PappLinkHost used for the Android build).
-fly secrets set RESET_LINK_BASE_URL="https://${APP}.fly.dev"
+fly secrets set RESET_LINK_BASE_URL="https://api.mayos.online"
 
 # App Link association (no fingerprint => assetlinks.json returns 404).
 fly secrets set ANDROID_APP_SHA256_CERT_FINGERPRINTS="AA:BB:CC:…,DD:EE:FF:…"
@@ -1185,17 +1188,17 @@ Include **both** the upload key and the Play App Signing certificate when
 distributing through Play, so debug/CI installs and Play installs both verify.
 
 **Android build:** the App Link host is injected at build time (default
-`mayos-api.fly.dev`, matching `fly.toml`). Build with the same host:
+`api.mayos.online`, matching `fly.toml`). Build with the same host:
 
 ```bash
 cd mobile
 GOOGLE_WEB_CLIENT_ID="<web-client-id>.apps.googleusercontent.com"
 POSTHOG_CLIENT_KEY="phc_<public-project-key>"   # release builds only
-flutter build appbundle --release -PappLinkHost=mayos-api.fly.dev \
-  --dart-define=MAYOS_API_BASE_URL=https://mayos-api.fly.dev \
+flutter build appbundle --release -PappLinkHost=api.mayos.online \
+  --dart-define=MAYOS_API_BASE_URL=https://api.mayos.online \
   --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
   --dart-define=POSTHOG_CLIENT_KEY="$POSTHOG_CLIENT_KEY"
-# or: flutter build apk --debug -PappLinkHost=mayos-api.fly.dev \
+# or: flutter build apk --debug -PappLinkHost=api.mayos.online \
 #   --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
 ```
 
@@ -1203,7 +1206,7 @@ flutter build appbundle --release -PappLinkHost=mayos-api.fly.dev \
 
 ```bash
 # The API must serve the statement with the configured fingerprints:
-curl -fsS "https://${APP}.fly.dev/.well-known/assetlinks.json"
+curl -fsS "https://api.mayos.online/.well-known/assetlinks.json"
 
 # Android must list and have verified the domain:
 adb shell pm get-app-links com.mayos.mayos_mobile
@@ -1221,7 +1224,7 @@ both player and coach capabilities; the same app/login serves both):
 2. Confirm the email arrives. The body must say the link opens the MYOS app if
    installed, otherwise a secure web page, is single-use, and expires in the
    configured `RESET_TOKEN_TTL_MINUTES`; the link is
-   `https://${APP}.fly.dev/reset-password?token=…`.
+   `https://api.mayos.online/reset-password?token=…`.
 3. Sign in to the account on a device first (tick **Keep me signed in** to cover
    the remember-me session) so there is a live session to revoke.
 4. With the app installed, open the link: it opens **Reset password** with the
@@ -1252,8 +1255,8 @@ URLs, the Data safety answers, content rating, and target audience — lives in
 Two URLs must be live before the listing can be completed:
 
 ```bash
-curl -sI https://<api-host>/privacy                     # 200, cacheable
-curl -sI https://<api-host>/account/delete-request      # 200, no-store
+curl -sI https://api.mayos.online/privacy                     # 200, cacheable
+curl -sI https://api.mayos.online/account/delete-request      # 200, no-store
 ```
 
 The release build fails with a clear message (not a debug signature) when
@@ -1262,9 +1265,12 @@ unaffected.
 
 ## 11. Web App on Cloudflare Pages (issues #129, #130; ADR 048)
 
-The web client is the Flutter app built for the browser and hosted on Cloudflare
-Pages (`<project>.pages.dev`), separate from the Fly API. One-time account,
-token, project and origin setup: [CLOUDFLARE_PAGES_SETUP.md](CLOUDFLARE_PAGES_SETUP.md).
+The static landing page is served at `https://mayos.online/` and the Flutter
+web app at `https://mayos.online/app/`; the API is `https://api.mayos.online`.
+`mayos.pages.dev` and `www.mayos.online` remain transitional web origins. Add
+`https://mayos.online` to Google OAuth authorized JavaScript origins and remove
+the Pages origin after the transition release. One-time account, token, project
+and origin setup: [CLOUDFLARE_PAGES_SETUP.md](CLOUDFLARE_PAGES_SETUP.md).
 
 **Deploy** (from a machine with Flutter and Node; token and account ID from your
 own environment, never the repo):
@@ -1290,7 +1296,7 @@ analytics) and warns when a production build lacks `GOOGLE_WEB_CLIENT_ID` or
 `POSTHOG_CLIENT_KEY`.
 
 The script runs `flutter build web --release --no-web-resources-cdn
---pwa-strategy=none` with `--dart-define=MAYOS_API_BASE_URL=https://mayos-api.fly.dev`
+--pwa-strategy=none` with `--dart-define=MAYOS_API_BASE_URL=https://api.mayos.online`
 (and `GOOGLE_WEB_CLIENT_ID` and `POSTHOG_CLIENT_KEY` when set), then runs
 pinned Workbox `generateSW` to produce the `/app/` worker and offline fallback
 before assembling the landing page and Flutter app and deploying with Wrangler.
@@ -1307,8 +1313,8 @@ no worker route matches a cross-origin request, so API traffic is never cached.
 | `GOOGLE_WEB_CLIENT_ID` dart-define | build | Google sign-in web client (#112, #115) |
 | `POSTHOG_CLIENT_KEY` dart-define | release build | Public PostHog EU project key; omitted or blank disables the Flutter client. Debug and profile builds never initialize it. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | operator env | wrangler auth |
-| `PAGES_PROJECT` | operator env | default `myos` |
-| `UI_BASE_URL` | Fly `[env]` | must list the Pages origin (CORS) |
+| `PAGES_PROJECT` | operator env | default `mayos` |
+| `UI_BASE_URL` | Fly `[env]` | must list https://mayos.online first, then the www and Pages transition origins |
 
 **Routing and headers** live in `mobile/web/_redirects` and `mobile/web/_headers`
 and are copied into the build:
@@ -1328,9 +1334,9 @@ and are copied into the build:
 **Rollback to this deployment**. (CLI alternative: check out the earlier commit
 and rerun `scripts/deploy_web.sh`.)
 
-**Verify:** open the Pages origin, confirm the login screen renders with no CSP
+**Verify:** open `https://mayos.online/app/`, confirm the login screen renders with no CSP
 errors in the browser console, open a deep path such as `/anything` and reload
-(must still load), and sign in against the Fly API. The last step needs #113 and
+(must still load), and sign in against `https://api.mayos.online`. The last step needs #113 and
 the Fly `UI_BASE_URL` change.
 
 ## 12. Product analytics (PostHog) setup

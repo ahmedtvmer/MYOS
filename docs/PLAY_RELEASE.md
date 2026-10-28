@@ -6,13 +6,12 @@ repository; creating the keystore, filling in Play Console, and signing off on
 the legal text can only be done by the project owner. Work top to bottom; every
 step is one command or one Play Console screen.
 
-**URLs this release publishes** (host = the API host from `fly.toml`,
-`https://mayos-api.fly.dev` today):
+**URLs this release publishes**:
 
 | Purpose | URL |
 | :--- | :--- |
-| Privacy policy (also linked in-app: login, register, Settings → About) | `https://<api-host>/privacy` |
-| Account deletion request (also in-app: Settings → Profile → Delete account) | `https://<api-host>/account/delete-request` |
+| Privacy policy (also linked in-app: login, register, Settings → About) | `https://api.mayos.online/privacy` |
+| Account deletion request (also in-app: Settings → Profile → Delete account) | `https://api.mayos.online/account/delete-request` |
 
 ---
 
@@ -25,11 +24,11 @@ fly secrets set PRIVACY_CONTACT_EMAIL="you@example.com"
 ```
 
 - [ ] `PRIVACY_CONTACT_EMAIL` is set and the address is one you actually read.
-- [ ] `curl -sI https://<api-host>/privacy` returns `200` and
+- [ ] `curl -sI https://api.mayos.online/privacy` returns `200` and
       `cache-control: public, max-age=3600`.
-- [ ] `curl -s https://<api-host>/privacy` shows your contact address (not the
+- [ ] `curl -s https://api.mayos.online/privacy` shows your contact address (not the
       placeholder).
-- [ ] `curl -sI https://<api-host>/account/delete-request` returns `200`.
+- [ ] `curl -sI https://api.mayos.online/account/delete-request` returns `200`.
 
 ## 2. Legal sign-off (owner, before publishing the URL)
 
@@ -107,7 +106,8 @@ flutter pub get
 GOOGLE_WEB_CLIENT_ID="<web-client-id>.apps.googleusercontent.com"
 POSTHOG_CLIENT_KEY="phc_<public-posthog-project-key>"   # same key as the web build; see DEPLOYMENT.md section 12
 flutter build appbundle --release \
-  --dart-define=MAYOS_API_BASE_URL=https://<api-host> \
+  -PappLinkHost=api.mayos.online \
+  --dart-define=MAYOS_API_BASE_URL=https://api.mayos.online \
   --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
   --dart-define=POSTHOG_CLIENT_KEY="$POSTHOG_CLIENT_KEY"
 # → build/app/outputs/bundle/release/app-release.aab
@@ -159,7 +159,7 @@ dart run flutter_launcher_icons
 - [ ] **Create the app** (free, app type: app; not a game).
 - [ ] **Default store listing**: title, short/full description, screenshots,
       feature graphic. Describe it as a free invitation-only closed trial.
-- [ ] **Privacy policy URL**: `https://<api-host>/privacy`.
+- [ ] **Privacy policy URL**: `https://api.mayos.online/privacy`.
 - [ ] **App content → Data safety**: complete from §8 below.
 - [ ] **App content → Content rating**: complete the IARC questionnaire
       (fitness/training app; health-adjacent self-reported data, no violence,
@@ -169,7 +169,7 @@ dart run flutter_launcher_icons
       families.
 - [ ] **App content → Ads**: no ads, no ads declaration required.
 - [ ] **Account deletion**: Play asks for a deletion URL when the app handles
-      accounts — enter `https://<api-host>/account/delete-request` (and mention
+      accounts — enter `https://api.mayos.online/account/delete-request` (and mention
       the in-app path, which the form page links back to).
 - [ ] **Testing → Closed testing**: create a closed track, **invite-only**,
       price **Free**. Add tester email addresses (or a Google Group) for the
@@ -201,7 +201,7 @@ referrer once per install and sends only parsed UTM labels during registration.
 | Data collected | The types in the table above: username, recovery email, health/fitness data, user content, and logs. Nothing else — no contacts, no location, no device identifiers, no advertising IDs |
 | Data shared | **No data sold, no data shared for advertising, no tracking.** Data *is* processed by service providers: the hosted model provider (AI features) and the SMTP provider (emails) |
 | Data processed securely | Yes — encrypted **in transit** (https/TLS) |
-| Data deletion available | **Yes**, both in-app (Settings → Profile → Delete account) and on the website (`https://<api-host>/account/delete-request`) |
+| Data deletion available | **Yes**, both in-app (Settings → Profile → Delete account) and on the website (`https://api.mayos.online/account/delete-request`) |
 | Required or optional | **Username and recovery email are required**; training, health, and AI content are optional; logs are collected automatically |
 | Purpose | App functionality, account management, security, and AI features — not analytics, not advertising, not product improvement by third parties |
 | Independent verification | No |
@@ -212,13 +212,13 @@ safety form that contradicts the published policy.
 ## 9. Smoke checks before inviting testers
 
 - [ ] Fresh install opens the signed-out login screen; **Privacy policy** opens
-      `https://<api-host>/privacy` in the browser.
+      `https://api.mayos.online/privacy` in the browser.
 - [ ] **Create account** screen shows the Privacy policy link next to the
       consent row.
 - [ ] Register, add a recovery email, complete onboarding.
 - [ ] Settings → About → **Privacy policy** opens the same URL.
 - [ ] Settings → Profile → **Delete account** works in-app.
-- [ ] In a browser (no app), open `https://<api-host>/account/delete-request`,
+- [ ] In a browser (no app), open `https://api.mayos.online/account/delete-request`,
       enter wrong credentials → generic refusal; then delete a throwaway
       account with the right credentials → success, and the username no longer
       signs in.
