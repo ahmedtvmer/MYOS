@@ -207,6 +207,7 @@ class WorkoutRecord {
     required this.exerciseName,
     required this.kind,
     required this.value,
+    required this.reps,
     this.exerciseId,
   });
 
@@ -214,11 +215,12 @@ class WorkoutRecord {
   final String? exerciseId;
   final PrRecordKind kind;
   final double value;
+  final int reps;
 
   /// The `PR … kg` half of the celebration line.
   String get label => kind == PrRecordKind.mostReps
       ? '${kind.celebrationPrefix}${formatRecordKg(value)} reps'
-      : '${kind.celebrationPrefix}${formatRecordKg(value)} kg';
+      : '${kind.celebrationPrefix}${formatRecordKg(value)} kg × $reps';
 
   /// The full celebration line the summary lists.
   String get line => '$exerciseName · $label';
@@ -245,6 +247,7 @@ List<WorkoutRecord> workoutRecords(ActiveWorkout workout) {
           exerciseId: exercise.exerciseId,
           kind: kind,
           value: kind.valueOf(set),
+          reps: set.reps,
         ));
       }
     }

@@ -47,6 +47,7 @@ import 'logger_card_widgets.dart';
 import 'logger_keypad.dart';
 import 'rest_timer_widgets.dart';
 import 'workout_share_card.dart';
+import 'pr_celebration.dart';
 import 'web_workout_committer.dart';
 import '../tour/tour_targets.dart';
 
@@ -205,6 +206,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
   /// The workout summary, which replaces the old plain save step (#124): open
   /// from Finish until Back or a successful Save.
   bool _summaryStep = false;
+  bool _prCelebrationStep = false;
 
   /// The celebration and the stats, computed once on the device when Finish
   /// opens the summary and never recomputed after that (#124: a summary
@@ -1078,7 +1080,8 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       );
       _checkpointNumber = checkpointNumber;
       _checkpointReview = null;
-      _summaryStep = true;
+      _prCelebrationStep = _summary!.records.isNotEmpty;
+      _summaryStep = !_prCelebrationStep;
       _error = null;
       _recordFocus = null;
       _focus = null;
@@ -1446,7 +1449,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
     final bool keypadVisible =
         workout != null && _validFocus(workout) && _focus != null;
     return PopScope(
-      canPop: !_summaryStep,
+      canPop: !_summaryStep && !_prCelebrationStep,
       onPopInvokedWithResult: (bool didPop, Object? result) {
         if (!didPop && _summaryStep && mounted) {
           _backFromSummary();
@@ -1455,7 +1458,9 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       child: Column(
         children: <Widget>[
           Expanded(
-            child: _summaryStep
+            child: _prCelebrationStep
+                ? _buildPrCelebration(_summary!.records)
+                : _summaryStep
                 ? SafeArea(
                     // The frame no longer insets the logger's body; the bar
                     // and the keypad take the inset inside their own surface,
@@ -2486,6 +2491,18 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       ),
     );
   }
+
+  Widget _buildPrCelebration(List<WorkoutRecord> records) => PrCelebration(
+        records: records,
+        languageCode: _copy.isArabic ? 'ar' : 'en',
+        onComplete: () {
+          if (!mounted || !_prCelebrationStep) return;
+          setState(() {
+            _prCelebrationStep = false;
+            _summaryStep = true;
+          });
+        },
+      );
 
   /// The celebration at the top of the summary: one line per current record
   /// (`Bench Press · PR e1RM 112.5 kg`), omitted when the workout earned none
