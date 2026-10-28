@@ -285,6 +285,10 @@ class WorkoutCopy {
       : 'Notes (pumps, joint aches, fatigue)';
   String get personalRecords =>
       isArabic ? 'الأرقام القياسية الشخصية' : 'Personal records';
+  String get newPr => isArabic ? 'رقم قياسي جديد!' : 'New PR!';
+  String prHeadline(WorkoutRecord record) => record.kind == PrRecordKind.mostReps
+      ? '${record.exerciseName} · ${record.reps} تكرار'
+      : '${record.exerciseName} · ${formatRecordKg(record.value)} kg × ${record.reps}';
   String recordBadge(PrRecordKind kind) {
     if (kind == PrRecordKind.mostReps) {
       return isArabic ? 'أكبر عدد من التكرارات' : 'Most reps';

@@ -411,8 +411,8 @@ void main() {
       expect(
         summary.records.map((WorkoutRecord r) => r.line).toList(),
         <String>[
-          'Bench Press · PR 110 kg',
-          'Bench Press · PR e1RM 132 kg',
+          'Bench Press · PR 110 kg × 5',
+          'Bench Press · PR e1RM 132 kg × 5',
         ],
       );
     });
