@@ -17,8 +17,10 @@ import '../../../core/theme/myos_spacing.dart';
 import '../../../core/theme/myos_theme.dart';
 import '../../../core/theme/myos_typography.dart';
 import '../../../core/ui/myos_button.dart';
+import '../../../core/ui/myos_card.dart';
 import '../../../core/ui/myos_section_header.dart';
 import '../../../core/ui/myos_text_field.dart';
+import '../../../core/ui/myos_settings_tile.dart';
 import '../../../core/ui/first_strong_direction.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
@@ -951,6 +953,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
         const SizedBox(height: MyosSpacing.md),
+        MyosSectionHeader(title: copy.guides),
+        MyosCard(
+          padding: EdgeInsets.zero,
+          child: TourTarget(
+            id: 'feature_guide',
+            child: MyosSettingsTile(
+              icon: Icons.menu_book_outlined,
+              title:
+                  MyosCopy(ref.watch(displayLanguageProvider)).featureGuideTitle,
+              onTap: () => context.push(featureGuidePath),
+            ),
+          ),
+        ),
+        const SizedBox(height: MyosSpacing.xs),
+        MyosCard(
+          padding: EdgeInsets.zero,
+          child: MyosSettingsTile(
+            icon: Icons.replay,
+            title: copy.replayTour,
+            onTap: () => ref.read(tourControllerProvider.notifier).startTour(
+              ref.read(tourCurrentVersionProvider), replay: true,
+            ),
+          ),
+        ),
+        const SizedBox(height: MyosSpacing.md),
         MyosTextField(
           fieldKey: const Key('current_goal_field'),
           controller: _currentGoalController,
@@ -1244,24 +1271,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ],
         ),
         const SizedBox(height: MyosSpacing.md),
-        MyosSectionHeader(title: copy.guides),
-        TourTarget(
-          id: 'feature_guide',
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(copy.featureGuide),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push(featureGuidePath),
-          ),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(copy.replayTour),
-          trailing: const Icon(Icons.replay),
-          onTap: () => ref.read(tourControllerProvider.notifier).startTour(
-                ref.read(tourCurrentVersionProvider), replay: true,
-              ),
-        ),
         const SizedBox(height: MyosSpacing.xxl),
       ],
     );

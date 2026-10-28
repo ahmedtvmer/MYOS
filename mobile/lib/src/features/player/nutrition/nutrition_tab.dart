@@ -133,10 +133,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     final NutritionCopy copy = NutritionCopy(arabic ? 'ar' : 'en');
     return Directionality(
       textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
-      child: TourTarget(
-        id: 'nutrition',
-        child: _content(context, copy),
-      ),
+      child: _content(context, copy),
     );
   }
 
@@ -154,8 +151,11 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
   Widget _setupForm(BuildContext context, NutritionCopy copy) => ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
-          Text(copy.setup,
-              style: Theme.of(context).textTheme.headlineMedium),
+          TourTarget(
+            id: 'nutrition',
+            child: Text(copy.setup,
+                style: Theme.of(context).textTheme.headlineMedium),
+          ),
           const SizedBox(height: 16),
           _sexConfirmation(copy),
           const SizedBox(height: 16),
@@ -252,7 +252,10 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
           Padding(padding: const EdgeInsets.only(top: 4),
             child: Text(copy.cardioAdjustment(_plan!.cardioAdjustmentKcal), style: text.bodyMedium)),
         const SizedBox(height: 20),
-        _plate(targets, macroCards, copy, text),
+        TourTarget(
+          id: 'nutrition',
+          child: _plate(targets, macroCards, copy, text),
+        ),
         const SizedBox(height: 12),
         Text(copy.macrosTitle, style: text.titleMedium),
         _macroCards(targets, macroCards),

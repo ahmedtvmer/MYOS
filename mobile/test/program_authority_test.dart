@@ -96,6 +96,25 @@ Future<void> _openProfile(WidgetTester tester) async {
   await _pumpUntilFound(tester, find.text('Training profile'));
 }
 
+Future<void> _scrollProfileUntilBuilt(
+  WidgetTester tester,
+  Finder target, {
+  required Offset dragOffset,
+}) async {
+  final Finder profileScroll = find.descendant(
+    of: find.byType(ProfileScreen),
+    matching: find.byType(Scrollable),
+  ).first;
+  for (int attempt = 0;
+      attempt < 8 && target.evaluate().isEmpty;
+      attempt++) {
+    await tester.drag(profileScroll, dragOffset);
+    await tester.pumpAndSettle();
+  }
+  expect(target.evaluate(), isNotEmpty,
+      reason: 'Profile scroll should build the requested control');
+}
+
 String _todayIso() {
   final DateTime now = DateTime.now();
   return '${now.year.toString().padLeft(4, '0')}-'
@@ -804,6 +823,11 @@ void main() {
     // The schedule is its own section, seeded from the service's current version.
     expect(find.text('Training schedule'), findsOneWidget);
 
+    await _scrollProfileUntilBuilt(
+      tester,
+      find.byKey(const Key('weekday_chip_2')),
+      dragOffset: const Offset(0, -500),
+    );
     await tester.ensureVisible(find.byKey(const Key('weekday_chip_2')));
     await tester.tap(find.byKey(const Key('weekday_chip_2')));
     await tester.pump();
@@ -818,6 +842,11 @@ void main() {
     expect(fake.scheduleVersions.first['weekdays'], <int>[1, 2, 3, 5]);
     // The program's own setting is not rewritten by a schedule save.
     expect(fake.weeklyFrequency, 4);
+    await _scrollProfileUntilBuilt(
+      tester,
+      find.byType(DropdownButtonFormField<int>),
+      dragOffset: const Offset(0, 500),
+    );
     final DropdownButton<int> dropdown = tester.widget<DropdownButton<int>>(
       find.descendant(
         of: find.byType(DropdownButtonFormField<int>),
@@ -836,6 +865,11 @@ void main() {
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
+    await _scrollProfileUntilBuilt(
+      tester,
+      find.byKey(const Key('timezone_field')),
+      dragOffset: const Offset(0, -500),
+    );
     final TextField timezone =
         tester.widget<TextField>(find.byKey(const Key('timezone_field')));
     expect(timezone.controller!.text, 'America/New_York');
@@ -856,6 +890,11 @@ void main() {
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
+    await _scrollProfileUntilBuilt(
+      tester,
+      find.byKey(const Key('timezone_field')),
+      dragOffset: const Offset(0, -500),
+    );
     await tester.ensureVisible(find.byKey(const Key('timezone_field')));
     await tester.enterText(find.byKey(const Key('timezone_field')), 'London');
     await tester.ensureVisible(find.byKey(const Key('save_schedule_button')));

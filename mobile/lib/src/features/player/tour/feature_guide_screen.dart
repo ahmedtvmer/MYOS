@@ -21,34 +21,37 @@ class FeatureGuideScreen extends ConsumerWidget {
     return MyosScaffold(
       title: copy.featureGuideTitle,
       showBack: true,
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(MyosSpacing.md),
-        children: <Widget>[
-          for (final FeatureEntry entry in entries)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(MyosSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(isArabic ? entry.titleAr : entry.titleEn,
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: MyosSpacing.xs),
-                    Text(isArabic ? entry.sentenceAr : entry.sentenceEn),
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: TextButton(
-                        onPressed: () => ref
-                            .read(tourControllerProvider.notifier)
-                            .showMe(entry.id),
-                        child: Text(copy.showMe),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final FeatureEntry entry in entries)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(MyosSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(isArabic ? entry.titleAr : entry.titleEn,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: MyosSpacing.xs),
+                      Text(isArabic ? entry.sentenceAr : entry.sentenceEn),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton(
+                          onPressed: () => ref
+                              .read(tourControllerProvider.notifier)
+                              .showMe(entry.id),
+                          child: Text(copy.showMe),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

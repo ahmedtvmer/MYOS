@@ -83,7 +83,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     titleEn: 'Progress',
     sentenceEn: 'Explore your charts and review Checkpoint feedback.',
     titleAr: 'التقدم',
-    sentenceAr: 'تابع مخططاتك وراجع ملاحظات نقاط المتابعة.',
+    sentenceAr: 'تابع مخططاتك وراجع ملاحظات محطات التقدم.',
     target: 'progress',
     location: TourShellTabLocation(tabIndex: 3),
     appVersion: '0.1.0',
@@ -92,9 +92,11 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
   FeatureEntry(
     id: 'profile',
     titleEn: 'Profile',
-    sentenceEn: 'Review Weak points, Movements to avoid, equipment, and language.',
+    sentenceEn: 'Review Weak points, Movements to avoid, and equipment in Profile; '
+        'change language in Settings.',
     titleAr: 'الملف الشخصي',
-    sentenceAr: 'راجع نقاط الضعف والحركات التي يجب تجنبها والمعدات واللغة.',
+    sentenceAr: 'راجع نقاط الضعف والحركات التي يجب تجنبها والمعدات في الملف الشخصي، '
+        'وغيّر اللغة من الإعدادات.',
     target: 'profile',
     location: TourRouteLocation(profilePath),
     appVersion: '0.1.0',

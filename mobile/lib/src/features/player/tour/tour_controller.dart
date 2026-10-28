@@ -238,7 +238,15 @@ class TourController extends StateNotifier<TourSession?> {
         if (targetContext != null && targetContext.mounted) break;
       }
       if (target == null || targetContext == null || !targetContext.mounted) {
-        state = null;
+        if (current.singleStop) {
+          state = null;
+        } else if (current.index < current.stopIds.length - 1) {
+          state = current.copyWith(index: current.index + 1, visible: false);
+          scheduleMicrotask(_focusCurrent);
+        } else {
+          state = current.copyWith(visible: true);
+          await _dismiss(skipped: false);
+        }
         return;
       }
       await Scrollable.ensureVisible(

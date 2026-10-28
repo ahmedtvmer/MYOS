@@ -271,6 +271,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
                               ),
                               const SizedBox(height: 12),
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: <Widget>[
                                   for (int dot = 0; dot < widget.dotsCount; dot++)
                                     Padding(
@@ -285,6 +286,11 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
                                             : colors.borderStrong,
                                       ),
                                     ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: <Widget>[
                                   const Spacer(),
                                   OutlinedButton(
                                     key: const ValueKey<String>('tour_back'),

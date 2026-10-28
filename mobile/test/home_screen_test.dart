@@ -479,29 +479,65 @@ void main() {
       (tester) async {
     final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
-    await _pumpHome(tester, fake, extraOverrides: <Override>[
+    await _pumpHome(tester, fake, size: const Size(390, 844), extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
     ]);
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     final ProviderContainer container =
         ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
     expect(container.read(authControllerProvider).session?.account.tourSeenVersion, 0);
     expect(container.read(activeWorkoutControllerProvider).ready, isTrue);
     expect(container.read(playerChatStreamingProvider), isFalse);
     expect(find.text('Home'), findsWidgets);
+    void expectSpotlightMatchesTarget(String id) {
+      final FeatureEntry entry = featureList.firstWhere(
+        (FeatureEntry feature) => feature.id == id,
+      );
+      final TourTargetHandle target =
+          container.read(tourTargetRegistryProvider)[entry.target]!;
+      final Finder spotlightBorder = find.descendant(
+        of: find.byType(SpotlightOverlay),
+        matching: find.byWidgetPredicate((Widget widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).border != null),
+      );
+      expect(tester.getRect(spotlightBorder), tester.getRect(find.byKey(target.key)),
+          reason: '$id spotlight should match its registered target');
+    }
+    expectSpotlightMatchesTarget('home');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('2 OF 7'), findsOneWidget);
+    expectSpotlightMatchesTarget('program');
     await tester.tap(find.byKey(const ValueKey<String>('tour_back')));
     await tester.pumpAndSettle();
     expect(find.text('1 OF 7'), findsOneWidget);
+    expectSpotlightMatchesTarget('home');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('2 OF 7'), findsOneWidget);
+    expectSpotlightMatchesTarget('program');
     for (int step = 3; step <= 7; step++) {
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
       expect(find.text('$step OF 7'), findsOneWidget);
+      final String id = tourV1StopIds[step - 1];
+      expectSpotlightMatchesTarget(id);
+      if (step == 6) {
+        await tester.tap(find.byKey(const ValueKey<String>('tour_back')));
+        await tester.pumpAndSettle();
+        expect(find.text('5 OF 7'), findsOneWidget);
+        expect(router.routerDelegate.state.uri.path, homePath);
+        expect(container.read(playerShellTabProvider), 3);
+        expectSpotlightMatchesTarget('progress');
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+        expect(find.text('6 OF 7'), findsOneWidget);
+        expect(router.routerDelegate.state.uri.path, profilePath);
+        expectSpotlightMatchesTarget('profile');
+      }
     }
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
@@ -532,7 +568,7 @@ void main() {
       if (index == 2) expect(container.read(playerShellTabProvider), 0);
       if (index == 3) expect(container.read(playerShellTabProvider), 2);
       if (index == 4) expect(container.read(playerShellTabProvider), 3);
-      if (index >= 5) expect(router.routeInformationProvider.value.uri.path, profilePath);
+      if (index >= 5) expect(router.routerDelegate.state.uri.path, profilePath);
       if (index < titles.length - 1) {
         await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
         await tester.pumpAndSettle();
@@ -568,6 +604,38 @@ void main() {
     expect(analytics.events.where((event) =>
         event['event'] == 'tour_skipped' &&
         (event['properties'] as Map<String, Object>)['replay'] == true), hasLength(1));
+  });
+
+  testWidgets('Tour skips an unmounted stop and still completes', (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+
+    for (int step = 2; step <= 3; step++) {
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('$step OF 7'), findsOneWidget);
+    }
+    final TourTargetHandle nutrition =
+        container.read(tourTargetRegistryProvider)['nutrition']!;
+    container.read(tourTargetRegistryProvider.notifier).unregister(
+          'nutrition', nutrition.key,
+        );
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await _pumpUntilFound(tester, find.text('5 OF 7'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 OF 7'), findsNothing);
+
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
   });
 
   testWidgets('Tour Skip records seen state and Arabic mirrors Skip',
@@ -783,6 +851,15 @@ void main() {
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     expect(router.routerDelegate.state.uri.path, homePath);
     expect(fake.tourSeenWriteCount, writesBefore);
+    for (int step = 2; step <= 7; step++) {
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('$step OF 7'), findsOneWidget);
+    }
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
+    expect(fake.tourSeenWriteCount, writesBefore);
   });
 
   testWidgets('Feature guide Show me lands and spotlights every lifter feature',
@@ -882,7 +959,7 @@ void main() {
     router.pop();
     await tester.pumpAndSettle();
     expect(router.routerDelegate.state.uri.path, featureGuidePath);
-    expect(find.text('Feature guide'), findsOneWidget);
+    expect(find.text('Feature guide'), findsWidgets);
   });
 
   testWidgets('Show me leaves tour seen version unchanged and is blocked by workout',
@@ -1019,6 +1096,37 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+  });
+
+  testWidgets('Arabic Tour tooltip actions fit 320 and 390 dp widths',
+      (tester) async {
+    for (final double width in <double>[320, 390]) {
+      final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+      await _pumpHome(
+        tester,
+        fake,
+        size: Size(width, 844),
+        languageCode: 'ar',
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey<String>('tour_next')),
+      );
+
+      final Rect backRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tour_back')),
+      );
+      final Rect nextRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tour_next')),
+      );
+      expect(backRect.height, greaterThanOrEqualTo(44));
+      expect(nextRect.height, greaterThanOrEqualTo(44));
+      expect(backRect.left, greaterThanOrEqualTo(0));
+      expect(nextRect.right, lessThanOrEqualTo(width));
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('home shows honest empty states without data', (tester) async {

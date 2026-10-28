@@ -24,9 +24,23 @@ void main() {
       final List<FeatureEntry> entries = featureList
           .where((FeatureEntry item) => item.audience == 'lifter')
           .toList();
-      for (final FeatureEntry entry in entries) {
-        expect(find.text(isArabic ? entry.titleAr : entry.titleEn), findsOneWidget);
-        expect(find.text(isArabic ? entry.sentenceAr : entry.sentenceEn), findsOneWidget);
+      for (int index = 0; index < entries.length; index++) {
+        final FeatureEntry entry = entries[index];
+        final Finder card = find.byType(Card).at(index);
+        expect(
+          find.descendant(
+            of: card,
+            matching: find.text(isArabic ? entry.titleAr : entry.titleEn),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: card,
+            matching: find.text(isArabic ? entry.sentenceAr : entry.sentenceEn),
+          ),
+          findsOneWidget,
+        );
       }
       expect(find.text(isArabic ? 'أرني' : 'Show me'), findsNWidgets(entries.length));
     }
