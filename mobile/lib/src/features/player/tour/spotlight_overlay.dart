@@ -195,6 +195,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
                   Positioned.fromRect(
                     rect: geometry.target,
                     child: DecoratedBox(
+                      key: const ValueKey<String>('tour_spotlight_cutout'),
                       decoration: BoxDecoration(
                         border: Border.all(color: colors.accent, width: 2),
                         borderRadius: BorderRadius.circular(14),

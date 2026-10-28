@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ui/myos_app_header.dart';
 import '../../../core/api_client.dart';
+import '../../../core/app_mode.dart';
 import '../../../core/app_failure.dart';
 import '../../../core/connectivity_message.dart';
 import '../../../core/display_language/assignment_copy.dart';
@@ -75,7 +76,6 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   bool _rosterAiDisclosureChecked = false;
   String? _whatsNewAttemptedAccountId;
   bool _whatsNewRetryReady = false;
-  bool _tourWasShownThisSession = false;
   bool _startupNoticesComplete = false;
   String? _tourAttemptedAccountId;
   GoRouter? _observedRouter;
@@ -111,7 +111,10 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   Future<void> _offerStartupNotices() async {
     final Account? account =
         ref.read(authControllerProvider).session?.account;
-    if (account != null && !account.isCoach) {
+    final AppModeState mode = ref.read(appModeControllerProvider);
+    if (account != null &&
+        mode.isResolvedFor(account.accountId) &&
+        mode.mode == AppMode.player) {
       unawaited(_retryPendingWhatsNewSeen());
     }
     await _offerRosterAiDisclosure();
@@ -152,12 +155,12 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     required Map<String, TourTargetHandle> targets,
     required TourSession? tour,
     required int version,
+    required ProgramFeatureAvailability programAvailability,
   }) {
     final bool homeIsCurrent =
         tabIndex == PlayerShellTab.home.index && routePath == homePath;
     if (!homeIsCurrent) _tourAttemptedAccountId = null;
     if (tour != null) {
-      _tourWasShownThisSession = true;
       return;
     }
     if (!homeIsCurrent ||
@@ -167,9 +170,9 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       return;
     }
     if (account != null &&
-        !account.isCoach &&
-        !isTourEligible(account, currentVersion: version)) {
-      _scheduleWhatsNewSheet(account);
+        (account.isCoach ||
+            !isTourEligible(account, currentVersion: version))) {
+      _scheduleWhatsNewSheet(account, programAvailability);
     }
     final String firstStopId = tourV1StopIds.first;
     final FeatureEntry firstStop = featureList.firstWhere(
@@ -213,10 +216,16 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     });
   }
 
-  void _scheduleWhatsNewSheet(Account account) {
+  void _scheduleWhatsNewSheet(
+    Account account,
+    ProgramFeatureAvailability programAvailability,
+  ) {
     if (!_startupNoticesComplete ||
         !_whatsNewRetryReady ||
-        _tourWasShownThisSession ||
+        programAvailability.accountId != account.accountId ||
+        programAvailability.playerControlsProgram == null ||
+        ref.read(tourControllerProvider.notifier)
+            .hasShownTourThisSession(account.accountId) ||
         account.whatsNewSeenRelease >= currentFeatureRelease ||
         _whatsNewAttemptedAccountId == account.accountId) {
       return;
@@ -227,13 +236,18 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       final bool canShow = workout.ready &&
           !workout.hasWorkout &&
           !ref.read(playerChatStreamingProvider) &&
+          ref.read(appModeControllerProvider).isResolvedFor(account.accountId) &&
+          ref.read(appModeControllerProvider).mode == AppMode.player &&
+          !ref.read(tourControllerProvider.notifier)
+              .hasShownTourThisSession(account.accountId) &&
           ref.read(tourControllerProvider) == null &&
           GoRouter.of(context).routeInformationProvider.value.uri.path == homePath;
       if (!canShow) return;
       final List<FeatureEntry> entries = ref.read(featureEntriesProvider).where((FeatureEntry entry) =>
           entry.audience == 'lifter' &&
           entry.release > account.whatsNewSeenRelease &&
-          entry.release <= currentFeatureRelease).toList();
+          entry.release <= currentFeatureRelease &&
+          isFeatureAvailableForAccount(entry, account.accountId, programAvailability)).toList();
       if (entries.isEmpty) return;
       _whatsNewAttemptedAccountId = account.accountId;
       _recordWhatsNewOpened(entries);
@@ -311,7 +325,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
         ),
       ),
     );
-    await _markWhatsNewSeen();
+    unawaited(_markWhatsNewSeen());
     if (selectedFeature != null) {
       await ref
           .read(tourControllerProvider.notifier)
@@ -389,6 +403,8 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     final TourSession? tour = ref.watch(tourControllerProvider);
     final Map<String, TourTargetHandle> targets =
         ref.watch(tourTargetRegistryProvider);
+    final ProgramFeatureAvailability programAvailability =
+        ref.watch(programFeatureAvailabilityProvider);
     final int tourVersion = ref.watch(tourCurrentVersionProvider);
     final String currentRoutePath =
         GoRouter.of(context).routeInformationProvider.value.uri.path;
@@ -401,6 +417,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       targets: targets,
       tour: tour,
       version: tourVersion,
+      programAvailability: programAvailability,
     );
     return MyosScaffold(
       header: MyosAppHeader(

@@ -122,9 +122,14 @@ class TourController extends StateNotifier<TourSession?> {
   int? _pendingVersion;
   String? _pendingWhatsNewAccountId;
   int? _pendingWhatsNewRelease;
+  final Set<String> _tourShownThisSession = <String>{};
 
   bool hasPendingSeenWriteFor(String accountId) =>
       _pendingAccountId == accountId && _pendingVersion != null;
+
+  bool hasShownTourThisSession(String accountId) =>
+      _tourShownThisSession.contains(accountId) ||
+      hasPendingSeenWriteFor(accountId);
 
   Future<void> retryPendingWhatsNewSeen() async {
     final Account? account = _ref.read(authControllerProvider).session?.account;
@@ -163,6 +168,7 @@ class TourController extends StateNotifier<TourSession?> {
     } on Object {
       // Keep the in-memory dismissal and attempt the network write now.
     }
+    if (!auth.ownsAccount(accountId)) return;
     await _persistWhatsNewSeen(accountId, store, auth: auth);
   }
 
@@ -172,7 +178,11 @@ class TourController extends StateNotifier<TourSession?> {
     required AuthController auth,
   }) async {
     final int? release = _pendingWhatsNewRelease;
-    if (release == null || _pendingWhatsNewAccountId != accountId) return;
+    if (release == null ||
+        _pendingWhatsNewAccountId != accountId ||
+        !auth.ownsAccount(accountId)) {
+      return;
+    }
     try {
       final int savedRelease =
           await _ref.read(apiClientProvider).markWhatsNewSeen(release);
@@ -235,6 +245,7 @@ class TourController extends StateNotifier<TourSession?> {
       version: version,
       replay: replay,
     );
+    _tourShownThisSession.add(accountId);
     await _focusCurrent(started: true);
   }
 
@@ -263,6 +274,9 @@ class TourController extends StateNotifier<TourSession?> {
       singleStop: true,
       version: tourCurrentVersion,
     );
+    final String? accountId =
+        _ref.read(authControllerProvider).session?.account.accountId;
+    if (accountId != null) _tourShownThisSession.add(accountId);
     await _focusCurrent();
   }
 
@@ -450,6 +464,7 @@ class TourController extends StateNotifier<TourSession?> {
     final ApiClient client = api ?? _ref.read(apiClientProvider);
     final AuthController authController = auth ??
         _ref.read(authControllerProvider.notifier);
+    if (!authController.ownsAccount(accountId)) return;
     try {
       final int savedVersion = await client.markTourSeen(version);
       if (!authController.ownsAccount(accountId)) return;

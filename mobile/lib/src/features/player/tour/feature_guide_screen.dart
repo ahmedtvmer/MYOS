@@ -5,6 +5,7 @@ import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
 import '../../../core/theme/myos_spacing.dart';
 import '../../../core/ui/myos_scaffold.dart';
+import '../../../providers.dart';
 import 'feature_list.dart';
 import 'tour_controller.dart';
 
@@ -15,8 +16,14 @@ class FeatureGuideScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
     final bool isArabic = copy.isArabic;
+    final String? accountId =
+        ref.watch(authControllerProvider).session?.account.accountId;
+    final ProgramFeatureAvailability availability =
+        ref.watch(programFeatureAvailabilityProvider);
     final List<FeatureEntry> entries = ref.watch(featureEntriesProvider)
-        .where((FeatureEntry entry) => entry.audience == 'lifter' && entry.release <= currentFeatureRelease)
+        .where((FeatureEntry entry) => entry.audience == 'lifter' &&
+            entry.release <= currentFeatureRelease &&
+            isFeatureAvailableForAccount(entry, accountId, availability))
         .toList(growable: false);
     return MyosScaffold(
       title: copy.featureGuideTitle,

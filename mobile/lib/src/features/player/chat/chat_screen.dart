@@ -640,9 +640,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           icon: const Icon(Icons.delete_outline),
         ),
       ],
-      body: _disclosureLoaded && _loadingHistory && _messages.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
               children: <Widget>[
                 // The gate, banners, and history share one scroll view so the
                 // composer stays docked at the bottom at any text scale (#54).
@@ -750,7 +748,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SliverToBoxAdapter(
             child: Column(children: banners),
           ),
-        if (empty)
+        if (_loadingHistory && _messages.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (empty)
           SliverFillRemaining(
             hasScrollBody: false,
             child: _emptyState(),

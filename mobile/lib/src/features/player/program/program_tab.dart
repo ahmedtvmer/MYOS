@@ -28,6 +28,7 @@ import '../dashboard/home_planning.dart';
 import '../exercise_picker_dialog.dart';
 import '../workout/active_workout_prompt.dart';
 import '../tour/tour_targets.dart';
+import '../tour/feature_list.dart';
 import '../workout/deload_banner.dart';
 import 'program_authority_recovery.dart';
 import 'program_change_summary_card.dart';
@@ -122,12 +123,22 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
       ref.read(authControllerProvider).session?.account.accountId;
 
   Future<void> _load() async {
+    final String? accountId = _accountId;
+    if (accountId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !ref.read(authControllerProvider.notifier).ownsAccount(accountId)) {
+          return;
+        }
+        ref.read(programFeatureAvailabilityProvider.notifier).state =
+            ProgramFeatureAvailability(accountId: accountId);
+      });
+    }
     setState(() {
       _loading = true;
       _loadError = null;
       _bestE1rmByExercise = <String, double>{};
     });
-    final String? accountId = _accountId;
     final WorkoutCacheStore cache = ref.read(workoutCacheStoreProvider);
     try {
       final ActiveProgram result = await loadActiveProgram(
@@ -156,6 +167,14 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
       unawaited(_loadBestE1rm(accountId));
     } on ApiException catch (error) {
       if (!mounted) return;
+      if (accountId != null &&
+          ref.read(authControllerProvider.notifier).ownsAccount(accountId)) {
+        ref.read(programFeatureAvailabilityProvider.notifier).state =
+            ProgramFeatureAvailability(
+          accountId: accountId,
+          playerControlsProgram: false,
+        );
+      }
       setState(() {
         _loadError = apiFailureMessage(error);
         _loading = false;
@@ -288,6 +307,14 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     required bool fromCache,
     bool? loading,
   }) {
+    if (accountId != null &&
+        ref.read(authControllerProvider.notifier).ownsAccount(accountId)) {
+      ref.read(programFeatureAvailabilityProvider.notifier).state =
+          ProgramFeatureAvailability(
+        accountId: accountId,
+        playerControlsProgram: program?.playerControlsProgram ?? false,
+      );
+    }
     setState(() {
       _program = program;
       _deloadByDay = <int, DeloadDecision>{};

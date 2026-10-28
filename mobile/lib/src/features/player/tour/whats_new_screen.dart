@@ -83,9 +83,15 @@ class _WhatsNewScreenState extends ConsumerState<WhatsNewScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final List<FeatureEntry> allEntries = ref.read(featureEntriesProvider);
+      final String? accountId =
+          ref.read(authControllerProvider).session?.account.accountId;
+      final ProgramFeatureAvailability availability =
+          ref.read(programFeatureAvailabilityProvider);
       final Set<int> releases = allEntries
           .where((FeatureEntry entry) =>
-              entry.release > 0 && entry.release <= currentFeatureRelease)
+              entry.release > 0 &&
+              entry.release <= currentFeatureRelease &&
+              isFeatureAvailableForAccount(entry, accountId, availability))
           .map((FeatureEntry entry) => entry.release)
           .toSet();
       if (releases.isEmpty) return;
@@ -101,9 +107,15 @@ class _WhatsNewScreenState extends ConsumerState<WhatsNewScreen> {
   Widget build(BuildContext context) {
     final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
     final List<FeatureEntry> entries = ref.watch(featureEntriesProvider);
+    final String? accountId =
+        ref.watch(authControllerProvider).session?.account.accountId;
+    final ProgramFeatureAvailability availability =
+        ref.watch(programFeatureAvailabilityProvider);
     final List<int> releases = entries
         .where((FeatureEntry entry) =>
-            entry.release > 0 && entry.release <= currentFeatureRelease)
+            entry.release > 0 &&
+            entry.release <= currentFeatureRelease &&
+            isFeatureAvailableForAccount(entry, accountId, availability))
         .map((FeatureEntry entry) => entry.release)
         .toSet()
         .toList()
@@ -126,7 +138,9 @@ class _WhatsNewScreenState extends ConsumerState<WhatsNewScreen> {
               (FeatureEntry candidate) =>
                   candidate.audience == 'lifter' &&
                   candidate.release == release &&
-                  candidate.release <= currentFeatureRelease,
+                  candidate.release <= currentFeatureRelease &&
+                  isFeatureAvailableForAccount(
+                      candidate, accountId, availability),
             ))
               WhatsNewFeatureRow(
                 entry: entry,

@@ -94,6 +94,25 @@ class _BlockingWhatsNewRetryStore implements WhatsNewSeenRetryStore {
   Future<void> clear(String accountId) async {}
 }
 
+class _PendingWriteWhatsNewStore implements WhatsNewSeenRetryStore {
+  final Completer<void> writeStarted = Completer<void>();
+  final Completer<void> releaseWrite = Completer<void>();
+  final Map<String, int> pending = <String, int>{};
+
+  @override
+  Future<int?> read(String accountId) async => pending[accountId];
+
+  @override
+  Future<void> write(String accountId, int release) async {
+    writeStarted.complete();
+    await releaseWrite.future;
+    pending[accountId] = release;
+  }
+
+  @override
+  Future<void> clear(String accountId) async => pending.remove(accountId);
+}
+
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     {int attempts = 40}) async {
   for (int i = 0; i < attempts; i++) {
@@ -115,6 +134,8 @@ Future<void> _pumpHome(
   String languageCode = 'en',
   Size size = const Size(1080, 2400),
   List<Override> extraOverrides = const <Override>[],
+  AppModeStore? appModeStore,
+  bool waitForHome = true,
   TourSeenRetryStore? tourRetryStore,
   WhatsNewSeenRetryStore? whatsNewRetryStore,
 }) async {
@@ -133,7 +154,7 @@ Future<void> _pumpHome(
         installPromptDelayProvider.overrideWithValue(Duration.zero),
         ...extraOverrides,
         tokenStoreProvider.overrideWithValue(tokens),
-        appModeStoreProvider.overrideWithValue(InMemoryAppModeStore()),
+        appModeStoreProvider.overrideWithValue(appModeStore ?? InMemoryAppModeStore()),
         themeModeStoreProvider
             .overrideWithValue(themeStore ?? InMemoryThemeModeStore()),
         systemDisplayLanguageProvider.overrideWithValue(languageCode),
@@ -161,8 +182,10 @@ Future<void> _pumpHome(
       child: const MyosApp(),
     ),
   );
-  await _pumpUntilFound(
-      tester, find.text(languageCode == 'ar' ? 'الرئيسية' : 'Home'));
+  if (waitForHome) {
+    await _pumpUntilFound(
+        tester, find.text(languageCode == 'ar' ? 'الرئيسية' : 'Home'));
+  }
 }
 
 FakeMyosApi _signedInFake() {
@@ -344,10 +367,144 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
     await tester.pumpAndSettle();
     expect(find.text("What's new"), findsNothing);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(routerProvider).go(workoutsPath);
+    await tester.pumpAndSettle();
+    container.read(routerProvider).go(homePath);
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text("What's new"));
     expect(find.text("What's new"), findsOneWidget);
+  });
+
+  testWidgets('Add exercises is omitted when a coach controls program edits', (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..coachControlsProgram = true
+      ..whatsNewSeenRelease = 0;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text("What's new"));
+    expect(find.text('Add exercises in the Program tab'), findsNothing);
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(routerProvider).go(featureGuidePath);
+    await tester.pumpAndSettle();
+    expect(find.text('Add exercises in the Program tab'), findsNothing);
+    expect(find.text('Weak points'), findsOneWidget);
+  });
+
+  testWidgets("What's new follows Player mode for a Coach-capable account", (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..coach = true
+      ..tourSeenVersion = 1
+      ..whatsNewSeenRelease = 0;
+    final InMemoryAppModeStore modes = InMemoryAppModeStore(
+      <String, AppMode>{'account-alice': AppMode.coach},
+    );
+    await _pumpHome(
+      tester,
+      fake,
+      size: const Size(390, 844),
+      appModeStore: modes,
+      waitForHome: false,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsNothing);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    await container.read(appModeControllerProvider.notifier).setMode(
+          AppMode.player,
+          accountId: 'account-alice',
+          isCoach: true,
+        );
+    await _pumpUntilFound(tester, find.text("What's new"));
+    expect(find.text("What's new"), findsOneWidget);
+  });
+
+  testWidgets("What's new retry does not write Account A under Account B", (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 1;
+    fake.passwords['bob'] = 'password123';
+    final _PendingWriteWhatsNewStore retryStore = _PendingWriteWhatsNewStore();
+    await _pumpHome(
+      tester,
+      fake,
+      size: const Size(390, 844),
+      whatsNewRetryStore: retryStore,
+    );
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    unawaited(container.read(tourControllerProvider.notifier).markWhatsNewSeen(1));
+    await retryStore.writeStarted.future;
+    unawaited(container.read(authControllerProvider.notifier).login(
+          username: 'bob',
+          password: 'password123',
+        ));
+    for (int attempt = 0;
+        attempt < 40 &&
+            container.read(authControllerProvider).session?.account.accountId !=
+                'account-bob';
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(
+      container.read(authControllerProvider).session?.account.accountId,
+      'account-bob',
+    );
+    retryStore.releaseWrite.complete();
+    await tester.pumpAndSettle();
+    expect(
+      fake.adapter.requests.where((request) => request.path == '/auth/whats-new-seen'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('chat Show me waits through a delayed successful history load', (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    final Completer<void> historyGate = Completer<void>();
+    fake.adapter.beforeRespond = (request) async {
+      if (request.path == '/chat/history' && request.method == 'GET') {
+        await historyGate.future;
+      }
+    };
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text('Home'));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(routerProvider).go(chatPath);
+    await tester.pump();
+    expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('chat_composer_bar')));
+    expect(find.byKey(const ValueKey<String>('chat_composer')), findsOneWidget);
+    unawaited(container.read(tourControllerProvider.notifier).showMe('assistant_why'));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    historyGate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('tour_next')), findsOneWidget);
+  });
+
+  testWidgets("What's new Show me is not blocked by a stalled seen request", (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final Completer<void> seenRequest = Completer<void>();
+    fake.adapter.beforeRespond = (request) async {
+      if (request.path == '/auth/whats-new-seen') await seenRequest.future;
+    };
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text("What's new"));
+    await tester.tap(find.descendant(
+      of: find.ancestor(
+        of: find.text('Weak points'), matching: find.byType(WhatsNewFeatureRow),
+      ),
+      matching: find.text('Show me'),
+    ));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    expect(find.byKey(const ValueKey<String>('profile_weak_points_section')), findsOneWidget);
+    seenRequest.complete();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('eligible install dialog waits for its injected delay', (tester) async {
@@ -1087,14 +1244,21 @@ void main() {
       final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
       final GoRouter router = container.read(routerProvider);
       expect(entry.location.matches(router.routerDelegate.state.uri.path, container.read(playerShellTabProvider)), isTrue, reason: entry.id);
-      final TourTargetHandle target = container.read(tourTargetRegistryProvider)[entry.target]!;
-      final Finder spotlightBorder = find.descendant(
-        of: find.byType(SpotlightOverlay),
-        matching: find.byWidgetPredicate((Widget widget) =>
-            widget is DecoratedBox && widget.decoration is BoxDecoration &&
-            (widget.decoration as BoxDecoration).border != null),
-      );
-      expect(tester.getRect(spotlightBorder), tester.getRect(find.byKey(target.key)), reason: entry.id);
+      expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.titleEn)), findsOneWidget, reason: entry.id);
+      expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.sentenceEn)), findsOneWidget, reason: entry.id);
+      if (entry.release == currentFeatureRelease) {
+        final Finder realControl = switch (entry.id) {
+          'weak_points' => find.byKey(const Key('profile_weak_points_section')),
+          'assistant_why' => find.byKey(const Key('chat_composer')),
+          'add_exercises' => find.byKey(const Key('program_edit_day_1')),
+          'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
+          'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
+          _ => find.text(entry.titleEn),
+        };
+        expect(realControl, findsOneWidget, reason: entry.id);
+        final Rect cutout = tester.getRect(find.byKey(const ValueKey<String>('tour_spotlight_cutout')));
+        expect(cutout.contains(tester.getRect(realControl).center), isTrue, reason: '${entry.id} control should be inside the spotlight');
+      }
       expect(analytics.events.any((Map<String, Object> event) =>
           event['event'] == 'show_me_tapped' &&
           (event['properties'] as Map<String, Object>)['feature_id'] == entry.id &&
@@ -1162,20 +1326,21 @@ void main() {
         reason: '${entry.id} title should appear in the spotlight',
       );
 
-      final TourTargetHandle target =
-          container.read(tourTargetRegistryProvider)[entry.target]!;
-      final Rect targetRect = tester.getRect(find.byKey(target.key));
-      final Finder spotlightBorder = find.descendant(
-        of: find.byType(SpotlightOverlay),
-        matching: find.byWidgetPredicate((Widget widget) =>
-            widget is DecoratedBox &&
-            widget.decoration is BoxDecoration &&
-            (widget.decoration as BoxDecoration).border != null),
-      );
-      expect(spotlightBorder, findsOneWidget,
-          reason: '${entry.id} should render a spotlight border');
-      expect(tester.getRect(spotlightBorder), targetRect,
-          reason: '${entry.id} spotlight should match its registered target');
+      expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.titleEn)), findsOneWidget, reason: entry.id);
+      expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.sentenceEn)), findsOneWidget, reason: entry.id);
+      if (entry.release == currentFeatureRelease) {
+        final Finder realControl = switch (entry.id) {
+          'weak_points' => find.byKey(const Key('profile_weak_points_section')),
+          'assistant_why' => find.byKey(const Key('chat_composer')),
+          'add_exercises' => find.byKey(const Key('program_edit_day_1')),
+          'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
+          'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
+          _ => find.text(entry.titleEn),
+        };
+        expect(realControl, findsOneWidget, reason: entry.id);
+        final Rect cutout = tester.getRect(find.byKey(const ValueKey<String>('tour_spotlight_cutout')));
+        expect(cutout.contains(tester.getRect(realControl).center), isTrue, reason: '${entry.id} control should be inside the spotlight');
+      }
 
       await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
       await tester.pumpAndSettle();
@@ -1310,6 +1475,7 @@ void main() {
       (tester) async {
     final FakeMyosApi fake = _signedInFake()
       ..tourSeenVersion = 0
+      ..whatsNewSeenRelease = 0
       ..tourSeenWriteFailures = 5;
     final FakeTourSeenRetryStore retryStore = FakeTourSeenRetryStore();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
@@ -1325,9 +1491,17 @@ void main() {
     expect(analytics.events.map((event) => event['event']), contains('tour_skipped'));
     expect(retryStore.pending.values, contains(1));
 
-    fake.tourSeenWriteFailures = 0;
     final ProviderContainer container =
         ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(playerShellTabProvider.notifier).state = 1;
+    await tester.pumpAndSettle();
+    container.read(routerProvider).go(workoutsPath);
+    await tester.pumpAndSettle();
+    container.read(routerProvider).go(homePath);
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsNothing);
+
+    fake.tourSeenWriteFailures = 0;
     container.read(playerShellTabProvider.notifier).state = 1;
     await tester.pumpAndSettle();
     container.read(playerShellTabProvider.notifier).state = 0;

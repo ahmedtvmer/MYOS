@@ -16,6 +16,11 @@ void main() {
           displayLanguageProvider.overrideWith(
             (ref) => _TestDisplayLanguage(language),
           ),
+          programFeatureAvailabilityProvider.overrideWith(
+            (ref) => const ProgramFeatureAvailability(
+              playerControlsProgram: true,
+            ),
+          ),
         ],
         child: const MaterialApp(home: FeatureGuideScreen()),
       ));

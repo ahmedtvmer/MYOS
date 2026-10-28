@@ -23,6 +23,7 @@ class FeatureEntry {
     required this.location,
     required this.release,
     required this.audience,
+    this.requiresProgramControl = false,
   });
 
   final String id;
@@ -34,6 +35,7 @@ class FeatureEntry {
   final TourTargetLocation location;
   final int release;
   final String audience;
+  final bool requiresProgramControl;
 }
 
 const List<FeatureEntry> featureList = <FeatureEntry>[
@@ -148,6 +150,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     location: TourShellTabLocation(tabIndex: 1),
     release: 1,
     audience: 'lifter',
+    requiresProgramControl: true,
   ),
   FeatureEntry(
     id: 'edit_program_chat',
@@ -175,6 +178,26 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
 
 final Provider<List<FeatureEntry>> featureEntriesProvider =
     Provider<List<FeatureEntry>>((ref) => featureList);
+
+class ProgramFeatureAvailability {
+  const ProgramFeatureAvailability({this.accountId, this.playerControlsProgram});
+
+  final String? accountId;
+  final bool? playerControlsProgram;
+}
+
+final StateProvider<ProgramFeatureAvailability> programFeatureAvailabilityProvider =
+    StateProvider<ProgramFeatureAvailability>(
+        (ref) => const ProgramFeatureAvailability());
+
+bool isFeatureAvailableForAccount(
+  FeatureEntry entry,
+  String? accountId,
+  ProgramFeatureAvailability availability,
+) =>
+    !entry.requiresProgramControl ||
+    (availability.accountId == accountId &&
+        availability.playerControlsProgram == true);
 
 const List<String> tourV1StopIds = <String>[
   'home',
