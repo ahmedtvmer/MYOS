@@ -374,10 +374,10 @@ def build_prescription(
     """Build targets using the ledger plus the player's registry identity."""
     assignment = db.get_active_assignment_for_player(player_account_id)
     with ledger_scope(db, ledger, ledger_id) as ledger:
-        return _build_prescription(ledger, day_plan, assignment)
+        return _build_prescription(db, ledger, day_plan, assignment)
 
 
-def _build_prescription(ledger: Any, day_plan: Any, assignment: dict[str, Any] | None) -> dict[str, Any]:
+def _build_prescription(db: Any, ledger: Any, day_plan: Any, assignment: dict[str, Any] | None) -> dict[str, Any]:
     fatigue_info = evaluate_systemic_fatigue(ledger)
     deload_state = _prescription_deload_state(fatigue_info, assignment)
     choice = ledger.get_deload_choice()
@@ -388,6 +388,7 @@ def _build_prescription(ledger: Any, day_plan: Any, assignment: dict[str, Any] |
     elif deload_state["state"] == DELOAD_STATE_SUGGESTED and choice == DELOAD_CHOICE_APPLY:
         deload_state = {**deload_state, "state": DELOAD_STATE_APPLIED}
     targets = []
+    restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions", [])
     for ex_idx, ex in enumerate(day_plan.exercises, start=1):
         is_barbell = _is_barbell(ex)
         groups = ex.set_groups or []
@@ -407,6 +408,18 @@ def _build_prescription(ledger: Any, day_plan: Any, assignment: dict[str, Any] |
             "last_perf": last_perf,
             "projected_weight": 20.0,
         }
+        if restrictions:
+            from core.movement_restrictions import restriction_for_candidate
+
+            catalog_entry = db.get_exercise_library_entry(str(ex.exercise_id)) or {}
+            restriction = restriction_for_candidate(
+                catalog_entry, str(getattr(ex, "slot_key", "") or ""), restrictions
+            )
+            if restriction:
+                entry["movement_restriction"] = {
+                    "label": restriction,
+                    "message_code": "program.movement_restricted.v1",
+                }
         if last_perf:
             top_prev = max(last_perf, key=lambda s: s["weight_kg"])
             proj = project_next_load(

@@ -798,6 +798,72 @@ def test_solo_player_gets_applied_deload_in_prescription(api):
     assert all(target["target_rpe_cap"] == 7.0 for target in body["targets"])
 
 
+def test_workout_restriction_annotations_classify_exercises_outside_current_program(api, seed_exercise_curation):
+    client, db = api
+    headers, _ = _prepare_player(client, db)
+    db.catalog_conn.execute(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) "
+        "VALUES ('historic-curl', 'Lying Leg Curl', 'Hamstrings', 'Hamstrings', 'cable')"
+    )
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {"historic-curl": {
+        "display_name": "Lying Leg Curl", "primary_action": "Knee Flexion",
+        "primary_muscle": "Hamstrings",
+    }})
+    db.ledger.upsert_player_profile({"movement_restrictions": ["Knee flexion"]})
+    response = client.get(
+        "/workouts/movement-restrictions",
+        params=[("exercise_ids", "historic-curl")],
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["annotations"] == [
+        {"row_index": 0, "exercise_id": "historic-curl", "movement_restriction": "Knee flexion"}
+    ]
+
+
+def test_workout_restriction_annotations_use_the_saved_program_slot(api, seed_exercise_curation):
+    client, db = api
+    headers, _ = _prepare_player(client, db)
+    db.catalog_conn.execute(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) "
+        "VALUES ('back-squat', 'Back Squat', 'Upper Legs', 'Quads', 'barbell')"
+    )
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {"back-squat": {
+        "display_name": "Back Squat", "primary_action": "Knee Extension",
+        "primary_muscle": "Quads",
+    }})
+    db.ledger.upsert_player_profile({"movement_restrictions": ["Deep hip flexion"]})
+    response = client.get(
+        "/workouts/movement-restrictions",
+        params=[("exercise_ids", "back-squat"), ("exercise_slots", "quad_compound")],
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["annotations"] == [
+        {"row_index": 0, "exercise_id": "back-squat", "movement_restriction": "Deep hip flexion"}
+    ]
+
+
+def test_workout_restriction_annotations_keep_duplicate_rows_slot_specific(api, seed_exercise_curation):
+    client, db = api
+    headers, _ = _prepare_player(client, db)
+    db.catalog_conn.execute("INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES ('back-squat', 'Back Squat', 'Upper Legs', 'Quads', 'barbell')")
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {"back-squat": {"display_name": "Back Squat", "primary_action": "Knee Extension", "primary_muscle": "Quads"}})
+    db.ledger.upsert_player_profile({"movement_restrictions": ["Deep hip flexion"]})
+    response = client.get("/workouts/movement-restrictions", params=[
+        ("exercise_ids", "back-squat"), ("exercise_ids", "back-squat"),
+        ("exercise_slots", "quad_compound"), ("exercise_slots", "quad_iso"),
+    ], headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["annotations"] == [
+        {"row_index": 0, "exercise_id": "back-squat", "movement_restriction": "Deep hip flexion"},
+        {"row_index": 1, "exercise_id": "back-squat", "movement_restriction": None},
+    ]
+
+
 def test_prescription_reports_no_deload_when_fatigue_is_not_triggered(api):
     client, db = api
     headers, _ = _prepare_player(client, db)

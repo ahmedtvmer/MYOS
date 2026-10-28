@@ -246,6 +246,23 @@ class GeneratedProgramSchema(BaseModel):
         default=None, description="Ledger creation timestamp; set when loaded from storage"
     )
 
+    @model_validator(mode="after")
+    def validate_minimum_exercises(self) -> "GeneratedProgramSchema":
+        if self.__class__ is not GeneratedProgramSchema:
+            return self
+        if all(len(day.exercises) >= 3 for day in self.days):
+            return self
+        skipped = (self.program_rationale or {}).get("days", [])
+        restriction_drop = any(
+            item.get("restriction")
+            for day in skipped if isinstance(day, dict)
+            for item in day.get("skipped", [])
+            if isinstance(item, dict)
+        )
+        if not restriction_drop:
+            raise ValueError("Generated training days need at least three exercises unless restrictions drop slots.")
+        return self
+
 
 class PersistedProgramExerciseSchema(ProgramExerciseSchema):
     """A stored prescription, including coach-authored set and effort ranges."""

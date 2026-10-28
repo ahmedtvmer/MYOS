@@ -682,7 +682,8 @@ def test_tool_bound_chat_fetches_profile_and_program_only_after_parallel_calls(
                         "exercises": [
                             _day_plan().exercises[0].model_copy(
                                 update={"notes": "PRIVATE COACH NOTES", "note": "PRIVATE COACH NOTE"}
-                            )
+                            ),
+                            *_day_plan().exercises[1:3],
                         ],
                     }
                 )

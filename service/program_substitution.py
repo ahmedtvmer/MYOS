@@ -34,6 +34,7 @@ class SubstitutionErrorCode(str, Enum):
     NO_ACTIVE_PROGRAM = "no_active_program"
     RESTORE_VERSION_NOT_FOUND = "restore_version_not_found"
     PROGRAM_CHANGED = "program_changed"
+    MOVEMENT_RESTRICTED = "movement_restricted"
 
 
 SUBSTITUTION_ERRORS = {
@@ -46,6 +47,7 @@ SUBSTITUTION_ERRORS = {
     SubstitutionErrorCode.NO_ACTIVE_PROGRAM: "No active program.",
     SubstitutionErrorCode.RESTORE_VERSION_NOT_FOUND: "The program version to restore was not found.",
     SubstitutionErrorCode.PROGRAM_CHANGED: "The program changed since this substitution",
+    SubstitutionErrorCode.MOVEMENT_RESTRICTED: "That replacement conflicts with a Movement restriction in your profile.",
 }
 SUBSTITUTION_MESSAGE_CODES = {
     SubstitutionErrorCode.DAY_NOT_FOUND: "program.substitution.day_not_found.v1",
@@ -57,6 +59,7 @@ SUBSTITUTION_MESSAGE_CODES = {
     SubstitutionErrorCode.NO_ACTIVE_PROGRAM: "program.no_active.v1",
     SubstitutionErrorCode.RESTORE_VERSION_NOT_FOUND: "program.substitution.restore_version_not_found.v1",
     SubstitutionErrorCode.PROGRAM_CHANGED: "program.substitution.changed.v1",
+    SubstitutionErrorCode.MOVEMENT_RESTRICTED: "program.movement_restricted.v1",
 }
 
 
@@ -90,6 +93,15 @@ def substitute_program_exercise(
     program_data = prepared["program_data"]
     target_days = prepared["target_days"]
     replacement = prepared["replacement"]
+    restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions", ())
+    from core.movement_restrictions import is_movement_restricted
+    if any(
+        is_movement_restricted(replacement, "", restrictions)
+        for day in target_days
+        for exercise in day.get("exercises", [])
+        if str(exercise.get("exercise_id")) == str(request.exercise_id)
+    ):
+        return _failure(SubstitutionErrorCode.MOVEMENT_RESTRICTED)
     if request.all_occurrences:
         replaced_exercises = _replace_every_slot(target_days, str(request.exercise_id), replacement)
     else:
@@ -218,6 +230,16 @@ def undo_active_program_substitution(
     snapshot = ledger.get_program_by_version(request.restore_version)
     if snapshot is None:
         return _failure(SubstitutionErrorCode.RESTORE_VERSION_NOT_FOUND)
+    restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions", ())
+    movement_conflict = _snapshot_movement_conflict(db, snapshot, restrictions)
+    if movement_conflict is not None:
+        name, restriction = movement_conflict
+        return {
+            **_failure(SubstitutionErrorCode.MOVEMENT_RESTRICTED),
+            "exercise_name": name,
+            "restriction": restriction,
+            "error": f"Restore refused: {name} conflicts with {restriction}.",
+        }
     result = _restore_program_snapshot(
         ledger,
         active.version,
@@ -228,6 +250,29 @@ def undo_active_program_substitution(
     if updated is not None:
         capture_program_exercise_swapped(actor, updated, client=client)
     return result
+
+
+def _snapshot_movement_conflict(
+    catalog: Any, snapshot: Any, restrictions: Any
+) -> tuple[str, str] | None:
+    from core.movement_restrictions import restriction_for_candidate
+
+    data = _program_data(snapshot)
+    for day in data.get("days", []):
+        for exercise in day.get("exercises", []):
+            candidate = catalog.get_exercise_library_entry(str(exercise.get("exercise_id")))
+            restriction = restriction_for_candidate(
+                candidate or exercise, str(exercise.get("slot_key") or ""), restrictions
+            )
+            if restriction:
+                return str(exercise.get("exercise_name") or "Exercise"), restriction
+        for warmup in day.get("warmup_exercises", []):
+            exercise_id = warmup.get("exercise_id", warmup.get("id"))
+            candidate = catalog.get_exercise_library_entry(str(exercise_id)) if exercise_id is not None else None
+            restriction = restriction_for_candidate(candidate or warmup, "", restrictions)
+            if restriction:
+                return str(warmup.get("exercise_name") or "Exercise"), restriction
+    return None
 
 
 def _player_active_program(db: Any, ledger: Any, account_id: str | None) -> tuple[Any, dict[str, Any] | None]:

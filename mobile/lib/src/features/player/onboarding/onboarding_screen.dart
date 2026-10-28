@@ -11,6 +11,7 @@ import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/display_language/localized_text.dart';
 import '../../../core/display_language/onboarding_copy.dart';
+import '../../../core/display_language/profile_copy.dart';
 import '../../../core/models.dart';
 import '../../../core/theme/myos_spacing.dart';
 import '../../../core/theme/myos_theme.dart';
@@ -69,6 +70,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _currentField;
   bool _editingFromReview = false;
   final Map<String, Object?> _draft = <String, Object?>{};
+  final Set<String> _movementRestrictions = <String>{};
   final Map<String, TextEditingController> _controllers =
       <String, TextEditingController>{};
 
@@ -134,6 +136,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           : _firstUnanswered(intake) ?? 'review';
       setState(() {
         _intake = intake;
+        _movementRestrictions
+          ..clear()
+          ..addAll(intake.movementRestrictions);
         if (!intake.disclosureAcknowledged) {
           _phase = _OnboardingPhase.disclosure;
         } else {
@@ -341,6 +346,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
       setState(() {
         _intake = intake;
+        _movementRestrictions
+          ..clear()
+          ..addAll(intake.movementRestrictions);
         _disclosureSaving = false;
         _phase = _OnboardingPhase.answering;
         _editingFromReview = false;
@@ -415,7 +423,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _confirmProgramBeingGenerated = false;
     });
     try {
-      final IntakeConfirmation confirmation = await _api.confirmIntake();
+      final IntakeConfirmation confirmation = await _api.confirmIntake(
+        movementRestrictions: _movementRestrictions.toList(),
+      );
       if (!mounted) {
         return;
       }
@@ -837,6 +847,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _reviewContent(IntakeProgress progress) {
+    final String displayLanguage = ref.watch(displayLanguageProvider);
     final bool ready = progress.isComplete;
     return OnboardingStepBody(
       children: <Widget>[
@@ -877,6 +888,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ]),
           onEdit: (IntakeField field) => _editField(field.name),
         ),
+        const SizedBox(height: MyosSpacing.md),
+        Text(ProfileCopy(displayLanguage).movementsToAvoid),
+        Text(ProfileCopy(displayLanguage).movementsToAvoidLead),
+        if (_intake?.suggestedMovementRestrictions.isNotEmpty == true)
+          Text(ProfileCopy(displayLanguage).suggestedMovementsFromInjuries(
+            _intake!.suggestedMovementRestrictions.map((String label) => ProfileCopy(displayLanguage).movementRestriction(label)).join(', '),
+          )),
+        Wrap(spacing: MyosSpacing.xs, runSpacing: MyosSpacing.xs, children: <Widget>[
+          for (final String label in const <String>['Knee flexion', 'Loaded knee extension', 'Hip adduction', 'Hip abduction', 'Deep hip flexion', 'Spinal loading / flexion', 'Overhead pressing', 'Pressing / fly (shoulder horizontal adduction under load)', 'Wrist loading'])
+            FilterChip(
+              key: Key('onboarding_movement_restriction_$label'),
+              label: Text(ProfileCopy(displayLanguage).movementRestriction(label)),
+              selected: _movementRestrictions.contains(label),
+              onSelected: (bool selected) => setState(() {
+                if (selected) { _movementRestrictions.add(label); } else { _movementRestrictions.remove(label); }
+              }),
+            ),
+        ]),
         if (!ready) ...<Widget>[
           const SizedBox(height: MyosSpacing.xs),
           OnboardingInlineError(

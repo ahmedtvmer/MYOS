@@ -391,6 +391,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           case ChatDone(
               :final String responseContent,
               :final bool programUpdated,
+              :final bool movementRestrictionsUpdated,
               :final String outcome,
               :final AiAllowance? lifterAllowance,
               :final ProgramRequestDraft? requestSuggestion,
@@ -436,6 +437,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             await _store.writeHistory(accountId, _messages);
             if (programUpdated) {
               unawaited(_refreshProgramCache());
+            }
+            if (movementRestrictionsUpdated) {
+              unawaited(ref.read(activeWorkoutControllerProvider.notifier)
+                  .refreshMovementRestrictionAnnotations());
             }
           case ChatError(
               :final String detail,
@@ -814,6 +819,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget _assistantReplyContent(ChatMessage message) {
     final ProgramRequestDraft? suggestion = message.requestSuggestion;
     final Map<String, dynamic>? editPreview = message.programEditPreview;
+    final RegExp offerPattern = RegExp(r'<!--movement-offer:([0-9a-f-]{36})-->');
+    final String? offerId = offerPattern.firstMatch(message.content)?.group(1);
+    String? newestOfferId;
+    for (final ChatMessage item in _messages.reversed) {
+      if (item.role != 'assistant') continue;
+      final String? found = offerPattern.firstMatch(item.content)?.group(1);
+      if (found != null) { newestOfferId = found; break; }
+    }
+    final bool supersededOffer = offerId != null && newestOfferId != offerId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -821,6 +835,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           key: ValueKey<String>(message.id),
           source: message.content,
         ),
+        if (message.content.contains('Should I keep these out of your program?') ||
+            message.content.contains('هل أستبعد هذه الحركات من برنامجك؟')) ...<Widget>[
+          const SizedBox(height: MyosSpacing.xs),
+          Wrap(spacing: MyosSpacing.xs, children: <Widget>[
+            OutlinedButton(
+              key: const Key('chat_confirm_movement_restrictions'),
+              onPressed: _sending || supersededOffer || offerId == null ? null : () => _sendContent('yes $offerId'),
+              child: Text(_chatCopy(context).isArabic ? 'نعم، استبعدها' : 'Yes, keep them out'),
+            ),
+            TextButton(
+              key: const Key('chat_decline_movement_restrictions'),
+              onPressed: _sending || supersededOffer || offerId == null ? null : () => _sendContent('no $offerId'),
+              child: Text(_chatCopy(context).isArabic ? 'لا' : 'No'),
+            ),
+          ]),
+        ],
         if (suggestion != null) ...<Widget>[
           const SizedBox(height: MyosSpacing.xs),
           MyosButton(

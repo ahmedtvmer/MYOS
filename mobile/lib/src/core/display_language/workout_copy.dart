@@ -11,6 +11,25 @@ class WorkoutCopy {
   final String languageCode;
   bool get isArabic => languageCode == 'ar';
 
+  String get movementRestrictionsHideExercises => isArabic
+      ? 'تم إخفاء التمارين التي تتعارض مع قيود الحركة المحفوظة.'
+      : 'Exercises that conflict with your saved movement restrictions are hidden.';
+
+  String movementRestrictionWarning(String restriction) {
+    if (!isArabic) return 'Flag: this exercise conflicts with your $restriction movement restriction.';
+    const Map<String, String> labels = <String, String>{
+      'Knee flexion': 'ثني الركبة',
+      'Loaded knee extension': 'مدّ الركبة تحت حمل',
+      'Hip adduction': 'تقريب الورك',
+      'Hip abduction': 'إبعاد الورك',
+      'Deep hip flexion': 'ثني الورك العميق',
+      'Spinal loading / flexion': 'تحميل العمود الفقري أو ثنيه',
+      'Overhead pressing': 'الضغط فوق الرأس',
+      'Pressing / fly (shoulder horizontal adduction under load)': 'الضغط أو التفتيح',
+      'Wrist loading': 'تحميل الرسغ',
+    };
+    return 'تنبيه: هذا التمرين يتعارض مع قيد الحركة «${labels[restriction] ?? restriction}».';
+  }
   String get logWorkout => isArabic ? 'تسجيل حصة تدريبية' : 'Log workout';
   String logWorkoutTime(String time) =>
       isArabic

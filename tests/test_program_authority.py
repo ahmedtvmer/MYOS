@@ -778,7 +778,8 @@ def test_intake_exposes_profile_contract_and_rebuild_fields(api):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["profile_rebuild_fields"] == [
-        "injuries_or_limitations", "equipment_access", "weekly_frequency", "rep_preference"
+        "injuries_or_limitations", "movement_restrictions", "equipment_access",
+        "weekly_frequency", "rep_preference"
     ]
     fields = {field["name"]: field for field in body["fields"]}
     assert (fields["weight_kg"]["minimum"], fields["weight_kg"]["maximum"]) == (30, 250)
@@ -2084,3 +2085,107 @@ def test_player_can_dismiss_informational_volume_review(api):
     )
     assert response.status_code in (200, 204), response.text
     assert client.get("/programs/volume-reviews", headers=headers).json() == []
+
+
+def test_profile_patch_restriction_rebuilds_and_returns_removed_reason(api, monkeypatch, seed_exercise_curation):
+    client, db, _ = api
+    player = _register(client, "restriction_patch_rebuild")
+    headers = _authed(player["access_token"])
+    _profile_generation(db, monkeypatch)
+    db.switch_user("restriction_patch_rebuild")
+    db.catalog_conn.execute("INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES ('restriction-curl', 'Lying Leg Curl', 'Hamstrings', 'Hamstrings', 'cable')")
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {"restriction-curl": {"display_name": "Lying Leg Curl", "primary_action": "Knee Flexion", "primary_muscle": "Hamstrings"}})
+    curl = {"id": "restriction-curl", "name": "Lying Leg Curl"}
+    old = _program("Old Player Plan").model_dump()
+    old["days"][0]["exercises"][0].update(
+        exercise_id=str(curl["id"]), exercise_name=str(curl["name"]), slot_key="ham_curl"
+    )
+    db.ledger.upsert_player_profile({"movement_restrictions": []})
+    db.ledger.save_training_program(old)
+    first_version = db.ledger.get_active_program().version
+
+    unchanged = client.patch("/profile", headers=headers, json={"movement_restrictions": []})
+    assert unchanged.status_code == 200, unchanged.text
+    assert unchanged.json()["program_rebuilt"] is False
+    assert db.ledger.get_active_program().version == first_version
+
+    response = client.patch("/profile", headers=headers, json={"movement_restrictions": ["Knee flexion"]})
+    assert response.status_code == 200, response.text
+    assert response.json()["program_rebuilt"] is True
+    assert db.ledger.get_active_program().version == first_version + 1
+    assert response.json()["removed_exercises"] == [{
+        "exercise_name": str(curl["name"]), "slot": "ham_curl", "restriction": "Knee flexion",
+    }]
+
+
+def test_coach_controlled_restriction_patch_alerts_conflicting_prescription(api, monkeypatch, seed_exercise_curation):
+    client, db, _ = api
+    coach_headers, player_headers, assignment_id, coach_id, _ = _assigned_player(api, "restriction_coached")
+    _coach_generation(db, monkeypatch)
+    assert _publish(client, coach_headers, assignment_id).status_code == 200
+    db.catalog_conn.execute("INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES ('restriction-curl-coach', 'Lying Leg Curl', 'Hamstrings', 'Hamstrings', 'cable')")
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {"restriction-curl-coach": {"display_name": "Lying Leg Curl", "primary_action": "Knee Flexion", "primary_muscle": "Hamstrings"}})
+    db.switch_user("restriction_coached")
+    active = db.ledger.get_active_program()
+    program_data = active.model_dump()
+    program_data["days"][0]["exercises"][0].update(
+        exercise_id="360", exercise_name="Dumbbell One Arm Shoulder Press", slot_key="flat_press"
+    )
+    db.ledger.save_training_program(program_data, published_by_coach_account_id=coach_id)
+    version = db.ledger.get_active_program().version
+    original_lookup = db.get_exercise_library_entry
+    monkeypatch.setattr(db, "get_exercise_library_entry", lambda exercise_id: {
+        "id": "360", "name": "Dumbbell One Arm Shoulder Press",
+        "primary_action": "Shoulder Flexion", "primary_muscle": "Front Delts",
+        "secondary_actions": [],
+    } if str(exercise_id) == "360" else original_lookup(exercise_id))
+
+    response = client.patch("/profile", headers=player_headers, json={"movement_restrictions": ["Overhead pressing"]})
+    assert response.status_code == 200, response.text
+    assert response.json()["program_rebuilt"] is False
+    assert response.json()["coach_notified_of_movement_restrictions"] is True
+    assert "Dumbbell One Arm Shoulder Press" in str(response.json()["movement_restriction_conflicts"])
+    assert "coach" in response.json()["program_message"].lower()
+    assert db.ledger.get_active_program().version == version
+    alerts = client.get("/coach/alerts", headers=coach_headers).json()["alerts"]
+    restriction_alert = next((alert for alert in alerts if "movement_restriction_conflicts" in str(alert)), None)
+    assert restriction_alert is not None, alerts
+    assert "Overhead pressing" in str(restriction_alert)
+    assert "Dumbbell One Arm Shoulder Press" in str(restriction_alert)
+
+
+def test_concurrent_unrelated_profile_patch_preserves_new_movement_restrictions(api, monkeypatch):
+    from service import profile as profile_service
+
+    client, db, _ = api
+    player = _register(client, "profile_race_restrictions")
+    headers = _authed(player["access_token"])
+    db.switch_user("profile_race_restrictions")
+    db.ledger.upsert_player_profile({"movement_restrictions": []})
+    monkeypatch.setattr(profile_service, "player_controls_program", lambda *_args: False)
+    original_record = profile_service.profile_change_alerts.record_profile_change
+    nested = {"done": False}
+
+    def interleave(db_arg, snapshot):
+        if snapshot.after_profile.get("current_goal") == "New goal" and not nested["done"]:
+            nested["done"] = True
+            response = client.patch(
+                "/profile", headers=headers,
+                json={"movement_restrictions": ["Knee flexion"]},
+            )
+            assert response.status_code == 200, response.text
+        original_record(db_arg, snapshot)
+
+    monkeypatch.setattr(
+        profile_service.profile_change_alerts,
+        "record_profile_change",
+        interleave,
+    )
+    response = client.patch("/profile", headers=headers, json={"current_goal": "New goal"})
+
+    assert response.status_code == 200, response.text
+    profile = client.get("/profile", headers=headers).json()
+    assert profile["current_goal"] == "New goal"
+    assert profile["movement_restrictions"] == ["Knee flexion"]

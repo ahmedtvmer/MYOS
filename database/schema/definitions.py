@@ -152,6 +152,7 @@ class SchemaMixin:
                 coach_tone TEXT DEFAULT '__DEFAULT_ASSISTANT_STYLE__',
                 custom_instructions TEXT DEFAULT '',
                 weak_points_json TEXT,
+                movement_restrictions_json TEXT NOT NULL DEFAULT '[]',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );

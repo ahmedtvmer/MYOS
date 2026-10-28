@@ -97,6 +97,37 @@ class LedgerChatMixin:
         self.conn.execute("DELETE FROM assistant_goal_weak_point_pending WHERE id = 1")
         self._commit_ledger()
 
+    def set_pending_movement_restriction_offer(self, restrictions: list[str], offer_text: str) -> str:
+        now = datetime.now(UTC).isoformat()
+        offer_id = str(uuid.uuid4())
+        self.conn.execute(
+            "INSERT INTO assistant_goal_weak_point_pending "
+            "(id, muscles_json, offer_id, kind, offer_text, created_at) VALUES (1, ?, ?, 'movement_restriction', ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET muscles_json=excluded.muscles_json, offer_id=excluded.offer_id, "
+            "kind=excluded.kind, offer_text=excluded.offer_text, created_at=excluded.created_at",
+            (json.dumps(restrictions), offer_id, offer_text, now),
+        )
+        self._commit_ledger()
+        return offer_id
+
+    def get_pending_movement_restriction_offer(self) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT muscles_json, offer_id, offer_text, created_at FROM assistant_goal_weak_point_pending "
+            "WHERE id=1 AND kind='movement_restriction'"
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            created = datetime.fromisoformat(row["created_at"])
+            restrictions = json.loads(row["muscles_json"])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            self.clear_pending_goal_weak_point_suggestion()
+            return None
+        if (datetime.now(UTC) - created).total_seconds() > 1800 or not isinstance(restrictions, list):
+            self.clear_pending_goal_weak_point_suggestion()
+            return None
+        return {"restrictions": restrictions, "offer_id": row["offer_id"], "offer_text": row["offer_text"]}
+
     def list_assistant_preferences(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT id, text, created_at, updated_at FROM assistant_preferences "

@@ -480,7 +480,7 @@ void main() {
         await pending.future;
       }
     };
-    fake.failOffline('POST', '/onboarding/intake/confirm');
+    fake.failIntakeConfirm = true;
     await tester.tap(find.byKey(const Key('onboarding_confirm')));
     await _pumpUntilFound(tester, find.text('Building your program'));
 
@@ -508,6 +508,50 @@ void main() {
       <String, String>{'muscle': 'glutes', 'source': 'default'},
     ]);
     expect(find.byKey(const Key('onboarding_confirm')), findsOneWidget);
+  });
+
+  testWidgets('onboarding offers an optional Movement restriction picker',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeSuggestedMovementRestrictions = <String>['Deep hip flexion']
+      ..intakeAnswers.addAll(_requiredAnswers);
+    await _pumpOnboarding(tester, fake);
+    for (int step = 0; step < 12 && find.byKey(const Key('onboarding_confirm')).evaluate().isEmpty; step++) {
+      final Finder next = find.byKey(const Key('onboarding_continue'));
+      if (next.evaluate().isNotEmpty) await tester.tap(next);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('Suggested from injury text'), findsOneWidget);
+    final Finder kneeFlexion = find.byKey(
+      const Key('onboarding_movement_restriction_Knee flexion'),
+    );
+    expect(kneeFlexion, findsOneWidget);
+    expect(tester.widget<FilterChip>(kneeFlexion).selected, isFalse);
+    await tester.ensureVisible(kneeFlexion);
+    await tester.pumpAndSettle();
+    await tester.tap(kneeFlexion);
+    await tester.pump();
+    expect(tester.widget<FilterChip>(kneeFlexion).selected, isTrue);
+    fake.failIntakeConfirm = true;
+    await tester.tap(find.byKey(const Key('onboarding_confirm')));
+    await tester.pumpAndSettle();
+    expect(fake.lastIntakeConfirmData?['movement_restrictions'], <String>['Knee flexion']);
+  });
+
+  testWidgets('onboarding restores server-saved Movement restrictions on retry',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _fake(acknowledged: true)
+      ..intakeMovementRestrictions = <String>['Knee flexion']
+      ..intakeAnswers.addAll(_requiredAnswers);
+    await _pumpOnboarding(tester, fake);
+    for (int step = 0; step < 12 && find.byKey(const Key('onboarding_confirm')).evaluate().isEmpty; step++) {
+      final Finder next = find.byKey(const Key('onboarding_continue'));
+      if (next.evaluate().isNotEmpty) await tester.tap(next);
+      await tester.pumpAndSettle();
+    }
+    final Finder saved = find.byKey(const Key('onboarding_movement_restriction_Knee flexion'));
+    expect(saved, findsOneWidget);
+    expect(tester.widget<FilterChip>(saved).selected, isTrue);
   });
 
   testWidgets('female can clear the glute default and name another Weak point', (tester) async {

@@ -91,9 +91,10 @@ def _exercise_name_rows(
 
 
 def _name_match_result(row):
-    return {
+    result = {
         "id": str(row["id"]),
         "name": row["display_name"],
+        "source_name": row["source_name"],
         "body_part": row["body_part"],
         "target_muscle": row["target_muscle"],
         "equipment": row["equipment"],
@@ -104,6 +105,12 @@ def _name_match_result(row):
         "primary_action": row["primary_action"],
         "secondary_actions": list(split_curation_values(row["secondary_actions"])),
     }
+    from agent.movement_signatures import infer_candidate_slots
+
+    slots = infer_candidate_slots(result)
+    if len(slots) == 1:
+        result["slot_key"] = next(iter(slots))
+    return result
 
 
 def _name_match_results(rows):
@@ -277,7 +284,7 @@ class ExerciseLookupMixin:
                 f"SELECT e.id, {name_expression} AS name, e.body_part, e.target_muscle, "
                 f"e.equipment, e.instructions, e.image_path, e.gif_path, "
                 "COALESCE(p.provenance, 'ExerciseDB') AS provenance, cf.primary_muscle, "
-                "cf.primary_action, COALESCE(cf.secondary_actions, ''), cf.load_type "
+                "cf.primary_action, COALESCE(cf.secondary_actions, ''), cf.load_type, e.name "
                 f"FROM exercises e {display_name_join} "
                 "LEFT JOIN exercise_curated_fields cf ON cf.exercise_id = e.id "
                 f"LEFT JOIN exercise_provenance p ON p.exercise_id = e.id WHERE e.id = ?",
@@ -301,6 +308,7 @@ class ExerciseLookupMixin:
             "primary_action": row[10],
             "secondary_actions": list(split_curation_values(row[11])),
             "load_type": row[12],
+            "source_name": row[13],
         }
 
     def is_exercise_library_exercise_visible(self, exercise_id: str) -> bool:

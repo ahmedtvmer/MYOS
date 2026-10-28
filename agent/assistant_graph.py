@@ -27,6 +27,7 @@ sys.path.append(str(BASE_DIR))
 from core.effort import rir_label
 from core.weak_point_suggestions import suggest_weak_points
 from core.weak_points import WEAK_POINT_MUSCLES
+from core.movement_restriction_suggestions import suggest_movement_restrictions
 from core.injuries import (
     body_area_in_text,
     clarification_body_area_in_text,
@@ -555,6 +556,7 @@ class AssistantState(TypedDict):
     intent_metadata: dict[str, Any]
     active_intents: list[dict[str, Any]] | None
     program_updated: bool
+    movement_restrictions_updated: NotRequired[bool]
     program_change: str | None
     response_content: str | None
     request_suggestion: dict[str, Any] | None
@@ -1978,6 +1980,67 @@ def _offer_goal_weak_points(
     return response
 
 
+def _movement_restriction_chat_intent(query: str, ledger: Any, store: Any, state: AssistantState) -> dict[str, Any] | None:
+    language = _tool_reply_language({"messages": [HumanMessage(content=query)]})
+    offer_decision = re.fullmatch(r"\s*(yes|no)\s+([0-9a-f-]{36})\s*", query, re.IGNORECASE)
+    pending = ledger.get_pending_movement_restriction_offer()
+    if pending:
+        if offer_decision and offer_decision.group(2) != pending["offer_id"]:
+            return _response(
+                "That Movement restriction offer is no longer active. Use the latest offer."
+                if language == "en" else "لم يعد عرض قيود الحركة هذا نشطًا. استخدم العرض الأحدث."
+            )
+        latest = next((_get_message_text(item) for item in reversed(state.get("messages", [])[:-1]) if isinstance(item, AIMessage)), "")
+        id_matches_pending = bool(offer_decision and offer_decision.group(2) == pending["offer_id"])
+        text_matches_pending = latest.strip().split("\n<!--movement-offer:", 1)[0] == pending["offer_text"].strip()
+        if id_matches_pending or text_matches_pending:
+            answer = (
+                offer_decision.group(1).lower()
+                if offer_decision and offer_decision.group(2) == pending["offer_id"]
+                else None if offer_decision else _goal_confirmation_kind(query)
+            )
+            if answer == "no":
+                ledger.clear_pending_goal_weak_point_suggestion()
+                return _response("Okay, I left your program unchanged." if language == "en" else "تمام، تركت برنامجك كما هو.")
+            if answer not in {"yes", "no"}:
+                ledger.clear_pending_goal_weak_point_suggestion()
+                return None
+            if answer == "yes":
+                from service.profile import update_profile
+                current = (ledger.get_player_profile() or {}).get("movement_restrictions") or []
+                selected = list(dict.fromkeys(current + pending["restrictions"]))
+                result = update_profile(
+                    store,
+                    ledger.ledger_id,
+                    {"movement_restrictions": selected},
+                    state.get("player_account_id"),
+                    ledger,
+                    inference_gate_held=True,
+                )
+                ledger.clear_pending_goal_weak_point_suggestion()
+                removed = result.get("removed_exercises") or []
+                if result.get("program_blocked"):
+                    reply = "Saved. Your coach was notified."
+                elif result.get("program_rebuilt"):
+                    details = ", ".join(
+                        f"{item.get('exercise_name', item.get('name', 'Exercise'))} ({item.get('restriction', 'Movement restriction')})"
+                        for item in removed
+                    )
+                    reply = "Saved and rebuilt your program." + (f" Removed: {details}." if details else "")
+                else:
+                    reply = "Saved your movement restrictions."
+                if language == "ar":
+                    reply = "حفظت قيود الحركة وأعدت إنشاء برنامجك." if result.get("program_rebuilt") else "حفظت قيود الحركة وأبلغت مدربك." if result.get("program_blocked") else "حفظت قيود الحركة."
+                return _response(
+                    reply,
+                    program_updated=bool(result.get("program_rebuilt")),
+                    movement_restrictions_updated=True,
+                )
+        else:
+            ledger.clear_pending_goal_weak_point_suggestion()
+    return None
+
+
 def _goal_write_intent(
     query: str, ledger: Any, store: Any, state: AssistantState
 ) -> dict[str, Any] | None:
@@ -2168,6 +2231,15 @@ def router_node(state: AssistantState, config: dict[str, Any] | None = None) -> 
         return {"intent": "program_edit", "intent_metadata": {"raw_query": query}}
 
     if ledger is not None:
+        movement_restriction_intent = _movement_restriction_chat_intent(
+            query, ledger, _graph_context(config)[1], state
+        )
+        if movement_restriction_intent is not None:
+            return {"intent": "telemetry_intercept", "intent_metadata": {
+                "response_content": movement_restriction_intent["response_content"],
+                "program_updated": movement_restriction_intent.get("program_updated", False),
+                "movement_restrictions_updated": movement_restriction_intent.get("movement_restrictions_updated", False),
+            }}
         goal_write = _goal_write_intent(
             query, ledger, _graph_context(config)[1], state
         )
@@ -2401,8 +2473,23 @@ def clinical_intercept_node(state: AssistantState, config: dict[str, Any] | None
                 player_account_id=state.get("player_account_id"),
                 message=raw_query,
             )
+            suggestions = suggest_movement_restrictions(raw_query)
+            saved = (ledger.get_player_profile() or {}).get("movement_restrictions") or []
+            suggestions = [label for label in suggestions if label not in saved]
+            if suggestions:
+                arabic_labels = {
+                    "Knee flexion": "ثني الركبة", "Loaded knee extension": "مدّ الركبة تحت حمل",
+                    "Hip adduction": "تقريب الورك", "Hip abduction": "إبعاد الورك",
+                    "Deep hip flexion": "ثني الورك العميق", "Spinal loading / flexion": "تحميل العمود الفقري أو ثنيه",
+                    "Overhead pressing": "الضغط فوق الرأس", "Pressing / fly (shoulder horizontal adduction under load)": "الضغط أو التفتيح",
+                    "Wrist loading": "تحميل الرسغ",
+                }
+                labels = ", ".join(label if language == "en" else arabic_labels[label] for label in suggestions)
+                offer = (f"Should I keep these out of your program? {labels}. Reply yes or no." if language == "en" else f"هل أستبعد هذه الحركات من برنامجك؟ {labels}. أجب بنعم أو لا.")
+                offer_id = ledger.set_pending_movement_restriction_offer(suggestions, content + "\n\n" + offer)
+                content += "\n\n" + offer + f"\n<!--movement-offer:{offer_id}-->"
         except Exception:
-            logger.exception("Could not record an injury from the clinical intercept")
+            logger.exception("Could not record an injury or movement restriction offer from clinical intercept")
     return {"program_updated": False, "response_content": content, "messages": [AIMessage(content=content)]}
 
 
@@ -2719,6 +2806,30 @@ def injury_status_update_node(
             )
             if next_question:
                 content += "\n\n" + next_question
+            suggestions = suggest_movement_restrictions(
+                updated.get("description", "") + " " + query
+            )
+            saved_restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions") or []
+            suggestions = [label for label in suggestions if label not in saved_restrictions]
+            if suggestions:
+                arabic_labels = {
+                    "Knee flexion": "ثني الركبة",
+                    "Loaded knee extension": "مدّ الركبة تحت حمل",
+                    "Hip adduction": "تقريب الورك",
+                    "Hip abduction": "إبعاد الورك",
+                    "Deep hip flexion": "ثني الورك العميق",
+                    "Spinal loading / flexion": "تحميل العمود الفقري أو ثنيه",
+                    "Overhead pressing": "الضغط فوق الرأس",
+                    "Pressing / fly (shoulder horizontal adduction under load)": "الضغط أو التفتيح",
+                    "Wrist loading": "تحميل الرسغ",
+                }
+                labels = ", ".join(
+                    label if language == "en" else arabic_labels[label]
+                    for label in suggestions
+                )
+                offer = (f"Should I keep these out of your program? {labels}. Reply yes or no." if language == "en" else f"هل أستبعد هذه الحركات من برنامجك؟ {labels}. أجب بنعم أو لا.")
+                offer_id = ledger.set_pending_movement_restriction_offer(suggestions, content + "\n\n" + offer)
+                content += "\n\n" + offer + f"\n<!--movement-offer:{offer_id}-->"
             return _response(content)
     content = (
         "مش لاقي إصابة مسجلة أقدر أحدث حالتها. تقدر تعدّلها من الملف التدريبي."
@@ -2761,8 +2872,14 @@ def banned_movement_node(state: AssistantState, config: dict[str, Any] | None = 
 
 
 def telemetry_intercept_node(state: AssistantState, config: dict[str, Any] | None = None) -> dict[str, Any]:
-    content = state.get("intent_metadata", {}).get("response_content", "")
-    return {"program_updated": False, "response_content": content, "messages": [AIMessage(content=content)]}
+    metadata = state.get("intent_metadata", {})
+    content = metadata.get("response_content", "")
+    return {
+        "program_updated": bool(metadata.get("program_updated")),
+        "movement_restrictions_updated": bool(metadata.get("movement_restrictions_updated")),
+        "response_content": content,
+        "messages": [AIMessage(content=content)],
+    }
 
 
 def _supported_history_query(query: str) -> str:
@@ -4477,11 +4594,13 @@ def _response(
     program_updated: bool = False,
     request_suggestion: dict[str, Any] | None = None,
     program_change: str | None = None,
+    movement_restrictions_updated: bool = False,
 ) -> dict[str, Any]:
     cleaned = finalize_coach_output(content)
     return {
         "response_content": cleaned,
         "program_updated": program_updated,
+        "movement_restrictions_updated": movement_restrictions_updated,
         "request_suggestion": request_suggestion,
         "program_change": program_change,
         "messages": [AIMessage(content=cleaned)],
@@ -5476,6 +5595,7 @@ def stream_assistant_turn(
     state.update(
         response_content=content,
         program_updated=bool(result and result.get("program_updated")),
+        movement_restrictions_updated=bool(result and result.get("movement_restrictions_updated")),
         program_change=result.get("program_change") if result else None,
         request_suggestion=result.get("request_suggestion") if result else None,
         program_edit_preview=result.get("program_edit_preview") if result else None,

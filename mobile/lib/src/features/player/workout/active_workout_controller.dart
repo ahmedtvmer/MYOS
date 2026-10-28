@@ -78,6 +78,7 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
     Future<Prescription?> Function(
             String accountId, int dayOrder, int weekOrder)?
         loadWeekPrescription,
+    this.loadMovementRestrictionAnnotations,
     DateTime Function()? now,
     String Function()? newId,
     String Function()? clientSessionIdGenerator,
@@ -111,6 +112,8 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
   final Future<Prescription?> Function(
           String accountId, int dayOrder, int weekOrder)?
       _loadWeekPrescription;
+  final Future<Map<String, String?>> Function(List<String> exerciseIds, List<String> slots, List<String> rowIds)?
+      loadMovementRestrictionAnnotations;
   final DateTime Function() _now;
   final String Function() _newId;
   final String Function() _newClientSessionId;
@@ -175,6 +178,92 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
   bool get hasActive => state.workout != null;
 
   ActiveWorkout? get workout => state.workout;
+
+  /// Refreshes server-authored restriction warnings while preserving all
+  /// exercises, prescription rows, and logged sets in the open workout.
+  Future<void> refreshMovementRestrictionAnnotations() async {
+    final ActiveWorkout? current = state.workout;
+    final Future<Prescription?> Function(String, int, int)? loadWeek = _loadWeekPrescription;
+    final Future<Prescription?> Function(String, int)? loadDay = _loadPrescription;
+    if (current == null || (loadDay == null && loadWeek == null)) return;
+    final Prescription? prescription = loadWeek != null
+        ? await loadWeek(current.accountId, current.dayOrder, current.weekOrder)
+        : loadDay == null ? null : await loadDay(current.accountId, current.dayOrder);
+    if (!mounted || !_sameWorkoutSession(state.workout, current)) return;
+    final Map<String, String?> labels = <String, String?>{
+      for (final PrescriptionTarget target in prescription?.targets ?? const <PrescriptionTarget>[])
+        target.exerciseId: target.movementRestriction,
+    };
+    final Future<Map<String, String?>> Function(List<String>, List<String>, List<String>)? loadAnnotations =
+        loadMovementRestrictionAnnotations;
+    final List<ActiveWorkoutExercise> capturedExercises = current.exercises;
+    final Map<String, int> exerciseOccurrences = <String, int>{};
+    for (final ActiveWorkoutExercise item in capturedExercises) {
+      exerciseOccurrences.update(item.exerciseId, (int count) => count + 1, ifAbsent: () => 1);
+    }
+    Map<String, String?> exerciseAnnotations = const <String, String?>{};
+    var annotationLookupAvailable = false;
+    if (loadAnnotations != null) {
+      try {
+        exerciseAnnotations = await loadAnnotations(
+            capturedExercises.map((ActiveWorkoutExercise item) => item.exerciseId).toList(growable: false),
+            capturedExercises.map((ActiveWorkoutExercise item) => '${item.exercise['slot_key'] ?? ''}').toList(growable: false),
+            capturedExercises.map((ActiveWorkoutExercise item) => item.rowId).toList(growable: false),
+          );
+        annotationLookupAvailable = exerciseAnnotations.length == capturedExercises.length;
+      } on Exception {
+        // An unavailable lookup is distinct from a successful lookup returning
+        // no restriction; only the former preserves a stale cached warning.
+      }
+    }
+    if (!mounted || !_sameWorkoutSession(state.workout, current)) return;
+    final ActiveWorkout latest = state.workout!;
+    final List<ActiveWorkoutExercise> refreshed = latest.exercises.map((ActiveWorkoutExercise item) {
+      final Map<String, dynamic> exercise = Map<String, dynamic>.from(item.exercise);
+      final bool rowWasChecked = exerciseAnnotations.containsKey(item.rowId);
+      final String? rowLabel = rowWasChecked ? exerciseAnnotations[item.rowId] : null;
+      final String? prescriptionLabel = exerciseOccurrences[item.exerciseId] == 1
+          ? labels[item.exerciseId]
+          : null;
+      final String? label = rowLabel ?? prescriptionLabel;
+      final bool allSourcesChecked = annotationLookupAvailable && prescription != null;
+      final String? resolvedLabel = label ??
+          (allSourcesChecked ? null : item.exercise['movement_restriction'] as String?);
+      if (resolvedLabel == null) { exercise.remove('movement_restriction'); }
+      else { exercise['movement_restriction'] = resolvedLabel; }
+      return ActiveWorkoutExercise(rowId: item.rowId, exercise: exercise, sets: item.sets, unplanned: item.unplanned,
+        replaced: item.replaced, targetLabel: item.targetLabel, prescriptionHint: item.prescriptionHint,
+        effectiveSets: item.effectiveSets);
+    }).toList(growable: false);
+    await _persist(latest.copyWith(exercises: refreshed));
+  }
+
+  bool _sameWorkoutSession(ActiveWorkout? latest, ActiveWorkout captured) =>
+      latest != null && latest.accountId == captured.accountId &&
+      latest.id == captured.id &&
+      latest.clientSessionId == captured.clientSessionId;
+
+  Future<void> applyMovementRestrictionConflicts(List<Map<String, dynamic>> conflicts) async {
+    final ActiveWorkout? current = state.workout;
+    if (current == null || conflicts.isEmpty) return;
+    final Map<String, String> labels = <String, String>{
+      for (final Map<String, dynamic> item in conflicts)
+        if (item['exercise_id'] != null && item['restriction'] != null)
+          '${item['exercise_id']}': '${item['restriction']}',
+    };
+    final List<ActiveWorkoutExercise> refreshed = current.exercises.map((ActiveWorkoutExercise item) {
+      final String? label = labels[item.exerciseId];
+      if (label == null) return item;
+      return ActiveWorkoutExercise(
+        rowId: item.rowId,
+        exercise: <String, dynamic>{...item.exercise, 'movement_restriction': label},
+        sets: item.sets, unplanned: item.unplanned, replaced: item.replaced,
+        targetLabel: item.targetLabel, prescriptionHint: item.prescriptionHint,
+        effectiveSets: item.effectiveSets,
+      );
+    }).toList(growable: false);
+    await _persist(current.copyWith(exercises: refreshed));
+  }
 
   /// Re-reads the stored Active workout whenever the session's account
   /// changes, mirroring [AppModeController.syncAccount] (#119).
@@ -264,6 +353,7 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
       workout: stored,
       restoredFromDevice: stored != null,
     );
+    if (stored != null) unawaited(refreshMovementRestrictionAnnotations());
     // A stored countdown keeps running across a restart; one that already
     // elapsed while the app was closed is cleared without re-alerting — the
     // scheduled alarm has already fired (#125).
@@ -719,6 +809,7 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
       equipment: equipment,
     );
     return ActiveWorkoutExercise(
+      rowId: newActiveWorkoutExerciseId(),
       exercise: payload,
       sets: <ActiveWorkoutSet>[for (int i = 0; i < 3; i++) ActiveWorkoutSet()],
       unplanned: true,
@@ -1370,7 +1461,11 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
         ),
     ];
     return ActiveWorkoutExercise(
-      exercise: exercise.toJson(),
+      rowId: newActiveWorkoutExerciseId(),
+      exercise: <String, dynamic>{
+        ...exercise.toJson(),
+        if (target?.movementRestriction != null) 'movement_restriction': target!.movementRestriction,
+      },
       // #108: the caption keeps the effective prescription and the frozen
       // projection — what the rows were actually seeded from — not the raw
       // program target the card might otherwise contradict.

@@ -13,6 +13,8 @@ const Map<String, String> _specificEnglishErrors = <String, String>{
       'That exercise is not available in the Exercise library.',
   'program.edit.day_limit.v1':
       'A training day can have at most 10 working-set exercises.',
+  'program.movement_restricted.v1':
+      'That exercise conflicts with a Movement restriction in your profile.',
 };
 
 const Map<String, ({String english, String arabic})> _programImportMessages =
@@ -469,6 +471,8 @@ class MessageCopy {
           isArabic ? 'الإصابات أو القيود' : 'Injuries or limitations',
         'equipment_access' =>
           isArabic ? 'المعدات المتاحة' : 'Equipment access',
+        'movement_restrictions' =>
+          isArabic ? 'قيود الحركة' : 'Movement restrictions',
         _ => '',
       };
     }).where((String label) => label.isNotEmpty).toList(growable: false);
@@ -553,14 +557,17 @@ class MessageCopy {
   String profileChangeEvidence(
     Map<String, Map<String, String?>>? profileChanges,
     Map<String, Map<String, dynamic>>? injuryChanges,
+    [List<Map<String, dynamic>> movementRestrictionConflicts = const <Map<String, dynamic>>[]]
   ) {
     const Map<String, String> englishLabels = <String, String>{
       'injuries_or_limitations': 'Injuries or limitations',
       'equipment_access': 'Equipment access',
+      'movement_restrictions': 'Movement restrictions',
     };
     const Map<String, String> arabicLabels = <String, String>{
       'injuries_or_limitations': 'الإصابات أو القيود',
       'equipment_access': 'المعدات المتاحة',
+      'movement_restrictions': 'قيود الحركة',
     };
     final Map<String, String> labels = isArabic ? arabicLabels : englishLabels;
     final List<String> profileEvidence = (profileChanges ?? const <String, Map<String, String?>>{})
@@ -601,7 +608,26 @@ class MessageCopy {
           return '$areaLabel: $statusLabel';
         })
         .toList(growable: false);
-    return <String>[...profileEvidence, ...injuryEvidence].join('\n');
+    final List<String> conflictEvidence = movementRestrictionConflicts.map((Map<String, dynamic> item) {
+      final String restriction = '${item['restriction'] ?? ''}';
+      final String exercise = '${item['exercise_name'] ?? ''}';
+      final String localizedRestriction = isArabic ? switch (restriction) {
+        'Knee flexion' => 'ثني الركبة',
+        'Loaded knee extension' => 'بسط الركبة مع حمل',
+        'Hip adduction' => 'تقريب الورك',
+        'Hip abduction' => 'إبعاد الورك',
+        'Deep hip flexion' => 'ثني الورك العميق',
+        'Spinal loading / flexion' => 'تحميل أو ثني العمود الفقري',
+        'Overhead pressing' => 'الضغط فوق الرأس',
+        'Pressing / fly (shoulder horizontal adduction under load)' => 'الضغط أو التفتيح تحت حمل',
+        'Wrist loading' => 'تحميل الرسغ',
+        _ => restriction,
+      } : restriction;
+      return isArabic
+          ? 'تمرين متعارض: $exercise (قيد الحركة: $localizedRestriction)'
+          : 'Conflicting exercise: $exercise (restriction: $localizedRestriction)';
+    }).toList(growable: false);
+    return <String>[...profileEvidence, ...injuryEvidence, ...conflictEvidence].join('\n');
   }
 
   String weightTrendEvidence(List<String> points, double? targetWeightKg) {
@@ -687,6 +713,7 @@ const Map<String, String> _specificArabicErrors = <String, String>{
   'program.edit.invalid_set_count.v1': 'يجب أن يكون عدد مجموعات التدريب من 1 إلى 4.',
   'program.edit.exercise_not_available.v1': 'هذا التمرين غير متاح في مكتبة التمارين.',
   'program.edit.day_limit.v1': 'يمكن أن يضم اليوم التدريبي 10 تمارين كحد أقصى ضمن مجموعات التدريب.',
+  'program.movement_restricted.v1': 'هذا التمرين يتعارض مع حركة ممنوعة في ملفك التدريبي.',
   'program.edit.changed.v1': 'تغير البرنامج منذ بدء التعديل. حدّث البرنامج ثم حاول مرة أخرى.',
   'program_request.invalid_kind.v1': 'اختر استبدال تمرين أو تغيير تقسيم التدريب.',
   'program_request.reason_required.v1': 'أضف سببًا للطلب.',

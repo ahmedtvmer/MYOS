@@ -93,6 +93,7 @@ ERROR_MESSAGE_PARAM_ALLOWLISTS = {
     "google.different_account.v1": frozenset(),
     "google.unlink_password_required.v1": frozenset(),
     "workout.program_version_mismatch.v1": frozenset(),
+    "program.movement_restricted.v1": frozenset(),
     "auth.invalid_credentials.v1": frozenset(),
     "auth.username_taken.v1": frozenset(),
     "auth.invalid_or_expired_token.v1": frozenset(),

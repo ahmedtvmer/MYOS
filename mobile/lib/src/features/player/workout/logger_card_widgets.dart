@@ -464,6 +464,15 @@ class ExerciseLoggingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            if (exercise.exercise['movement_restriction'] is String)
+              Padding(
+                padding: const EdgeInsets.only(bottom: MyosSpacing.xs),
+                child: Text(
+                  copy.movementRestrictionWarning(exercise.exercise['movement_restriction'] as String),
+                  key: const Key('logger_movement_restriction_warning'),
+                  style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+                ),
+              ),
             Row(
               children: <Widget>[
                 Expanded(

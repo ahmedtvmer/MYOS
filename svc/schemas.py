@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 from core.weak_points import validate_weak_points
+from core.movement_restrictions import validate_movement_restrictions
 from service import plans as plans_service
 from service.analytics import PROPERTY_TYPES, WORKOUT_SYNC_FAILURE_REASONS
 from service.display_language import DisplayLanguage
@@ -630,6 +631,7 @@ class CoachAlertOut(BaseModel):
     latest_session_date: str | None = None
     player_deload_choice: dict[str, Any] | None = None
     profile_changes: dict[str, dict[str, Any]] | None = None
+    movement_restriction_conflicts: list[dict[str, Any]] | None = None
     injury_changes: dict[str, dict[str, Any]] | None = None
     clearance_changes: list[dict[str, Any]] | None = None
     weight_points: list[WeightTrendPointOut] | None = None
@@ -1029,6 +1031,7 @@ class ProfileUpdate(BaseModel):
     target_weight_kg: float | None = None
     preferred_name: str | None = None
     weak_points: list[dict[str, str]] | None = None
+    movement_restrictions: list[str] | None = None
 
     @field_validator("preferred_name")
     @classmethod
@@ -1045,6 +1048,11 @@ class ProfileUpdate(BaseModel):
         if "weak_points" in normalized and normalized["weak_points"] is not None:
             try:
                 normalized["weak_points"] = validate_weak_points(normalized["weak_points"])
+            except ValueError as exc:
+                raise ValueError(str(exc)) from None
+        if "movement_restrictions" in normalized and normalized["movement_restrictions"] is not None:
+            try:
+                normalized["movement_restrictions"] = validate_movement_restrictions(normalized["movement_restrictions"])
             except ValueError as exc:
                 raise ValueError(str(exc)) from None
         for field_name in (
@@ -2106,9 +2114,20 @@ class IntakeOut(BaseModel):
     disclosure_acknowledged: bool
     fields: list[IntakeFieldOut]
     suggested_weak_points: list[str] = []
+    suggested_movement_restrictions: list[str] = []
+    movement_restrictions: list[str] = []
     profile_rebuild_fields: list[str] = []
     progress: IntakeProgressOut
     program: IntakeProgramOut | None = None
+
+
+class IntakeConfirmIn(BaseModel):
+    movement_restrictions: list[str] = []
+
+    @field_validator("movement_restrictions")
+    @classmethod
+    def _validate_movement_restrictions(cls, value: list[str]) -> list[str]:
+        return validate_movement_restrictions(value)
 
 
 class IntakeConfirmOut(BaseModel):

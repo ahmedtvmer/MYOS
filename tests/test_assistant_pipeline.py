@@ -1,5 +1,6 @@
 # tests/test_assistant_pipeline.py
 import sys
+import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -672,3 +673,144 @@ def run_all_tests():
 
 if __name__ == "__main__":
     run_all_tests()
+
+
+@pytest.mark.parametrize("confirmation", ["yes", "أيوه"])
+def test_clinical_injury_offer_confirmation_saves_restrictions_and_rebuilds_once(fresh_store, monkeypatch, confirmation):
+    from langchain_core.messages import AIMessage, HumanMessage
+    from agent.assistant_graph import stream_assistant_turn
+
+    ledger = fresh_store.ledger
+    ledger.upsert_player_profile({
+        "gender": "male", "proportions": "balanced", "age": 28, "weight_kg": 75,
+        "height_cm": 175, "rep_preference": "balanced", "current_goal": "hypertrophy",
+        "long_term_goal": "progressive overload", "weekly_frequency": 3,
+        "training_age_years": 3, "equipment_access": "Commercial gym",
+        "injuries_or_limitations": "None", "stress_and_sleep": "normal",
+        "movement_restrictions": [],
+    })
+    query = "i have fai syndrome and torn acl and can not perform knee flexion nor training adductors"
+    state = {
+        "messages": [HumanMessage(content=query)], "trainee_id": "test_user",
+        "player_account_id": None, "coach_tone": "Direct and pragmatic",
+        "custom_instructions": "", "telemetry_context": "", "intent": None,
+        "intent_metadata": {}, "program_updated": False, "response_content": None,
+    }
+    first = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert "Clinical Safeguard Triggered" in first
+    assert "Should I keep these out of your program?" in first
+    for label in ("Knee flexion", "Loaded knee extension", "Hip adduction", "Deep hip flexion"):
+        assert label in first
+    assert ledger.list_injury_records()
+    assert not ledger.get_player_profile()["movement_restrictions"]
+
+    state["messages"].append(AIMessage(content=first))
+    state["messages"].append(HumanMessage(content=confirmation))
+    second = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert ("rebuilt" in second.lower()) or ("أعدت إنشاء" in second)
+    assert set(ledger.get_player_profile()["movement_restrictions"]) == {
+        "Knee flexion", "Loaded knee extension", "Hip adduction", "Deep hip flexion"
+    }
+    assert ledger.get_active_program().version == 1
+    assert state["program_updated"] is True
+    state["messages"].extend([AIMessage(content=second), HumanMessage(content=confirmation)])
+    "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert ledger.get_active_program().version == 1
+
+
+def test_injury_offer_decline_and_unrelated_turn_never_save_restrictions(fresh_store, monkeypatch, scripted_chat_model):
+    from langchain_core.messages import AIMessage, HumanMessage
+    from agent.assistant_graph import stream_assistant_turn
+
+    ledger = fresh_store.ledger
+    ledger.upsert_player_profile({"movement_restrictions": []})
+    initial = "i have fai syndrome and torn acl and can not perform knee flexion nor training adductors"
+    state = {
+        "messages": [HumanMessage(content=initial)], "trainee_id": "test_user",
+        "player_account_id": None, "coach_tone": "Direct and pragmatic",
+        "custom_instructions": "", "telemetry_context": "", "intent": None,
+        "intent_metadata": {}, "program_updated": False, "response_content": None,
+    }
+    offer = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    state["messages"].extend([AIMessage(content=offer), HumanMessage(content="no")])
+    declined = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert "unchanged" in declined.lower()
+    assert ledger.get_player_profile()["movement_restrictions"] == []
+    assert ledger.get_pending_movement_restriction_offer() is None
+
+    monkeypatch.setattr("agent.assistant_graph.llm", scripted_chat_model)
+    state["messages"].extend([AIMessage(content=declined), HumanMessage(content="yes")])
+    "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert ledger.get_player_profile()["movement_restrictions"] == []
+
+    unrelated_state = {**state, "messages": [HumanMessage(content=initial)], "program_updated": False}
+    second_offer = "".join(stream_assistant_turn(unrelated_state, ledger=ledger, store=fresh_store))
+    unrelated_state["messages"].extend([
+        AIMessage(content=second_offer), HumanMessage(content="What should I eat for breakfast?")
+    ])
+    "".join(stream_assistant_turn(unrelated_state, ledger=ledger, store=fresh_store))
+    assert ledger.get_pending_movement_restriction_offer() is None
+    assert ledger.get_player_profile()["movement_restrictions"] == []
+
+
+def test_superseded_restriction_offer_id_cannot_clear_or_confirm_current_offer(fresh_store):
+    from langchain_core.messages import AIMessage, HumanMessage
+    from agent.assistant_graph import stream_assistant_turn
+
+    ledger = fresh_store.ledger
+    offer_id = ledger.set_pending_movement_restriction_offer(["Knee flexion"], "Should I keep these out?")
+    stale_id = "00000000-0000-0000-0000-000000000000"
+    state = {"messages": [AIMessage(content="Should I keep these out?\n<!--movement-offer:current-->"),
+                          HumanMessage(content=f"yes {stale_id}")],
+             "trainee_id": "test_user", "player_account_id": None,
+             "coach_tone": "Direct and pragmatic", "custom_instructions": "",
+             "telemetry_context": "", "intent": None, "intent_metadata": {},
+             "program_updated": False, "response_content": None}
+    "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    pending = ledger.get_pending_movement_restriction_offer()
+    assert pending is not None
+    assert pending["offer_id"] == offer_id
+    assert (ledger.get_player_profile() or {}).get("movement_restrictions", []) == []
+    state["messages"] = [
+        *state["messages"],
+        AIMessage(content="That Movement restriction offer is no longer active. Use the latest offer."),
+        HumanMessage(content=f"yes {offer_id}"),
+    ]
+    "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    assert (ledger.get_player_profile() or {}).get("movement_restrictions") == ["Knee flexion"]
+    assert ledger.get_pending_movement_restriction_offer() is None
+
+
+def test_coach_controlled_chat_confirmation_saves_and_notifies_without_rebuild(
+    fresh_store, monkeypatch
+):
+    from langchain_core.messages import AIMessage, HumanMessage
+    from agent.assistant_graph import stream_assistant_turn
+
+    ledger = fresh_store.ledger
+    ledger.upsert_player_profile({"movement_restrictions": []})
+    monkeypatch.setattr("service.profile.player_controls_program", lambda *args: False)
+    alerts = []
+    monkeypatch.setattr(
+        "service.profile.profile_change_alerts.record_profile_change",
+        lambda db, snapshot: alerts.append(snapshot),
+    )
+    state = {
+        "messages": [HumanMessage(content=(
+            "i have fai syndrome and torn acl and can not perform knee flexion nor training adductors"
+        ))],
+        "trainee_id": "test_user", "player_account_id": None,
+        "coach_tone": "Direct and pragmatic", "custom_instructions": "",
+        "telemetry_context": "", "intent": None, "intent_metadata": {},
+        "program_updated": False, "response_content": None,
+    }
+    offer = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+    state["messages"].extend([AIMessage(content=offer), HumanMessage(content="yes")])
+    reply = "".join(stream_assistant_turn(state, ledger=ledger, store=fresh_store))
+
+    assert set(ledger.get_player_profile()["movement_restrictions"]) == {
+        "Knee flexion", "Loaded knee extension", "Hip adduction", "Deep hip flexion"
+    }
+    assert state["program_updated"] is False
+    assert "coach was notified" in reply.lower()
+    assert alerts

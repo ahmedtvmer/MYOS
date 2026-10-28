@@ -652,6 +652,21 @@ void main() {
         isTrue);
   });
 
+  testWidgets('movement restriction offer has explicit confirmation actions',
+      (tester) async {
+    final FakeMyosApi fake = _fakePlayer('alice')
+      ..chatReplyChunks = <String>[
+        'Should I keep these out of your program? Knee flexion, Hip adduction. Reply yes or no.',
+      ];
+    await _pumpChat(tester, fake, store: InMemoryChatCacheStore(), scopeKey: UniqueKey());
+    await _acceptDisclosure(tester);
+    await tester.enterText(find.byKey(const Key('chat_composer')), 'I tore my ACL');
+    await tester.tap(find.byKey(const Key('chat_send')));
+    await _pumpUntilFound(tester, find.byKey(const Key('chat_confirm_movement_restrictions')));
+    expect(find.byKey(const Key('chat_decline_movement_restrictions')), findsOneWidget);
+    expect(find.text('Yes, keep them out'), findsOneWidget);
+  });
+
   testWidgets('refusal action opens a prefilled request form for confirmation',
       (tester) async {
     const String question = 'swap bench press for dumbbell press';

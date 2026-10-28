@@ -4,9 +4,12 @@ from agent.program_blueprints import SLOT_SPECS
 from agent.program_weeks import ProgramPosition
 from service.program_substitution import (
     ProgramSubstitution,
+    ProgramSubstitutionUndo,
     SubstitutionErrorCode,
     substitute_program_exercise,
+    undo_active_program_substitution,
 )
+from service.program_analytics import ProgramAnalyticsActor
 
 
 class FakeCatalog:
@@ -386,3 +389,161 @@ def test_substitution_reports_coach_provenance(program_data, replacement):
 
     assert result["ok"] is True
     assert ledger.saved[0][1] == "coach-account"
+
+
+def test_undo_refuses_snapshot_that_reintroduces_movement_restrictions(monkeypatch):
+    from service import program_substitution as substitution_service
+
+    class RestoreLedger(FakeLedger):
+        def __init__(self):
+            super().__init__()
+            self.snapshot = {
+                "program_name": "Old plan", "weekly_frequency": 1, "split_type": "Full Body",
+                "days": [{"day_name": "Full A", "day_order": 1, "exercises": [
+                    {"exercise_id": "curl", "exercise_name": "Lying Leg Curl", "slot_key": "ham_curl"}
+                ]}],
+            }
+
+        def get_player_profile(self):
+            return {"movement_restrictions": ["Knee flexion"]}
+
+        def get_program_by_version(self, _version):
+            return self.snapshot
+
+        def get_active_program(self):
+            return type("Active", (), {"version": 2})()
+
+    ledger = RestoreLedger()
+    monkeypatch.setattr(
+        substitution_service,
+        "_player_active_program",
+        lambda *_args: (ledger.get_active_program(), None),
+    )
+    catalog = FakeCatalog({"curl": {
+        "id": "curl", "name": "Lying Leg Curl", "primary_action": "Knee Flexion",
+        "secondary_actions": [],
+    }})
+
+    result = undo_active_program_substitution(
+        catalog,
+        ledger,
+        "player",
+        ProgramSubstitutionUndo(restore_version=1, expected_active_version=2),
+        actor=ProgramAnalyticsActor("player", "player"),
+    )
+
+    assert result["ok"] is False
+    assert result["code"] is SubstitutionErrorCode.MOVEMENT_RESTRICTED
+    assert "Lying Leg Curl" in result["exercise_name"]
+    assert result["restriction"] == "Knee flexion"
+    assert ledger.saved == []
+
+
+def test_undo_refuses_candidate_action_even_when_historical_slot_is_flat_press(monkeypatch):
+    from service import program_substitution as substitution_service
+
+    class RestoreLedger(FakeLedger):
+        def __init__(self):
+            super().__init__()
+            self.snapshot = {
+                "program_name": "Old plan", "weekly_frequency": 1, "split_type": "Full Body",
+                "days": [{"day_name": "Upper", "day_order": 1, "exercises": [
+                    {"exercise_id": "360", "exercise_name": "Dumbbell Shoulder Press", "slot_key": "flat_press"}
+                ]}],
+            }
+
+        def get_player_profile(self):
+            return {"movement_restrictions": ["Overhead pressing"]}
+
+        def get_program_by_version(self, _version):
+            return self.snapshot
+
+        def get_active_program(self):
+            return type("Active", (), {"version": 2})()
+
+    ledger = RestoreLedger()
+    monkeypatch.setattr(substitution_service, "_player_active_program", lambda *_args: (ledger.get_active_program(), None))
+    catalog = FakeCatalog({"360": {
+        "id": "360", "name": "Dumbbell Shoulder Press", "primary_action": "Shoulder Flexion",
+        "primary_muscle": "Front Delts", "secondary_actions": [],
+    }})
+    result = undo_active_program_substitution(
+        catalog, ledger, "player",
+        ProgramSubstitutionUndo(restore_version=1, expected_active_version=2),
+        actor=ProgramAnalyticsActor("player", "player"),
+    )
+    assert result["ok"] is False
+    assert result["code"] is SubstitutionErrorCode.MOVEMENT_RESTRICTED
+    assert result["restriction"] == "Overhead pressing"
+    assert ledger.saved == []
+
+
+def test_undo_refuses_overhead_extension_with_historical_flat_press_slot(monkeypatch, fresh_store):
+    from service import program_substitution as substitution_service
+
+    class RestoreLedger(FakeLedger):
+        def get_player_profile(self):
+            return {"movement_restrictions": ["Overhead pressing"]}
+
+        def get_program_by_version(self, _version):
+            return {
+                "program_name": "Old plan", "weekly_frequency": 1, "split_type": "Full Body",
+                "days": [{"day_name": "Upper", "day_order": 1, "exercises": [
+                    {"exercise_id": "194", "exercise_name": "Overhead Rope Triceps Extension", "slot_key": "flat_press"}
+                ]}],
+            }
+
+        def get_active_program(self):
+            return type("Active", (), {"version": 2})()
+
+    ledger = RestoreLedger()
+    monkeypatch.setattr(substitution_service, "_player_active_program", lambda *_args: (ledger.get_active_program(), None))
+    result = undo_active_program_substitution(
+        fresh_store, ledger, "player",
+        ProgramSubstitutionUndo(restore_version=1, expected_active_version=2),
+        actor=ProgramAnalyticsActor("player", "player"),
+    )
+    assert result["ok"] is False
+    assert result["restriction"] == "Overhead pressing"
+    assert ledger.saved == []
+
+
+def test_undo_checks_catalog_actions_for_historical_warmups(monkeypatch):
+    from service import program_substitution as substitution_service
+
+    class RestoreLedger(FakeLedger):
+        def __init__(self):
+            super().__init__()
+            self.snapshot = {
+                "program_name": "Old plan", "weekly_frequency": 1, "split_type": "Full Body",
+                "days": [{
+                    "day_name": "Lower", "day_order": 1,
+                    "warmup_exercises": [{"exercise_id": "dead-bug", "exercise_name": "Dead Bug"}],
+                    "exercises": [{"exercise_id": "squat", "exercise_name": "Squat"}],
+                }],
+            }
+
+        def get_player_profile(self):
+            return {"movement_restrictions": ["Knee flexion"]}
+
+        def get_program_by_version(self, _version):
+            return self.snapshot
+
+        def get_active_program(self):
+            return type("Active", (), {"version": 2})()
+
+    ledger = RestoreLedger()
+    monkeypatch.setattr(substitution_service, "_player_active_program", lambda *_args: (ledger.get_active_program(), None))
+    monkeypatch.setattr(substitution_service, "_updated_program_result", lambda *_args: {"ok": True})
+    monkeypatch.setattr(substitution_service, "capture_program_exercise_swapped", lambda *_args, **_kwargs: None)
+    catalog = FakeCatalog({
+        "dead-bug": {"id": "dead-bug", "name": "Dead Bug", "primary_action": "Spinal Flexion", "secondary_actions": ["Hip Flexion"]},
+        "squat": {"id": "squat", "name": "Squat", "primary_action": "Knee Extension", "secondary_actions": []},
+    })
+    result = undo_active_program_substitution(
+        catalog, ledger, "player",
+        ProgramSubstitutionUndo(restore_version=1, expected_active_version=2),
+        actor=ProgramAnalyticsActor("player", "player"),
+    )
+    assert result["ok"] is True
+    assert ledger.saved

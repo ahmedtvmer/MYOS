@@ -145,3 +145,15 @@ def test_chat_endpoint_streaming_is_bounded(client, monkeypatch):
     assert len(responses) == 4
     assert all(response.status_code == 200 for response in responses)
     assert all("pong" in response.text for response in responses)
+
+
+def test_streamed_restriction_rebuild_reuses_held_inference_slot(monkeypatch):
+    from svc.llm import bound_stream, run_inference_sync
+
+    monkeypatch.setenv("LLM_MAX_CONCURRENT", "1")
+    reset_inference_gate()
+    def rebuild_stream():
+        yield run_inference_sync(lambda: "rebuilt", gate_already_held=True)
+
+    stream = bound_stream(rebuild_stream)
+    assert list(stream) == ["rebuilt"]

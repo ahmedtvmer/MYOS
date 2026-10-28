@@ -2295,6 +2295,7 @@ class ApiClient {
   /// profile update still applies.
   Future<ProfileUpdateResult> updateProfile({
     List<Map<String, String>>? weakPoints,
+    List<String>? movementRestrictions,
     int? weeklyFrequency,
     String? repPreference,
     String? equipmentAccess,
@@ -2306,6 +2307,7 @@ class ApiClient {
   }) async {
     final Map<String, dynamic> body = <String, dynamic>{
       if (weakPoints != null) 'weak_points': weakPoints,
+      if (movementRestrictions != null) 'movement_restrictions': movementRestrictions,
       if (weeklyFrequency != null) 'weekly_frequency': weeklyFrequency,
       if (repPreference != null) 'rep_preference': repPreference,
       if (equipmentAccess != null) 'equipment_access': equipmentAccess,
@@ -2491,9 +2493,11 @@ class ApiClient {
 
   /// Writes the confirmed profile and creates the first program once
   /// (`POST /onboarding/intake/confirm`, #50).
-  Future<IntakeConfirmation> confirmIntake() async {
-    final response =
-        await _send(() => _dio.post<dynamic>('/onboarding/intake/confirm'));
+  Future<IntakeConfirmation> confirmIntake({List<String> movementRestrictions = const <String>[]}) async {
+    final response = await _send(() => _dio.post<dynamic>(
+      '/onboarding/intake/confirm',
+      data: <String, dynamic>{'movement_restrictions': movementRestrictions},
+    ));
     return _parseBody(response.data, IntakeConfirmation.fromJson,
         'The service returned invalid onboarding confirmation data.');
   }
@@ -2746,6 +2750,38 @@ class ApiClient {
         'The service returned invalid prescription data.');
   }
 
+  Future<Map<String, String?>> movementRestrictionAnnotations(
+    List<String> exerciseIds,
+    List<String> slots,
+    List<String> rowIds,
+  ) async {
+    if (exerciseIds.isEmpty) return const <String, String?>{};
+    if (exerciseIds.length != slots.length || exerciseIds.length != rowIds.length) {
+      throw ArgumentError('Exercise ids, slots, and row ids must have matching lengths.');
+    }
+    final response = await _send(
+      () => _dio.get<dynamic>(
+        '/workouts/movement-restrictions',
+        queryParameters: <String, dynamic>{'exercise_ids': exerciseIds, 'exercise_slots': slots},
+      ),
+    );
+    final dynamic data = response.data;
+    if (data is! Map<String, dynamic> || data['annotations'] is! List) {
+      throw ApiException(
+        'The service returned invalid restriction annotations.',
+        failureMessage: _invalidServiceDataFailure(
+          'The service returned invalid restriction annotations.',
+        ),
+      );
+    }
+    return <String, String?>{
+      for (final dynamic item in data['annotations'] as List<dynamic>)
+        if (item is Map<String, dynamic> && item['row_index'] is int &&
+            (item['row_index'] as int) >= 0 && (item['row_index'] as int) < rowIds.length)
+          rowIds[item['row_index'] as int]: item['movement_restriction'] as String?,
+    };
+  }
+
   /// The player's exercise baselines for the frozen Active workout
   /// (`GET /workouts/baselines`, #122/#123).
   ///
@@ -2788,6 +2824,7 @@ class ApiClient {
     String? replacingExerciseId,
     bool filterEquipmentAccess = false,
     bool showAllEquipment = false,
+    void Function(String?)? onMessageCode,
   }) async {
     final response = await _send(
       () => _dio.get<dynamic>('/workouts/exercises',
@@ -2815,6 +2852,7 @@ class ApiClient {
         failureMessage: _invalidServiceDataFailure(message),
       );
     }
+    onMessageCode?.call(data['message_code'] as String?);
     const String invalidExercises =
         'The service returned invalid exercise data.';
     return _parseBodyList(
@@ -3055,6 +3093,7 @@ class ApiClient {
             ? frame['response_content'] as String
             : '',
         programUpdated: frame['program_updated'] == true,
+        movementRestrictionsUpdated: frame['movement_restrictions_updated'] == true,
         outcome: frame['outcome'] is String
             ? frame['outcome'] as String
             : 'completed',

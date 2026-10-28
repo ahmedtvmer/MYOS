@@ -829,3 +829,26 @@ def test_bodyweight_classic_split_keeps_its_blueprint_opener(fresh_store):
 
     legs = next(day for day in program.days if "leg" in day.day_name.lower())
     assert legs.exercises[0].slot_key == "quad_compound"
+
+
+def test_coach_pattern_rubric_accepts_missing_adductors_and_ham_curl_when_restricted(fresh_store):
+    db = fresh_store
+    db.ledger.upsert_player_profile({
+        "gender": "male", "proportions": "balanced", "age": 28,
+        "weight_kg": 75.0, "height_cm": 175.0, "rep_preference": "balanced",
+        "current_goal": "hypertrophy", "long_term_goal": "progressive overload",
+        "weekly_frequency": 3, "training_age_years": 3.0,
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None",
+        "stress_and_sleep": "normal", "movement_restrictions": ["Knee flexion", "Hip adduction"],
+    })
+    from agent.program_generator import generate_program_pipeline
+    program = generate_program_pipeline(ledger=db.ledger)[0]
+    exercises = [exercise for day in program.days for exercise in day.exercises]
+    restricted_slots = {"ham_curl", "adductors"}
+    assert not {exercise.slot_key for exercise in exercises} & restricted_slots
+    assert len(program.days) == 3
+    for muscle, slots in MUSCLE_GROUPS.items():
+        if muscle in {"hamstrings", "adductors"}:
+            continue
+        count = sum(ex.target_sets for ex in exercises if ex.slot_key in slots)
+        assert 4 <= count <= 6, f"{muscle}: {count} sets"

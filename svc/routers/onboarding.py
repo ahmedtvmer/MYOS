@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from service import analytics as analytics_service
@@ -15,6 +15,7 @@ from svc.dependencies import account_id_of, get_db, get_ledger, get_verified_pla
 from svc.rate_limit import ONBOARDING_LIMIT, limiter
 from svc.schemas import (
     IntakeAnswerIn,
+    IntakeConfirmIn,
     IntakeConfirmOut,
     IntakeOut,
 )
@@ -146,6 +147,7 @@ async def confirm_intake(
     player: Annotated[Any, Depends(get_verified_player)],
     ledger: Annotated[Any, Depends(get_ledger)],
     db: Annotated[Any, Depends(get_db)],
+    body: IntakeConfirmIn = Body(default=IntakeConfirmIn()),
 ):
     """Writes the confirmed profile and creates the first program exactly once (ADR 021)."""
 
@@ -158,6 +160,7 @@ async def confirm_intake(
                 player_account_id=account_id_of(player),
                 ledger=ledger,
                 client=analytics_service.client_context(request),
+                movement_restrictions=body.movement_restrictions,
             )
         except intake_service.IntakeDisclosureRequired as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from None
