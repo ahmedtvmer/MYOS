@@ -207,9 +207,11 @@ class WorkoutRecord {
     required this.exerciseName,
     required this.kind,
     required this.value,
+    this.exerciseId,
   });
 
   final String exerciseName;
+  final String? exerciseId;
   final PrRecordKind kind;
   final double value;
 
@@ -240,6 +242,7 @@ List<WorkoutRecord> workoutRecords(ActiveWorkout workout) {
       for (final PrRecordKind kind in held.current) {
         records.add(WorkoutRecord(
           exerciseName: exercise.exerciseName,
+          exerciseId: exercise.exerciseId,
           kind: kind,
           value: kind.valueOf(set),
         ));

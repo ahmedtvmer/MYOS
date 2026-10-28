@@ -6,7 +6,7 @@ import 'tour_targets.dart';
 
 /// The shared Feature list used by the Tour and later discovery surfaces.
 const int tourCurrentVersion = 1;
-const int currentFeatureRelease = 2;
+const int currentFeatureRelease = 3;
 
 bool isTourEligible(Account account, {int currentVersion = tourCurrentVersion}) =>
     account.tourSeenVersion < currentVersion &&
@@ -148,6 +148,17 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     target: 'brand_mayos',
     location: TourShellTabLocation(tabIndex: 0),
     release: 2,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'workout_share_card',
+    titleEn: 'Share workout card',
+    sentenceEn: 'Share a workout card from the saved summary after you finish.',
+    titleAr: 'مشاركة بطاقة الحصة',
+    sentenceAr: 'شارك بطاقة للحصة من الملخص المحفوظ بعد إنهائها.',
+    target: 'home',
+    location: TourShellTabLocation(tabIndex: 0),
+    release: currentFeatureRelease,
     audience: 'lifter',
   ),
   FeatureEntry(

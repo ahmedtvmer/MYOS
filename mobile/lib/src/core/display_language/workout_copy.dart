@@ -103,6 +103,11 @@ class WorkoutCopy {
   String get addCardioEntry => isArabic ? 'إضافة تمرين لياقة' : 'Add Cardio entry';
   String get removeCardioEntry => isArabic ? 'حذف تمرين اللياقة' : 'Remove Cardio entry';
   String get minutes => isArabic ? 'دقائق' : 'Minutes';
+  String shareCardPrCount(int count) {
+    final String latinCount = isArabic ? _ltr('$count') : '$count';
+    if (!isArabic) return '$latinCount ${count == 1 ? 'PR' : 'PRs'}';
+    return '$latinCount ${count == 1 ? 'رقم قياسي' : 'أرقام قياسية'}';
+  }
   String get restTime => isArabic ? 'مدة الراحة…' : 'Rest time…';
   String get exerciseNotes => isArabic ? 'ملاحظات التمرين' : 'Exercise notes';
   String tempoCue(String value) =>
@@ -267,6 +272,7 @@ class WorkoutCopy {
       ? 'حُفظت الحصة في سجل تدريبك.'
       : 'Workout saved to your training history.';
   String get workoutSummary => isArabic ? 'ملخص الحصة' : 'Workout summary';
+  String get shareToStory => isArabic ? 'مشاركة في القصة' : 'Share to Story';
   String get backToWorkout => isArabic ? 'العودة إلى الحصة' : 'Back to workout';
   String get saveWorkout => isArabic ? 'حفظ الحصة' : 'Save workout';
   String get done => isArabic ? 'تم' : 'Done';

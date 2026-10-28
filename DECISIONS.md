@@ -1047,3 +1047,11 @@ This document records the architectural, algorithmic, and heuristic decisions im
 * **Context**: Legal concerns raised by the owner and the owned domain mayos.online.
 * **Decision**: The product, its visible copy and code identifiers are MAYOS; live ids that were already mayos never changed.
 * **Consequences**: Prompt hashes of gated AI features change and their live evaluations are re-run.
+
+---
+
+### ADR 095: Workout share cards stay on the device and omit health data
+* **Status**: Accepted (2026-10-29, #556)
+* **Decision**: The workout share card is rendered on the device and shared through the platform share flow. The card image is temporary and is never uploaded to MAYOS services, analytics, or a model. Body weight and calories never appear on the card.
+* **Rationale**: A local image preserves the training-data boundary and lets a Player share immediately after an offline workout save. Omitting body weight and calories keeps sensitive health data out of the share surface.
+* **Code References**: `mobile/lib/src/features/player/workout/workout_share_card.dart`, `mobile/lib/src/features/player/workout/workout_logger_screen.dart`.

@@ -17,6 +17,7 @@ from service import auth as auth_service
 from service import password_reset as reset_service
 from svc.app import create_app
 from svc.dependencies import GoogleIdentity, GoogleIdentityError, get_db, get_google_verifier
+from database.registry.accounts import CURRENT_FEATURE_RELEASE
 
 TEST_JWT_SECRET = "test-secret-key-0123456789abcdef"
 TEST_WEB_CLIENT_ID = "1234567890-testapps.googleusercontent.com"
@@ -169,11 +170,19 @@ def test_whats_new_seen_release_is_scoped_and_monotonic(api):
     password = "correct-horse-1"
     alice = _password_account(client, "whats-alice", password)
     bob = _password_account(client, "whats-bob")
-    assert _me(client, alice)["whats_new_seen_release"] == 2
-    saved = client.put("/auth/whats-new-seen", headers=_authed(alice), json={"release": 2})
+    assert _me(client, alice)["whats_new_seen_release"] == CURRENT_FEATURE_RELEASE
+    saved = client.put(
+        "/auth/whats-new-seen",
+        headers=_authed(alice),
+        json={"release": CURRENT_FEATURE_RELEASE},
+    )
     assert saved.status_code == 200, saved.text
-    assert saved.json() == {"whats_new_seen_release": 2}
-    client.put("/auth/whats-new-seen", headers=_authed(alice), json={"release": 0})
+    assert saved.json() == {"whats_new_seen_release": CURRENT_FEATURE_RELEASE}
+    client.put(
+        "/auth/whats-new-seen",
+        headers=_authed(alice),
+        json={"release": CURRENT_FEATURE_RELEASE - 1},
+    )
     second_login = client.post(
         "/auth/login",
         json={"trainee_id": "whats-alice", "password": password},
@@ -181,8 +190,8 @@ def test_whats_new_seen_release_is_scoped_and_monotonic(api):
     assert second_login.status_code == 200, second_login.text
     second_session = second_login.json()["access_token"]
     assert second_session != alice
-    assert _me(client, second_session)["whats_new_seen_release"] == 2
-    assert _me(client, bob)["whats_new_seen_release"] == 2
+    assert _me(client, second_session)["whats_new_seen_release"] == CURRENT_FEATURE_RELEASE
+    assert _me(client, bob)["whats_new_seen_release"] == CURRENT_FEATURE_RELEASE
 
 
 def test_tour_seen_version_is_visible_on_a_second_device_session(api):

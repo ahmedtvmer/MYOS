@@ -46,7 +46,7 @@ void main() {
     expect(errors, contains(contains('titleAr')));
   });
 
-  test('MAYOS brand announcement is available in the next release', () {
+  test('MAYOS brand announcement remains in the previous release', () {
     final FeatureEntry entry = featureList.singleWhere(
       (FeatureEntry entry) => entry.id == 'brand-mayos',
     );
@@ -55,6 +55,21 @@ void main() {
     expect(entry.titleAr, 'MYOS أصبح MAYOS');
     expect(entry.sentenceAr, 'نفس التطبيق ونفس التدريب، أصبح اسمنا الآن MAYOS.');
     expect(entry.target, 'brand_mayos');
+    expect(entry.release, currentFeatureRelease - 1);
+    expect(entry.audience, 'lifter');
+  });
+
+  test('workout share card is a bilingual lifter feature in this release', () {
+    final FeatureEntry entry = featureList.singleWhere(
+      (FeatureEntry entry) => entry.id == 'workout_share_card',
+    );
+    expect(entry.titleEn, isNotEmpty);
+    expect(entry.titleAr, isNotEmpty);
+    expect(entry.sentenceEn,
+        'Share a workout card from the saved summary after you finish.');
+    expect(entry.sentenceAr,
+        'شارك بطاقة للحصة من الملخص المحفوظ بعد إنهائها.');
+    expect(entry.target, 'home');
     expect(entry.release, currentFeatureRelease);
     expect(entry.audience, 'lifter');
   });

@@ -46,7 +46,9 @@ import 'logger_bottom_bar.dart';
 import 'logger_card_widgets.dart';
 import 'logger_keypad.dart';
 import 'rest_timer_widgets.dart';
+import 'workout_share_card.dart';
 import 'web_workout_committer.dart';
+import '../tour/tour_targets.dart';
 
 // The frozen previous working set and the cell weight format live beside the
 // Active workout (`core/active_workout.dart`); the cell/hint mapping, the
@@ -1187,10 +1189,12 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       if (!mounted) {
         return;
       }
+      setState(() {
+        _summaryAction = _SummaryAction.done;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_copy.saveDraftNotice)),
       );
-      context.go(workoutsPath);
     } on Object catch (error) {
       if (!mounted) {
         return;
@@ -2440,6 +2444,27 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
             _MessageLine(error),
           if (_notice != null) _MessageLine(_notice!, danger: false),
           const SizedBox(height: MayosSpacing.lg),
+          if (action == _SummaryAction.done) ...<Widget>[
+            TourTarget(
+              id: 'share_story',
+              child: MayosButton(
+                key: const ValueKey<String>('logger.shareStory'),
+                label: _copy.shareToStory,
+                icon: Icons.ios_share,
+                onPressed: () => shareWorkoutCard(
+                  context,
+                  WorkoutShareCard(
+                    languageCode: _copy.isArabic ? 'ar' : 'en',
+                    dayName: workout?.dayName,
+                    duration: summary.duration,
+                    stats: summary.stats,
+                    records: summary.records,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: MayosSpacing.sm),
+          ],
           MayosButton(
             key: const ValueKey<String>('logger.save'),
             label: actionLabel,

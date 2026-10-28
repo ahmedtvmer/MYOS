@@ -1114,6 +1114,26 @@ void main() {
     ]);
   });
 
+  testWidgets('Share to Story appears only after a local workout save',
+      (WidgetTester tester) async {
+    final InMemoryDraftStore drafts = InMemoryDraftStore();
+    await _openLogger(tester, drafts: drafts);
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
+    await tester.pumpAndSettle();
+    final Finder discard = find.text('Discard unticked sets and finish');
+    if (discard.evaluate().isNotEmpty) {
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+    }
+    expect(find.byKey(const ValueKey<String>('logger.shareStory')), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
+    await tester.pumpAndSettle();
+    expect((await drafts.read(_account)), hasLength(1));
+    expect(find.byKey(const ValueKey<String>('logger.shareStory')), findsOneWidget);
+  });
+
   testWidgets('saved bike calories appear in the finished Player summary',
       (WidgetTester tester) async {
     final FakeMayosApi fake = _signedInFake();

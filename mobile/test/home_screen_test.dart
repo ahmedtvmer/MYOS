@@ -1452,6 +1452,7 @@ void main() {
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
           'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
+          'workout_share_card' => find.text('Log workout'),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
@@ -1541,6 +1542,7 @@ void main() {
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
           'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
+          'workout_share_card' => find.text('Log workout'),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
