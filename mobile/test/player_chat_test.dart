@@ -403,6 +403,26 @@ void main() {
     expect(find.byKey(const Key('chat_tool_status')), findsNothing);
   });
 
+  testWidgets('leaving chat during a streamed reply clears the Tour gate safely',
+      (tester) async {
+    final FakeMyosApi fake = _fakePlayer('stream-exit-player')
+      ..chatReplyChunks = <String>['A long reply', ' that is still streaming.'];
+    await _pumpChat(tester, fake, store: InMemoryChatCacheStore());
+    await _acceptDisclosure(tester);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+
+    await tester.enterText(find.byKey(const Key('chat_composer')), 'Explain');
+    await tester.tap(find.byKey(const Key('chat_send')));
+    await tester.pump();
+    expect(container.read(playerChatStreamingProvider), isTrue);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(container.read(playerChatStreamingProvider), isFalse);
+  });
+
   testWidgets('preferred name captured in chat appears in Settings',
       (tester) async {
     final FakeMyosApi fake = _fakePlayer('alice');
@@ -629,6 +649,9 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('chat_composer')), 'Cue my bench?');
     await tester.tap(find.byKey(const Key('chat_send')));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    expect(container.read(playerChatStreamingProvider), isTrue);
 
     // Subscription starts within the first frame; no chunk has arrived yet.
     await tester.pump(const Duration(milliseconds: 50));
@@ -644,6 +667,7 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 120));
     expect(find.text('Assistant is replying…'), findsNothing);
+    expect(container.read(playerChatStreamingProvider), isFalse);
     expect(_chatMarkdown('Keep your elbows tucked.'), findsOneWidget);
     // The finished reply is cached for offline reading.
     final List<ChatMessage> cached = await store.readHistory('account-alice');

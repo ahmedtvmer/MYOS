@@ -49,6 +49,7 @@ from svc.schemas import (
     AccountOut,
     AnalyticsPreferenceIn,
     DisplayLanguageIn,
+    TourSeenVersionIn,
     AccountPlansOut,
     EmailUpdateIn,
     ProductEmailConsentIn,
@@ -503,6 +504,8 @@ async def read_current_account(
         linked_sign_ins=linked_sign_ins,
         display_language=account["display_language"],
         analytics_allowed=account["analytics_allowed"],
+        tour_seen_version=account["tour_seen_version"],
+        tour_created_version=account["tour_created_version"],
         recovery_email_verified=recovery_email_verified,
         google_email=google_email,
         product_emails_opted_in=product_emails_opted_in,
@@ -565,6 +568,21 @@ async def update_analytics_preference(
             not body.analytics_allowed,
         )
     return {"analytics_allowed": body.analytics_allowed}
+
+
+@router.put("/tour-seen")
+async def update_tour_seen_version(
+    body: TourSeenVersionIn,
+    account: Annotated[VerifiedAccount, Depends(get_verified_account)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    saved = await asyncio.to_thread(
+        db.set_account_tour_seen_version, account.account_id, body.version
+    )
+    if not saved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    current = await asyncio.to_thread(db.get_account, account.account_id)
+    return {"tour_seen_version": current["tour_seen_version"]}
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

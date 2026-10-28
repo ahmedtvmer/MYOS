@@ -305,6 +305,24 @@ class AuthController extends StateNotifier<AuthState> {
     return true;
   }
 
+  /// Applies the server-confirmed Tour version to the current account session.
+  bool confirmTourSeenVersion(String accountId, int version) {
+    final AccountSession? session = state.session;
+    if (session == null || !ownsAccount(accountId) || version < 0) {
+      return false;
+    }
+    state = AuthState.authenticated(
+      AccountSession(
+        account: session.account.copyWith(tourSeenVersion: version),
+        onboarded: session.onboarded,
+        hasRecoveryEmail: session.hasRecoveryEmail,
+        recoveryEmail: session.recoveryEmail,
+      ),
+      notice: state.notice,
+    );
+    return true;
+  }
+
   /// Applies the allowance snapshot carried by a completed player turn.
   void updateLifterAiAllowance(String accountId, AiAllowance allowance) {
     final AccountSession? session = state.session;

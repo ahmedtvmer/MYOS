@@ -291,6 +291,8 @@ class Account {
     this.linkedSignIns = const <String>[],
     this.displayLanguage = 'en',
     this.analyticsAllowed = true,
+    this.tourSeenVersion = 0,
+    this.tourCreatedVersion = 0,
     this.recoveryEmailVerified = false,
     this.googleEmail,
     this.productEmailsOptedIn = false,
@@ -322,6 +324,8 @@ class Account {
           : const <String>[],
       displayLanguage: normalizeDisplayLanguage(json['display_language']),
       analyticsAllowed: json['analytics_allowed'] as bool? ?? true,
+      tourSeenVersion: json['tour_seen_version'] as int? ?? 0,
+      tourCreatedVersion: json['tour_created_version'] as int? ?? 0,
       recoveryEmailVerified: json['recovery_email_verified'] as bool? ?? false,
       googleEmail: json['google_email'] as String?,
       productEmailsOptedIn: json['product_emails_opted_in'] as bool? ?? false,
@@ -361,6 +365,8 @@ class Account {
 
   /// Whether the registry allows product analytics for this Account.
   final bool analyticsAllowed;
+  final int tourSeenVersion;
+  final int tourCreatedVersion;
 
   /// Whether `/auth/me` confirms the current recovery email address.
   final bool recoveryEmailVerified;
@@ -385,6 +391,8 @@ class Account {
     List<String>? linkedSignIns,
     String? displayLanguage,
     bool? analyticsAllowed,
+    int? tourSeenVersion,
+    int? tourCreatedVersion,
     bool? recoveryEmailVerified,
     String? googleEmail,
     bool? productEmailsOptedIn,
@@ -405,6 +413,8 @@ class Account {
         linkedSignIns: linkedSignIns ?? this.linkedSignIns,
         displayLanguage: displayLanguage ?? this.displayLanguage,
         analyticsAllowed: analyticsAllowed ?? this.analyticsAllowed,
+        tourSeenVersion: tourSeenVersion ?? this.tourSeenVersion,
+        tourCreatedVersion: tourCreatedVersion ?? this.tourCreatedVersion,
         recoveryEmailVerified:
             recoveryEmailVerified ?? this.recoveryEmailVerified,
         googleEmail: googleEmail ?? this.googleEmail,

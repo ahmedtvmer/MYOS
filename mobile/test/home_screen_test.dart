@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/app.dart';
 import 'package:myos_mobile/src/core/app_mode.dart';
+import 'package:myos_mobile/src/core/active_workout.dart';
 import 'package:myos_mobile/src/core/display_language/controller.dart';
 import 'package:myos_mobile/src/core/api_client.dart';
 import 'package:myos_mobile/src/core/chat_storage.dart';
@@ -14,9 +15,14 @@ import 'package:myos_mobile/src/core/install_prompt_store.dart';
 import 'package:myos_mobile/src/features/shared/install_prompt.dart';
 import 'package:myos_mobile/src/providers.dart';
 import 'package:myos_mobile/src/core/ui/myos_bottom_navigation.dart';
+import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
+import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
+import 'package:myos_mobile/src/router.dart';
 
 import 'support/fake_myos_api.dart';
 import 'support/fake_analytics_client.dart';
+import 'support/fake_tour_seen_retry_store.dart';
 
 class _FakeInstallPromptStore implements InstallPromptStore {
   _FakeInstallPromptStore(this.environment, {this.outcome = 'unavailable'});
@@ -89,6 +95,7 @@ Future<void> _pumpHome(
   String languageCode = 'en',
   Size size = const Size(1080, 2400),
   List<Override> extraOverrides = const <Override>[],
+  TourSeenRetryStore? tourRetryStore,
 }) async {
   fake.displayLanguage = languageCode;
   tester.view.physicalSize = size;
@@ -100,6 +107,7 @@ Future<void> _pumpHome(
   await tokens.save('token-alice');
   await tester.pumpWidget(
     ProviderScope(
+      key: UniqueKey(),
       overrides: <Override>[
         installPromptDelayProvider.overrideWithValue(Duration.zero),
         ...extraOverrides,
@@ -108,10 +116,14 @@ Future<void> _pumpHome(
         themeModeStoreProvider
             .overrideWithValue(themeStore ?? InMemoryThemeModeStore()),
         systemDisplayLanguageProvider.overrideWithValue(languageCode),
+        tourSeenRetryStoreProvider.overrideWithValue(
+            tourRetryStore ?? FakeTourSeenRetryStore()),
         draftStoreProvider
             .overrideWithValue(draftStore ?? InMemoryDraftStore()),
         workoutCacheStoreProvider
             .overrideWithValue(InMemoryWorkoutCacheStore()),
+        activeWorkoutStoreProvider
+            .overrideWithValue(InMemoryActiveWorkoutStore()),
         chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
         apiClientProvider.overrideWith((ref) {
           final ApiClient client = ApiClient(
@@ -445,6 +457,7 @@ void main() {
   testWidgets('home maps the active program, volume, and records',
       (tester) async {
     final FakeMyosApi fake = _signedInFake();
+    await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, fake);
 
     expect(find.text('Upper/Lower 4x'), findsOneWidget);
@@ -457,6 +470,288 @@ void main() {
     expect(find.text('Chest'), findsOneWidget);
     expect(find.text('Back'), findsOneWidget);
     expect(find.text('120 kg × 5'), findsOneWidget);
+  });
+
+  testWidgets('Tour shows Home and Program stops then marks completion seen',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    expect(container.read(authControllerProvider).session?.account.tourSeenVersion, 0);
+    expect(container.read(activeWorkoutControllerProvider).ready, isTrue);
+    expect(container.read(playerChatStreamingProvider), isFalse);
+    expect(find.text('Home'), findsWidgets);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 OF 7'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('tour_back')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 OF 7'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 OF 7'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
+    expect(container.read(authControllerProvider).session?.account.tourSeenVersion, 1);
+    expect(analytics.events.map((event) => event['event']), contains('tour_completed'));
+
+    await _pumpHome(tester, fake);
+    await tester.pumpAndSettle();
+    expect(find.text('1 OF 7'), findsNothing);
+  });
+
+  testWidgets('Tour Skip records seen state and Arabic mirrors Skip',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, languageCode: 'ar', extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    await _pumpUntilFound(tester, find.text('تخطي'));
+    expect(tester.getTopLeft(find.text('تخطي')).dx,
+        lessThan(tester.view.physicalSize.width / 2));
+    await tester.tap(find.text('تخطي'));
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
+    expect(analytics.events.map((event) => event['event']), contains('tour_skipped'));
+  });
+
+  testWidgets('Tour waits for a streaming reply and resumes on Home',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+      playerChatStreamingProvider.overrideWith((ref) => true),
+    ]);
+    expect(find.text('1 OF 7'), findsNothing);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(playerChatStreamingProvider.notifier).state = false;
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    expect(find.text('1 OF 7'), findsOneWidget);
+  });
+
+  testWidgets('Tour pauses for a newly open workout and streaming reply until Home reopens',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+
+    final ActiveWorkout workout = ActiveWorkout.fromJson(<String, dynamic>{
+      'id': 'tour-workout',
+      'account_id': 'account-alice',
+      'started_at': '2026-10-28T10:00:00Z',
+      'day_order': 1,
+      'day_name': 'Upper 1',
+      'exercises': <dynamic>[],
+      'baselines': <String, dynamic>{},
+    });
+    container.read(activeWorkoutControllerProvider.notifier).state =
+        ActiveWorkoutState(
+      accountId: 'account-alice',
+      ready: true,
+      workout: workout,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+    final int eventCountWhilePaused = analytics.events.length;
+
+    container.read(activeWorkoutControllerProvider.notifier).state =
+        const ActiveWorkoutState(
+      accountId: 'account-alice',
+      ready: true,
+      workout: null,
+    );
+    container.read(playerShellTabProvider.notifier).state = 1;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    container.read(playerShellTabProvider.notifier).state = 0;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+    expect(analytics.events.length, greaterThan(eventCountWhilePaused));
+
+    container.read(playerChatStreamingProvider.notifier).state = true;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+    final int eventCountWhileStreaming = analytics.events.length;
+    container.read(playerChatStreamingProvider.notifier).state = false;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+    expect(analytics.events.length, eventCountWhileStreaming);
+    container.read(playerShellTabProvider.notifier).state = 1;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    container.read(playerShellTabProvider.notifier).state = 0;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+  });
+
+  testWidgets('Tour events stay suppressed when analytics is opted out',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..tourSeenVersion = 0
+      ..analyticsAllowed = false;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    await _pumpUntilFound(tester, find.text('Skip'));
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(analytics.events.where((event) =>
+        (event['event'] as String).startsWith('tour_')), isEmpty);
+  });
+
+  testWidgets('shell Tour controller can spotlight one feature without marking seen',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+
+    final Future<void> spotlight =
+        container.read(tourControllerProvider.notifier).showMe('home');
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    await spotlight;
+
+    expect(find.text('Home'), findsWidgets);
+    expect(fake.tourSeenVersion, 1);
+  });
+
+  testWidgets('showMe Program from Profile returns to its shell target',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final router = container.read(routerProvider);
+    router.go(profilePath);
+    await tester.pumpAndSettle();
+
+    final Future<void> spotlight =
+        container.read(tourControllerProvider.notifier).showMe('program');
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    await spotlight;
+
+    expect(router.routeInformationProvider.value.uri.path, homePath);
+    expect(find.text('Program'), findsWidgets);
+    expect(fake.tourSeenVersion, 1);
+  });
+
+  testWidgets('showMe Profile from Home targets its route and unregisters on pop',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final router = container.read(routerProvider);
+
+    final Future<void> spotlight =
+        container.read(tourControllerProvider.notifier).showMe('profile');
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    await spotlight;
+    expect(router.routeInformationProvider.value.uri.path, profilePath);
+    expect(find.text('Profile'), findsWidgets);
+    expect(fake.tourSeenVersion, 1);
+
+    await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
+    await tester.pumpAndSettle();
+    router.go(homePath);
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(container.read(tourTargetRegistryProvider), isNot(contains('profile')));
+  });
+
+  testWidgets('Tour version 2 only reaches accounts created at version 2',
+      (tester) async {
+    final FakeMyosApi oldAccount = _signedInFake()
+      ..tourSeenVersion = 1
+      ..tourCreatedVersion = 0;
+    await _pumpHome(tester, oldAccount, extraOverrides: <Override>[
+      tourCurrentVersionProvider.overrideWithValue(2),
+    ], tourRetryStore: FakeTourSeenRetryStore());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final FakeMyosApi newAccount = _signedInFake()
+      ..tourSeenVersion = 1
+      ..tourCreatedVersion = 2;
+    await _pumpHome(tester, newAccount, extraOverrides: <Override>[
+      tourCurrentVersionProvider.overrideWithValue(2),
+    ], tourRetryStore: FakeTourSeenRetryStore());
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    expect(find.text('1 OF 7'), findsOneWidget);
+  });
+
+  testWidgets('Skip dismisses offline and retries the seen write on next Home open',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..tourSeenVersion = 0
+      ..tourSeenWriteFailures = 5;
+    final FakeTourSeenRetryStore retryStore = FakeTourSeenRetryStore();
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ], tourRetryStore: retryStore);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+
+    await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+    expect(fake.tourSeenVersion, 0);
+    expect(analytics.events.map((event) => event['event']), contains('tour_skipped'));
+    expect(retryStore.pending.values, contains(1));
+
+    fake.tourSeenWriteFailures = 0;
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(playerShellTabProvider.notifier).state = 1;
+    await tester.pumpAndSettle();
+    container.read(playerShellTabProvider.notifier).state = 0;
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
+  });
+
+  testWidgets('Tour tooltip controls remain visible and tappable on a phone',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+
+    final Rect nextRect = tester.getRect(find.byKey(const ValueKey<String>('tour_next')));
+    final Rect skipRect = tester.getRect(find.byKey(const ValueKey<String>('tour_skip')));
+    expect(nextRect.top, greaterThanOrEqualTo(0));
+    expect(nextRect.bottom, lessThanOrEqualTo(844));
+    expect(skipRect.top, greaterThanOrEqualTo(0));
+    expect(skipRect.bottom, lessThanOrEqualTo(844));
+    await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 OF 7'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('tour_skip')), findsNothing);
   });
 
   testWidgets('home shows honest empty states without data', (tester) async {

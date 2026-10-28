@@ -50,6 +50,8 @@ abstract interface class AnalyticsClient {
 
   void appLaunched({required String displayMode});
 
+  void tourEvent(String event, {int? step});
+
   void reset();
 }
 
@@ -85,6 +87,9 @@ class NoOpAnalyticsClient implements AnalyticsClient {
 
   @override
   void appLaunched({required String displayMode}) {}
+
+  @override
+  void tourEvent(String event, {int? step}) {}
 
   @override
   void reset() {}
@@ -288,6 +293,12 @@ class PostHogAnalyticsClient implements AnalyticsClient {
     if (displayMode != 'browser' && displayMode != 'standalone') return;
     _captureEvent('app_launched', <String, Object>{'display_mode': displayMode});
   }
+
+  @override
+  void tourEvent(String event, {int? step}) => _captureEvent(
+        event,
+        <String, Object>{if (step != null) 'step': step},
+      );
 
   void _captureEvent(String event, Map<String, Object> properties) {
     final Map<String, Object> allProperties = <String, Object>{

@@ -218,6 +218,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _failedContent;
   bool _retryAddsBubble = true;
   final Set<String> _resolvedProgramEditPreviews = <String>{};
+  late StateController<bool> _playerChatStreaming;
 
   String? get _accountId =>
       ref.read(authControllerProvider).session?.account.accountId;
@@ -227,12 +228,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _playerChatStreaming = ref.read(playerChatStreamingProvider.notifier);
     _init();
   }
 
   @override
   void dispose() {
     _disposed = true;
+    unawaited(Future<void>.microtask(() {
+      if (_playerChatStreaming.mounted) {
+        _playerChatStreaming.state = false;
+      }
+    }));
     unawaited(_subscription?.cancel());
     _controller.dispose();
     super.dispose();
@@ -350,6 +357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _sendContent(String content) async {
     final String? accountId = _accountId;
     if (accountId == null) return;
+    ref.read(playerChatStreamingProvider.notifier).state = true;
     final String assistantMessageId =
         'local-assistant-${DateTime.now().microsecondsSinceEpoch}';
     final bool addUserBubble = _retryAddsBubble;
@@ -433,6 +441,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               _offline = false;
               _historyFailure = null;
             });
+            ref.read(playerChatStreamingProvider.notifier).state = false;
             await _store.writeHistory(accountId, _messages);
             if (programUpdated) {
               unawaited(_refreshProgramCache());
@@ -507,6 +516,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// A retry re-sends the same content without adding another local bubble.
   Future<void> _failTurn(String content, String message,
       {bool offline = false, FailureMessage? failure}) async {
+    ref.read(playerChatStreamingProvider.notifier).state = false;
     _setStateIfMounted(() {
       _streamingText = null;
       _streamingMessageId = null;

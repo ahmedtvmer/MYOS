@@ -497,7 +497,9 @@ class SchemaMixin:
                     deleted_at TEXT,
                     last_seen_at TEXT,
                     last_seen_build INTEGER,
-                    display_language TEXT NOT NULL DEFAULT 'en' CHECK (display_language IN ('en', 'ar'))
+                    display_language TEXT NOT NULL DEFAULT 'en' CHECK (display_language IN ('en', 'ar')),
+                    tour_seen_version INTEGER NOT NULL DEFAULT 0,
+                    tour_created_version INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE TABLE IF NOT EXISTS account_analytics_preferences (
                     account_id TEXT PRIMARY KEY,
@@ -907,6 +909,7 @@ class SchemaMixin:
             self._ensure_accounts_last_seen_at()
             self._ensure_accounts_last_seen_build()
             self._ensure_accounts_display_language()
+            self._ensure_accounts_tour_versions()
             self._ensure_assignment_notice_summary_column()
             self._ensure_assignment_notice_summary_dismissed_at_column()
             self._ensure_assignment_notice_message_metadata_columns()
@@ -1251,6 +1254,18 @@ class SchemaMixin:
             cursor.execute(
                 "ALTER TABLE accounts ADD COLUMN display_language TEXT NOT NULL DEFAULT 'en' "
                 "CHECK (display_language IN ('en', 'ar'))"
+            )
+
+    def _ensure_accounts_tour_versions(self) -> None:
+        """Account-owned Tour state; legacy accounts begin unseen (#539)."""
+        columns = self._table_columns(self.catalog_conn.cursor(), "accounts")
+        if columns and "tour_seen_version" not in columns:
+            self.catalog_conn.execute(
+                "ALTER TABLE accounts ADD COLUMN tour_seen_version INTEGER NOT NULL DEFAULT 0"
+            )
+        if columns and "tour_created_version" not in columns:
+            self.catalog_conn.execute(
+                "ALTER TABLE accounts ADD COLUMN tour_created_version INTEGER NOT NULL DEFAULT 0"
             )
 
     def _ensure_coach_invites_revoked_at(self) -> None:

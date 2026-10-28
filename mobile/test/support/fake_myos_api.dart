@@ -82,6 +82,9 @@ class FakeMyosApi {
   bool displayLanguageUpdateFails = false;
   bool analyticsPreferenceUpdateFails = false;
   bool analyticsAllowed = true;
+  int tourSeenVersion = 1;
+  int tourCreatedVersion = 1;
+  int tourSeenWriteFailures = 0;
   bool productEmailsOptedIn = false;
   bool? productEmailsResponseOverride;
   bool productEmailsSaveFails = false;
@@ -842,6 +845,16 @@ class FakeMyosApi {
                 401, <String, dynamic>{'detail': 'Token has been revoked.'});
       case '/auth/me':
         return _me(request);
+      case '/auth/tour-seen':
+        if (!_authorized(request)) return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
+        if (tourSeenWriteFailures > 0) {
+          tourSeenWriteFailures--;
+          return const FakeResponse(503, <String, dynamic>{'detail': 'Offline.'});
+        }
+        tourSeenVersion = tourSeenVersion > (request.body['version'] as int)
+            ? tourSeenVersion
+            : request.body['version'] as int;
+        return FakeResponse(200, <String, dynamic>{'tour_seen_version': tourSeenVersion});
       case '/auth/display-language':
         return _updateDisplayLanguage(request);
       case '/auth/analytics-preference':
@@ -1278,6 +1291,8 @@ class FakeMyosApi {
       'display_language':
           currentAccountDisplayLanguageOverride ?? displayLanguage,
       'analytics_allowed': analyticsAllowed,
+      'tour_seen_version': tourSeenVersion,
+      'tour_created_version': tourCreatedVersion,
       'recovery_email_verified':
           recoveryEmail != null && recoveryEmailVerified,
       'google_email': googleEmail,

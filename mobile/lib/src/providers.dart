@@ -42,6 +42,10 @@ import 'features/player/workout/active_workout_controller.dart';
 import 'features/player/workout/draft_sync_service.dart';
 import 'features/player/workout/web_workout_committer.dart';
 
+/// True while the Player assistant is receiving a streamed reply.
+final StateProvider<bool> playerChatStreamingProvider =
+    StateProvider<bool>((ref) => false);
+
 final Provider<TokenStore> tokenStoreProvider = Provider<TokenStore>(
   (ref) => SecureTokenStore(),
 );

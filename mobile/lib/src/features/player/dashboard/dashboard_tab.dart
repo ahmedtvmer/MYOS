@@ -25,6 +25,7 @@ import '../program/preparing_program_banner.dart';
 import '../workout/active_workout_prompt.dart';
 import 'home_planning.dart';
 import '../../shared/install_prompt.dart';
+import '../tour/tour_targets.dart';
 
 /// The player Home tab: current program, the next ordered session, real
 /// seven-day volume and recent personal records, with honest empty states.
@@ -280,35 +281,41 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
         final LatestSession? latest = snapshot.data!.latestSession;
         return InstallPromptHost(
           enabled: ref.watch(playerShellTabProvider) == 0,
-          child: _HomeBody(
-            copy: MyosCopy(ref.watch(displayLanguageProvider)),
-            data: loadedData,
-            program:
-                hasSharedProgram ? sharedProgram.program : loadedData.program,
-            programFromCache: hasSharedProgram
-                ? sharedProgram.fromCache
-                : loadedData.programFromCache,
-            assignment: _assignmentOverrideKnown
-                ? _assignmentOverride
-                : loadedData.assignment,
-            onRefresh: _refresh,
-            onOpenExercise: _openExercise,
-            onOpenDrafts: _openDrafts,
-            onOpenCheckpointReview: _openCheckpointReview,
-            onOpenProgram: _openProgram,
-            onLogWorkout: _logWorkout,
-            trainedDays: <TrainedDay>[
-              if (latest != null) TrainedDay.fromLatestSession(latest),
-              for (final WorkoutDraft draft in drafts)
-                TrainedDay.fromDraft(draft),
+          child: Stack(
+            children: <Widget>[
+              _HomeBody(
+                copy: MyosCopy(ref.watch(displayLanguageProvider)),
+                data: loadedData,
+                program: hasSharedProgram
+                    ? sharedProgram.program
+                    : loadedData.program,
+                programFromCache: hasSharedProgram
+                    ? sharedProgram.fromCache
+                    : loadedData.programFromCache,
+                assignment: _assignmentOverrideKnown
+                    ? _assignmentOverride
+                    : loadedData.assignment,
+                onRefresh: _refresh,
+                onOpenExercise: _openExercise,
+                onOpenDrafts: _openDrafts,
+                onOpenCheckpointReview: _openCheckpointReview,
+                onOpenProgram: _openProgram,
+                onLogWorkout: _logWorkout,
+                trainedDays: <TrainedDay>[
+                  if (latest != null) TrainedDay.fromLatestSession(latest),
+                  for (final WorkoutDraft draft in drafts)
+                    TrainedDay.fromDraft(draft),
+                ],
+                pendingDrafts:
+                    drafts.where((WorkoutDraft d) => d.isUnsynced).length,
+              ),
             ],
-            pendingDrafts:
-                drafts.where((WorkoutDraft d) => d.isUnsynced).length,
           ),
         );
       },
     );
   }
+
 }
 
 class _HomeBody extends StatelessWidget {
@@ -358,13 +365,26 @@ class _HomeBody extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(MyosSpacing.lg, MyosSpacing.md,
             MyosSpacing.lg, MyosSpacing.xxl),
         children: <Widget>[
-          Text(
-            displayCopyOf(context).greetingFor(now),
-            style: MyosTypography.of(context).display.copyWith(
-              fontSize: 34,
-              color: c.textPrimary,
+          if (nextDay == null && activeProgram != null)
+            TourTarget(
+              id: 'home',
+              location: const TourShellTabLocation(tabIndex: 0),
+              child: Text(
+                displayCopyOf(context).greetingFor(now),
+                style: MyosTypography.of(context).display.copyWith(
+                  fontSize: 34,
+                  color: c.textPrimary,
+                ),
+              ),
+            )
+          else if (nextDay == null)
+            Text(
+              displayCopyOf(context).greetingFor(now),
+              style: MyosTypography.of(context).display.copyWith(
+                fontSize: 34,
+                color: c.textPrimary,
+              ),
             ),
-          ),
           if (programFromCache) ...<Widget>[
             const SizedBox(height: MyosSpacing.sm),
             _InlineNotice(message: displayCopyOf(context).offlineSavedProgram),
@@ -373,11 +393,24 @@ class _HomeBody extends StatelessWidget {
             _InlineNotice(message: copy.failureMessage(data.partialError!)),
           ],
           const SizedBox(height: MyosSpacing.xl),
-          _ProgramSection(
+          if (activeProgram != null)
+            TourTarget(
+              id: 'program',
+              location: const TourShellTabLocation(tabIndex: 0),
+              child: _ProgramSection(
+                program: activeProgram,
+                assignment: assignment,
+                onOpenProgram: onOpenProgram,
+                copy: copy,
+              ),
+            )
+          else
+            _ProgramSection(
               program: activeProgram,
               assignment: assignment,
               onOpenProgram: onOpenProgram,
-              copy: copy),
+              copy: copy,
+            ),
           if (pendingDrafts > 0) ...<Widget>[
             const SizedBox(height: MyosSpacing.md),
             _DraftsBanner(count: pendingDrafts, onTap: onOpenDrafts),
@@ -394,17 +427,21 @@ class _HomeBody extends StatelessWidget {
           // generate flow, and a training day cannot be derived without one.
           if (nextDay != null) ...<Widget>[
             const SizedBox(height: MyosSpacing.xl),
-            _NextSessionSection(
-              day: nextDay,
-              label: nextSessionLabel(data.schedule, now,
-                  isArabic: displayCopyOf(context).isArabic),
-              onOpenExercise: onOpenExercise,
-              onLogWorkout: () => onLogWorkout(
-                nextDay,
-                activeProgram?.version,
-                activeProgram?.weekCount ?? 1,
+            TourTarget(
+              id: 'home',
+              location: const TourShellTabLocation(tabIndex: 0),
+              child: _NextSessionSection(
+                day: nextDay,
+                label: nextSessionLabel(data.schedule, now,
+                    isArabic: displayCopyOf(context).isArabic),
+                onOpenExercise: onOpenExercise,
+                onLogWorkout: () => onLogWorkout(
+                  nextDay,
+                  activeProgram?.version,
+                  activeProgram?.weekCount ?? 1,
+                ),
+                logEnabled: true,
               ),
-              logEnabled: true,
             ),
           ],
           const SizedBox(height: MyosSpacing.xl),

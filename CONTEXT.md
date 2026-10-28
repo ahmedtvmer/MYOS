@@ -23,6 +23,12 @@ From Greek μυός, meaning “muscle”; pronounced /ˈmeɪ.os/. The Latin wor
 _Arabic_: ميوس
 _Avoid_: مايوس (reads as مأيوس, “hopeless”)
 
+**Tour**:
+The one-time spotlight walkthrough of Player mode, with stops on real app features.
+
+**Feature list**:
+The single app-owned list of Player features that defines the Tour stops and serves as the source for later discovery surfaces.
+
 **Installed web app**:
 The web app after a person adds it to their phone's or computer's home screen, so it opens in its own window without browser controls. It is the same web app with the same account and data, not a third client beside Android and the browser; anything true of the web app is true of it, and it still needs a connection to work.
 _Avoid_: PWA (in product copy), native app

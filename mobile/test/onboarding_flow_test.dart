@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/app.dart';
 import 'package:myos_mobile/src/core/api_client.dart';
 import 'package:myos_mobile/src/core/app_mode.dart';
+import 'package:myos_mobile/src/core/active_workout.dart';
 import 'package:myos_mobile/src/core/chat_storage.dart';
 import 'package:myos_mobile/src/core/connectivity_message.dart';
 import 'package:myos_mobile/src/core/display_language/controller.dart';
@@ -20,11 +21,13 @@ import 'package:myos_mobile/src/core/ui/myos_player_column.dart';
 import 'package:myos_mobile/src/core/workout_storage.dart';
 import 'package:myos_mobile/src/features/player/onboarding/onboarding_screen.dart';
 import 'package:myos_mobile/src/features/player/onboarding/onboarding_widgets.dart';
+import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
 import 'package:myos_mobile/src/providers.dart';
 
 import 'support/fake_analytics_client.dart';
 import 'support/fake_myos_api.dart';
 import 'support/fake_rest_alert_permission_access.dart';
+import 'support/fake_tour_seen_retry_store.dart';
 
 const Map<String, Object> _requiredAnswers = <String, Object>{
   'gender': 'female',
@@ -848,6 +851,7 @@ void main() {
         (WidgetTester tester) async {
       final FakeMyosApi fake = _fake(acknowledged: true)
         ..displayLanguage = languageCode
+        ..tourSeenVersion = noProgram ? 1 : 0
         ..nullOnboardingProgram = noProgram
         ..recoveryEmail = 'alice@example.com'
         ..intakeAnswers.addAll(_requiredAnswers)
@@ -867,6 +871,8 @@ void main() {
             draftStoreProvider.overrideWithValue(InMemoryDraftStore()),
             workoutCacheStoreProvider
                 .overrideWithValue(InMemoryWorkoutCacheStore()),
+            activeWorkoutStoreProvider
+                .overrideWithValue(InMemoryActiveWorkoutStore()),
             chatCacheStoreProvider.overrideWithValue(InMemoryChatCacheStore()),
             restAlertPermissionAccessProvider.overrideWithValue(
               FakeRestAlertPermissionAccess(),
@@ -874,6 +880,7 @@ void main() {
             restAlertPermissionPromptStoreProvider.overrideWithValue(
               InMemoryRestAlertPermissionPromptStore(),
             ),
+            tourSeenRetryStoreProvider.overrideWithValue(FakeTourSeenRetryStore()),
             _apiOverride(fake),
           ],
           child: const MyosApp(),
@@ -906,6 +913,10 @@ void main() {
           findsOneWidget,
         );
       } else {
+        final String firstTourStep =
+            languageCode == 'ar' ? '١ من ٧' : '1 OF 7';
+        await _pumpUntilFound(tester, find.text(firstTourStep));
+        expect(find.text(firstTourStep), findsOneWidget);
         final String nextSession =
             languageCode == 'ar' ? 'الحصة التالية' : 'Next session';
         await _pumpUntilFound(tester, find.textContaining(nextSession));

@@ -8,6 +8,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+CURRENT_TOUR_VERSION = 1
+
 _ANALYTICS_ALLOWED_SQL = (
     "COALESCE((SELECT analytics_allowed FROM account_analytics_preferences "
     "WHERE account_id = accounts.account_id), 1)"
@@ -30,7 +32,7 @@ class RegistryAccountsMixin:
 
     _ACCOUNT_COLUMNS = (
         "account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, last_seen_at, last_seen_build, display_language, "
-        + _ANALYTICS_ALLOWED_SQL
+        + _ANALYTICS_ALLOWED_SQL + ", tour_seen_version, tour_created_version"
     )
 
     @staticmethod
@@ -51,6 +53,8 @@ class RegistryAccountsMixin:
             "last_seen_build": row[10],
             "display_language": row[11] or "en",
             "analytics_allowed": bool(row[12]),
+            "tour_seen_version": int(row[13] or 0),
+            "tour_created_version": int(row[14] or 0),
         }
 
     @staticmethod
@@ -126,9 +130,16 @@ class RegistryAccountsMixin:
                 ledger_id = self._unique_ledger_id(cursor, clean_id, account_id)
                 cursor.execute(
                     "INSERT INTO accounts"
-                    " (account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, display_language)"
-                    " VALUES (?, ?, ?, 'active', 1, 0, 1, ?, NULL, ?)",
-                    (account_id, clean_id, ledger_id, now, display_language if display_language in ("en", "ar") else "en"),
+                    " (account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, display_language, tour_created_version)"
+                    " VALUES (?, ?, ?, 'active', 1, 0, 1, ?, NULL, ?, ?)",
+                    (
+                        account_id,
+                        clean_id,
+                        ledger_id,
+                        now,
+                        display_language if display_language in ("en", "ar") else "en",
+                        CURRENT_TOUR_VERSION,
+                    ),
                 )
             except sqlite3.IntegrityError:
                 self._rollback_catalog()
@@ -197,6 +208,19 @@ class RegistryAccountsMixin:
                 (language, str(account_id)),
             )
             self._commit_catalog()
+            return cursor.rowcount == 1
+
+    def set_account_tour_seen_version(self, account_id: str, version: int) -> bool:
+        """Advances the signed-in Account's Tour seen version monotonically."""
+        if version < 0:
+            return False
+        self.ensure_account_schema()
+        with self.catalog_transaction(immediate=True):
+            cursor = self.catalog_conn.execute(
+                "UPDATE accounts SET tour_seen_version = MAX(tour_seen_version, ?) "
+                "WHERE account_id = ? AND status = 'active' AND deleted_at IS NULL",
+                (version, str(account_id)),
+            )
             return cursor.rowcount == 1
 
     def set_product_email_consent(self, account_id: str, allowed: bool) -> bool:

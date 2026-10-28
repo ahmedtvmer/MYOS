@@ -647,6 +647,18 @@ class ApiClient {
         ));
   }
 
+  Future<int> markTourSeen(int version) async {
+    final response = await _send(() => _dio.put<dynamic>(
+          '/auth/tour-seen',
+          data: <String, dynamic>{'version': version},
+        ));
+    final dynamic body = response.data;
+    if (body is! Map<String, dynamic> || body['tour_seen_version'] is! int) {
+      throw const ApiException('The service returned an invalid Tour status.');
+    }
+    return body['tour_seen_version'] as int;
+  }
+
   /// Redeems a single-use Coach invite from MYOS and returns the updated account.
   Future<Account> redeemCoachInvite(String token) async {
     final response = await _send(

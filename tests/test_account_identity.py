@@ -366,6 +366,8 @@ def test_current_account_reports_capabilities_from_durable_registry(api):
         "trainee_id": "alice",
         "display_language": "en",
         "analytics_allowed": True,
+        "tour_seen_version": 0,
+        "tour_created_version": 1,
         "capabilities": {"player": True, "coach": False},
         "coach_ai_enabled": False,
         "coach_roster_ai_enabled": False,

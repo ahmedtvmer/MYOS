@@ -80,6 +80,15 @@ class FakeAnalyticsClient implements AnalyticsClient {
     });
   }
 
+  @override
+  void tourEvent(String event, {int? step}) {
+    if (!enabled) return;
+    events.add(<String, Object>{
+      'event': event,
+      'properties': <String, Object>{if (step != null) 'step': step},
+    });
+  }
+
   void _recordWorkoutEvent(String event) {
     events.add(<String, Object>{
       'event': event,

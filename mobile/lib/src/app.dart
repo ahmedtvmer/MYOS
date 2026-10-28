@@ -23,6 +23,7 @@ import 'core/ui/app_update_toast.dart';
 import 'core/ui/is_desktop_layout.dart';
 import 'core/ui/myos_app_mode_scope.dart';
 import 'features/player/auth/auth_controller.dart';
+import 'features/player/tour/tour_overlay_host.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -239,9 +240,11 @@ class _MyosAppState extends ConsumerState<MyosApp>
                 key: myosMessengerKey,
                 child: AnnotatedRegion<SystemUiOverlayStyle>(
                   value: MyosTheme.overlayStyle(c),
-                  child: AppUpdateToast(
-                    router: router,
-                    child: child ?? const SizedBox.shrink(),
+                  child: TourOverlayHost(
+                    child: AppUpdateToast(
+                      router: router,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),

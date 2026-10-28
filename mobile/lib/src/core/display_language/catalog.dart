@@ -38,6 +38,16 @@ class MyosCopy {
   String get progress => isArabic ? 'التقدم' : 'Progress';
   String get nutritionTab => nutrition.tab;
   String get assistant => isArabic ? 'المساعد' : 'Assistant';
+  String get tourSkip => isArabic ? 'تخطي' : 'Skip';
+  String get tourBack => isArabic ? 'السابق' : 'Back';
+  String get tourNext => isArabic ? 'التالي' : 'Next';
+  String tourStepLabel(int step, int count) => isArabic
+      ? '${_arabicDigits(step)} من ${_arabicDigits(count)}'
+      : '$step OF $count';
+
+  String _arabicDigits(int value) => value.toString().replaceAllMapped(
+      RegExp(r'\d'),
+      (Match match) => '٠١٢٣٤٥٦٧٨٩'[int.parse(match[0]!)]);
   String get requestFromCoach =>
       isArabic ? 'طلب من المدرب' : 'Request from coach';
   String get askAssistant => isArabic ? 'اسأل المساعد' : 'Ask the assistant';

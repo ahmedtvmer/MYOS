@@ -12,10 +12,12 @@ import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
 import 'package:myos_mobile/src/core/token_store.dart';
 import 'package:myos_mobile/src/core/workout_storage.dart';
 import 'package:myos_mobile/src/features/player/workout/workout_logger_screen.dart';
+import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
 import 'package:myos_mobile/src/providers.dart';
 
 import 'support/fake_analytics_client.dart';
 import 'support/fake_myos_api.dart';
+import 'support/fake_tour_seen_retry_store.dart';
 
 const String _account = 'account-alice';
 
@@ -98,6 +100,7 @@ Future<ProviderContainer> _pumpApp(
         baselineCacheStoreProvider
             .overrideWithValue(InMemoryBaselineCacheStore()),
         activeWorkoutStoreProvider.overrideWithValue(store),
+        tourSeenRetryStoreProvider.overrideWithValue(FakeTourSeenRetryStore()),
         analyticsClientProvider.overrideWithValue(
           analytics ?? FakeAnalyticsClient(),
         ),
@@ -154,6 +157,22 @@ void main() {
       container.read(activeWorkoutControllerProvider).hasWorkout,
       isFalse,
     );
+  });
+
+  testWidgets('Tour waits while a stored Active workout is open',
+      (WidgetTester tester) async {
+    final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
+    await store.write(_account, _storedWorkout());
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    await _pumpApp(tester, fake, store);
+
+    await tester.pumpAndSettle();
+    expect(find.text('Unfinished workout'), findsOneWidget);
+    expect(find.text('1 OF 7'), findsNothing);
+
+    await tester.tap(find.text('Discard'));
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    expect(find.text('1 OF 7'), findsOneWidget);
   });
 
   testWidgets('Resume routes to the logger', (WidgetTester tester) async {

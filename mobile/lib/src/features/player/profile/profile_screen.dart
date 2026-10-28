@@ -20,6 +20,7 @@ import '../../../core/ui/myos_section_header.dart';
 import '../../../core/ui/myos_text_field.dart';
 import '../../../core/ui/first_strong_direction.dart';
 import '../../../providers.dart';
+import '../tour/tour_targets.dart';
 import '../onboarding/onboarding_widgets.dart'
     show isFieldAnswerValid, optionLabel;
 
@@ -922,9 +923,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return ListView(
       padding: MyosSpacing.screen,
       children: <Widget>[
-        MyosSectionHeader(
-          title: copy.trainingProfile,
-          subtitle: copy.profileLead,
+        TourTarget(
+          id: 'profile',
+          location: const TourRouteLocation('/profile'),
+          child: MyosSectionHeader(
+            title: copy.trainingProfile,
+            subtitle: copy.profileLead,
+          ),
         ),
         const SizedBox(height: MyosSpacing.md),
         MyosTextField(

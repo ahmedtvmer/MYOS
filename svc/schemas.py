@@ -244,6 +244,10 @@ class AnalyticsPreferenceIn(BaseModel):
     analytics_allowed: bool
 
 
+class TourSeenVersionIn(BaseModel):
+    version: int = Field(ge=0)
+
+
 class GoogleSignInIn(BaseModel):
     """Google ID token from the client. Verified server-side; never trusted as-is."""
 
@@ -354,6 +358,8 @@ class AccountOut(BaseModel):
     linked_sign_ins: list[str]
     display_language: DisplayLanguage
     analytics_allowed: bool = True
+    tour_seen_version: int = 0
+    tour_created_version: int = 0
     recovery_email_verified: bool = False
     google_email: str | None = None
     product_emails_opted_in: bool = False

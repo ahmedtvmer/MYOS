@@ -141,6 +141,52 @@ def test_auth_me_reports_has_password_and_linked_sign_ins(api):
     assert "sub-ana-token" not in str(me)
 
 
+def test_tour_seen_version_is_account_scoped_and_defaults_to_unseen(api):
+    client, _db, _verifier = api
+    alice = _password_account(client, "tour-alice")
+    bob = _password_account(client, "tour-bob")
+
+    # Simulate a registry created before #539, with live accounts already in it.
+    with _db.catalog_locked() as conn:
+        conn.execute("ALTER TABLE accounts DROP COLUMN tour_created_version")
+        conn.execute("ALTER TABLE accounts DROP COLUMN tour_seen_version")
+    _db._account_schema_ready = False
+
+    assert _me(client, alice)["tour_seen_version"] == 0
+    assert _me(client, bob)["tour_seen_version"] == 0
+    saved = client.put("/auth/tour-seen", headers=_authed(alice), json={"version": 1})
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == {"tour_seen_version": 1}
+    assert _me(client, alice)["tour_seen_version"] == 1
+    assert _me(client, bob)["tour_seen_version"] == 0
+
+
+def test_tour_seen_version_is_visible_on_a_second_device_session(api):
+    client, _db, _verifier = api
+    password = "correct-horse-1"
+    first_device = _password_account(client, "tour-devices", password)
+    other_account = _password_account(client, "tour-other")
+    saved = client.put(
+        "/auth/tour-seen", headers=_authed(first_device), json={"version": 1}
+    )
+    assert saved.status_code == 200, saved.text
+
+    second_login = client.post(
+        "/auth/login",
+        json={"trainee_id": "tour-devices", "password": password},
+    )
+    assert second_login.status_code == 200, second_login.text
+    second_device = second_login.json()["access_token"]
+    assert second_device != first_device
+    assert _me(client, second_device)["tour_seen_version"] == 1
+
+    untouched = client.put(
+        "/auth/tour-seen", headers=_authed(other_account), json={"version": 3}
+    )
+    assert untouched.status_code == 200, untouched.text
+    assert _me(client, second_device)["tour_seen_version"] == 1
+
+
 # --------------------------------------------------------------------------
 # POST /auth/google/link
 

@@ -25,6 +25,9 @@ import '../nutrition/nutrition_tab.dart';
 import '../progress/progress_tab.dart';
 import '../workout/active_workout_controller.dart';
 import '../workout/active_workout_prompt.dart';
+import '../tour/feature_list.dart';
+import '../tour/tour_controller.dart';
+import '../tour/tour_targets.dart';
 
 /// The player navigation shell.
 ///
@@ -70,6 +73,23 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   bool _offeredResume = false;
   bool _rosterAiDisclosureChecked = false;
   bool _startupNoticesComplete = false;
+  String? _tourAttemptedAccountId;
+  GoRouter? _observedRouter;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final GoRouter router = GoRouter.of(context);
+    if (_observedRouter != router) {
+      _observedRouter?.routerDelegate.removeListener(_onRouteChanged);
+      _observedRouter = router;
+      router.routerDelegate.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
@@ -107,6 +127,68 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       // Assignment details may be temporarily unavailable; the server still
       // excludes this assignment from roster snapshots until acknowledgement.
     }
+  }
+
+  void _syncTour({
+    required int tabIndex,
+    required String routePath,
+    required Account? account,
+    required ActiveWorkoutState workout,
+    required bool streaming,
+    required Map<String, TourTargetHandle> targets,
+    required TourSession? tour,
+    required int version,
+  }) {
+    final bool homeIsCurrent =
+        tabIndex == PlayerShellTab.home.index && routePath == homePath;
+    if (!homeIsCurrent) _tourAttemptedAccountId = null;
+    if (tour != null ||
+        !homeIsCurrent ||
+        !workout.ready ||
+        workout.hasWorkout ||
+        streaming) {
+      return;
+    }
+    final String firstStopId = tourV1StopIds.first;
+    final FeatureEntry firstStop = featureList.firstWhere(
+      (FeatureEntry entry) => entry.id == firstStopId,
+    );
+    final TourController controller = ref.read(tourControllerProvider.notifier);
+    if (account == null ||
+        _tourAttemptedAccountId == account.accountId ||
+        (!isTourEligible(account, currentVersion: version) &&
+            !controller.hasPendingSeenWriteFor(account.accountId)) ||
+        !targets.containsKey(firstStop.target)) {
+      return;
+    }
+    final String accountId = account.accountId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final String currentPath =
+          GoRouter.of(context).routeInformationProvider.value.uri.path;
+      final Account? currentAccount =
+          ref.read(authControllerProvider).session?.account;
+      final Map<String, TourTargetHandle> currentTargets =
+          ref.read(tourTargetRegistryProvider);
+      if (ref.read(playerShellTabProvider) != PlayerShellTab.home.index ||
+          currentPath != homePath ||
+          currentAccount == null ||
+          currentAccount.accountId != accountId ||
+          (!isTourEligible(currentAccount, currentVersion: version) &&
+              !controller.hasPendingSeenWriteFor(accountId)) ||
+          !currentTargets.containsKey(firstStop.target)) {
+        return;
+      }
+      final ActiveWorkoutState currentWorkout =
+          ref.read(activeWorkoutControllerProvider);
+      if (!currentWorkout.ready ||
+          currentWorkout.hasWorkout ||
+          ref.read(playerChatStreamingProvider)) {
+        return;
+      }
+      _tourAttemptedAccountId = account.accountId;
+      unawaited(controller.startTour(version));
+    });
   }
 
   bool _needsRosterAiDisclosure(Assignment? assignment) =>
@@ -157,8 +239,29 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     final int index = ref.watch(playerShellTabProvider);
     final bool isCoach =
         ref.watch(authControllerProvider).session?.account.isCoach ?? false;
+    final Account? account =
+        ref.watch(authControllerProvider).session?.account;
     final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
     final String settingsLabel = copy.settings;
+    final ActiveWorkoutState workout =
+        ref.watch(activeWorkoutControllerProvider);
+    final bool streaming = ref.watch(playerChatStreamingProvider);
+    final TourSession? tour = ref.watch(tourControllerProvider);
+    final Map<String, TourTargetHandle> targets =
+        ref.watch(tourTargetRegistryProvider);
+    final int tourVersion = ref.watch(tourCurrentVersionProvider);
+    final String currentRoutePath =
+        GoRouter.of(context).routeInformationProvider.value.uri.path;
+    _syncTour(
+      tabIndex: index,
+      routePath: currentRoutePath,
+      account: account,
+      workout: workout,
+      streaming: streaming,
+      targets: targets,
+      tour: tour,
+      version: tourVersion,
+    );
     return MyosScaffold(
       header: MyosAppHeader(
         actions: <Widget>[
@@ -178,14 +281,14 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
         ],
       ),
       body: IndexedStack(
-        index: index,
-        children: const <Widget>[
-          DashboardTab(),
-          ProgramTab(),
-          NutritionTab(),
-          ProgressTab(),
-        ],
-      ),
+            index: index,
+            children: const <Widget>[
+              DashboardTab(),
+              ProgramTab(),
+              NutritionTab(),
+              ProgressTab(),
+            ],
+          ),
       bottomBar: MyosBottomNavigation(
         items: _items(copy),
         index: index,
@@ -193,6 +296,12 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
             ref.read(playerShellTabProvider.notifier).state = selected,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _observedRouter?.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
   }
 }
 
