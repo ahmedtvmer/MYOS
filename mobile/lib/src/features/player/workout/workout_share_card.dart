@@ -253,12 +253,19 @@ WorkoutShareCard latestSessionShareCard({
     );
 
 /// Captures an off-screen card locally and opens the platform share sheet.
-Future<void> shareWorkoutCard(
+Future<bool> shareWorkoutCard(
     BuildContext context, WorkoutShareCard card) async {
   final Uint8List pngBytes = await _captureWorkoutCard(context, card);
-  await SharePlus.instance.share(ShareParams(files: <XFile>[
-    XFile.fromData(pngBytes, mimeType: 'image/png', name: 'mayos-workout.png'),
-  ]));
+  final ShareResult result = await SharePlus.instance.share(
+    ShareParams(files: <XFile>[
+      XFile.fromData(
+        pngBytes,
+        mimeType: 'image/png',
+        name: 'mayos-workout.png',
+      ),
+    ]),
+  );
+  return result.status != ShareResultStatus.dismissed;
 }
 
 typedef WorkoutImagePicker = Future<XFile?> Function(ImageSource source);
@@ -271,6 +278,7 @@ Future<Uint8List?> chooseWorkoutPhoto(
   BuildContext context, {
   required String languageCode,
   WorkoutImagePicker? pickImage,
+    void Function(String source)? onSourceSelected,
 }) async {
   final WorkoutCopy copy = WorkoutCopy(languageCode);
   final WorkoutImagePicker picker = pickImage ??
@@ -286,13 +294,21 @@ Future<Uint8List?> chooseWorkoutPhoto(
         await _showWorkoutPhotoChoices(context, copy);
     if (!context.mounted) return null;
     if (choice == null) return null;
-    if (choice == _WorkoutPhotoChoice.none) return null;
+    if (choice == _WorkoutPhotoChoice.none) {
+      onSourceSelected?.call('none');
+      return null;
+    }
     try {
       final ImageSource source = choice == _WorkoutPhotoChoice.camera
           ? ImageSource.camera
           : ImageSource.gallery;
       final Uint8List? photoBytes = await _pickWorkoutPhoto(picker, source);
-      if (photoBytes != null) return photoBytes;
+      if (photoBytes != null) {
+        onSourceSelected?.call(
+          choice == _WorkoutPhotoChoice.camera ? 'camera' : 'gallery',
+        );
+        return photoBytes;
+      }
     } on PlatformException {
       continue;
     }

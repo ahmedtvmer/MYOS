@@ -8,6 +8,7 @@ void main() {
   testWidgets('photo choice supports camera, gallery and no photo in English and Arabic',
       (WidgetTester tester) async {
     final List<ImageSource> picked = <ImageSource>[];
+    final List<String> selectedSources = <String>[];
     await tester.pumpWidget(MediaQuery(
       data: const MediaQueryData(textScaler: TextScaler.linear(2)),
       child: MaterialApp(
@@ -17,6 +18,7 @@ void main() {
               onPressed: () => chooseWorkoutPhoto(
                 context,
                 languageCode: 'en',
+                onSourceSelected: selectedSources.add,
                 pickImage: (ImageSource source) async {
                   picked.add(source);
                   return null;
@@ -37,13 +39,16 @@ void main() {
     await tester.tap(find.text('Take photo'));
     await tester.pumpAndSettle();
     expect(picked, <ImageSource>[ImageSource.camera]);
+    expect(selectedSources, isEmpty);
 
     await tester.tap(find.text('Choose from gallery'));
     await tester.pumpAndSettle();
     expect(picked.last, ImageSource.gallery);
+    expect(selectedSources, isEmpty);
     expect(find.text('No photo'), findsOneWidget);
     await tester.tap(find.text('No photo'));
     await tester.pumpAndSettle();
+    expect(selectedSources, <String>['none']);
   });
 
   testWidgets('picker denial returns to choices and no photo remains usable',

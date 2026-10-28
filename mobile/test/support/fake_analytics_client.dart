@@ -44,6 +44,19 @@ class FakeAnalyticsClient implements AnalyticsClient {
   }
 
   @override
+  void shareCardShared({required String source, required bool hasPhoto, required String photoSource}) {
+    if (!enabled) return;
+    events.add(<String, Object>{
+      'event': 'share_card_shared',
+      'properties': <String, Object>{
+        'source': source,
+        'has_photo': hasPhoto,
+        'photo_source': photoSource,
+      },
+    });
+  }
+
+  @override
   void installPromptShown(InstallPromptVariant variant) {
     _recordInstallEvent('install_prompt_shown', variant);
   }

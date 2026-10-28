@@ -40,6 +40,12 @@ abstract interface class AnalyticsClient {
 
   void workoutDraftDiscarded({required String workoutId});
 
+  void shareCardShared({
+    required String source,
+    required bool hasPhoto,
+    required String photoSource,
+  });
+
   void installPromptShown(InstallPromptVariant variant);
 
   void installPromptAccepted(InstallPromptVariant variant);
@@ -80,6 +86,13 @@ class NoOpAnalyticsClient implements AnalyticsClient {
 
   @override
   void workoutDraftDiscarded({required String workoutId}) {}
+
+  @override
+  void shareCardShared({
+    required String source,
+    required bool hasPhoto,
+    required String photoSource,
+  }) {}
 
   @override
   void installPromptShown(InstallPromptVariant variant) {}
@@ -269,6 +282,17 @@ class PostHogAnalyticsClient implements AnalyticsClient {
     if (!_discardedWorkoutIds.add(workoutId)) return;
     _captureWorkoutEvent('workout_draft_discarded');
   }
+
+  @override
+  void shareCardShared({
+    required String source,
+    required bool hasPhoto,
+    required String photoSource,
+  }) => _captureEvent('share_card_shared', <String, Object>{
+        'source': source,
+        'has_photo': hasPhoto,
+        'photo_source': photoSource,
+      });
 
   void _captureWorkoutEvent(String event) {
     final String? role = _currentRole;

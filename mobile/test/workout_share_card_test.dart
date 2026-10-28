@@ -6,8 +6,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mayos_mobile/src/core/models.dart';
 import 'package:mayos_mobile/src/core/personal_records.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
+import 'support/fake_analytics_client.dart';
 
 void main() {
+  test('share analytics records only approved properties once and respects opt-out', () {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    analytics.shareCardShared(source: 'finish', hasPhoto: true, photoSource: 'camera');
+    expect(analytics.events, hasLength(1));
+    expect(analytics.events.single, <String, Object>{
+      'event': 'share_card_shared',
+      'properties': <String, Object>{
+        'source': 'finish',
+        'has_photo': true,
+        'photo_source': 'camera',
+      },
+    });
+
+    analytics.setEnabled(false);
+    analytics.shareCardShared(source: 'home', hasPhoto: false, photoSource: 'none');
+    expect(analytics.events, hasLength(1));
+  });
+
   testWidgets('Home latest workout omits unknown duration but keeps session stats',
       (WidgetTester tester) async {
     final LatestSession session = LatestSession.fromJson(<String, dynamic>{

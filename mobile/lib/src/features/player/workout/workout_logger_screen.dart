@@ -2457,12 +2457,14 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 label: _copy.shareToStory,
                 icon: Icons.ios_share,
                 onPressed: () async {
+                  String photoSource = 'none';
                   final Uint8List? photo = await chooseWorkoutPhoto(
                     context,
                     languageCode: _copy.isArabic ? 'ar' : 'en',
+                    onSourceSelected: (String source) => photoSource = source,
                   );
                   if (!mounted) return;
-                  await shareWorkoutCard(
+                  final bool shared = await shareWorkoutCard(
                     context,
                     WorkoutShareCard(
                       languageCode: _copy.isArabic ? 'ar' : 'en',
@@ -2473,6 +2475,13 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                       photoBytes: photo,
                     ),
                   );
+                  if (shared) {
+                    ref.read(analyticsClientProvider).shareCardShared(
+                          source: 'finish',
+                          hasPhoto: photo != null,
+                          photoSource: photoSource,
+                        );
+                  }
                 },
               ),
             ),

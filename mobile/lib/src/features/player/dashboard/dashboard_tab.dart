@@ -220,9 +220,14 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   Future<void> _shareLatest(LatestSession session) async {
     final String language = ref.read(displayLanguageProvider);
-    final Uint8List? photo = await chooseWorkoutPhoto(context, languageCode: language);
+    String photoSource = 'none';
+    final Uint8List? photo = await chooseWorkoutPhoto(
+      context,
+      languageCode: language,
+      onSourceSelected: (String source) => photoSource = source,
+    );
     if (!mounted) return;
-    await shareWorkoutCard(
+    final bool shared = await shareWorkoutCard(
       context,
       latestSessionShareCard(
         session: session,
@@ -230,6 +235,13 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
         photoBytes: photo,
       ),
     );
+    if (shared) {
+      ref.read(analyticsClientProvider).shareCardShared(
+            source: 'home',
+            hasPhoto: photo != null,
+            photoSource: photoSource,
+          );
+    }
   }
 
   Future<void> _openCheckpointReview(int checkpoint) async {
