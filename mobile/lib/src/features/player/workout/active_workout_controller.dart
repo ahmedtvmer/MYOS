@@ -235,7 +235,7 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
         replaced: item.replaced, targetLabel: item.targetLabel, prescriptionHint: item.prescriptionHint,
         effectiveSets: item.effectiveSets);
     }).toList(growable: false);
-    await _persist(latest.copyWith(exercises: refreshed));
+    await _persist(latest.copyWith(exercises: refreshed), keepResumeOffer: true);
   }
 
   bool _sameWorkoutSession(ActiveWorkout? latest, ActiveWorkout captured) =>
@@ -262,7 +262,7 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
         effectiveSets: item.effectiveSets,
       );
     }).toList(growable: false);
-    await _persist(current.copyWith(exercises: refreshed));
+    await _persist(current.copyWith(exercises: refreshed), keepResumeOffer: true);
   }
 
   /// Re-reads the stored Active workout whenever the session's account
@@ -1405,14 +1405,15 @@ class ActiveWorkoutController extends StateNotifier<ActiveWorkoutState> {
   /// UI always reflects the change even if protected storage is briefly
   /// unavailable. Writes run one after another on [_writeChain], so the last
   /// state written is the last state stored (#123 item 5).
-  Future<void> _persist(ActiveWorkout workout) {
+  Future<void> _persist(ActiveWorkout workout, {bool keepResumeOffer = false}) {
     if (mounted) {
       state = ActiveWorkoutState(
         accountId: workout.accountId,
         ready: true,
         workout: workout,
-        // A workout the player just started is not a resume candidate.
-        restoredFromDevice: false,
+        // A workout the player just started is not a resume candidate; a
+        // background refresh of a restored one keeps the Resume offer.
+        restoredFromDevice: keepResumeOffer && state.restoredFromDevice,
       );
     }
     return _enqueue(() => _store.write(workout.accountId, workout));
