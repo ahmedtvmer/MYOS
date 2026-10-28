@@ -711,10 +711,97 @@ def test_weight_trend_alert_fires_with_evidence_and_respects_fourteen_day_cooldo
     second = client.post(
         "/profile/weight", headers=player_headers, json={"weight_kg": 76.0}
     )
-
     assert second.status_code == 200, second.text
     assert len(client.get("/coach/alerts", headers=coach_headers).json()["alerts"]) == 1
     assert len(db.list_coach_alerts(coach_account_id, ("new",))) == 1
+
+
+def test_delete_injury_is_player_scoped_cascades_clearances_and_alerts(api):
+    from service import injuries as injuries_service
+
+    client, db = api
+    coach_headers, player_headers, assignment_id, _ = _assign(
+        api, "injury-delete-coach", "injury-delete-player"
+    )
+    injury_response = client.post(
+        "/profile/injuries",
+        headers=player_headers,
+        json={"body_area": "knee", "description": "mistaken knee record"},
+    )
+    assert injury_response.status_code == 201
+    injury_id = injury_response.json()["id"]
+    player = db.get_active_account_by_username("injury-delete-player")
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        ledger.upsert_player_profile({"movement_restrictions": ["Knee flexion"]})
+        ledger.conn.execute(
+            "UPDATE injury_records SET source_event_key = ? WHERE id = ?",
+            ("chat:replayed-injury-event", injury_id),
+        )
+        ledger.conn.commit()
+        clearance = injuries_service.create_exercise_clearance(
+            db,
+            ledger,
+            injury_id,
+            player_account_id=player["account_id"],
+            exercise_name="Squat",
+            original_wording="Doctor said squat is okay",
+            verdict="cleared",
+        )
+    assert clearance is not None
+
+    other_player = _register(client, "injury-delete-other")
+    other_headers = _authed(other_player["access_token"])
+    denied = client.delete(f"/profile/injuries/{injury_id}", headers=other_headers)
+    assert denied.status_code == 404
+
+    deleted = client.delete(f"/profile/injuries/{injury_id}", headers=player_headers)
+    assert deleted.status_code == 204
+    assert client.get("/profile/injuries", headers=player_headers).json() == []
+    assert client.get("/profile", headers=player_headers).json()["movement_restrictions"] == [
+        "Knee flexion"
+    ]
+    coach_summary = client.get(
+        f"/coach/assignments/{assignment_id}/player/summary", headers=coach_headers
+    )
+    assert coach_summary.status_code == 200, coach_summary.text
+    assert coach_summary.json()["injuries"] == []
+    with db.open_ledger(player["ledger_id"]) as ledger:
+        assert ledger.get_injury_record(injury_id) is None
+        assert ledger.get_exercise_clearance(clearance["id"]) is None
+        replay = injuries_service.create_injury(
+            db,
+            ledger,
+            player_account_id=player["account_id"],
+            body_area="knee",
+            description="mistaken knee record",
+            source_event_key="chat:replayed-injury-event",
+        )
+        assert replay is None
+        import json
+        from agent.player_tools import build_player_read_tools
+
+        tools, _ = build_player_read_tools(ledger)
+        injury_tool = next(tool for tool in tools if tool.name == "get_player_injuries")
+        assert json.loads(injury_tool.invoke({})) == {"status": "ok", "injuries": []}
+    alerts = _profile_alerts(client, coach_headers)
+    assert any(
+        (alert.get("injury_changes") or {}).get(injury_id, {}).get("change") == "deleted"
+        for alert in alerts
+    ), alerts
+
+
+def test_create_injury_route_handles_a_suppressed_deleted_source(api, monkeypatch):
+    client, _ = api
+    player_headers = _authed(_register(client, "suppressed-injury-source")["access_token"])
+    monkeypatch.setattr("service.injuries.create_injury", lambda *args, **kwargs: None)
+
+    response = client.post(
+        "/profile/injuries",
+        headers=player_headers,
+        json={"body_area": "knee", "description": "Knee pain"},
+    )
+
+    assert response.status_code == 409
 
 
 def test_weight_trend_alert_skips_toward_target_and_without_active_assignment(

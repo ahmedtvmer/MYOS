@@ -125,6 +125,7 @@ class FakeMyosApi {
   int _injuryId = 0;
   int injuryCreateRequests = 0;
   int injuryUpdateRequests = 0;
+  int injuryDeleteRequests = 0;
   Map<String, dynamic>? lastInjuryUpdatePayload;
   int clearanceUpdateRequests = 0;
   int clearanceDeleteRequests = 0;
@@ -3875,6 +3876,13 @@ class FakeMyosApi {
       return _createInjury(request);
     }
     final List<String> segments = request.path.split('/');
+    if (request.method == 'DELETE' && segments.length == 4) {
+      injuryDeleteRequests++;
+      final int index = injuries.indexWhere((Map<String, dynamic> item) => item['id'] == segments[3]);
+      if (index < 0) return const FakeResponse(404, <String, dynamic>{'detail': 'Injury not found.'});
+      injuries.removeAt(index);
+      return const FakeResponse(204, null);
+    }
     if (segments.length == 6 && segments[4] == 'clearances') {
       final Map<String, dynamic>? injury = injuries.cast<Map<String, dynamic>?>().firstWhere(
         (Map<String, dynamic>? item) => item?['id'] == segments[3],

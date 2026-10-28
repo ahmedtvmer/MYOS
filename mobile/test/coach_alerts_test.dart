@@ -6,6 +6,7 @@ import 'package:myos_mobile/src/core/app_mode.dart';
 import 'package:myos_mobile/src/core/api_client.dart';
 import 'package:myos_mobile/src/core/display_language/controller.dart';
 import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:myos_mobile/src/core/display_language/message_copy.dart';
 import 'package:myos_mobile/src/core/token_store.dart';
 import 'package:myos_mobile/src/providers.dart';
 
@@ -230,6 +231,22 @@ Future<void> _openAlertCenter(WidgetTester tester) async {
 }
 
 void main() {
+  test('deleted injury evidence is localized for the Coach alert', () {
+    final Map<String, Map<String, dynamic>> injuryChanges = <String, Map<String, dynamic>>{
+      'injury-removed': <String, dynamic>{
+        'body_area': 'knee', 'status': 'reported', 'change': 'deleted',
+      },
+    };
+    expect(
+      const MessageCopy('en').profileChangeEvidence(null, injuryChanges),
+      contains('Knee: Injury record removed'),
+    );
+    expect(
+      const MessageCopy('ar').profileChangeEvidence(null, injuryChanges),
+      contains('الركبة: تم حذف سجل الإصابة'),
+    );
+  });
+
   testWidgets('all alert kinds fit a 360 dp phone and actions work in both languages',
       (WidgetTester tester) async {
     late FakeMyosApi fake;

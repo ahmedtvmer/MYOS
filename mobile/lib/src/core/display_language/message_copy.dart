@@ -604,6 +604,11 @@ class MessageCopy {
           final String area = '${item['body_area'] ?? ''}';
           final String status = '${item['status'] ?? ''}';
           final String areaLabel = areas[area] ?? (isArabic ? 'منطقة غير محددة' : 'Unknown area');
+          if (item['change'] == 'deleted') {
+            return isArabic
+                ? '$areaLabel: تم حذف سجل الإصابة'
+                : '$areaLabel: Injury record removed';
+          }
           final String statusLabel = statuses[status] ?? status;
           return '$areaLabel: $statusLabel';
         })

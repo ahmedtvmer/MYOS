@@ -2245,6 +2245,10 @@ class ApiClient {
     );
   }
 
+  Future<void> deleteInjury({required String id}) async {
+    await _send(() => _dio.delete<dynamic>('/profile/injuries/$id'));
+  }
+
   Future<ExerciseClearance> updateExerciseClearance({
     required String injuryId,
     required String id,

@@ -703,6 +703,39 @@ def test_non_confirmed_confirmation_response_keeps_intake_copy_contract(
     assert _intake_copy_contract(response.json()) == _intake_copy_contract(original)
 
 
+@pytest.mark.parametrize(
+    ("replacement", "expected_descriptions"),
+    [
+        ("Left knee pain", []),
+        ("New shoulder pain", ["New shoulder pain"]),
+    ],
+)
+def test_intake_confirmation_handles_deleted_legacy_injury_by_text(
+    api, monkeypatch, replacement, expected_descriptions
+):
+    client, db, _ = api
+    headers = _register(client, "legacy-intake-player")
+    _spy_generation(db, monkeypatch)
+    _ack(client, headers)
+    answers = dict(VALID_ANSWERS)
+    answers["injuries_or_limitations"] = "Left knee pain"
+    _fill(client, headers, answers)
+    injury = client.get("/profile/injuries", headers=headers).json()[0]
+    deleted = client.delete(f"/profile/injuries/{injury['id']}", headers=headers)
+    assert deleted.status_code == 204
+    if replacement != "Left knee pain":
+        db.switch_user("legacy-intake-player")
+        db.ledger.save_intake_answer(
+            "injuries_or_limitations", replacement, prefilled=False
+        )
+
+    confirmed = client.post("/onboarding/intake/confirm", headers=headers)
+
+    assert confirmed.status_code == 200, confirmed.text
+    injuries = client.get("/profile/injuries", headers=headers).json()
+    assert [item["description"] for item in injuries] == expected_descriptions
+
+
 def test_editing_before_confirm_flows_into_profile_and_program(api, monkeypatch):
     """AC2: editing an earlier answer must change the confirmed profile and program."""
     client, db, _ = api

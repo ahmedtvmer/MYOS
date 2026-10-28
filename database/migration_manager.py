@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 51
+CURRENT_LEDGER_SCHEMA_VERSION: int = 52
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -42,6 +42,12 @@ PROGRAM_DESIGN_OFFER_DDL: tuple[str, ...] = (
 
 PROGRAM_EXERCISE_LOAD_COLUMN = "load_json TEXT"
 PROGRAM_EXERCISE_SET_GROUPS_COLUMN = "set_groups_json TEXT"
+
+DELETED_INJURY_SOURCE_EVENTS_DDL = (
+    "CREATE TABLE IF NOT EXISTS deleted_injury_source_events ("
+    " source_event_key TEXT PRIMARY KEY, description TEXT NOT NULL, deleted_at TEXT NOT NULL"
+    ")"
+)
 
 ASSISTANT_PREFERENCES_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS assistant_preferences ("
@@ -292,6 +298,7 @@ EXERCISE_CLEARANCES_DDL: tuple[str, ...] = (
     " candidates_json TEXT NOT NULL,"
     " updated_at TEXT NOT NULL"
     ")",
+    DELETED_INJURY_SOURCE_EVENTS_DDL,
 )
 
 
@@ -1205,6 +1212,11 @@ def _migrate_v50_to_v51(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE user_profile ADD COLUMN movement_restrictions_json TEXT NOT NULL DEFAULT '[]'")
 
 
+def _migrate_v51_to_v52(conn: sqlite3.Connection) -> None:
+    """Keeps deleted chat injury source keys consumed (#551)."""
+    conn.execute(DELETED_INJURY_SOURCE_EVENTS_DDL)
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1341,6 +1353,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     48: _migrate_v48_to_v49,
     49: _migrate_v49_to_v50,
     50: _migrate_v50_to_v51,
+    51: _migrate_v51_to_v52,
 }
 
 

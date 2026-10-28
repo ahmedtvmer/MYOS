@@ -75,6 +75,11 @@ class LedgerProfileMixin:
     ) -> tuple[dict[str, Any], bool]:
         injury_id = uuid.uuid4().hex
         with self.ledger_transaction():
+            if source_event_key and self.conn.execute(
+                "SELECT 1 FROM deleted_injury_source_events WHERE source_event_key = ?",
+                (source_event_key,),
+            ).fetchone():
+                return {}, False
             inserted = self.conn.execute(
                 "INSERT OR IGNORE INTO injury_records "
                 "(id, body_area, description, reported_at, status, source_event_key, clarification_pending) "
@@ -101,6 +106,25 @@ class LedgerProfileMixin:
                 ).fetchone()
         result = dict(row) if row else {}
         return result, bool(result and inserted.rowcount == 1)
+
+    def delete_injury_record(self, injury_id: str) -> dict[str, Any] | None:
+        """Permanently removes an injury, its clearances, and preserves replay keys."""
+        with self.ledger_transaction():
+            record = self.get_injury_record(injury_id)
+            if record is None:
+                return None
+            source = self.conn.execute(
+                "SELECT source_event_key FROM injury_records WHERE id = ?",
+                (str(injury_id),),
+            ).fetchone()
+            if source and source[0]:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO deleted_injury_source_events "
+                    "(source_event_key, description, deleted_at) VALUES (?, ?, ?)",
+                    (source[0], record["description"], datetime.now(UTC).isoformat()),
+                )
+            self.conn.execute("DELETE FROM injury_records WHERE id = ?", (str(injury_id),))
+        return record
 
     def update_injury_record(
         self,
