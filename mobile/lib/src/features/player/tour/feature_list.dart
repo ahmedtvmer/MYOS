@@ -36,6 +36,27 @@ class FeatureEntry {
   final String audience;
 }
 
+List<String> validateFeatureEntries(
+  List<FeatureEntry> entries, {
+  required Set<String> validTargetIds,
+}) {
+  final List<String> errors = <String>[];
+  final Set<String> seenIds = <String>{};
+  for (final FeatureEntry entry in entries) {
+    if (!seenIds.add(entry.id)) errors.add('${entry.id}: duplicate id');
+    if (entry.titleEn.trim().isEmpty) errors.add('${entry.id}: titleEn is empty');
+    if (entry.sentenceEn.trim().isEmpty) errors.add('${entry.id}: sentenceEn is empty');
+    if (entry.titleAr.trim().isEmpty) errors.add('${entry.id}: titleAr is empty');
+    if (entry.sentenceAr.trim().isEmpty) errors.add('${entry.id}: sentenceAr is empty');
+    if (!validTargetIds.contains(entry.target)) {
+      errors.add('${entry.id}: unknown target ${entry.target}');
+    }
+    if (entry.release < 0) errors.add('${entry.id}: release is negative');
+    if (entry.audience != 'lifter') errors.add('${entry.id}: audience is not lifter');
+  }
+  return errors;
+}
+
 const List<FeatureEntry> featureList = <FeatureEntry>[
   FeatureEntry(
     id: 'home',

@@ -2,23 +2,40 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
 import 'package:myos_mobile/src/router.dart';
 
 void main() {
+  test('Feature list check reports entries missing Arabic copy', () {
+    final List<String> errors = validateFeatureEntries(
+      <FeatureEntry>[
+        FeatureEntry(
+          id: 'missing_arabic',
+          titleEn: 'Feature',
+          sentenceEn: 'A feature sentence.',
+          titleAr: '   ',
+          sentenceAr: 'جملة الميزة.',
+          target: 'home',
+          location: const TourShellTabLocation(tabIndex: 0),
+          release: 0,
+          audience: 'lifter',
+        ),
+      ],
+      validTargetIds: <String>{'home'},
+    );
+
+    expect(errors, contains(contains('titleAr')));
+  });
+
   test('Feature list copy, targets, and Tour stop ids are valid', () {
     const Set<String> targetIds = <String>{'home', 'program', 'assistant', 'nutrition', 'progress', 'profile', 'feature_guide', 'whats_new_weak_points', 'whats_new_movements_to_avoid', 'whats_new_add_exercises', 'whats_new_assistant_why', 'whats_new_edit_program_chat'};
     final Set<String> ids = featureList.map((FeatureEntry entry) => entry.id).toSet();
 
     expect(ids.length, featureList.length);
-    for (final FeatureEntry entry in featureList) {
-      expect(entry.titleEn.trim(), isNotEmpty, reason: entry.id);
-      expect(entry.sentenceEn.trim(), isNotEmpty, reason: entry.id);
-      expect(entry.titleAr.trim(), isNotEmpty, reason: entry.id);
-      expect(entry.sentenceAr.trim(), isNotEmpty, reason: entry.id);
-      expect(targetIds, contains(entry.target), reason: entry.id);
-      expect(entry.release, greaterThanOrEqualTo(0));
-      expect(entry.audience, 'lifter');
-    }
+    expect(
+      validateFeatureEntries(featureList, validTargetIds: targetIds),
+      isEmpty,
+    );
     expect(tourV1StopIds, <String>['home', 'program', 'assistant', 'nutrition', 'progress', 'profile', 'feature_guide']);
     expect(featureList.length, 12);
     const Map<String, String> releaseOneTargets = <String, String>{
