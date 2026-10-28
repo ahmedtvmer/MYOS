@@ -2128,7 +2128,11 @@ class InjuryRecord {
         description: json['description'] as String,
         reportedAt: json['reported_at'] as String,
         status: json['status'] as String,
-        clarificationPending: json['clarification_pending'] as bool? ?? false,
+        clarificationPending: switch (json['clarification_pending']) {
+          final bool flag => flag,
+          final num flag => flag != 0,
+          _ => false,
+        },
         clearances: (json['clearances'] as List<dynamic>? ?? const <dynamic>[])
             .map((dynamic item) => ExerciseClearance.fromJson(
                 item as Map<String, dynamic>))

@@ -153,11 +153,15 @@ def injury_body_parts(body_area: str | None) -> tuple[str, ...]:
 
 def render_injury_record(record: dict[str, Any]) -> dict[str, Any]:
     area = normalize_body_area(record.get("body_area"))
-    return {
+    rendered = {
         **record,
         "body_area": area,
         "catalog_body_parts": list(injury_body_parts(area)),
     }
+    if "clarification_pending" in rendered:
+        # SQLite stores the flag as 0/1; clients expect a JSON boolean.
+        rendered["clarification_pending"] = bool(rendered["clarification_pending"])
+    return rendered
 
 
 def is_none_answer(value: Any) -> bool:
