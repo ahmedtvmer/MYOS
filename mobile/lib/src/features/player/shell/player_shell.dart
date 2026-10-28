@@ -265,10 +265,14 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     return MyosScaffold(
       header: MyosAppHeader(
         actions: <Widget>[
-          IconButton(
-            tooltip: copy.assistant,
-            onPressed: () => context.push(chatPath),
-            icon: const Icon(Icons.chat_bubble_outline),
+          TourTarget(
+            id: 'assistant',
+            location: const TourShellTabLocation(tabIndex: 0),
+            child: IconButton(
+              tooltip: copy.assistant,
+              onPressed: () => context.push(chatPath),
+              icon: const Icon(Icons.chat_bubble_outline),
+            ),
           ),
           IconButton(
             tooltip: settingsLabel,

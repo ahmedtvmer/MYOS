@@ -21,6 +21,7 @@ import '../../../core/ui/first_strong_direction.dart';
 import '../../../core/workout_equipment.dart';
 import '../../../core/weight_limits.dart';
 import '../../../providers.dart';
+import '../tour/tour_targets.dart';
 import '../../../router.dart';
 import 'progress_chart.dart';
 
@@ -291,11 +292,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         padding: const EdgeInsets.fromLTRB(MyosSpacing.lg, MyosSpacing.md,
             MyosSpacing.lg, MyosSpacing.xxl),
         children: <Widget>[
-          Text(
-            displayCopyOf(context).progress,
-            style: MyosTypography.of(context).display.copyWith(
-              fontSize: 34,
-              color: c.textPrimary,
+          TourTarget(
+            id: 'progress',
+            location: const TourShellTabLocation(tabIndex: 3),
+            child: Text(
+              displayCopyOf(context).progress,
+              style: MyosTypography.of(context).display.copyWith(
+                fontSize: 34,
+                color: c.textPrimary,
+              ),
             ),
           ),
           const SizedBox(height: MyosSpacing.lg),

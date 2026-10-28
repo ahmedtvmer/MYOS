@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/app_failure.dart';
@@ -20,7 +21,9 @@ import '../../../core/ui/myos_section_header.dart';
 import '../../../core/ui/myos_text_field.dart';
 import '../../../core/ui/first_strong_direction.dart';
 import '../../../providers.dart';
+import '../../../router.dart';
 import '../tour/tour_targets.dart';
+import '../tour/tour_controller.dart';
 import '../onboarding/onboarding_widgets.dart'
     show isFieldAnswerValid, optionLabel;
 
@@ -1240,6 +1243,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: MyosSpacing.md),
+        MyosSectionHeader(title: copy.guides),
+        TourTarget(
+          id: 'feature_guide',
+          location: const TourRouteLocation('/profile'),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(copy.featureGuide),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(featureGuidePath),
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(copy.replayTour),
+          trailing: const Icon(Icons.replay),
+          onTap: () => ref.read(tourControllerProvider.notifier).startTour(
+                ref.read(tourCurrentVersionProvider), replay: true,
+              ),
         ),
         const SizedBox(height: MyosSpacing.xxl),
       ],

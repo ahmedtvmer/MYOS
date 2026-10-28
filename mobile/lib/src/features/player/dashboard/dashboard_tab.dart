@@ -393,24 +393,12 @@ class _HomeBody extends StatelessWidget {
             _InlineNotice(message: copy.failureMessage(data.partialError!)),
           ],
           const SizedBox(height: MyosSpacing.xl),
-          if (activeProgram != null)
-            TourTarget(
-              id: 'program',
-              location: const TourShellTabLocation(tabIndex: 0),
-              child: _ProgramSection(
-                program: activeProgram,
-                assignment: assignment,
-                onOpenProgram: onOpenProgram,
-                copy: copy,
-              ),
-            )
-          else
-            _ProgramSection(
-              program: activeProgram,
-              assignment: assignment,
-              onOpenProgram: onOpenProgram,
-              copy: copy,
-            ),
+          _ProgramSection(
+            program: activeProgram,
+            assignment: assignment,
+            onOpenProgram: onOpenProgram,
+            copy: copy,
+          ),
           if (pendingDrafts > 0) ...<Widget>[
             const SizedBox(height: MyosSpacing.md),
             _DraftsBanner(count: pendingDrafts, onTap: onOpenDrafts),

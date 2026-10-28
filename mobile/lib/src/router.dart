@@ -66,6 +66,7 @@ const String assistantPreferencesPath = '/assistant-preferences';
 const String lifterPlanPath = '/lifter-plan';
 const String coachPlanPath = '/coach-plan';
 const String profilePath = '/profile';
+const String featureGuidePath = '/feature-guide';
 const String coachPath = '/coach';
 const String coachRosterRoutePath = 'roster';
 const String coachAssignmentRoutePath = ':assignmentId';
