@@ -273,6 +273,10 @@ class WorkoutCopy {
       : 'Workout saved to your training history.';
   String get workoutSummary => isArabic ? 'ملخص الحصة' : 'Workout summary';
   String get shareToStory => isArabic ? 'مشاركة في القصة' : 'Share to Story';
+  String get takePhoto => isArabic ? 'التقط صورة' : 'Take photo';
+  String get choosePhotoFromGallery =>
+      isArabic ? 'اختر من المعرض' : 'Choose from gallery';
+  String get noPhoto => isArabic ? 'بدون صورة' : 'No photo';
   String get backToWorkout => isArabic ? 'العودة إلى الحصة' : 'Back to workout';
   String get saveWorkout => isArabic ? 'حفظ الحصة' : 'Save workout';
   String get done => isArabic ? 'تم' : 'Done';

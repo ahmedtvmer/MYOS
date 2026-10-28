@@ -1,8 +1,9 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -19,6 +20,7 @@ class WorkoutShareCard extends StatelessWidget {
     required this.duration,
     required this.stats,
     required this.records,
+    this.photoBytes,
     super.key,
   });
 
@@ -27,6 +29,7 @@ class WorkoutShareCard extends StatelessWidget {
   final Duration duration;
   final WorkoutSummaryStats stats;
   final List<WorkoutRecord> records;
+  final Uint8List? photoBytes;
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
@@ -86,6 +89,34 @@ class WorkoutShareCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
+            if (photoBytes case final Uint8List photo)
+              Positioned.fill(
+                child: Image.memory(
+                  photo,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  cacheWidth: 1080,
+                  cacheHeight: 1920,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            if (photoBytes != null)
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: <Color>[
+                        Color(0x33010814),
+                        Color(0x66010814),
+                        Color(0xf2010814),
+                      ],
+                      stops: <double>[0, 0.52, 1],
+                    ),
+                  ),
+                ),
+              ),
             Align(
               alignment: Alignment.topCenter,
               child: Padding(
@@ -199,6 +230,96 @@ Future<void> shareWorkoutCard(
   await SharePlus.instance.share(ShareParams(files: <XFile>[
     XFile.fromData(pngBytes, mimeType: 'image/png', name: 'mayos-workout.png'),
   ]));
+}
+
+typedef WorkoutImagePicker = Future<XFile?> Function(ImageSource source);
+
+enum _WorkoutPhotoChoice { camera, gallery, none }
+
+/// Shows the on-device photo choice. A cancelled or denied picker returns to
+/// this sheet, so skipping the photo is always available.
+Future<Uint8List?> chooseWorkoutPhoto(
+  BuildContext context, {
+  required String languageCode,
+  WorkoutImagePicker? pickImage,
+}) async {
+  final WorkoutCopy copy = WorkoutCopy(languageCode);
+  final WorkoutImagePicker picker = pickImage ??
+      (ImageSource source) => ImagePicker().pickImage(
+            source: source,
+            maxWidth: 1920,
+            maxHeight: 3414,
+            imageQuality: 90,
+          );
+  while (context.mounted) {
+    if (!context.mounted) return null;
+    final _WorkoutPhotoChoice? choice =
+        await _showWorkoutPhotoChoices(context, copy);
+    if (!context.mounted) return null;
+    if (choice == null) return null;
+    if (choice == _WorkoutPhotoChoice.none) return null;
+    try {
+      final ImageSource source = choice == _WorkoutPhotoChoice.camera
+          ? ImageSource.camera
+          : ImageSource.gallery;
+      final Uint8List? photoBytes = await _pickWorkoutPhoto(picker, source);
+      if (photoBytes != null) return photoBytes;
+    } on PlatformException {
+      continue;
+    }
+  }
+  return null;
+}
+
+Future<_WorkoutPhotoChoice?> _showWorkoutPhotoChoices(
+    BuildContext context, WorkoutCopy copy) =>
+    showModalBottomSheet<_WorkoutPhotoChoice>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                _photoChoiceTile(
+                  sheetContext,
+                  _WorkoutPhotoChoice.camera,
+                  Icons.photo_camera_outlined,
+                  copy.takePhoto,
+                ),
+                _photoChoiceTile(
+                  sheetContext,
+                  _WorkoutPhotoChoice.gallery,
+                  Icons.photo_library_outlined,
+                  copy.choosePhotoFromGallery,
+                ),
+                _photoChoiceTile(
+                  sheetContext,
+                  _WorkoutPhotoChoice.none,
+                  Icons.block_outlined,
+                  copy.noPhoto,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+ListTile _photoChoiceTile(BuildContext context, _WorkoutPhotoChoice choice,
+        IconData icon, String label) =>
+    ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: () => Navigator.pop(context, choice),
+    );
+
+Future<Uint8List?> _pickWorkoutPhoto(
+    WorkoutImagePicker picker, ImageSource source) async {
+  final XFile? photoFile = await picker(source);
+  return photoFile?.readAsBytes();
 }
 
 Future<Uint8List> _captureWorkoutCard(

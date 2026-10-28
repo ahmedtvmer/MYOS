@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,28 @@ import 'package:mayos_mobile/src/core/personal_records.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 
 void main() {
+  testWidgets('photo background uses centred cover crop and bounded decoding',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: WorkoutShareCard(
+          languageCode: 'en',
+          dayName: null,
+          duration: Duration(minutes: 1),
+          stats: WorkoutSummaryStats(
+              exercisesDone: 1, workingSets: 1, totalVolumeKg: 10),
+          records: <WorkoutRecord>[],
+          photoBytes: Uint8List.fromList(<int>[1, 2, 3]),
+        ),
+      ),
+    ));
+    final Image photo = tester.widget<Image>(find.byType(Image).first);
+    expect(photo.fit, BoxFit.cover);
+    expect(photo.alignment, Alignment.center);
+    expect((photo.image as ResizeImage).width, 1080);
+    expect((photo.image as ResizeImage).height, 1920);
+  });
+
   testWidgets('card shows lifting stats, day and exercise-count PR badge',
       (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(

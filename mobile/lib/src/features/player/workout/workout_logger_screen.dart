@@ -2451,16 +2451,24 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 key: const ValueKey<String>('logger.shareStory'),
                 label: _copy.shareToStory,
                 icon: Icons.ios_share,
-                onPressed: () => shareWorkoutCard(
-                  context,
-                  WorkoutShareCard(
+                onPressed: () async {
+                  final Uint8List? photo = await chooseWorkoutPhoto(
+                    context,
                     languageCode: _copy.isArabic ? 'ar' : 'en',
-                    dayName: workout?.dayName,
-                    duration: summary.duration,
-                    stats: summary.stats,
-                    records: summary.records,
-                  ),
-                ),
+                  );
+                  if (!mounted) return;
+                  await shareWorkoutCard(
+                    context,
+                    WorkoutShareCard(
+                      languageCode: _copy.isArabic ? 'ar' : 'en',
+                      dayName: workout?.dayName,
+                      duration: summary.duration,
+                      stats: summary.stats,
+                      records: summary.records,
+                      photoBytes: photo,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: MayosSpacing.sm),
