@@ -150,10 +150,13 @@ def test_tour_seen_version_is_account_scoped_and_defaults_to_unseen(api):
     with _db.catalog_locked() as conn:
         conn.execute("ALTER TABLE accounts DROP COLUMN tour_created_version")
         conn.execute("ALTER TABLE accounts DROP COLUMN tour_seen_version")
+        conn.execute("ALTER TABLE accounts DROP COLUMN whats_new_seen_release")
     _db._account_schema_ready = False
 
     assert _me(client, alice)["tour_seen_version"] == 0
     assert _me(client, bob)["tour_seen_version"] == 0
+    assert _me(client, alice)["whats_new_seen_release"] == 0
+    assert _me(client, bob)["whats_new_seen_release"] == 0
     saved = client.put("/auth/tour-seen", headers=_authed(alice), json={"version": 1})
     assert saved.status_code == 200, saved.text
     assert saved.json() == {"tour_seen_version": 1}

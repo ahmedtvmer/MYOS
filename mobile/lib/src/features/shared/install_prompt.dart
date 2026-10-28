@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/analytics_client.dart';
 import '../../core/display_language/controller.dart';
@@ -15,6 +16,9 @@ import '../../core/theme/myos_theme.dart';
 import '../../core/theme/myos_typography.dart';
 import '../../core/ui/myos_button.dart';
 import '../../providers.dart';
+import '../../router.dart';
+import '../player/tour/tour_controller.dart';
+import '../player/tour/tour_targets.dart';
 
 final Provider<InstallPromptStore> installPromptStoreProvider =
     Provider<InstallPromptStore>((ref) => platform.createInstallPromptStore(
@@ -103,6 +107,9 @@ final installPromptDelayProvider = Provider<Duration>(
   (ref) => const Duration(milliseconds: 1500),
 );
 
+final discoverySheetActiveProvider = StateProvider<bool>((ref) => false);
+final installPromptDialogActiveProvider = StateProvider<bool>((ref) => false);
+
 class InstallPromptHost extends ConsumerStatefulWidget {
   const InstallPromptHost({super.key, required this.child, this.enabled = true});
 
@@ -116,12 +123,21 @@ class InstallPromptHost extends ConsumerStatefulWidget {
 class _InstallPromptHostState extends ConsumerState<InstallPromptHost> {
   Timer? _timer;
   bool _scheduled = false;
+  GoRouter? _observedRouter;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final GoRouter router = ref.read(routerProvider);
+    if (_observedRouter != router) {
+      _observedRouter?.routerDelegate.removeListener(_onRouteChanged);
+      _observedRouter = router;
+      router.routerDelegate.addListener(_onRouteChanged);
+    }
     _schedule();
   }
+
+  void _onRouteChanged() => _schedule();
 
   @override
   void didUpdateWidget(InstallPromptHost oldWidget) {
@@ -140,11 +156,18 @@ class _InstallPromptHostState extends ConsumerState<InstallPromptHost> {
       if (currentRoute != null && !currentRoute.isCurrent) return;
       final InstallPromptController controller =
           ref.read(installPromptProvider.notifier);
+      final String route = currentTourRoutePath(ref.read(routerProvider));
       if (controller.dialogOpened || ref.read(installPromptProvider) == null) {
+        return;
+      }
+      if (ref.read(tourControllerProvider) != null ||
+          ref.read(discoverySheetActiveProvider) ||
+          route == featureGuidePath || route == whatsNewPath) {
         return;
       }
       _scheduled = true;
       controller.markDialogOpened();
+      ref.read(installPromptDialogActiveProvider.notifier).state = true;
       unawaited(showDialog<void>(
         context: context,
         barrierDismissible: true,
@@ -153,6 +176,9 @@ class _InstallPromptHostState extends ConsumerState<InstallPromptHost> {
           onInstall: controller.accept,
         ),
       ).then((_) {
+        if (mounted) {
+          ref.read(installPromptDialogActiveProvider.notifier).state = false;
+        }
         if (mounted && ref.read(installPromptProvider) != null) {
           unawaited(controller.dismiss());
         }
@@ -163,11 +189,22 @@ class _InstallPromptHostState extends ConsumerState<InstallPromptHost> {
   @override
   void dispose() {
     _timer?.cancel();
+    _observedRouter?.routerDelegate.removeListener(_onRouteChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TourSession?>(tourControllerProvider, (_, next) {
+      if (next == null) _schedule();
+    });
+    ref.listen<bool>(discoverySheetActiveProvider, (_, active) {
+      if (active) {
+        _timer?.cancel();
+      } else {
+        _schedule();
+      }
+    });
     ref.listen<InstallPromptVariant?>(installPromptProvider, (previous, next) {
       if (next != null && previous == null) _schedule();
     });

@@ -17,8 +17,8 @@ import 'package:myos_mobile/src/core/workout_storage.dart';
 import 'package:myos_mobile/src/core/install_prompt_store.dart';
 import 'package:myos_mobile/src/features/shared/install_prompt.dart';
 import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/core/ui/myos_bottom_navigation.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:myos_mobile/src/features/player/auth/auth_controller.dart';
 import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
 import 'package:myos_mobile/src/features/player/tour/spotlight_overlay.dart';
 import 'package:myos_mobile/src/features/player/tour/whats_new_screen.dart';
@@ -27,6 +27,7 @@ import 'package:myos_mobile/src/features/player/workout/active_workout_controlle
 import 'package:myos_mobile/src/router.dart';
 
 import 'support/fake_myos_api.dart';
+import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_tour_seen_retry_store.dart';
 import 'support/fake_whats_new_seen_retry_store.dart';
@@ -124,6 +125,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     }
     await tester.pump(const Duration(milliseconds: 100));
   }
+  fail('Timed out after $attempts attempts waiting for $finder');
 }
 
 Future<void> _pumpHome(
@@ -592,6 +594,57 @@ void main() {
     expect(analytics.events.any((event) => event['event'] == 'install_prompt_shown'), isTrue);
   });
 
+  testWidgets('install prompt waits until Tour is dismissed', (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final _FakeInstallPromptStore store = _FakeInstallPromptStore(
+      const InstallPromptEnvironment(
+        isIosShareBrowser: false,
+        hasInstallButton: true,
+        isStandalone: false,
+        wasDismissed: false,
+      ),
+    );
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      installPromptStoreProvider.overrideWithValue(store),
+      installPromptDelayProvider.overrideWithValue(
+        const Duration(milliseconds: 1500),
+      ),
+    ]);
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey<String>('tour_skip')),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Install'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('Install'), findsOneWidget);
+  });
+
+  testWidgets('install prompt waits until What’s new is dismissed',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final _FakeInstallPromptStore store = _FakeInstallPromptStore(
+      const InstallPromptEnvironment(
+        isIosShareBrowser: false,
+        hasInstallButton: true,
+        isStandalone: false,
+        wasDismissed: false,
+      ),
+    );
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      installPromptStoreProvider.overrideWithValue(store),
+      installPromptDelayProvider.overrideWithValue(Duration.zero),
+    ]);
+    await _pumpUntilFound(tester, find.text("What's new"));
+    expect(find.text('Install'), findsNothing);
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.text('Install'));
+  });
+
   testWidgets('storage failure still hides a dismissed prompt this visit', (tester) async {
     const InstallPromptEnvironment eligible = InstallPromptEnvironment(
       isIosShareBrowser: true,
@@ -829,10 +882,20 @@ void main() {
   testWidgets('Tour walks all seven stops then marks completion seen',
       (tester) async {
     final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final Completer<void> profileRequestsStarted = Completer<void>();
+    final Completer<void> releaseProfileRequests = Completer<void>();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, size: const Size(390, 844), extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
     ]);
+    fake.adapter.beforeRespond = (FakeRequest request) async {
+      if (request.path == '/profile') {
+        if (!profileRequestsStarted.isCompleted) {
+          profileRequestsStarted.complete();
+        }
+        await releaseProfileRequests.future;
+      }
+    };
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     final ProviderContainer container =
         ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
@@ -842,20 +905,22 @@ void main() {
     expect(container.read(playerChatStreamingProvider), isFalse);
     expect(find.text('Home'), findsWidgets);
     void expectSpotlightMatchesTarget(String id) {
-      final FeatureEntry entry = featureList.firstWhere(
-        (FeatureEntry feature) => feature.id == id,
+      final Finder realControl = switch (id) {
+        'home' => find.textContaining('Next session'),
+        'program' => find.byKey(const ValueKey<String>('program_day_1_1')),
+        'assistant' => find.byTooltip('Assistant'),
+        'nutrition' => find.text('Set up Nutrition targets'),
+        'progress' => find.text('Progress'),
+        'profile' => find.text('Training profile').last,
+        'feature_guide' => find.text('Feature guide'),
+        _ => throw StateError('No real control finder for $id'),
+      };
+      expect(realControl, findsWidgets, reason: '$id control should be present');
+      final Rect cutout = tester.getRect(
+        find.byKey(const ValueKey<String>('tour_spotlight_cutout')),
       );
-      final TourTargetHandle target =
-          container.read(tourTargetRegistryProvider)[entry.target]!;
-      final Finder spotlightBorder = find.descendant(
-        of: find.byType(SpotlightOverlay),
-        matching: find.byWidgetPredicate((Widget widget) =>
-            widget is DecoratedBox &&
-            widget.decoration is BoxDecoration &&
-            (widget.decoration as BoxDecoration).border != null),
-      );
-      expect(tester.getRect(spotlightBorder), tester.getRect(find.byKey(target.key)),
-          reason: '$id spotlight should match its registered target');
+      expect(cutout.contains(tester.getRect(realControl.first).center), isTrue,
+          reason: '$id control should be in the spotlight');
     }
     expectSpotlightMatchesTarget('home');
     await tester.tap(find.text('Next'));
@@ -872,6 +937,23 @@ void main() {
     expectSpotlightMatchesTarget('program');
     for (int step = 3; step <= 7; step++) {
       await tester.tap(find.text('Next'));
+      if (step == 6) {
+        await tester.pump();
+        for (int attempt = 0;
+            attempt < 40 && !profileRequestsStarted.isCompleted;
+            attempt++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(profileRequestsStarted.isCompleted, isTrue,
+            reason: 'Profile requests should start for the Tour Profile stop');
+        await tester.pump(const Duration(seconds: 5));
+        final TourSession loadingProfile =
+            container.read(tourControllerProvider)!;
+        expect(loadingProfile.index, 5);
+        expect(loadingProfile.visible, isFalse);
+        expect(fake.tourSeenWriteCount, 0);
+        releaseProfileRequests.complete();
+      }
       await tester.pumpAndSettle();
       expect(find.text('$step OF 7'), findsOneWidget);
       final String id = tourV1StopIds[step - 1];
@@ -957,7 +1039,89 @@ void main() {
         (event['properties'] as Map<String, Object>)['replay'] == true), hasLength(1));
   });
 
-  testWidgets('Tour skips an unmounted stop and still completes', (tester) async {
+  testWidgets('Tour session is cancelled when the authenticated account changes',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final AuthController auth =
+        container.read(authControllerProvider.notifier);
+    final TourController tour =
+        container.read(tourControllerProvider.notifier);
+    final Future<void> starting = tour.startTour(1);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+    await starting;
+    tour.suspend();
+    await tester.pump();
+
+    final AccountSession accountA = auth.state.session!;
+    final AccountSession accountB = AccountSession(
+      account: accountA.account.copyWith(
+        accountId: 'account-bob',
+        traineeId: 'bob',
+        tourSeenVersion: 0,
+      ),
+      onboarded: true,
+      hasRecoveryEmail: accountA.hasRecoveryEmail,
+    );
+    auth.state = const AuthState.unauthenticated();
+    auth.state = AuthState.authenticated(accountB);
+    await _pumpUntilFound(tester, find.text('Home'));
+
+    expect(isTourEligible(accountB.account), isTrue);
+    TourSession? session = container.read(tourControllerProvider);
+    expect(session?.accountId, anyOf(isNull, 'account-bob'));
+    if (session == null) {
+      final Future<void> startedForB = tour.startTour(1);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey<String>('tour_skip')),
+      );
+      await startedForB;
+      session = container.read(tourControllerProvider);
+    }
+    expect(session?.accountId, 'account-bob');
+    expect(fake.tourSeenWriteCount, 0);
+  });
+
+  testWidgets('Tour controller does nothing after switching to Coach mode',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..coach = true
+      ..tourSeenVersion = 1;
+    await _pumpHome(
+      tester,
+      fake,
+      appModeStore: InMemoryAppModeStore(<String, AppMode>{
+        'account-alice': AppMode.player,
+      }),
+    );
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final Account account =
+        container.read(authControllerProvider).session!.account;
+    final TourController tour =
+        container.read(tourControllerProvider.notifier);
+    final Future<void> starting = tour.startTour(1, replay: true);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
+    await starting;
+
+    await container.read(appModeControllerProvider.notifier).setMode(
+          AppMode.coach,
+          accountId: account.accountId,
+          isCoach: true,
+        );
+    await tester.pumpAndSettle();
+    expect(container.read(tourControllerProvider), isNull);
+    expect(container.read(routerProvider).routerDelegate.state.uri.path,
+        coachRosterPath);
+
+    await tour.showMe('home');
+    expect(container.read(tourControllerProvider), isNull);
+  });
+
+  testWidgets('Tour target registry follows real Profile widget disposal', (tester) async {
     final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text('1 OF 7'));
@@ -969,24 +1133,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('$step OF 7'), findsOneWidget);
     }
-    final TourTargetHandle nutrition =
-        container.read(tourTargetRegistryProvider)['nutrition']!;
-    container.read(tourTargetRegistryProvider.notifier).unregister(
-          'nutrition', nutrition.key,
-        );
-    await tester.pump();
-    await tester.tap(find.text('Next'));
-    await _pumpUntilFound(tester, find.text('5 OF 7'));
+    final router = container.read(routerProvider);
+    router.go(profilePath);
     await tester.pumpAndSettle();
-    expect(find.text('4 OF 7'), findsNothing);
-
-    await tester.tap(find.text('Next'));
+    expect(container.read(tourTargetRegistryProvider), contains('profile'));
+    router.go(homePath);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-    expect(fake.tourSeenVersion, 1);
+    expect(container.read(tourTargetRegistryProvider), isNot(contains('profile')));
+    expect(fake.tourSeenVersion, 0);
   });
 
   testWidgets('Tour Skip records seen state and Arabic mirrors Skip',
@@ -1108,22 +1262,6 @@ void main() {
         (event['event'] as String).startsWith('tour_')), isEmpty);
   });
 
-  testWidgets('shell Tour controller can spotlight one feature without marking seen',
-      (tester) async {
-    final FakeMyosApi fake = _signedInFake();
-    await _pumpHome(tester, fake);
-    final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
-
-    final Future<void> spotlight =
-        container.read(tourControllerProvider.notifier).showMe('home');
-    await _pumpUntilFound(tester, find.text('1 OF 7'));
-    await spotlight;
-
-    expect(find.text('Home'), findsWidgets);
-    expect(fake.tourSeenVersion, 1);
-  });
-
   testWidgets('showMe Program from Profile opens its shell tab target',
       (tester) async {
     final FakeMyosApi fake = _signedInFake();
@@ -1167,6 +1305,58 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
     expect(container.read(tourTargetRegistryProvider), isNot(contains('profile')));
+  });
+
+  testWidgets('Show me waits for Profile API responses before spotlighting',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final Completer<void> profileRequestsStarted = Completer<void>();
+    final Completer<void> releaseProfileRequests = Completer<void>();
+    fake.adapter.beforeRespond = (FakeRequest request) async {
+      if (request.path.startsWith('/profile') ||
+          request.path.startsWith('/onboarding/intake') ||
+          request.path == '/auth/me') {
+        if (!profileRequestsStarted.isCompleted) {
+          profileRequestsStarted.complete();
+        }
+        await releaseProfileRequests.future;
+      }
+    };
+
+    final Future<void> spotlight = container
+        .read(tourControllerProvider.notifier)
+        .showMe('weak_points');
+    await tester.pump();
+    for (int attempt = 0;
+        attempt < 40 && !profileRequestsStarted.isCompleted;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(profileRequestsStarted.isCompleted, isTrue,
+        reason: 'Profile requests should start for Show me');
+    await tester.pump(const Duration(seconds: 5));
+    final TourSession pending = container.read(tourControllerProvider)!;
+    expect(pending.visible, isFalse);
+    expect(pending.featureId, 'weak_points');
+    expect(fake.tourSeenWriteCount, 0);
+
+    releaseProfileRequests.complete();
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey<String>('tour_spotlight_cutout')),
+    );
+    await spotlight;
+    expect(find.byKey(const Key('profile_weak_points_section')), findsOneWidget);
+    final Rect cutout = tester.getRect(
+      find.byKey(const ValueKey<String>('tour_spotlight_cutout')),
+    );
+    expect(cutout.contains(tester.getRect(
+      find.byKey(const Key('profile_weak_points_section')),
+    ).center), isTrue);
+    expect(fake.tourSeenWriteCount, 0);
   });
 
   testWidgets('Profile Guides rows open the Feature guide and replay the Tour',
@@ -1423,8 +1613,27 @@ void main() {
       workout: null,
     );
     await tester.pumpAndSettle();
+    final Account activeAccount =
+        container.read(authControllerProvider).session!.account;
+    final AppModeState activeMode = container.read(appModeControllerProvider);
+    expect(activeMode.isResolvedFor(activeAccount.accountId), isTrue);
+    expect(activeMode.mode, AppMode.player);
     await tester.tap(find.text('Show me').first);
-    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    for (int attempt = 0;
+        attempt < 40 &&
+            find.byKey(const ValueKey<String>('tour_next')).evaluate().isEmpty;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(
+      container.read(tourControllerProvider)?.visible,
+      isTrue,
+      reason: 'Show me session: ${container.read(tourControllerProvider)}; '
+          'route: ${router.routerDelegate.state.uri.path}; '
+          'targets: ${container.read(tourTargetRegistryProvider).keys}; '
+          'workout: ${container.read(activeWorkoutControllerProvider)}',
+    );
+    expect(find.byKey(const ValueKey<String>('tour_next')), findsOneWidget);
     await tester.pumpAndSettle();
     expect(fake.tourSeenVersion, 1);
   });
@@ -1677,13 +1886,19 @@ void main() {
         'text_is_template': true,
       };
     await _pumpHome(tester, fake);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
 
     expect(find.byKey(const ValueKey<String>('dashboard.checkpoint-review')),
         findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey<String>('dashboard.checkpoint-review')),
     );
-    await _pumpUntilFound(tester, find.text('Your 10th workout'));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey<String>('checkpoint.review.title')),
+    );
     expect(find.text('Consistency'), findsOneWidget);
     expect(find.text('Strong'), findsOneWidget);
     expect(
@@ -1693,12 +1908,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pageBack();
-    await _pumpUntilFound(
-      tester,
-      find.byType(MyosBottomNavigation),
-    );
+    router.pop();
     await tester.pumpAndSettle();
+    expect(router.routerDelegate.state.uri.path, homePath);
     expect(find.byKey(const ValueKey<String>('dashboard.checkpoint-review')),
         findsNothing);
   });

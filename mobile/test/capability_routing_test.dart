@@ -74,6 +74,19 @@ void main() {
     );
   });
 
+  test('Coach mode redirects discovery routes to the Coach home', () {
+    for (final String path in <String>[featureGuidePath, whatsNewPath]) {
+      expect(
+        redirectFor(
+          _authenticated(coach: true, onboarded: true),
+          path,
+          _mode(AppMode.coach),
+        ),
+        coachRosterPath,
+      );
+    }
+  });
+
   test('password-recovery pages stay public through startup and login', () {
     // A deep link must survive the loading→unauthenticated startup resolution.
     expect(

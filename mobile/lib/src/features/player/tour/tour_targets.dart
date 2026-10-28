@@ -161,3 +161,6 @@ class _TourTargetState extends ConsumerState<TourTarget> {
   Widget build(BuildContext context) =>
       KeyedSubtree(key: _targetKey, child: widget.child);
 }
+
+final StateProvider<Set<String>> tourLoadingDestinationsProvider =
+    StateProvider<Set<String>>((ref) => const <String>{});

@@ -90,6 +90,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   FailureMessage? _noticeFailure;
   bool _noticeIsError = false;
   Account? _account;
+  late final StateController<Set<String>> _tourLoadingDestinations;
 
   final TextEditingController _timezone = TextEditingController();
   final Set<int> _weekdays = <int>{};
@@ -125,11 +126,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _tourLoadingDestinations =
+        ref.read(tourLoadingDestinationsProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _load();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_tourLoadingDestinations.mounted) return;
+      final Set<String> destinations =
+          Set<String>.of(_tourLoadingDestinations.state)..remove(profilePath);
+      _tourLoadingDestinations.state = destinations;
+    });
     _timezone.dispose();
     _currentGoalController.dispose();
     _weightController.dispose();
@@ -181,6 +193,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _load() async {
+    _markProfileLoading();
     setState(() {
       _loading = true;
       _loadError = null;
@@ -236,13 +249,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _timezone.text = timezone;
         _loading = false;
       });
+      _markProfileLoaded();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadError = apiFailureMessage(error);
       });
+      _markProfileLoaded();
     }
+  }
+
+  void _markProfileLoading() => _tourLoadingDestinations.state = <String>{
+        ...ref.read(tourLoadingDestinationsProvider),
+        profilePath,
+      };
+
+  void _markProfileLoaded() {
+    final Set<String> destinations =
+        Set<String>.of(ref.read(tourLoadingDestinationsProvider))
+          ..remove(profilePath);
+    _tourLoadingDestinations.state = destinations;
   }
 
   Future<void> _save() async {

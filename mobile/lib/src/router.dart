@@ -226,6 +226,9 @@ String? redirectFor(AuthState auth, String location, AppModeState mode,
       if (path == homePath && coachMode) {
         return coachRosterPath;
       }
+      if (coachMode && (path == featureGuidePath || path == whatsNewPath)) {
+        return coachRosterPath;
+      }
       if (coachMode &&
           (path == chatPath ||
               path.startsWith('$chatPath/') ||

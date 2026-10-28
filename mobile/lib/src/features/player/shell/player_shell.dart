@@ -20,6 +20,7 @@ import '../../../core/ui/myos_scaffold.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
 import '../../shared/mode_switch.dart';
+import '../../shared/install_prompt.dart';
 import '../dashboard/dashboard_tab.dart';
 import '../program/program_tab.dart';
 import '../nutrition/nutrition_tab.dart';
@@ -164,6 +165,8 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       return;
     }
     if (!homeIsCurrent ||
+        !_startupNoticesComplete ||
+        ref.read(installPromptDialogActiveProvider) ||
         !workout.ready ||
         workout.hasWorkout ||
         streaming) {
@@ -208,6 +211,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
           ref.read(activeWorkoutControllerProvider);
       if (!currentWorkout.ready ||
           currentWorkout.hasWorkout ||
+          ref.read(installPromptDialogActiveProvider) ||
           ref.read(playerChatStreamingProvider)) {
         return;
       }
@@ -235,6 +239,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       final ActiveWorkoutState workout = ref.read(activeWorkoutControllerProvider);
       final bool canShow = workout.ready &&
           !workout.hasWorkout &&
+          !ref.read(installPromptDialogActiveProvider) &&
           !ref.read(playerChatStreamingProvider) &&
           ref.read(appModeControllerProvider).isResolvedFor(account.accountId) &&
           ref.read(appModeControllerProvider).mode == AppMode.player &&
@@ -267,69 +272,81 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   Future<void> _showWhatsNewSheet(List<FeatureEntry> entries) async {
     final String language = ref.read(displayLanguageProvider);
     final MyosCopy copy = MyosCopy(language);
-    final String? selectedFeature = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (BuildContext sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: SizedBox(
-            height: MediaQuery.sizeOf(sheetContext).height * 0.78,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(copy.whatsNewTitle,
-                          style: Theme.of(context).textTheme.headlineSmall),
-                    ),
-                    IconButton(
-                      tooltip: copy.close,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
-                      ),
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                Text(copy.whatsNewSinceLastVisit),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
+    ref.read(discoverySheetActiveProvider.notifier).state = true;
+    String? selectedFeature;
+    try {
+      selectedFeature = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (BuildContext sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
                     children: <Widget>[
-                      for (final FeatureEntry entry in entries)
-                        WhatsNewFeatureRow(
-                          entry: entry,
-                          copy: copy,
-                          onShowMe: () =>
-                              _showFeatureFromWhatsNew(sheetContext, entry),
+                      Expanded(
+                        child: Text(copy.whatsNewTitle,
+                            style: Theme.of(context).textTheme.headlineSmall),
+                      ),
+                      IconButton(
+                        tooltip: copy.close,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
                         ),
+                        onPressed: () => Navigator.pop(sheetContext),
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                   ),
-                ),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    child: Text(copy.gotIt),
+                  Text(copy.whatsNewSinceLastVisit),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: <Widget>[
+                        for (final FeatureEntry entry in entries)
+                          WhatsNewFeatureRow(
+                            entry: entry,
+                            copy: copy,
+                            onShowMe: () =>
+                                _showFeatureFromWhatsNew(sheetContext, entry),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: Text(copy.gotIt),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (selectedFeature == null) {
+        ref.read(discoverySheetActiveProvider.notifier).state = false;
+      }
+    }
     unawaited(_markWhatsNewSeen());
     if (selectedFeature != null) {
-      await ref
-          .read(tourControllerProvider.notifier)
-          .showMe(selectedFeature, source: 'whats_new');
+      try {
+        await ref
+            .read(tourControllerProvider.notifier)
+            .showMe(selectedFeature, source: 'whats_new');
+      } finally {
+        ref.read(discoverySheetActiveProvider.notifier).state = false;
+      }
     }
   }
 
@@ -400,6 +417,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     final ActiveWorkoutState workout =
         ref.watch(activeWorkoutControllerProvider);
     final bool streaming = ref.watch(playerChatStreamingProvider);
+    ref.watch(installPromptDialogActiveProvider);
     final TourSession? tour = ref.watch(tourControllerProvider);
     final Map<String, TourTargetHandle> targets =
         ref.watch(tourTargetRegistryProvider);

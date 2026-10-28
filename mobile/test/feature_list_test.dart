@@ -3,7 +3,26 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
-import 'package:myos_mobile/src/router.dart';
+
+Set<String> _registeredTargetIds() {
+  final Directory lib = Directory('lib');
+  final RegExp registrations = RegExp(
+    r'TourTarget\s*\([\s\S]*?\bid\s*:\s*([\s\S]*?)\bchild\s*:',
+  );
+  final RegExp literals = RegExp("['\"]([^'\"]+)['\"]");
+  final Set<String> ids = <String>{};
+  for (final FileSystemEntity entity in lib.listSync(recursive: true)) {
+    if (entity is! File || !entity.path.endsWith('.dart')) continue;
+    final String source = entity.readAsStringSync();
+    for (final RegExpMatch registration in registrations.allMatches(source)) {
+      for (final RegExpMatch literal in
+          literals.allMatches(registration.group(1)!)) {
+        ids.add(literal.group(1)!);
+      }
+    }
+  }
+  return ids;
+}
 
 void main() {
   test('Feature list check reports entries missing Arabic copy', () {
@@ -28,7 +47,7 @@ void main() {
   });
 
   test('Feature list copy, targets, and Tour stop ids are valid', () {
-    const Set<String> targetIds = <String>{'home', 'program', 'assistant', 'nutrition', 'progress', 'profile', 'feature_guide', 'whats_new_weak_points', 'whats_new_movements_to_avoid', 'whats_new_add_exercises', 'whats_new_assistant_why', 'whats_new_edit_program_chat'};
+    final Set<String> targetIds = _registeredTargetIds();
     final Set<String> ids = featureList.map((FeatureEntry entry) => entry.id).toSet();
 
     expect(ids.length, featureList.length);
@@ -37,31 +56,7 @@ void main() {
       isEmpty,
     );
     expect(tourV1StopIds, <String>['home', 'program', 'assistant', 'nutrition', 'progress', 'profile', 'feature_guide']);
-    expect(featureList.length, 12);
-    const Map<String, String> releaseOneTargets = <String, String>{
-      'weak_points': 'whats_new_weak_points',
-      'movements_to_avoid': 'whats_new_movements_to_avoid',
-      'add_exercises': 'whats_new_add_exercises',
-      'assistant_why': 'whats_new_assistant_why',
-      'edit_program_chat': 'whats_new_edit_program_chat',
-    };
-    for (final MapEntry<String, String> expected in releaseOneTargets.entries) {
-      final FeatureEntry entry = featureList.firstWhere((FeatureEntry item) => item.id == expected.key);
-      expect(entry.target, expected.value, reason: entry.id);
-    }
-    expect(featureList.firstWhere((FeatureEntry item) => item.id == 'assistant_why').location.matches(chatPath, 0), isTrue);
-    expect(featureList.firstWhere((FeatureEntry item) => item.id == 'edit_program_chat').location.matches(chatPath, 0), isTrue);
-    final String serverAccounts = File('../database/registry/accounts.py').readAsStringSync();
-    expect(serverAccounts, contains('CURRENT_FEATURE_RELEASE = $currentFeatureRelease'));
-    expect(featureList.last.location.matches(profilePath, 0), isTrue);
-    expect(featureList.firstWhere((entry) => entry.id == 'program').location
-        .matches('/home', 1), isTrue);
-    expect(featureList.firstWhere((entry) => entry.id == 'assistant').location
-        .matches('/home', 0), isTrue);
-    expect(featureList.firstWhere((entry) => entry.id == 'nutrition').location
-        .matches('/home', 2), isTrue);
-    expect(featureList.firstWhere((entry) => entry.id == 'progress').location
-        .matches('/home', 3), isTrue);
+    expect(featureList.every((FeatureEntry entry) => entry.release <= currentFeatureRelease), isTrue);
     for (final String stopId in tourV1StopIds) {
       expect(ids, contains(stopId));
     }

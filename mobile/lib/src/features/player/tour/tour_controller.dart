@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics_client.dart';
 import '../../../core/api_client.dart';
+import '../../../core/app_mode.dart';
 import '../../../core/models.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
@@ -15,6 +16,10 @@ import '../workout/active_workout_controller.dart';
 import 'tour_targets.dart';
 import 'feature_list.dart';
 
+const Duration _targetRegistrationWait = Duration(seconds: 2);
+// Profile API calls time out after 30 seconds; leave room for the route to build.
+const Duration _loadingDestinationWait = Duration(seconds: 35);
+
 class TourSession {
   const TourSession({
     required this.stopIds,
@@ -22,6 +27,7 @@ class TourSession {
     required this.visible,
     required this.singleStop,
     required this.version,
+    required this.accountId,
     this.replay = false,
   });
 
@@ -30,6 +36,7 @@ class TourSession {
   final bool visible;
   final bool singleStop;
   final int version;
+  final String accountId;
   final bool replay;
 
   String get featureId => stopIds[index];
@@ -40,6 +47,7 @@ class TourSession {
         visible: visible ?? this.visible,
         singleStop: singleStop,
         version: version,
+        accountId: accountId,
         replay: replay,
       );
 }
@@ -112,7 +120,25 @@ final StateNotifierProvider<TourController, TourSession?>
 );
 
 class TourController extends StateNotifier<TourSession?> {
-  TourController(this._ref) : super(null);
+  TourController(this._ref) : super(null) {
+    _ref.listen<AuthState>(authControllerProvider, (previous, next) {
+      final TourSession? current = state;
+      if (current != null &&
+          next.session?.account.accountId != current.accountId) {
+        _operation++;
+        state = null;
+      }
+    });
+    _ref.listen<AppModeState>(appModeControllerProvider, (_, next) {
+      final TourSession? current = state;
+      if (current != null &&
+          (!next.isResolvedFor(current.accountId) ||
+              next.mode != AppMode.player)) {
+        _operation++;
+        state = null;
+      }
+    });
+  }
 
   final Ref _ref;
   int _operation = 0;
@@ -200,6 +226,10 @@ class TourController extends StateNotifier<TourSession?> {
     if (state != null || _starting) return;
     final Account? account = _ref.read(authControllerProvider).session?.account;
     if (account == null) return;
+    final AppModeState mode = _ref.read(appModeControllerProvider);
+    if (!mode.isResolvedFor(account.accountId) || mode.mode != AppMode.player) {
+      return;
+    }
     if (!replay && account.tourSeenVersion >= version &&
         _pendingAccountId != account.accountId) {
       return;
@@ -243,6 +273,7 @@ class TourController extends StateNotifier<TourSession?> {
       visible: false,
       singleStop: false,
       version: version,
+      accountId: accountId,
       replay: replay,
     );
     _tourShownThisSession.add(accountId);
@@ -262,6 +293,14 @@ class TourController extends StateNotifier<TourSession?> {
         entry.audience != 'lifter') {
       return;
     }
+    final Account? account =
+        _ref.read(authControllerProvider).session?.account;
+    final AppModeState mode = _ref.read(appModeControllerProvider);
+    if (account == null ||
+        !mode.isResolvedFor(account.accountId) ||
+        mode.mode != AppMode.player) {
+      return;
+    }
     final ActiveWorkoutState workout =
         _ref.read(activeWorkoutControllerProvider);
     if (!workout.ready || workout.hasWorkout) return;
@@ -273,10 +312,9 @@ class TourController extends StateNotifier<TourSession?> {
       visible: false,
       singleStop: true,
       version: tourCurrentVersion,
+      accountId: account.accountId,
     );
-    final String? accountId =
-        _ref.read(authControllerProvider).session?.account.accountId;
-    if (accountId != null) _tourShownThisSession.add(accountId);
+    _tourShownThisSession.add(account.accountId);
     await _focusCurrent();
   }
 
@@ -304,8 +342,6 @@ class TourController extends StateNotifier<TourSession?> {
 
   Future<void> skip() => _dismiss(skipped: true);
 
-  Future<void> finish() => _dismiss(skipped: false);
-
   void suspend() {
     final TourSession? current = state;
     if (current != null) {
@@ -332,8 +368,7 @@ class TourController extends StateNotifier<TourSession?> {
     final GoRouter router = _ref.read(routerProvider);
     final AuthController auth = _ref.read(authControllerProvider.notifier);
     final AnalyticsClient analytics = _ref.read(analyticsClientProvider);
-    final String? accountId =
-        _ref.read(authControllerProvider).session?.account.accountId;
+    final String accountId = current.accountId;
     try {
       final ActiveWorkoutState initialWorkout =
           _ref.read(activeWorkoutControllerProvider);
@@ -343,15 +378,9 @@ class TourController extends StateNotifier<TourSession?> {
         return;
       }
       entry.location.navigate(router, tabController);
-      TourTargetHandle? target;
-      BuildContext? targetContext;
-      for (int attempt = 0; attempt < 40; attempt++) {
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted || operation != _operation || state == null) return;
-        target = _ref.read(tourTargetRegistryProvider)[entry.target];
-        targetContext = target?.key.currentContext;
-        if (targetContext != null && targetContext.mounted) break;
-      }
+      final TourTargetHandle? target = await _waitForTarget(entry, operation);
+      if (!mounted || operation != _operation || state == null) return;
+      BuildContext? targetContext = target?.key.currentContext;
       if (target == null || targetContext == null || !targetContext.mounted) {
         if (current.singleStop) {
           state = null;
@@ -359,8 +388,7 @@ class TourController extends StateNotifier<TourSession?> {
           state = current.copyWith(index: current.index + 1, visible: false);
           scheduleMicrotask(_focusCurrent);
         } else {
-          state = current.copyWith(visible: true);
-          await _dismiss(skipped: false);
+          state = null;
         }
         return;
       }
@@ -400,7 +428,7 @@ class TourController extends StateNotifier<TourSession?> {
           (!current.singleStop && _ref.read(playerChatStreamingProvider))) {
         return;
       }
-      if (accountId != null && !auth.ownsAccount(accountId)) {
+      if (!auth.ownsAccount(accountId)) {
         state = null;
         return;
       }
@@ -413,14 +441,50 @@ class TourController extends StateNotifier<TourSession?> {
     }
   }
 
+  Future<TourTargetHandle?> _waitForTarget(
+    FeatureEntry entry,
+    int operation,
+  ) async {
+    bool waitExpired = false;
+    bool extendedForLoading = false;
+    Timer targetWaitTimer = Timer(_targetRegistrationWait, () {
+      waitExpired = true;
+    });
+    final String? loadingDestination = entry.location is TourRouteLocation
+        ? (entry.location as TourRouteLocation).path
+        : null;
+    try {
+      while (!waitExpired) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || operation != _operation || state == null) return null;
+        final TourTargetHandle? target =
+            _ref.read(tourTargetRegistryProvider)[entry.target];
+        final BuildContext? targetContext = target?.key.currentContext;
+        if (targetContext != null && targetContext.mounted) return target;
+        if (!extendedForLoading &&
+            loadingDestination != null &&
+            _ref.read(tourLoadingDestinationsProvider)
+                .contains(loadingDestination)) {
+          targetWaitTimer.cancel();
+          targetWaitTimer = Timer(_loadingDestinationWait, () {
+            waitExpired = true;
+          });
+          extendedForLoading = true;
+        }
+      }
+      return null;
+    } finally {
+      targetWaitTimer.cancel();
+    }
+  }
+
   Future<void> _dismiss({required bool skipped}) async {
     final TourSession? current = state;
     if (current == null || !current.visible) return;
     _operation++;
     state = null;
     if (current.singleStop) return;
-    final String? accountId =
-        _ref.read(authControllerProvider).session?.account.accountId;
+    final String accountId = current.accountId;
     final AuthController auth = _ref.read(authControllerProvider.notifier);
     final TourSeenRetryStore retryStore = _ref.read(tourSeenRetryStoreProvider);
     final ApiClient api = _ref.read(apiClientProvider);
@@ -428,7 +492,7 @@ class TourController extends StateNotifier<TourSession?> {
           skipped ? 'tour_skipped' : 'tour_completed', replay: current.replay,
         );
     if (current.replay) return;
-    if (accountId == null) return;
+    if (!auth.ownsAccount(accountId)) return;
     _pendingAccountId = accountId;
     _pendingVersion = current.version;
     auth.confirmTourSeenVersion(accountId, current.version);

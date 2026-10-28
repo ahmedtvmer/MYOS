@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers.dart';
+import '../../../core/app_mode.dart';
 import '../../../router.dart';
 import '../workout/active_workout_controller.dart';
 import 'feature_list.dart';
@@ -56,6 +57,10 @@ class _TourOverlayHostState extends ConsumerState<TourOverlayHost> {
     final ActiveWorkoutState workout =
         ref.watch(activeWorkoutControllerProvider);
     final bool streaming = ref.watch(playerChatStreamingProvider);
+    final account = ref.watch(authControllerProvider).session?.account;
+    final mode = ref.watch(appModeControllerProvider);
+    final bool playerMode = account != null &&
+        mode.isResolvedFor(account.accountId) && mode.mode == AppMode.player;
     final int shellTabIndex = ref.watch(playerShellTabProvider);
     final GoRouter router = ref.watch(routerProvider);
     final String routePath = currentTourRoutePath(router);
@@ -82,7 +87,7 @@ class _TourOverlayHostState extends ConsumerState<TourOverlayHost> {
       fit: StackFit.expand,
       children: <Widget>[
         widget.child,
-        if (tour != null &&
+        if (playerMode && tour != null &&
             tour.visible &&
             !blocked &&
             locationIsCurrent &&
