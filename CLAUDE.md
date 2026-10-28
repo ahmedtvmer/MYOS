@@ -10,6 +10,8 @@ See `docs/agents/issue-tracker.md`.
 This is a single-context repo. Read `CONTEXT.md` and relevant decisions
 in `DECISIONS.md`. See `docs/agents/domain.md`.
 
+For any change a Player can see, add or update its Feature list / What's new entry; use `docs/agents/issue-tracker.md` for the required fields and release rule.
+
 ## Delegation policy
 
 GitHub issues are the implementation plan and source of truth.
