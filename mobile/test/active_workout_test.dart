@@ -92,6 +92,26 @@ const ProgramDay _dayTwo = ProgramDay(
   ],
 );
 
+const ProgramDay _duplicateSlotDay = ProgramDay(
+  dayName: 'Legs', dayOrder: 4,
+  exercises: <ProgramExercise>[
+    ProgramExercise(exerciseId: '43', exerciseName: 'Back Squat', targetSets: 2,
+      targetRepsMin: 5, targetRepsMax: 8, targetRpe: 8, slotKey: 'quad_iso'),
+    ProgramExercise(exerciseId: '43', exerciseName: 'Back Squat', targetSets: 2,
+      targetRepsMin: 5, targetRepsMax: 8, targetRpe: 8, slotKey: 'quad_compound'),
+  ],
+);
+
+const ProgramDay _historicalCurlAndCalfDay = ProgramDay(
+  dayName: 'Legs', dayOrder: 5,
+  exercises: <ProgramExercise>[
+    ProgramExercise(exerciseId: 'historic_curl', exerciseName: 'Leg Curl', targetSets: 2,
+      targetRepsMin: 8, targetRepsMax: 12, targetRpe: 8, slotKey: 'ham_curl'),
+    ProgramExercise(exerciseId: 'safe_calf', exerciseName: 'Calf Raise', targetSets: 2,
+      targetRepsMin: 8, targetRepsMax: 12, targetRpe: 8, slotKey: 'calf'),
+  ],
+);
+
 Map<String, dynamic> _baselineRow() => <String, dynamic>{
       'exercise_id': 'bench_press',
       'sessions_logged': 2,
@@ -439,6 +459,161 @@ void main() {
       expect(restored.workout!.warmupMovements.single.sets[1].ticked, isFalse);
       expect(restored.workout!.cardio.single.minutes, 25);
       expect(restored.workout!.cardio.single.ticked, isTrue);
+    });
+
+    test('restored exercise outside the current program gets its own restriction annotation', () async {
+      final FakeMyosApi fake = _signedInFake();
+      final InMemoryTokenStore tokens = await _tokens();
+      final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
+      final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
+      final InMemoryDraftStore drafts = InMemoryDraftStore();
+      final InMemoryWorkoutCacheStore workoutCache = InMemoryWorkoutCacheStore();
+      final ProviderContainer first = _container(
+        fake: fake, tokens: tokens, store: store, cache: cache,
+        drafts: drafts, workoutCache: workoutCache,
+      );
+      final ActiveWorkoutController original = first.read(activeWorkoutControllerProvider.notifier);
+      await original.startFromDay(accountId: _account, day: _day, programVersion: 3);
+      await original.updateCell(0, 0, weightKg: 45);
+      await original.syncAccount(null);
+
+      fake.prescriptionMovementRestrictions['bench_press'] = 'Knee flexion';
+      final ProviderContainer restoredContainer = _container(
+        fake: fake, tokens: tokens, store: store, cache: cache,
+        drafts: drafts, workoutCache: workoutCache,
+      );
+      final ActiveWorkoutController restored = restoredContainer.read(activeWorkoutControllerProvider.notifier);
+      await restored.syncAccount(_account);
+      await restored.refreshMovementRestrictionAnnotations();
+      expect(restored.workout!.exercises.single.exercise['movement_restriction'], 'Knee flexion');
+      expect(restored.workout!.exercises.single.sets.first.weightKg, 45);
+      restoredContainer.dispose();
+    });
+
+    test('restriction refresh cannot resurrect a workout discarded during its fetch', () async {
+      final FakeMyosApi fake = _signedInFake();
+      fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
+      final Completer<void> annotationStarted = Completer<void>();
+      final Completer<void> releaseAnnotation = Completer<void>();
+      fake.adapter.beforeRespond = (FakeRequest request) async {
+        if (request.path.endsWith('/workouts/movement-restrictions')) {
+          if (!annotationStarted.isCompleted) annotationStarted.complete();
+          await releaseAnnotation.future;
+        }
+      };
+      final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
+      final ProviderContainer container = _container(
+        fake: fake,
+        tokens: await _tokens(),
+        store: store,
+        cache: InMemoryBaselineCacheStore(),
+        drafts: InMemoryDraftStore(),
+        workoutCache: InMemoryWorkoutCacheStore(),
+      );
+      final ActiveWorkoutController controller =
+          container.read(activeWorkoutControllerProvider.notifier);
+      await controller.startFromDay(accountId: _account, day: _day, programVersion: 3);
+      final Future<void> refresh = controller.refreshMovementRestrictionAnnotations();
+      await annotationStarted.future;
+      final String workoutId = controller.workout!.id;
+      await controller.discard(accountId: _account, workoutId: workoutId);
+      releaseAnnotation.complete();
+      await refresh;
+      expect(controller.workout, isNull);
+      expect(await store.read(_account), isNull);
+      container.dispose();
+    });
+
+    test('null slotless annotation keeps the slot-aware prescription warning', () async {
+      final FakeMyosApi fake = _signedInFake();
+      fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
+      fake.prescriptionMovementRestrictions['bench_press'] = 'Deep hip flexion';
+      final ProviderContainer container = _container(
+        fake: fake,
+        tokens: await _tokens(),
+        store: InMemoryActiveWorkoutStore(),
+        cache: InMemoryBaselineCacheStore(),
+        drafts: InMemoryDraftStore(),
+        workoutCache: InMemoryWorkoutCacheStore(),
+      );
+      final ActiveWorkoutController controller =
+          container.read(activeWorkoutControllerProvider.notifier);
+      await controller.startFromDay(accountId: _account, day: _day, programVersion: 3);
+      fake.movementAnnotationResponses['bench_press'] = null;
+      await controller.refreshMovementRestrictionAnnotations();
+      expect(controller.workout!.exercises.single.exercise['movement_restriction'], 'Deep hip flexion');
+      container.dispose();
+    });
+
+    test('successful unrestricted refresh clears an old restriction warning', () async {
+      final FakeMyosApi fake = _signedInFake();
+      fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
+      fake.prescriptionMovementRestrictions['bench_press'] = 'Deep hip flexion';
+      final ProviderContainer container = _container(
+        fake: fake, tokens: await _tokens(), store: InMemoryActiveWorkoutStore(),
+        cache: InMemoryBaselineCacheStore(), drafts: InMemoryDraftStore(),
+        workoutCache: InMemoryWorkoutCacheStore(),
+      );
+      final ActiveWorkoutController controller = container.read(activeWorkoutControllerProvider.notifier);
+      await controller.startFromDay(accountId: _account, day: _day, programVersion: 3);
+      fake.prescriptionMovementRestrictions.remove('bench_press');
+      fake.movementAnnotationResponses['bench_press'] = null;
+      await controller.refreshMovementRestrictionAnnotations();
+      expect(controller.workout!.exercises.single.exercise.containsKey('movement_restriction'), isFalse);
+      container.dispose();
+    });
+
+    test('duplicate exercise rows use their own slot annotation over prescription fallback', () async {
+      final FakeMyosApi fake = _signedInFake();
+      fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
+      fake.programDaysOverride = <Map<String, dynamic>>[_duplicateSlotDay.toJson()];
+      fake.prescriptionMovementRestrictions['43'] = 'Deep hip flexion';
+      fake.movementAnnotationResponsesByRow[0] = null;
+      fake.movementAnnotationResponsesByRow[1] = 'Deep hip flexion';
+      final ProviderContainer container = _container(
+        fake: fake, tokens: await _tokens(), store: InMemoryActiveWorkoutStore(),
+        cache: InMemoryBaselineCacheStore(), drafts: InMemoryDraftStore(),
+        workoutCache: InMemoryWorkoutCacheStore(),
+      );
+      final ActiveWorkoutController controller = container.read(activeWorkoutControllerProvider.notifier);
+      await controller.startFromDay(accountId: _account, day: _duplicateSlotDay, programVersion: 3);
+      await controller.refreshMovementRestrictionAnnotations();
+      expect(controller.workout!.exercises[0].exercise['movement_restriction'], isNull);
+      expect(controller.workout!.exercises[1].exercise['movement_restriction'], 'Deep hip flexion');
+      container.dispose();
+    });
+
+    test('restriction annotations follow stable workout rows when exercises reorder during fetch', () async {
+      final FakeMyosApi fake = _signedInFake();
+      fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
+      fake.programDaysOverride = <Map<String, dynamic>>[_historicalCurlAndCalfDay.toJson()];
+      fake.movementAnnotationResponsesByRow[0] = 'Knee flexion';
+      fake.movementAnnotationResponsesByRow[1] = null;
+      final Completer<void> annotationStarted = Completer<void>();
+      final Completer<void> releaseAnnotation = Completer<void>();
+      fake.adapter.beforeRespond = (FakeRequest request) async {
+        if (request.path.endsWith('/workouts/movement-restrictions')) {
+          if (!annotationStarted.isCompleted) annotationStarted.complete();
+          await releaseAnnotation.future;
+        }
+      };
+      final ProviderContainer container = _container(
+        fake: fake, tokens: await _tokens(), store: InMemoryActiveWorkoutStore(),
+        cache: InMemoryBaselineCacheStore(), drafts: InMemoryDraftStore(),
+        workoutCache: InMemoryWorkoutCacheStore(),
+      );
+      final ActiveWorkoutController controller = container.read(activeWorkoutControllerProvider.notifier);
+      await controller.startFromDay(accountId: _account, day: _historicalCurlAndCalfDay, programVersion: 3);
+      final Future<void> refresh = controller.refreshMovementRestrictionAnnotations();
+      await annotationStarted.future;
+      await controller.reorderExercises(visibleOrder: const <int>[1, 0]);
+      releaseAnnotation.complete();
+      await refresh;
+      expect(controller.workout!.exercises[0].exerciseId, 'safe_calf');
+      expect(controller.workout!.exercises[0].exercise.containsKey('movement_restriction'), isFalse);
+      expect(controller.workout!.exercises[1].exerciseId, 'historic_curl');
+      expect(controller.workout!.exercises[1].exercise['movement_restriction'], 'Knee flexion');
+      container.dispose();
     });
 
     test('is created, persisted after changes, and restored on restart',

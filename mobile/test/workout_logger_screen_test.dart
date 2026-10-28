@@ -787,6 +787,29 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('open workout flags prescribed exercise conflicting with restriction',
+      (WidgetTester tester) async {
+    final FakeMyosApi fake = _signedInFake()..prescriptionMovementRestrictions['bench_press'] = 'Pressing / fly (shoulder horizontal adduction under load)';
+    await _openLogger(tester, fakeApi: fake);
+    expect(find.byKey(const Key('logger_movement_restriction_warning')), findsOneWidget);
+    expect(find.textContaining('conflicts with your'), findsOneWidget);
+  });
+
+  testWidgets('restriction refresh flags an already-open workout without replacing rows', (WidgetTester tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _openLogger(tester, fakeApi: fake);
+    expect(find.byKey(const Key('logger_movement_restriction_warning')), findsNothing);
+    final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(WorkoutLoggerScreen)));
+    final ActiveWorkoutController controller = container.read(activeWorkoutControllerProvider.notifier);
+    final int originalSets = controller.workout!.exercises.first.sets.length;
+    await controller.applyMovementRestrictionConflicts(<Map<String, dynamic>>[
+      <String, dynamic>{'exercise_id': 'bench_press', 'exercise_name': 'Bench Press', 'restriction': 'Pressing / fly (shoulder horizontal adduction under load)'},
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('logger_movement_restriction_warning')), findsOneWidget);
+    expect(controller.workout!.exercises.first.sets, hasLength(originalSets));
+  });
+
   testWidgets('workout logger shows the applied deload and opens the assistant',
       (WidgetTester tester) async {
     final FakeMyosApi fake = _signedInFake()..prescriptionOffline = true;

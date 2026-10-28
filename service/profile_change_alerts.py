@@ -20,7 +20,7 @@ from service import coach_analytics
 logger = logging.getLogger(__name__)
 
 PROFILE_CHANGE_KIND = "profile_change"
-PROFILE_CHANGE_FIELDS = ("injuries_or_limitations", "equipment_access")
+PROFILE_CHANGE_FIELDS = ("injuries_or_limitations", "equipment_access", "movement_restrictions")
 _OPEN_STATES = ("new", "acknowledged")
 
 
@@ -32,6 +32,7 @@ class ProfileChangeSnapshot:
     before_profile: dict[str, Any]
     after_profile: dict[str, Any]
     client: analytics_service.ClientContext = analytics_service.UNKNOWN_CLIENT
+    movement_restriction_conflicts: tuple[dict[str, Any], ...] = ()
 
 
 __all__ = [
@@ -58,6 +59,8 @@ def changed_fields(before: dict[str, Any], after: dict[str, Any]) -> dict[str, d
     result: dict[str, dict[str, Any]] = {}
     for field in PROFILE_CHANGE_FIELDS:
         default = "None" if field == "injuries_or_limitations" else None
+        if field == "movement_restrictions":
+            default = []
         before_value = normalize_profile_value(field, before.get(field, default))
         after_value = normalize_profile_value(field, after.get(field, default))
         if before_value != after_value:
@@ -124,6 +127,8 @@ def record_profile_change(
                 )
                 return
             details = {**existing_details, "profile_changes": merged}
+            if "movement_restrictions" in changes:
+                details["movement_restriction_conflicts"] = list(snapshot.movement_restriction_conflicts)
             if existing is not None:
                 db.update_coach_alert_details(existing["alert_id"], details)
                 return
@@ -149,9 +154,18 @@ def record_profile_change(
     if assignment is not None and created_alert is not None:
         try:
             player_name = player_display_name(db, assignment)
-            message = (
-                f"{player_name} changed their Training profile. Review the alert in your roster."
-            )
+            restrictions = snapshot.after_profile.get("movement_restrictions", [])
+            conflicts = snapshot.movement_restriction_conflicts
+            restrictions_changed = "movement_restrictions" in changes
+            if restrictions_changed and restrictions:
+                restriction_names = ", ".join(restrictions)
+                exercise_names = ", ".join(item["exercise_name"] for item in conflicts)
+                message = (
+                    f"{player_name} confirmed Movement restrictions ({restriction_names}); "
+                    f"the current program includes conflicting exercises ({exercise_names or 'none'}). Review the alert."
+                )
+            else:
+                message = f"{player_name} changed their Training profile. Review the alert in your roster."
             notify_coach(
                 db,
                 build_assignment_notice_record(

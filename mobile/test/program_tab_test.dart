@@ -691,10 +691,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Substitute exercise'));
     await tester.pumpAndSettle();
+    fake.movementRestrictions = <String>['Knee flexion'];
     await _pumpUntilFound(tester, find.text('Replace exercise'));
     await tester.enterText(find.byType(TextField).last, 'Pin Squat');
     await tester.tap(find.text('Search').last);
-    await _pumpUntilFound(tester, find.text('No matching exercise found.'));
+    await _pumpUntilFound(tester, find.text(
+      'Exercises that conflict with your saved movement restrictions are hidden.',
+    ));
     final request = fake.adapter.requests.lastWhere(
       (candidateRequest) => candidateRequest.path == '/workouts/exercises',
     );

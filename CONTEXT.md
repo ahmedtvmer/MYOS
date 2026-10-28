@@ -152,6 +152,10 @@ Secondary actions describe additional joint actions and do not match a Primary
 action filter.
 _Arabic_: الحركة الأساسية
 
+**Movement restriction**:
+A Player-confirmed restriction that excludes Exercises by curated Primary or Secondary action, with a movement-slot fallback for uncurated rows. A restricted slot is dropped and recorded in the Program rationale, never filled with another restricted movement.
+_Arabic_: حركة ممنوعة
+
 **Movement signature**:
 The Primary actions and Primary muscles allowed for a movement slot. A curated
 Exercise library row matches only when both its Primary action and Primary

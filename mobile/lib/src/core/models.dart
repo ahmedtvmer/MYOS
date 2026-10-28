@@ -1062,6 +1062,7 @@ class CoachAlert {
     this.messageCode,
     this.messageParams,
     this.messageFallback,
+    this.movementRestrictionConflicts = const <Map<String, dynamic>>[],
   });
 
   factory CoachAlert.fromJson(Map<String, dynamic> json) => CoachAlert(
@@ -1130,6 +1131,10 @@ class CoachAlert {
         messageFallback: json['message_fallback'] is String
             ? json['message_fallback'] as String
             : null,
+        movementRestrictionConflicts: (json['movement_restriction_conflicts'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map((Map<String, dynamic> value) => Map<String, dynamic>.from(value))
+            .toList(growable: false),
       );
 
   final String alertId;
@@ -1165,6 +1170,7 @@ class CoachAlert {
   final String? messageCode;
   final Object? messageParams;
   final String? messageFallback;
+  final List<Map<String, dynamic>> movementRestrictionConflicts;
 
   static const String followUpDueKind = 'follow_up_due';
   static const String missedExpectedDaysKind = 'missed_expected_days';
@@ -2021,6 +2027,8 @@ class OnboardingIntake {
     required this.profileRebuildFields,
     required this.progress,
     this.suggestedWeakPoints = const <String>[],
+    this.movementRestrictions = const <String>[],
+    this.suggestedMovementRestrictions = const <String>[],
     this.program,
   });
 
@@ -2045,6 +2053,10 @@ class OnboardingIntake {
               .toList(growable: false),
       suggestedWeakPoints: (json['suggested_weak_points'] as List<dynamic>? ?? const <dynamic>[])
           .map((dynamic muscle) => muscle.toString()).toList(growable: false),
+      movementRestrictions: (json['movement_restrictions'] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic item) => item.toString()).toList(growable: false),
+      suggestedMovementRestrictions: (json['suggested_movement_restrictions'] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic item) => item.toString()).toList(growable: false),
       progress: IntakeProgress.fromJson(
           json['progress'] as Map<String, dynamic>? ?? const {}),
       program: json['program'] == null
@@ -2058,6 +2070,8 @@ class OnboardingIntake {
   final List<IntakeField> fields;
   final List<String> profileRebuildFields;
   final List<String> suggestedWeakPoints;
+  final List<String> movementRestrictions;
+  final List<String> suggestedMovementRestrictions;
   final IntakeProgress progress;
   final IntakeProgram? program;
 
@@ -2180,6 +2194,8 @@ class PlayerProfile {
     this.gender = 'male',
     this.weakPoints,
     this.suggestedWeakPoints = const <String>[],
+    this.movementRestrictions = const <String>[],
+    this.suggestedMovementRestrictions = const <String>[],
     this.repPreference = 'balanced',
     this.weeklyFrequency = 4,
     this.equipmentAccess = equipmentAccessCommercialGym,
@@ -2198,6 +2214,8 @@ class PlayerProfile {
         gender: json['gender'] as String? ?? 'male',
         weakPoints: json['weak_points'] == null ? null :
             (json['weak_points'] as List<dynamic>).map((dynamic item) => Map<String, String>.from(item as Map)).toList(growable: false),
+        movementRestrictions: (json['movement_restrictions'] as List<dynamic>? ?? const <dynamic>[]).map((dynamic item) => item.toString()).toList(growable: false),
+        suggestedMovementRestrictions: (json['suggested_movement_restrictions'] as List<dynamic>? ?? const <dynamic>[]).map((dynamic item) => item.toString()).toList(growable: false),
         suggestedWeakPoints: (json['suggested_weak_points'] as List<dynamic>? ?? const <dynamic>[])
             .map((dynamic muscle) => muscle.toString()).toList(growable: false),
         repPreference: json['rep_preference'] as String? ?? 'balanced',
@@ -2223,6 +2241,8 @@ class PlayerProfile {
   final String gender;
   final List<Map<String, String>>? weakPoints;
   final List<String> suggestedWeakPoints;
+  final List<String> movementRestrictions;
+  final List<String> suggestedMovementRestrictions;
   final int weeklyFrequency;
   final String equipmentAccess;
   final String currentGoal;
@@ -2239,6 +2259,8 @@ class PlayerProfile {
         gender: gender,
         weakPoints: weakPoints,
         suggestedWeakPoints: suggestedWeakPoints,
+        movementRestrictions: movementRestrictions,
+        suggestedMovementRestrictions: suggestedMovementRestrictions,
         repPreference: repPreference,
         weeklyFrequency: weeklyFrequency,
         equipmentAccess: equipmentAccess,
@@ -2264,6 +2286,9 @@ class ProfileUpdateResult {
     required this.programRebuilt,
     this.programBlocked = false,
     this.programMessage,
+    this.coachNotifiedOfMovementRestrictions = false,
+    this.removedExercises = const <Map<String, dynamic>>[],
+    this.movementRestrictionConflicts = const <Map<String, dynamic>>[],
     this.profile,
     this.program,
   });
@@ -2273,6 +2298,9 @@ class ProfileUpdateResult {
         programRebuilt: json['program_rebuilt'] as bool? ?? false,
         programBlocked: json['program_blocked'] as bool? ?? false,
         programMessage: json['program_message'] as String?,
+        coachNotifiedOfMovementRestrictions: json['coach_notified_of_movement_restrictions'] as bool? ?? false,
+        removedExercises: (json['removed_exercises'] as List<dynamic>? ?? const <dynamic>[]).map((dynamic item) => Map<String, dynamic>.from(item as Map)).toList(growable: false),
+        movementRestrictionConflicts: (json['movement_restriction_conflicts'] as List<dynamic>? ?? const <dynamic>[]).map((dynamic item) => Map<String, dynamic>.from(item as Map)).toList(growable: false),
         profile: json['profile'] is Map<String, dynamic>
             ? PlayerProfile.fromJson(json['profile'] as Map<String, dynamic>)
             : null,
@@ -2284,6 +2312,9 @@ class ProfileUpdateResult {
   final bool programRebuilt;
   final bool programBlocked;
   final String? programMessage;
+  final bool coachNotifiedOfMovementRestrictions;
+  final List<Map<String, dynamic>> removedExercises;
+  final List<Map<String, dynamic>> movementRestrictionConflicts;
   final PlayerProfile? profile;
   final TrainingProgram? program;
 }
@@ -2698,6 +2729,7 @@ class ProgramExercise {
     this.primaryAction,
     this.equipmentCategory,
     this.loadType,
+    this.slotKey,
     this.coachEquipment,
     this.load,
     this.setGroups = const <Map<String, dynamic>>[],
@@ -2749,6 +2781,7 @@ class ProgramExercise {
         primaryAction: json['primary_action'] as String?,
         equipmentCategory: json['equipment_category'] as String?,
         loadType: json['load_type'] as String?,
+        slotKey: json['slot_key'] as String?,
         coachEquipment: json['coach_equipment'] as String?,
         load: rawLoad is Map<String, dynamic>
             ? ProgramLoad.fromJson(rawLoad)
@@ -2791,6 +2824,7 @@ class ProgramExercise {
   final String? primaryAction;
   final String? equipmentCategory;
   final String? loadType;
+  final String? slotKey;
   final String? coachEquipment;
   final ProgramLoad? load;
   final List<Map<String, dynamic>> setGroups;
@@ -2838,6 +2872,7 @@ class ProgramExercise {
         primaryAction: primaryAction,
         equipmentCategory: equipmentCategory,
         loadType: loadType,
+        slotKey: slotKey,
         coachEquipment: coachEquipment,
         load: load,
         setGroups: setGroups,
@@ -2869,6 +2904,7 @@ class ProgramExercise {
     if (equipment != null) {
       json['equipment'] = equipment;
     }
+    if (slotKey != null) json['slot_key'] = slotKey;
     // The key is omitted when unset, so the Active workout (and the draft
     // built from it) keeps "no rest_seconds" as-is and the timer resolves it
     // to 2:00 rather than writing a phantom 180 back (#125). Its position in
@@ -4079,6 +4115,7 @@ class PrescriptionTarget {
     required this.targetRpeCap,
     required this.projectedWeight,
     this.lastPerf = const <Map<String, dynamic>>[],
+    this.movementRestriction,
   });
 
   factory PrescriptionTarget.fromJson(Map<String, dynamic> json) =>
@@ -4089,6 +4126,7 @@ class PrescriptionTarget {
         effectiveSets: (json['effective_sets'] as num?)?.toInt() ?? 3,
         targetRpeCap: (json['target_rpe_cap'] as num?)?.toDouble() ?? 8.5,
         projectedWeight: (json['projected_weight'] as num?)?.toDouble() ?? 0,
+        movementRestriction: json['movement_restriction'] is Map<String, dynamic> ? (json['movement_restriction'] as Map<String, dynamic>)['label'] as String? : null,
         lastPerf: (json['last_perf'] as List<dynamic>? ?? const <dynamic>[])
             .map((dynamic s) =>
                 Map<String, dynamic>.from(s as Map<String, dynamic>))
@@ -4102,6 +4140,7 @@ class PrescriptionTarget {
   final double targetRpeCap;
   final double projectedWeight;
   final List<Map<String, dynamic>> lastPerf;
+  final String? movementRestriction;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'exercise_id': exerciseId,
@@ -4110,6 +4149,8 @@ class PrescriptionTarget {
         'effective_sets': effectiveSets,
         'target_rpe_cap': targetRpeCap,
         'projected_weight': projectedWeight,
+        if (movementRestriction != null)
+          'movement_restriction': <String, dynamic>{'label': movementRestriction},
         'last_perf': lastPerf,
       };
 }

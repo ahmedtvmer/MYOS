@@ -771,3 +771,56 @@ def test_logger_muscle_browse_suggests_only_equipment_access_options(api, access
         },
     )
     assert logged.status_code == 201, logged.text
+
+
+def test_replace_browse_hides_candidates_conflicting_with_profile_restrictions(
+    api, seed_exercise_curation
+):
+    client, db = api
+    token = _register(client, "replace-restricted")['access_token']
+    db.catalog_conn.executemany(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) "
+        "VALUES (?, ?, 'Hamstrings', 'Hamstrings', 'cable')",
+        [("restricted-curl", "Leg Curl",), ("allowed-hinge", "Cable Pull Through",)],
+    )
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {
+        "restricted-curl": {"display_name": "Leg Curl", "primary_action": "Knee Flexion", "primary_muscle": "Hamstrings"},
+        "allowed-hinge": {"display_name": "Cable Pull Through", "primary_action": "Hip Extension", "primary_muscle": "Glutes"},
+    })
+    with db.open_ledger("replace-restricted") as ledger:
+        ledger.upsert_player_profile({"movement_restrictions": ["Knee flexion"]})
+    response = client.get(
+        "/workouts/exercises", headers=_authed(token),
+        params={"target_muscle": "Hamstrings", "replacing_exercise_id": "source-curl"},
+    )
+    assert response.status_code == 200, response.text
+    assert "restricted-curl" not in {row["id"] for row in response.json()["exercises"]}
+    assert response.json()["movement_restrictions_excluded"] is True
+    assert response.json()["message_code"] == "program.movement_restricted.v1"
+
+
+def test_replace_search_candidates_match_the_save_time_restriction_check(api, seed_exercise_curation):
+    from core.movement_restrictions import is_movement_restricted
+
+    client, db = api
+    token = _register(client, "replace-overhead")['access_token']
+    db.catalog_conn.executemany(
+        "INSERT INTO exercises (id, name, body_part, target_muscle, equipment) VALUES (?, ?, 'Shoulders', 'Shoulders', 'medicine ball')",
+        [("1354", "Medicine Ball Slam Overhead"), ("986", "Single-Arm High Curl Overhead")],
+    )
+    db.catalog_conn.commit()
+    seed_exercise_curation(db, {
+        "1354": {"display_name": "Medicine Ball Slam", "primary_action": "Hip Extension", "primary_muscle": "Glutes"},
+        "986": {"display_name": "Single-Arm High Curl", "primary_action": "Elbow Flexion", "primary_muscle": "Biceps"},
+    })
+    with db.open_ledger("replace-overhead") as ledger:
+        ledger.upsert_player_profile({"movement_restrictions": ["Overhead pressing"]})
+    response = client.get("/workouts/exercises", headers=_authed(token), params={
+        "target_muscle": "Shoulders", "replacing_exercise_id": "source-press",
+    })
+    assert response.status_code == 200, response.text
+    offered = response.json()["exercises"]
+    assert "1354" not in {row["id"] for row in offered}
+    assert "986" not in {row["id"] for row in offered}
+    assert all(not is_movement_restricted(row, row.get("slot_key", ""), ["Overhead pressing"]) for row in offered)

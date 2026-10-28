@@ -29,6 +29,7 @@ class ProgramEditErrorCode(str, Enum):
     PROGRAM_CHANGED = "program_changed"
     EXERCISE_NOT_AVAILABLE = "exercise_not_available"
     DAY_LIMIT = "day_limit"
+    MOVEMENT_RESTRICTED = "movement_restricted"
 
 
 PROGRAM_EDIT_ERRORS = {
@@ -42,6 +43,7 @@ PROGRAM_EDIT_ERRORS = {
     ProgramEditErrorCode.PROGRAM_CHANGED: "The program changed since this edit was opened.",
     ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE: "That exercise is not available in the Exercise library.",
     ProgramEditErrorCode.DAY_LIMIT: "A training day can have at most 10 working-set exercises.",
+    ProgramEditErrorCode.MOVEMENT_RESTRICTED: "That exercise conflicts with a Movement restriction in your profile.",
 }
 PROGRAM_EDIT_MESSAGE_CODES = {
     ProgramEditErrorCode.DAY_NOT_FOUND: "program.edit.day_not_found.v1",
@@ -54,6 +56,7 @@ PROGRAM_EDIT_MESSAGE_CODES = {
     ProgramEditErrorCode.PROGRAM_CHANGED: "program.edit.changed.v1",
     ProgramEditErrorCode.EXERCISE_NOT_AVAILABLE: "program.edit.exercise_not_available.v1",
     ProgramEditErrorCode.DAY_LIMIT: "program.edit.day_limit.v1",
+    ProgramEditErrorCode.MOVEMENT_RESTRICTED: "program.movement_restricted.v1",
 }
 
 
@@ -117,6 +120,9 @@ def edit_active_program_day(db: Any, ledger: Any, edit_request: ProgramEdit) -> 
         return {**_updated_program_result(ledger, previous_version), "volume_warnings": warnings}
     _apply_program_edit(prepared, edit_request.exercises)
     _prepare_added_prescriptions(db, ledger, prepared.day, edit_request.exercises)
+    restriction_failure = _restricted_program_edit(db, ledger, prepared.day)
+    if restriction_failure:
+        return restriction_failure
     from service.program_rationale_changes import (
         carry_program_rationale,
         occurrence_mappings_for_days,
@@ -209,6 +215,19 @@ def _volume_warnings(ledger: Any, program: dict[str, Any], profile: dict[str, An
     return [{"muscle": muscle, "weekly_sets": sets, "ceiling": round(ceilings[level] * (1.3 if muscle.lower() in focus_groups else 1.0))}
             for muscle, sets in sorted(totals.items())
             if sets > round(ceilings[level] * (1.3 if muscle.lower() in focus_groups else 1.0))]
+
+
+def _restricted_program_edit(db: Any, ledger: Any, day: dict[str, Any]) -> dict[str, Any] | None:
+    from core.movement_restrictions import is_movement_restricted
+
+    restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions", ())
+    for exercise in day["exercises"]:
+        entry = db.get_exercise_library_entry(str(exercise["exercise_id"]))
+        if is_movement_restricted(
+            entry or exercise, str(exercise.get("slot_key") or ""), restrictions
+        ):
+            return _failure(ProgramEditErrorCode.MOVEMENT_RESTRICTED)
+    return None
 
 
 def _active_program_for_edit(db: Any, ledger: Any, edit_request: ProgramEdit) -> tuple[Any, dict[str, Any] | None]:

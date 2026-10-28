@@ -14,6 +14,7 @@ from typing import Any
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
+from core.movement_restriction_suggestions import suggest_movement_restrictions
 
 from database.ledger.profile import PLAYER_PROFILE_STORAGE_DEFAULTS
 from agent.focus_muscles import FOCUS_REVIEW_MUSCLES
@@ -109,6 +110,7 @@ _PROFILE_FIELDS = (
     ("weekly_frequency", "weekly_frequency"),
     ("stress_and_sleep", "stress_and_sleep"),
     ("weak_points", "weak_points"),
+    ("movement_restrictions", "movement_restrictions"),
 )
 
 
@@ -134,8 +136,13 @@ def _profile_has_completion_evidence(ledger: Any) -> bool:
     return ledger.get_active_program() is not None
 
 
+def _player_profile(ledger: Any) -> dict[str, Any]:
+    getter = getattr(ledger, "get_player_profile", None)
+    return (getter() or {}) if callable(getter) else {}
+
+
 def _read_profile(ledger: Any) -> dict[str, Any]:
-    profile = ledger.get_player_profile() or {}
+    profile = _player_profile(ledger)
     answers = ledger.load_intake_answers()
     onboarding_completed = _profile_has_completion_evidence(ledger)
     profile_fields = {}
@@ -157,6 +164,9 @@ def _read_profile(ledger: Any) -> dict[str, Any]:
     return {
         "status": "ok",
         "profile": profile_fields,
+        "suggested_movement_restrictions": suggest_movement_restrictions(
+            profile.get("injuries_or_limitations", "")
+        ),
     }
 
 
@@ -168,7 +178,7 @@ def _read_weight_trend(ledger: Any) -> dict[str, Any]:
         WeightTrendQuery(ledger_id=ledger_id, weeks=8, as_of=as_of),
         ledger=ledger,
     )
-    profile = ledger.get_player_profile() or {}
+    profile = _player_profile(ledger)
     return {
         "status": "ok",
         "weight_context": render_player_weight_context(
@@ -351,9 +361,15 @@ def _read_active_program(ledger: Any, args: ActiveProgramArgs | None = None, sto
                 "e": exercises,
             }
         )
+    rationale = getattr(program, "program_rationale", None) or {}
     return {
         "status": "ok", "f": getattr(program, "weekly_frequency", "not set"),
         "split": _not_set(getattr(program, "split_type", None)), "days": days,
+        "movement_restrictions": _player_profile(ledger).get("movement_restrictions", []),
+        "skipped_restricted_slots": [
+            skipped for day in rationale.get("days", [])
+            for skipped in day.get("skipped", [])
+        ],
         "program_authority": authority,
         **({"coach": coach_name} if coach_name else {}),
         **({} if selected_name else {
@@ -404,7 +420,7 @@ PLAYER_READ_TOOL_REGISTRY: tuple[PlayerReadTool, ...] = (
         name="get_program_rationale",
         description=(
             "Read recorded reasons for the active Training program. Use this for every why-question "
-            "about the Split, day order, exercises or prescriptions. Scope by day_name/day_order or "
+            "about the Split, day order, exercises, skipped restricted slots or prescriptions. Scope by day_name/day_order or "
             "exercise_name/exercise_id and week_order; use page/next_page to read large results. "
             "If reason_available is false, no recorded generator reason exists."
         ),
@@ -605,8 +621,12 @@ def run_player_tool_calls(
                     tool_result = str(future.result(timeout=remaining_seconds))
                 except TimeoutError:
                     tool_result = _unavailable_result()
-                except Exception:
-                    logger.warning("Player read tool %s failed; returning unavailable", name)
+                except Exception as error:
+                    logger.warning(
+                        "Player read tool %s failed (%s); returning unavailable",
+                        name,
+                        type(error).__name__,
+                    )
                     tool_result = _unavailable_result()
                 elapsed_ms = (time.perf_counter() - started) * 1000.0
             if len(tool_result.encode("utf-8")) > MAX_TOOL_RESULT_BYTES:

@@ -111,7 +111,7 @@ def read_program_rationale(program: Any, scope: Any = None) -> dict[str, Any]:
                 record["coach_note"] = note
             exercises.append(record)
         day_record = {"day": name, "day_order": order, "exercises": exercises}
-        for key in ("day_order_reason", "warmup", "cardio", "removed"):
+        for key in ("day_order_reason", "warmup", "cardio", "cardio_restriction", "removed", "skipped"):
             if key in stored:
                 day_record[key] = stored[key]
         output_days.append(day_record)

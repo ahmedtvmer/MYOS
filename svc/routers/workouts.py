@@ -163,12 +163,23 @@ async def search_exercises(
         filters=filters,
         replacing_exercise_id=replacing_exercise_id,
     )
+    profile = ledger.get_player_profile() or {}
+    restrictions = profile.get("movement_restrictions") or []
+    if replacing_exercise_id and restrictions:
+        from core.movement_restrictions import is_movement_restricted
+
+        exercises = [
+            row for row in exercises
+            if not is_movement_restricted(row, row.get("slot_key", ""), restrictions)
+        ]
     if filter_equipment_access and not show_all_equipment:
         from utils.equipment_access import equipment_access_allows
         exercises = [row for row in exercises if equipment_access_allows(equipment_access, row.get("equipment"))]
     return {
         # Filter-only browsing suggests options; typed searches stay bounded.
         "exercises": exercises,
+        "movement_restrictions_excluded": bool(replacing_exercise_id and restrictions),
+        "message_code": "program.movement_restricted.v1" if replacing_exercise_id and restrictions else None,
     }
 
 
@@ -349,6 +360,33 @@ async def read_latest_session(
             detail="No committed sessions.",
         )
     return result
+
+
+@router.get("/movement-restrictions")
+async def read_movement_restriction_annotations(
+    exercise_ids: Annotated[list[str], Query(min_length=1, max_length=100)],
+    player: Annotated[Any, Depends(get_verified_player)],
+    db: Annotated[Any, Depends(get_db)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    exercise_slots: Annotated[list[str] | None, Query(min_length=1, max_length=100)] = None,
+):
+    """Classify saved workout rows against the player's current restrictions."""
+    from core.movement_restrictions import restriction_for_candidate
+
+    restrictions = (ledger.get_player_profile() or {}).get("movement_restrictions") or []
+    if exercise_slots is not None and len(exercise_slots) != len(exercise_ids):
+        raise HTTPException(status_code=422, detail="Exercise slots must match exercise ids.")
+    annotations = []
+    for row_index, exercise_id in enumerate(exercise_ids):
+        candidate = db.get_exercise_library_entry(exercise_id)
+        slot = exercise_slots[row_index] if exercise_slots is not None else ""
+        restriction = restriction_for_candidate(candidate or {}, slot, restrictions)
+        annotations.append({
+            "row_index": row_index,
+            "exercise_id": exercise_id,
+            "movement_restriction": restriction,
+        })
+    return {"annotations": annotations}
 
 
 @router.get("/sessions/by-client-id/{client_session_id}")

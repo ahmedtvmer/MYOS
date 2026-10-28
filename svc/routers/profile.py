@@ -55,6 +55,7 @@ async def read_profile(
 
 
 @router.put("")
+@router.patch("")
 async def update_profile(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -76,16 +77,19 @@ async def update_profile(
         payload["preferred_name"] = body.preferred_name
     if "target_weight_kg" in body.model_fields_set:
         payload["target_weight_kg"] = body.target_weight_kg
-    result = await asyncio.to_thread(
-        profile_service.update_profile,
-        db,
-        str(player),
-        payload,
-        account_id_of(player),
-        ledger,
-        client=analytics.client_context(request),
-        background_tasks=background_tasks,
-    )
+    try:
+        result = await asyncio.to_thread(
+            profile_service.update_profile,
+            db,
+            str(player),
+            payload,
+            account_id_of(player),
+            ledger,
+            client=analytics.client_context(request),
+            background_tasks=background_tasks,
+        )
+    except profile_service.ProfileRevisionConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
     result["profile"] = {
         **(result.get("profile") or {}),
         "player_controls_program": await asyncio.to_thread(

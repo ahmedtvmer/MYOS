@@ -667,6 +667,8 @@ final StateNotifierProvider<ActiveWorkoutController, ActiveWorkoutState>
       dayOrder: dayOrder,
       weekOrder: weekOrder,
     ),
+    loadMovementRestrictionAnnotations: (List<String> exerciseIds, List<String> slots, List<String> rowIds) =>
+        api.movementRestrictionAnnotations(exerciseIds, slots, rowIds),
     restLengths: ref.watch(restLengthStoreProvider),
     alerts: ref.watch(restAlertsProvider),
     analytics: ref.watch(analyticsClientProvider),

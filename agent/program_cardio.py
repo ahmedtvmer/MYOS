@@ -106,17 +106,28 @@ def apply_program_cardio(
     split_days: list[CustomDayPlan],
     profile: Mapping[str, Any],
     options: CoachCardioOptions | None,
-) -> None:
+) -> list[dict[str, str]]:
+    adjustments: list[dict[str, str]] = []
     if is_fat_loss_goal(profile.get("current_goal"), profile.get("long_term_goal")):
         cardio = (
             FAT_LOSS_CARDIO_BODYWEIGHT_NOTE
             if map_equipment_access(profile.get("equipment_access")) == BODYWEIGHT_ONLY
             else FAT_LOSS_CARDIO_NOTE
         )
+        restrictions = set(profile.get("movement_restrictions") or ()) & {
+            "Knee flexion", "Loaded knee extension", "Deep hip flexion"
+        }
+        if restrictions:
+            cardio = FAT_LOSS_CARDIO_BODYWEIGHT_NOTE
+            adjustments = [
+                {"restriction": restriction, "reason": "incline_modality_removed"}
+                for restriction in sorted(restrictions)
+            ]
         for day in program_days:
             day.cardio = CardioPrescriptionSchema.model_validate(cardio)
     if options is not None:
         apply_coach_cardio(program_days, split_days, options)
+    return adjustments
 
 
 def is_leg_day(day: CustomDayPlan) -> bool:

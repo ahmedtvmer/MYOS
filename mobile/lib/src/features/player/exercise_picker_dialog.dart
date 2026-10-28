@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../core/app_failure.dart';
 import '../../core/connectivity_message.dart';
 import '../../core/display_language/copy_context.dart';
+import '../../core/display_language/feature_copy_context.dart';
 import '../../core/exercise_filters.dart';
 import '../../core/models.dart';
 import '../../core/theme/myos_spacing.dart';
@@ -146,6 +147,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
     });
     try {
       // Filter-only requests browse before the player enters a name.
+      String? messageCode;
       final List<ExerciseCatalogEntry> results = await ref
           .read(apiClientProvider)
           .searchExercises(
@@ -158,12 +160,15 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
             replacingExerciseId: widget.replacingExerciseId,
             filterEquipmentAccess: widget.allowShowAllEquipment,
             showAllEquipment: _showAllEquipment,
+            onMessageCode: (String? code) => messageCode = code,
           );
       if (!mounted) return;
       setState(() {
         _searching = false;
         _results = results;
-        _error = results.isEmpty && targetMuscle != null
+        _error = messageCode == 'program.movement_restricted.v1'
+            ? workoutCopyOf(context).movementRestrictionsHideExercises
+            : results.isEmpty && targetMuscle != null
             ? displayCopyOf(context).noMuscleExerciseMatched(targetMuscle)
             : results.isEmpty
                 ? displayCopyOf(context).noMatchingExercise

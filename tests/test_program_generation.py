@@ -333,6 +333,41 @@ def test_fat_loss_finisher_is_structured_treadmill_for_either_goal_field():
     }
 
 
+def test_fat_loss_cardio_avoids_incline_modalities_for_knee_restrictions():
+    exercises = [ProgramExerciseSchema(exercise_id=f"c{i}", exercise_name="Row", target_reps_min=6, target_reps_max=8) for i in range(3)]
+    days = [ProgramDaySchema(day_name="Upper", day_order=1, exercises=exercises)]
+    split_days = [CustomDayPlan(day_order=1, day_name="Upper")]
+    adjustments = apply_program_cardio(days, split_days, {
+        "current_goal": "fat loss", "movement_restrictions": ["Knee flexion"]
+    }, None)
+    assert days[0].cardio.machine == "outdoor_walk_run"
+    assert days[0].cardio.incline_pct is None
+    assert adjustments == [{"restriction": "Knee flexion", "reason": "incline_modality_removed"}]
+
+
+def test_cardio_restriction_adjustment_is_recorded_in_generated_rationale(fresh_store):
+    from agent.program_generator import ProgramGenerationRequest, generate_program_draft_pipeline
+
+    profile = {
+        "gender": "male", "weekly_frequency": 3, "rep_preference": "balanced",
+        "equipment_access": "Commercial gym", "injuries_or_limitations": "None",
+        "stress_and_sleep": "normal", "training_age_years": 3,
+        "current_goal": "fat loss", "movement_restrictions": ["Knee flexion"],
+    }
+    program = generate_program_draft_pipeline(
+        ProgramGenerationRequest(user_split_override="ppl", frequency_override=3),
+        ledger=fresh_store.ledger,
+        profile=profile,
+    )[0]
+    assert all(day.cardio.machine == "outdoor_walk_run" for day in program.days)
+    assert all(
+        day["cardio_restriction"] == [
+            {"restriction": "Knee flexion", "reason": "incline_modality_removed"}
+        ]
+        for day in program.program_rationale["days"]
+    )
+
+
 def test_program_day_schema_accepts_legacy_cardio_and_structured_prescription():
     exercises = [ProgramExerciseSchema(exercise_id=f"x{i}", exercise_name="Squat", target_reps_min=6, target_reps_max=8) for i in range(3)]
     legacy = ProgramDaySchema(day_name="A", day_order=1, exercises=exercises, cardio="Easy treadmill walk")

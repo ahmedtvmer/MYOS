@@ -11,6 +11,12 @@ import 'secure_store.dart';
 import 'workout_equipment.dart';
 
 int _setSequence = 0;
+int _exerciseSequence = 0;
+
+String newActiveWorkoutExerciseId() {
+  _exerciseSequence += 1;
+  return 'exercise-${DateTime.now().microsecondsSinceEpoch}-$_exerciseSequence';
+}
 
 /// A fresh identity for one set row (#123 item 3).
 ///
@@ -700,6 +706,7 @@ class PrescriptionHint {
 /// unplanned (added during the workout), each with its set rows.
 class ActiveWorkoutExercise {
   const ActiveWorkoutExercise({
+    this.rowId = '',
     required this.exercise,
     required this.sets,
     this.unplanned = false,
@@ -711,6 +718,7 @@ class ActiveWorkoutExercise {
 
   factory ActiveWorkoutExercise.fromJson(Map<String, dynamic> json) =>
       ActiveWorkoutExercise(
+        rowId: json['row_id'] as String? ?? newActiveWorkoutExerciseId(),
         exercise: Map<String, dynamic>.from(
           json['exercise'] as Map<String, dynamic>,
         ),
@@ -732,6 +740,7 @@ class ActiveWorkoutExercise {
       );
 
   /// The exact `ProgramExerciseSchema` payload the Workout draft expects.
+  final String rowId;
   final Map<String, dynamic> exercise;
   final List<ActiveWorkoutSet> sets;
   final bool unplanned;
@@ -786,6 +795,7 @@ class ActiveWorkoutExercise {
     bool? unplanned,
     bool? replaced,
   }) => ActiveWorkoutExercise(
+    rowId: rowId,
     exercise: exercise,
     sets: sets ?? this.sets,
     unplanned: unplanned ?? this.unplanned,
@@ -796,6 +806,7 @@ class ActiveWorkoutExercise {
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'row_id': rowId,
     'exercise': exercise,
     'sets': <Map<String, dynamic>>[
       for (final ActiveWorkoutSet set in sets) set.toJson(),

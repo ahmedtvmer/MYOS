@@ -19,8 +19,11 @@ from service import weight_history
 from service.profile_fields import PROFILE_REBUILD_FIELDS
 from service.weight_trend_alerts import evaluate_for_player
 from core.weak_point_suggestions import suggest_weak_points_for_goals
+from core.movement_restriction_suggestions import suggest_movement_restrictions
+from core.movement_restrictions import restriction_for_candidate
 from utils.equipment_access import map_equipment_access
 from utils.preferred_name import validate_preferred_name
+from core.movement_restrictions import validate_movement_restrictions
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,10 @@ PROFILE_ANSWER_FIELDS = frozenset(
 )
 
 
+class ProfileRevisionConflict(ValueError):
+    """A profile changed while a replacement Program was being generated."""
+
+
 def record_weight_entry(db: Any, ledger: Any, command: WeightEntryCommand) -> weight_history.WeightTrendPoint:
     """Writes a date-only weight entry, then evaluates its active Coach alert."""
     point = weight_history.record_weight(
@@ -79,6 +86,9 @@ def _profile_with_preferred_name(
         "suggested_weak_points": suggest_weak_points_for_goals(
             profile.get("current_goal", ""), profile.get("long_term_goal", "")
         ),
+        "suggested_movement_restrictions": suggest_movement_restrictions(
+            profile.get("injuries_or_limitations", "")
+        ),
     }
 
 
@@ -91,6 +101,7 @@ def update_profile(
     *,
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT,
     background_tasks: Any = None,
+    inference_gate_held: bool = False,
 ) -> dict[str, Any]:
     """Upserts the profile; rebuilds when program-shaping inputs change.
 
@@ -113,6 +124,8 @@ def update_profile(
             payload = {**payload, "equipment_access": map_equipment_access(payload["equipment_access"])}
         if isinstance(payload.get("injuries_or_limitations"), str):
             payload = {**payload, "injuries_or_limitations": payload["injuries_or_limitations"].strip()}
+        if "movement_restrictions" in payload:
+            payload = {**payload, "movement_restrictions": validate_movement_restrictions(payload["movement_restrictions"])}
         defaults = {
             "injuries_or_limitations": "None",
             "equipment_access": profile.get("equipment_access"),
@@ -133,7 +146,22 @@ def update_profile(
         updated = {**profile, **payload}
 
         def persist_profile() -> None:
+            nonlocal updated
             with ledger.ledger_transaction():
+                latest = ledger.get_player_profile() or {}
+                if program is not None:
+                    changed_during_generation = [
+                        field for field in PROFILE_REBUILD_FIELDS
+                        if normalize_profile_value(field, latest.get(field, defaults.get(field)))
+                        != normalize_profile_value(field, profile.get(field, defaults.get(field)))
+                        and normalize_profile_value(field, latest.get(field, defaults.get(field)))
+                        != normalize_profile_value(field, payload.get(field, profile.get(field, defaults.get(field))))
+                    ]
+                    if changed_during_generation:
+                        raise ProfileRevisionConflict(
+                            "The Training profile changed while the replacement Program was generated."
+                        )
+                updated = {**latest, **payload}
                 if "weight_kg" in payload:
                     ledger.upsert_player_profile_with_weight_history(
                         updated,
@@ -154,6 +182,13 @@ def update_profile(
                         ),
                     )
 
+        restrictions_changed = (
+            payload.get("movement_restrictions") is not None
+            and payload.get("movement_restrictions") != profile.get("movement_restrictions", [])
+        )
+        movement_conflicts = _active_program_movement_conflicts(
+            db, ledger, updated.get("movement_restrictions", [])
+        ) if restrictions_changed else ()
         profile_change_alerts.record_profile_change(
             db,
             profile_change_alerts.ProfileChangeSnapshot(
@@ -161,13 +196,16 @@ def update_profile(
                 before_profile=profile,
                 after_profile=updated,
                 client=client,
+                movement_restriction_conflicts=movement_conflicts,
             ),
         )
         program = None
+        removed_exercises: list[dict[str, str]] = []
         program_blocked = False
         regeneration_offer_created = False
         if rebuild_requested:
             if player_controls_program(db, ledger, player_account_id):
+                previous_program = ledger.get_active_program()
                 from svc.llm import InferenceScope, inference_turn, run_inference_sync
 
                 inference_scope = InferenceScope(
@@ -187,6 +225,10 @@ def update_profile(
                         ledger=ledger,
                         profile=updated,
                         scope=inference_scope,
+                        gate_already_held=inference_gate_held,
+                    )
+                    removed_exercises = _removed_restricted_exercises(
+                        db, previous_program, program, updated.get("movement_restrictions", [])
                     )
                     # Keep the profile and generated Program atomic, after each
                     # model call has been written to the catalog.
@@ -245,7 +287,53 @@ def update_profile(
             "program_blocked": program_blocked,
             "regeneration_offer_created": regeneration_offer_created,
             "program_message": COACH_CONTROLLED_ERROR if program_blocked else None,
+            "removed_exercises": removed_exercises,
+            "movement_restriction_conflicts": list(movement_conflicts),
+            "coach_notified_of_movement_restrictions": bool(program_blocked and restrictions_changed),
         }
+
+
+def _active_program_movement_conflicts(db: Any, ledger: Any, restrictions: list[str]) -> tuple[dict[str, Any], ...]:
+    program = ledger.get_active_program()
+    if program is None or not restrictions:
+        return ()
+    conflicts = []
+    for day in program.days:
+        for exercise in day.exercises:
+            entry = db.get_exercise_library_entry(str(exercise.exercise_id)) or {}
+            restriction = restriction_for_candidate(
+                entry, str(getattr(exercise, "slot_key", "") or ""), restrictions
+            )
+            if restriction:
+                conflicts.append({
+                    "exercise_name": str(entry.get("name") or exercise.exercise_name),
+                    "exercise_id": str(exercise.exercise_id),
+                    "slot": str(getattr(exercise, "slot_key", "") or ""),
+                    "restriction": restriction,
+                })
+    return tuple(conflicts)
+
+
+def _removed_restricted_exercises(db: Any, before: Any, after: Any, restrictions: list[str]) -> list[dict[str, str]]:
+    if before is None or after is None or not restrictions:
+        return []
+    remaining_ids = {str(exercise.exercise_id) for day in after.days for exercise in day.exercises}
+    removed = []
+    for day in before.days:
+        for exercise in day.exercises:
+            if str(exercise.exercise_id) in remaining_ids:
+                continue
+            entry = db.get_exercise_library_entry(str(exercise.exercise_id)) or {}
+            restriction = restriction_for_candidate(
+                entry, str(getattr(exercise, "slot_key", "") or ""), restrictions
+            )
+            if restriction:
+                removed.append({
+                    "exercise_name": str(exercise.exercise_name),
+                    "slot": str(getattr(exercise, "slot_key", "") or ""),
+                    "restriction": restriction,
+                })
+    return removed
 
 
 def update_persona(

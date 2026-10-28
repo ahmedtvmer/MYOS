@@ -184,6 +184,25 @@ def test_intake_exposes_deterministic_goal_weak_point_suggestions(api):
     assert view.json()["suggested_weak_points"] == ["glutes", "biceps", "triceps", "chest"]
 
 
+def test_intake_returns_movement_suggestions_and_rejects_unknown_confirmation_before_claim(api):
+    client, _, _ = api
+    headers = _register(client, "movement_intake_suggestions")
+    _ack(client, headers)
+    client.put("/onboarding/intake/answers/injuries_or_limitations", headers=headers,
+               json={"value": "FAI syndrome and torn ACL"})
+    view = client.get("/onboarding/intake", headers=headers)
+    assert view.json()["suggested_movement_restrictions"] == [
+        "Knee flexion", "Loaded knee extension", "Deep hip flexion"
+    ]
+    invalid = client.post("/onboarding/intake/confirm", headers=headers,
+                          json={"movement_restrictions": ["unknown"]})
+    assert invalid.status_code == 422
+    retry = client.post("/onboarding/intake/confirm", headers=headers,
+                        json={"movement_restrictions": ["Knee flexion"]})
+    assert retry.status_code == 400
+    assert "Missing required" in retry.json()["detail"]
+
+
 def test_skipping_weak_points_keeps_the_confirmed_profile_unanswered(api, monkeypatch):
     client, _, _ = api
     headers = _register(client, "weakpoint-skip")

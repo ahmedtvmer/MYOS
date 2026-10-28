@@ -46,6 +46,11 @@ from utils.equipment_access import (
 from utils.env_flags import env_flag
 from utils.model_downloader import llm, structured_output_model
 from utils import player_output_budgets
+from core.movement_restrictions import (
+    is_movement_restricted,
+    restriction_for_candidate,
+    validate_movement_restrictions,
+)
 
 load_dotenv()
 
@@ -728,7 +733,7 @@ def _slot_candidate_source(candidate: dict[str, Any], spec: SlotSpec) -> str | N
 
 
 def _candidate_rows(
-    cursor, limit: int, slot_spec: SlotSpec | None = None
+    cursor, limit: int, slot_spec: SlotSpec | None = None, restrictions=()
 ) -> list[dict[str, Any]]:
     columns = [column[0] for column in cursor.description]
     rank_columns = [name for name in columns if name.startswith("rank_")]
@@ -739,6 +744,8 @@ def _candidate_rows(
         if _is_excluded(source_name):
             continue
         candidate["secondary_actions"] = split_curation_values(candidate["secondary_actions"])
+        if slot_spec is not None and is_movement_restricted(candidate, slot_spec.key, restrictions):
+            continue
         candidate["mechanic"] = exercise_mechanic(candidate)
         if slot_spec is not None:
             candidate_source = _slot_candidate_source(candidate, slot_spec)
@@ -809,6 +816,7 @@ def fetch_slot_candidates(
     equipment_access: str = COMMERCIAL_GYM,
     limitations: str = NO_LIMITATIONS,
     limit: int = 6,
+    restrictions=(),
     *,
     ledger: Any,
 ) -> list[dict[str, Any]]:
@@ -821,7 +829,7 @@ def fetch_slot_candidates(
         spec, equipment_access, limitations, SLOT_STAPLES.get(slot_key, ())
     )
     cursor.execute(query, params)
-    candidates = _candidate_rows(cursor, limit, spec)
+    candidates = _candidate_rows(cursor, limit, spec, validate_movement_restrictions(restrictions))
     if slot_key == "quad_iso" and map_equipment_access(equipment_access) == BODYWEIGHT_ONLY:
         # The curated Sissy Squat is the bodyweight isolation match; keep it ahead of other signature rows.
         candidates.sort(
@@ -832,6 +840,40 @@ def fetch_slot_candidates(
     for item in candidates:
         item["slot_key"] = slot_key
     return candidates
+
+
+def restricted_candidate_reasons(
+    slot_key: str,
+    equipment_access: str,
+    limitations: str,
+    restrictions: tuple[str, ...],
+    *,
+    ledger: Any,
+) -> list[str]:
+    """Returns restrictions that removed otherwise eligible candidates from a slot."""
+    spec = SLOT_SPECS.get(slot_key)
+    if spec is None or not restrictions:
+        return []
+    query, params = _slot_candidate_query(
+        spec, equipment_access, limitations, SLOT_STAPLES.get(slot_key, ())
+    )
+    cursor = ledger.conn.cursor()
+    cursor.execute(query, params)
+    columns = [column[0] for column in cursor.description]
+    reasons = set()
+    for row in cursor.fetchall():
+        candidate = dict(zip(columns, row))
+        source_name = candidate.get("source_name") or candidate.get("name") or ""
+        if _is_excluded(source_name):
+            continue
+        candidate["secondary_actions"] = split_curation_values(candidate["secondary_actions"])
+        source = _slot_candidate_source(candidate, spec)
+        if source is None or (source == SLOT_CANDIDATE_SIGNATURE and _is_explosive_signature_substitute(source_name)):
+            continue
+        reason = restriction_for_candidate(candidate, slot_key, restrictions)
+        if reason:
+            reasons.add(reason)
+    return [label for label in restrictions if label in reasons]
 
 
 def fetch_warmup_candidates(

@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MyosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 50
+CURRENT_LEDGER_SCHEMA_VERSION: int = 51
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -1194,6 +1194,17 @@ def _migrate_v49_to_v50(conn: sqlite3.Connection) -> None:
         )
 
 
+def _migrate_v50_to_v51(conn: sqlite3.Connection) -> None:
+    """Adds Player-confirmed Movement restrictions to the Training profile (#522)."""
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='user_profile'"
+    ).fetchone():
+        return
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(user_profile)")}
+    if "movement_restrictions_json" not in columns:
+        conn.execute("ALTER TABLE user_profile ADD COLUMN movement_restrictions_json TEXT NOT NULL DEFAULT '[]'")
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1329,6 +1340,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     47: _migrate_v47_to_v48,
     48: _migrate_v48_to_v49,
     49: _migrate_v49_to_v50,
+    50: _migrate_v50_to_v51,
 }
 
 

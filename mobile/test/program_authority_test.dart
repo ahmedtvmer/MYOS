@@ -493,6 +493,47 @@ void main() {
     expect(find.text('هل تؤكد أن هذه الإصابة انتهت؟'), findsOneWidget);
   });
 
+  for (final String language in <String>['en', 'ar']) {
+    testWidgets('Movement restriction picker confirms suggestions and saves ($language)', (tester) async {
+      final FakeMyosApi fake = _playerFake()
+        ..displayLanguage = language
+        ..injuriesOrLimitations = 'FAI syndrome'
+        ..profileSuggestedMovementRestrictions = <String>['Deep hip flexion'];
+      await _pumpApp(tester, fake);
+      if (language == 'ar') {
+        await _openSettings(tester);
+        await tester.tap(find.text('الملف التدريبي'));
+        await _pumpUntilFound(tester, find.byType(ProfileScreen));
+      } else {
+        await _openProfile(tester);
+      }
+      final Finder scrollable = find.descendant(
+        of: find.byType(ProfileScreen), matching: find.byType(Scrollable));
+      final Finder section = find.byKey(const Key('profile_movement_restrictions_section'));
+      await tester.scrollUntilVisible(section, 250, scrollable: scrollable.first);
+      await tester.tap(section);
+      await tester.pump();
+      final Finder deepHip = find.byKey(const Key('profile_movement_restriction_Deep hip flexion'));
+      await tester.scrollUntilVisible(deepHip, 200, scrollable: scrollable.first);
+      await tester.ensureVisible(deepHip);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilterChip>(deepHip).selected, isFalse);
+      expect(find.textContaining(language == 'ar' ? 'ثني الورك العميق' : 'Deep hip flexion'), findsWidgets);
+      await tester.tap(deepHip);
+      final Finder saveRestrictions = find.byKey(const Key('save_movement_restrictions_button'));
+      await tester.scrollUntilVisible(saveRestrictions, 200, scrollable: scrollable.first);
+      await tester.ensureVisible(saveRestrictions);
+      await tester.pumpAndSettle();
+      fake.failOffline('PATCH', '/profile');
+      await tester.tap(find.byKey(const Key('save_movement_restrictions_button')));
+      await _pumpUntilFound(tester, find.byKey(const Key('save_movement_restrictions_button')));
+      fake.offlineRequests.remove('PATCH /profile');
+      await tester.tap(find.byKey(const Key('save_movement_restrictions_button')));
+      await _pumpUntilFound(tester, find.text(language == 'ar' ? 'أُعيد إنشاء البرنامج التدريبي.' : 'Program rebuilt.'));
+      expect(fake.movementRestrictions, <String>['Deep hip flexion']);
+    });
+  }
+
   testWidgets('Training profile pre-fills editable values and saves goal/weight without rebuild',
       (tester) async {
     final FakeMyosApi fake = _playerFake();

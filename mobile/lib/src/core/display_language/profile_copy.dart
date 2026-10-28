@@ -12,6 +12,11 @@ class ProfileCopy {
       ? 'حدّث معلومات الملف التي تساعد على تخصيص تدريبك.'
       : 'Update the profile facts used to personalize your training.';
   String get currentGoal => isArabic ? 'الهدف الحالي' : 'Current goal';
+  String get movementsToAvoid => isArabic ? 'حركات يجب تجنبها' : 'Movements to avoid';
+  String suggestedMovementsFromInjuries(String labels) => isArabic ? 'اقتراحات من نص الإصابات: $labels' : 'Suggested from injury text: $labels';
+  String get movementsToAvoidLead => isArabic ? 'اختر الحركات التي يجب استبعادها من برنامجك.' : 'Choose movements to keep out of your program.';
+  String movementRestriction(String label) => isArabic ? ({'Knee flexion': 'ثني الركبة', 'Loaded knee extension': 'مدّ الركبة تحت حمل', 'Hip adduction': 'تقريب الورك', 'Hip abduction': 'إبعاد الورك', 'Deep hip flexion': 'ثني الورك العميق', 'Spinal loading / flexion': 'تحميل العمود الفقري أو ثنيه', 'Overhead pressing': 'الضغط فوق الرأس', 'Pressing / fly (shoulder horizontal adduction under load)': 'الضغط أو التفتيح', 'Wrist loading': 'تحميل الرسغ'}[label] ?? label) : label;
+  String get saveMovementsToAvoid => isArabic ? 'حفظ الحركات' : 'Save movements';
   String get weakPoints => isArabic ? 'نقاط الضعف' : 'Weak points';
   String get weakPointsLead => isArabic ? 'اختر حتى نقطتي ضعف لتحسينهما.' : 'Choose up to two Weak points to improve.';
   String get saveWeakPoints => isArabic ? 'حفظ نقاط الضعف' : 'Save Weak points';
@@ -112,6 +117,8 @@ class ProfileCopy {
   String get continueAction => isArabic ? 'متابعة' : 'Continue';
   String get programRebuilt =>
       isArabic ? 'أُعيد إنشاء البرنامج التدريبي.' : 'Program rebuilt.';
+  String get coachNotifiedMovementRestrictions => isArabic ? 'تم إبلاغ مدربك بقيود الحركة.' : 'Your coach was notified about your movement restrictions.';
+  String removedMovementExercises(String entries) => isArabic ? 'أُزيلت التمارين التالية: $entries' : 'Removed exercises: $entries';
   String get profileSaved => isArabic ? 'حُفظ الملف.' : 'Profile saved.';
   String get scheduleSaved =>
       isArabic ? 'حُفظ جدول التدريب.' : 'Training schedule saved.';

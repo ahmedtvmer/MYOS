@@ -50,6 +50,8 @@ from utils.equipment_access import (
 )
 from core.weak_points import WEAK_POINT_MUSCLES, validate_weak_points
 from core.weak_point_suggestions import suggest_weak_points_for_goals
+from core.movement_restriction_suggestions import suggest_movement_restrictions
+from core.movement_restrictions import validate_movement_restrictions
 
 STATUS_IN_PROGRESS = "in_progress"
 STATUS_CONFIRMING = "confirming"
@@ -451,6 +453,9 @@ def build_view(db: Any, ledger_id: str, ledger: Any | None = None) -> dict[str, 
         ensure_intake(db, ledger_id, ledger=ledger)
         state = ledger.get_intake_state() or {}
         answers = ledger.load_intake_answers()
+        saved_restrictions = validate_movement_restrictions(
+            (ledger.get_player_profile() or {}).get("movement_restrictions") or []
+        )
 
     fields: list[dict[str, Any]] = []
     for spec in INTAKE_FIELDS:
@@ -515,6 +520,10 @@ def build_view(db: Any, ledger_id: str, ledger: Any | None = None) -> dict[str, 
             answers.get("current_goal", {}).get("value", ""),
             answers.get("long_term_goal", {}).get("value", ""),
         ),
+        "suggested_movement_restrictions": suggest_movement_restrictions(
+            answers.get("injuries_or_limitations", {}).get("value", "")
+        ),
+        "movement_restrictions": saved_restrictions,
         "progress": {
             "answered_required": sum(1 for name in REQUIRED_FIELDS if name in answers),
             "required_total": len(REQUIRED_FIELDS),
@@ -596,6 +605,7 @@ def confirm_intake(
     ledger: Any | None = None,
     *,
     client: analytics.ClientContext = analytics.UNKNOWN_CLIENT,
+    movement_restrictions: list[str] | None = None,
 ) -> dict[str, Any]:
     """Writes the confirmed profile and creates the first program, exactly once.
 
@@ -626,6 +636,10 @@ def confirm_intake(
                 "Missing required onboarding answers: " + ", ".join(missing) + "."
             )
 
+        normalized_restrictions = (
+            validate_movement_restrictions(movement_restrictions)
+            if movement_restrictions is not None else None
+        )
         confirmed_instant = datetime.now(UTC)
         confirmed_at = confirmed_instant.isoformat()
         if not ledger.claim_intake_confirmation(confirmed_at):
@@ -636,23 +650,24 @@ def confirm_intake(
             raise IntakeConfirmInProgress("A program is already being generated for this intake.")
 
         profile = {FIELD_BY_NAME[name].profile_key: answers[name]["value"] for name in answers}
-        with ledger.ledger_transaction():
-            ledger.upsert_player_profile_with_weight_history(
-                profile, player_local_date(ledger, ledger_id, confirmed_instant).isoformat()
-            )
-            injuries_service.import_legacy_injury_text(
-                db,
-                ledger,
-                injuries_service.LegacyInjuryImport(
-                    player_account_id,
-                    profile.get("injuries_or_limitations"),
-                    client,
-                ),
-            )
-        if player_account_id:
-            evaluate_for_player(db, player_account_id, ledger=ledger)
-
+        if normalized_restrictions is not None:
+            profile["movement_restrictions"] = normalized_restrictions
         try:
+            with ledger.ledger_transaction():
+                ledger.upsert_player_profile_with_weight_history(
+                    profile, player_local_date(ledger, ledger_id, confirmed_instant).isoformat()
+                )
+                injuries_service.import_legacy_injury_text(
+                    db,
+                    ledger,
+                    injuries_service.LegacyInjuryImport(
+                        player_account_id,
+                        profile.get("injuries_or_limitations"),
+                        client,
+                    ),
+                )
+            if player_account_id:
+                evaluate_for_player(db, player_account_id, ledger=ledger)
             result = onboarding_service.complete_onboarding(
                 db,
                 ledger_id,

@@ -240,6 +240,7 @@ const Map<String, Set<String>> _paramKeys = <String, Set<String>>{
   'program.edit.invalid_set_count.v1': <String>{},
   'program.edit.exercise_not_available.v1': <String>{},
   'program.edit.day_limit.v1': <String>{},
+  'program.movement_restricted.v1': <String>{},
   'program.edit.changed.v1': <String>{},
   'program_request.invalid_kind.v1': <String>{},
   'program_request.reason_required.v1': <String>{},

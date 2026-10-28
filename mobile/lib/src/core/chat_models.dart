@@ -83,6 +83,7 @@ class ChatDone extends ChatStreamEvent {
   const ChatDone({
     required this.responseContent,
     required this.programUpdated,
+    this.movementRestrictionsUpdated = false,
     this.outcome = 'completed',
     this.lifterAllowance,
     this.coachAllowance,
@@ -92,6 +93,7 @@ class ChatDone extends ChatStreamEvent {
 
   final String responseContent;
   final bool programUpdated;
+  final bool movementRestrictionsUpdated;
   final String outcome;
   final AiAllowance? lifterAllowance;
   final AiAllowance? coachAllowance;

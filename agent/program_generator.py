@@ -8,6 +8,7 @@ from typing import Any, Callable
 from dotenv import load_dotenv
 
 from core.effort import min_rir_from_rpe
+from core.movement_restrictions import restriction_for_candidate
 from agent.program_blueprints import (
     _SMALL_MUSCLE_OPENERS,
     ExperienceLevel,
@@ -41,6 +42,7 @@ from agent.program_rules import (
     exercise_mechanic,
     fetch_slot_candidates,
     fetch_warmup_candidates,
+    restricted_candidate_reasons,
     resolve_split,
 )
 from agent.program_cardio import CoachCardioOptions, apply_program_cardio
@@ -306,6 +308,7 @@ class DayGenerationContext:
     rep_preference: str
     recovery_cut: bool
     experience_level: ExperienceLevel
+    movement_restrictions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -401,6 +404,8 @@ def build_warmup_block(
     limitations: str,
     *,
     ledger: Any,
+    movement_restrictions: tuple[str, ...] | list[str] = (),
+    skipped_restricted: list[dict[str, str]] | None = None,
 ) -> list[WarmupExerciseSchema]:
     """Resolves the 2-3 general preparation movements that open every session."""
     keys = WARMUP_FAMILIES.get(family, WARMUP_FAMILIES["full"])
@@ -409,16 +414,21 @@ def build_warmup_block(
     for key in keys:
         fallback_keys = WARMUP_SPECS[key].get("fallbacks", ())
         for candidate_key in (key, *fallback_keys):
-            candidate = next(
-                (
-                    option
-                    for option in fetch_warmup_candidates(
-                        candidate_key, equipment_access, limitations, limit=3, ledger=ledger
-                    )
-                    if str(option["id"]) not in seen_ids
-                ),
-                None,
-            )
+            candidate = None
+            for option in fetch_warmup_candidates(
+                candidate_key, equipment_access, limitations, limit=3, ledger=ledger
+            ):
+                restriction = restriction_for_candidate(option, "", movement_restrictions)
+                if restriction:
+                    if skipped_restricted is not None:
+                        skipped_restricted.append({
+                            "slot": f"warmup:{candidate_key}",
+                            "restriction": restriction,
+                        })
+                    continue
+                if str(option["id"]) not in seen_ids:
+                    candidate = option
+                    break
             if candidate is None:
                 continue
             candidate_id = str(candidate["id"])
@@ -490,16 +500,13 @@ def _limitation_removed_staples(
     """Whether limitations removed Staples and no allowed unused Staple remains."""
     if str(context.limitations or "").strip().casefold() in {"", NO_LIMITATIONS.casefold()}:
         return False
-    unrestricted_ids = _staple_candidate_ids(
-        fetch_slot_candidates(
-            slot_key,
-            context.equipment_access,
-            NO_LIMITATIONS,
-            limit=SLOT_CANDIDATE_LIMIT,
-            ledger=ledger,
-        ),
-        slot_key,
+    fetch_options = {"limit": SLOT_CANDIDATE_LIMIT, "ledger": ledger}
+    if context.movement_restrictions:
+        fetch_options["restrictions"] = context.movement_restrictions
+    unrestricted = fetch_slot_candidates(
+        slot_key, context.equipment_access, NO_LIMITATIONS, **fetch_options
     )
+    unrestricted_ids = _staple_candidate_ids(unrestricted, slot_key)
     limited_ids = _staple_candidate_ids(candidates, slot_key)
     return bool(unrestricted_ids - limited_ids) and not (limited_ids - excluded_ids)
 
@@ -511,12 +518,11 @@ def _fetch_generation_candidates(
     *,
     ledger: Any,
 ) -> tuple[list[dict], bool]:
+    fetch_options = {"limit": SLOT_CANDIDATE_LIMIT, "ledger": ledger}
+    if context.movement_restrictions:
+        fetch_options["restrictions"] = context.movement_restrictions
     candidates = fetch_slot_candidates(
-        slot_key,
-        context.equipment_access,
-        context.limitations,
-        limit=SLOT_CANDIDATE_LIMIT,
-        ledger=ledger,
+        slot_key, context.equipment_access, context.limitations, **fetch_options
     )
     limitation_removed_staples = _limitation_removed_staples(
         candidates, slot_key, context, excluded_ids, ledger=ledger
@@ -549,15 +555,13 @@ def _limitation_selection_code(
     candidate_id = str(candidate["id"])
     if candidate_id not in staples or staples.index(candidate_id) == 0:
         return None
+    fetch_options = {"limit": SLOT_CANDIDATE_LIMIT, "ledger": ledger}
+    if context.movement_restrictions:
+        fetch_options["restrictions"] = context.movement_restrictions
     without_limitations = _staple_candidate_ids(
         fetch_slot_candidates(
-            slot_key,
-            context.equipment_access,
-            NO_LIMITATIONS,
-            limit=SLOT_CANDIDATE_LIMIT,
-            ledger=ledger,
-        ),
-        slot_key,
+            slot_key, context.equipment_access, NO_LIMITATIONS, **fetch_options
+        ), slot_key,
     )
     prior_staples = staples[: staples.index(candidate_id)]
     if any(staple_id in (excluded_ids or set()) for staple_id in prior_staples):
@@ -565,9 +569,11 @@ def _limitation_selection_code(
     if any(staple_id in without_limitations for staple_id in prior_staples):
         return SELECTION_LIMITATION_SUBSTITUTE
     if context.equipment_access != COMMERCIAL_GYM:
+        full_access_options = {"limit": SLOT_CANDIDATE_LIMIT, "ledger": ledger}
+        if context.movement_restrictions:
+            full_access_options["restrictions"] = context.movement_restrictions
         full_access = _staple_candidate_ids(fetch_slot_candidates(
-            slot_key, COMMERCIAL_GYM, context.limitations,
-            limit=SLOT_CANDIDATE_LIMIT, ledger=ledger,
+            slot_key, COMMERCIAL_GYM, context.limitations, **full_access_options
         ), slot_key)
         if any(staple_id in full_access for staple_id in prior_staples):
             return SELECTION_EQUIPMENT_ACCESS_STAPLE
@@ -599,6 +605,7 @@ def _assemble_deterministic_day_with_rationale(
         else MAX_RECOVERY_CUTS_PER_DAY
     )
     substitute_options: dict[str, list[dict]] = {}
+    skipped_restricted: list[dict[str, str]] = []
 
     for slot_key in day.target_slots:
         spec = SLOT_SPECS.get(slot_key)
@@ -611,6 +618,10 @@ def _assemble_deterministic_day_with_rationale(
         chosen = _pick_candidate(candidates, slot_key, excluded_ids)
         resolved_slot = slot_key
         candidate_slot = slot_key
+        blocked_reasons = restricted_candidate_reasons(
+            slot_key, context.equipment_access, context.limitations,
+            context.movement_restrictions, ledger=ledger,
+        ) if not chosen else []
         if chosen is None:
             # A limitation or Equipment access filter can empty the pool; try
             # the blueprint's safe fallback slots instead of shrinking the day.
@@ -621,7 +632,7 @@ def _assemble_deterministic_day_with_rationale(
             )
             if context.equipment_access == BODYWEIGHT_ONLY and slot_key == "ham_hinge":
                 fallback_keys = ()
-            for fallback_key in fallback_keys:
+            for fallback_key in (() if blocked_reasons else fallback_keys):
                 fallback_spec = SLOT_SPECS.get(fallback_key)
                 if fallback_spec is None:
                     continue
@@ -636,6 +647,10 @@ def _assemble_deterministic_day_with_rationale(
                     candidate_slot = fallback_key
                     break
         if chosen is None:
+            skipped_restricted.extend(
+                {"slot": slot_key, "restriction": reason}
+                for reason in blocked_reasons
+            )
             logger.warning(f"No catalog candidate for slot '{slot_key}' (day '{day.day_name}').")
             continue
 
@@ -742,14 +757,24 @@ def _assemble_deterministic_day_with_rationale(
     program_day = ProgramDaySchema(
         day_order=day.day_order,
         day_name=day.day_name,
-        warmup_exercises=build_warmup_block(day.warmup_family, context.equipment_access, context.limitations, ledger=ledger),
+        warmup_exercises=build_warmup_block(
+            day.warmup_family,
+            context.equipment_access,
+            context.limitations,
+            ledger=ledger,
+            movement_restrictions=context.movement_restrictions,
+            skipped_restricted=skipped_restricted,
+        ),
         exercises=selected_exercises,
         cardio=day.cardio,
     )
-    return program_day, [
+    exercise_reasons = [
         {"position": index, "exercise_id": exercise.exercise_id, "rationale": reason}
         for index, (exercise, reason) in enumerate(zip(selected_exercises, selected_rationales), start=1)
     ]
+    if skipped_restricted:
+        exercise_reasons.append({"skipped": skipped_restricted})
+    return program_day, exercise_reasons
 
 
 def assemble_program_day(
@@ -930,10 +955,15 @@ def _build_program(
         split_type=split_plan.split_name,
         weekly_frequency=len(split_plan.days),
         days=days,
+        program_rationale={"days": rationale_days},
     )
     program.program_rationale = build_program_rationale(program, split_plan, request.coach_cardio)
     for day_rationale, exercise_reasons in zip(program.program_rationale["days"], rationale_days):
         day_rationale["exercises"] = exercise_reasons["exercises"]
+        if exercise_reasons.get("skipped"):
+            day_rationale["skipped"] = exercise_reasons["skipped"]
+        if exercise_reasons.get("cardio_restriction"):
+            day_rationale["cardio_restriction"] = exercise_reasons["cardio_restriction"]
     day_families = {day.day_order: day.family for day in split_plan.days}
     _apply_focus_muscles(program, focus_muscles, profile, ledger, day_families)
     return program, render_program_markdown(program)
@@ -947,6 +977,7 @@ def _apply_focus_muscles(program, focus_muscles, profile, ledger, day_families):
         rep_preference=profile.get("rep_preference", "balanced"),
         recovery_cut=False,
         experience_level=experience_level_for_training_age(profile.get("training_age_years", 0.0)),
+        movement_restrictions=tuple(profile.get("movement_restrictions", ())),
     )
     baseline_exercises = {
         day.day_order: tuple(day.exercises)
@@ -989,7 +1020,8 @@ def _insert_focus_extras(program, plan, ledger):
         addition = _insert_next_focus_extra(program, plan, opened_days, ledger)
         if addition is None:
             focus_reason["reason"] = _focus_unavailable_reason(
-                muscle, plan.context.equipment_access, plan.target - actual
+                muscle, plan.context.equipment_access, plan.target - actual,
+                _focus_restriction_reason(plan.candidate_policy, plan.context, ledger),
             )
             break
         target_day, new_exercise, day_choice = addition
@@ -1007,7 +1039,8 @@ def _insert_focus_extras(program, plan, ledger):
         focus_reason.pop("extra_exercise_ids")
         focus_reason.pop("extras")
         focus_reason["reason"] = focus_reason.pop("reason", _focus_unavailable_reason(
-            muscle, plan.context.equipment_access, plan.target - actual
+            muscle, plan.context.equipment_access, plan.target - actual,
+            _focus_restriction_reason(plan.candidate_policy, plan.context, ledger),
         ))
     _record_focus_actual(program, focus_reason, actual)
     if day_choices:
@@ -1048,12 +1081,28 @@ def _focus_extra_candidate_for_program(program, focus_policy, context, ledger):
     )
 
 
-def _focus_unavailable_reason(muscle, equipment_access, missing_sets):
-    return {"code": FOCUS_UNAVAILABLE, "params": {
+def _focus_unavailable_reason(muscle, equipment_access, missing_sets, restriction=None):
+    params = {
         "muscle": muscle,
         "equipment_access": equipment_access,
         "missing_weekly_sets": missing_sets,
-    }}
+    }
+    if restriction:
+        params["restriction"] = restriction
+    return {"code": FOCUS_UNAVAILABLE, "params": params}
+
+
+def _focus_restriction_reason(focus_policy, context, ledger):
+    blocked = []
+    for slot_key in focus_policy["candidate_slots"]:
+        candidates, _ = _fetch_generation_candidates(slot_key, context, set(), ledger=ledger)
+        if candidates:
+            return None
+        blocked.extend(restricted_candidate_reasons(
+            slot_key, context.equipment_access, context.limitations,
+            context.movement_restrictions, ledger=ledger,
+        ))
+    return blocked[0] if blocked else None
 
 
 def _insert_focus_exercise(program, day, candidate, placement):
@@ -1383,6 +1432,7 @@ def _generate_program_days(
         rep_preference=request.rep_preference_override or profile.get("rep_preference", "balanced"),
         recovery_cut=is_poor_recovery(profile.get("stress_and_sleep")),
         experience_level=experience_level_for_training_age(profile.get("training_age_years", 0.0)),
+        movement_restrictions=tuple(profile.get("movement_restrictions", ())),
     )
     days = []
     rationale_days = []
@@ -1400,7 +1450,19 @@ def _generate_program_days(
             program_day, exercise_reasons = built
         else:
             program_day, exercise_reasons = built, []
+        skipped_restrictions = [
+            skipped
+            for entry in exercise_reasons
+            for skipped in entry.get("skipped", [])
+        ]
+        exercise_reasons = [entry for entry in exercise_reasons if "exercise_id" in entry]
         days.append(program_day)
-        rationale_days.append({"day_order": day.day_order, "warmup": [], "cardio": None, "exercises": exercise_reasons})
-    apply_program_cardio(days, split_plan.days, profile, request.coach_cardio)
+        day_rationale = {"day_order": day.day_order, "warmup": [], "cardio": None, "exercises": exercise_reasons}
+        if skipped_restrictions:
+            day_rationale["skipped"] = skipped_restrictions
+        rationale_days.append(day_rationale)
+    cardio_adjustments = apply_program_cardio(days, split_plan.days, profile, request.coach_cardio)
+    if cardio_adjustments:
+        for day_rationale in rationale_days:
+            day_rationale["cardio_restriction"] = cardio_adjustments
     return days, rationale_days

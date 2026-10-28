@@ -73,6 +73,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   PlayerProfile? _savedProfile;
   List<InjuryRecord> _injuries = const <InjuryRecord>[];
   List<Map<String, String>> _weakPoints = const <Map<String, String>>[];
+  List<String> _movementRestrictions = <String>[];
   OnboardingIntake? _intake;
 
   bool _loading = true;
@@ -206,6 +207,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() {
         _weeklyFrequency = profile.weeklyFrequency;
         _savedProfile = profile;
+        _movementRestrictions = List<String>.from(profile.movementRestrictions);
         _weakPoints = profile.weakPoints ?? (profile.gender == 'female'
             ? const <Map<String, String>>[<String, String>{'muscle': 'glutes', 'source': 'default'}]
             : const <Map<String, String>>[]);
@@ -401,6 +403,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ],
         ),
       );
+
+  Future<void> _saveMovementRestrictions() async {
+    setState(() { _saving = true; _notice = null; _noticeFailure = null; _noticeIsError = false; });
+    try {
+      final ProfileUpdateResult result = await ref.read(apiClientProvider).updateProfile(movementRestrictions: _movementRestrictions);
+      if (!mounted) return;
+      await ref.read(activeWorkoutControllerProvider.notifier).applyMovementRestrictionConflicts(result.movementRestrictionConflicts);
+      unawaited(ref.read(activeWorkoutControllerProvider.notifier).refreshMovementRestrictionAnnotations());
+      if (result.programRebuilt) unawaited(_refreshProgramCache(rebuiltProgram: result.program));
+      setState(() { _saving = false; _noticeFailure = null; _noticeIsError = false; _savedProfile = result.profile ?? _savedProfile; _notice = result.coachNotifiedOfMovementRestrictions ? _copy.coachNotifiedMovementRestrictions : result.removedExercises.isNotEmpty ? _copy.removedMovementExercises(result.removedExercises.map((Map<String, dynamic> item) => '${item['exercise_name'] ?? item['name']}: ${_copy.movementRestriction(item['restriction'] as String? ?? '')}').join(', ')) : result.programMessage ?? (result.programRebuilt ? _copy.programRebuilt : _copy.profileSaved); });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() { _saving = false; _noticeFailure = _mutationFailure(error); _noticeIsError = true; });
+    }
+  }
 
   Future<void> _saveWeakPoints() async {
     setState(() {
@@ -1180,6 +1197,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
         const SizedBox(height: MyosSpacing.md),
+        ExpansionTile(
+          key: const Key('profile_movement_restrictions_section'),
+          tilePadding: EdgeInsets.zero,
+          title: Text(copy.movementsToAvoid),
+          subtitle: Text(copy.movementsToAvoidLead),
+          children: <Widget>[
+            Align(alignment: AlignmentDirectional.centerStart, child: Wrap(spacing: MyosSpacing.xs, children: <Widget>[
+              for (final String label in const <String>['Knee flexion', 'Loaded knee extension', 'Hip adduction', 'Hip abduction', 'Deep hip flexion', 'Spinal loading / flexion', 'Overhead pressing', 'Pressing / fly (shoulder horizontal adduction under load)', 'Wrist loading'])
+                FilterChip(key: Key('profile_movement_restriction_$label'), label: Text(copy.movementRestriction(label)), selected: _movementRestrictions.contains(label), onSelected: _saving ? null : (bool selected) => setState(() { if (selected) { _movementRestrictions.add(label); } else { _movementRestrictions.remove(label); } })),
+            ])),
+            if (_savedProfile?.suggestedMovementRestrictions.isNotEmpty == true)
+              Text('${copy.movementsToAvoid}: ${_savedProfile!.suggestedMovementRestrictions.map(copy.movementRestriction).join(', ')}'),
+            Align(alignment: AlignmentDirectional.centerStart, child: TextButton(key: const Key('save_movement_restrictions_button'), onPressed: _saving ? null : _saveMovementRestrictions, child: Text(copy.saveMovementsToAvoid))),
+          ],
+        ),
+        const SizedBox(height: MyosSpacing.sm),
         ExpansionTile(
           key: const Key('profile_weak_points_section'),
           tilePadding: EdgeInsets.zero,

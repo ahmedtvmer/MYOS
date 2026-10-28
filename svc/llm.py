@@ -508,9 +508,13 @@ def inference_slot(timeout: float = 30.0, *, scope: InferenceScope | None = None
 
 
 def run_inference_sync(
-    fn: Callable[..., Any], *args: Any, scope: InferenceScope | None = None, **kwargs: Any
+    fn: Callable[..., Any], *args: Any, scope: InferenceScope | None = None,
+    gate_already_held: bool = False, **kwargs: Any
 ) -> Any:
     """Runs a blocking ``llm.*`` callable under the shared inference gate."""
+    if gate_already_held:
+        with _usage_scope(scope or InferenceScope()):
+            return fn(*args, **kwargs)
     with inference_slot(scope=scope):
         return fn(*args, **kwargs)
 

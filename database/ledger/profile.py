@@ -13,6 +13,7 @@ from utils.equipment_access import map_equipment_access
 
 from agent.prompts import DEFAULT_ASSISTANT_STYLE
 from utils.preferred_name import validate_preferred_name
+from core.movement_restrictions import validate_movement_restrictions
 
 
 PLAYER_PROFILE_STORAGE_DEFAULTS = {
@@ -368,6 +369,8 @@ class LedgerProfileMixin:
             return None
         profile_row = dict(row)
         raw_weak_points = profile_row.pop("weak_points_json", None)
+        raw_movement_restrictions = profile_row.pop("movement_restrictions_json", "[]")
+        profile_row["movement_restrictions"] = json.loads(raw_movement_restrictions or "[]")
         profile_row["weak_points"] = (
             json.loads(raw_weak_points) if raw_weak_points is not None else None
         )
@@ -406,6 +409,10 @@ class LedgerProfileMixin:
             weak_points_json = json.dumps(
                 validate_weak_points(profile_data["weak_points"]), separators=(",", ":")
             )
+        current_profile = self.get_player_profile() or {}
+        restrictions = validate_movement_restrictions(
+            profile_data.get("movement_restrictions", current_profile.get("movement_restrictions", []))
+        )
         params = {
             "id": int(profile_data.get("id", user_id)),
             "gender": str(
@@ -477,6 +484,7 @@ class LedgerProfileMixin:
             "custom_instructions": str(profile_data.get("custom_instructions", "")),
             "weak_points_json": weak_points_json,
             "weak_points_present": int("weak_points" in profile_data),
+            "movement_restrictions_json": json.dumps(restrictions, separators=(",", ":")),
             "created_at": now,
             "updated_at": now,
         }
@@ -486,12 +494,12 @@ class LedgerProfileMixin:
                 id, gender, proportions, age, weight_kg, target_weight_kg, height_cm, rep_preference,
                 current_goal, long_term_goal, weekly_frequency, training_age_years,
                 equipment_access, injuries_or_limitations, stress_and_sleep, coach_tone,
-                custom_instructions, created_at, updated_at, weak_points_json
+                custom_instructions, created_at, updated_at, weak_points_json, movement_restrictions_json
             ) VALUES (
                 :id, :gender, :proportions, :age, :weight_kg, :target_weight_kg, :height_cm, :rep_preference,
                 :current_goal, :long_term_goal, :weekly_frequency, :training_age_years,
                 :equipment_access, :injuries_or_limitations, :stress_and_sleep, :coach_tone,
-                :custom_instructions, :created_at, :updated_at, :weak_points_json
+                :custom_instructions, :created_at, :updated_at, :weak_points_json, :movement_restrictions_json
             )
             ON CONFLICT(id) DO UPDATE SET
                 gender = excluded.gender, proportions = excluded.proportions, age = excluded.age,
@@ -504,7 +512,8 @@ class LedgerProfileMixin:
                 training_age_years = excluded.training_age_years, equipment_access = excluded.equipment_access,
                 injuries_or_limitations = excluded.injuries_or_limitations, stress_and_sleep = excluded.stress_and_sleep,
                 updated_at = excluded.updated_at,
-                weak_points_json = CASE WHEN :weak_points_json IS NOT NULL OR :weak_points_present = 1 THEN excluded.weak_points_json ELSE user_profile.weak_points_json END
+                weak_points_json = CASE WHEN :weak_points_json IS NOT NULL OR :weak_points_present = 1 THEN excluded.weak_points_json ELSE user_profile.weak_points_json END,
+                movement_restrictions_json = excluded.movement_restrictions_json
         """,
             params,
         )

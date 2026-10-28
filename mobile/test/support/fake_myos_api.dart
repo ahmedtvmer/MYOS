@@ -146,6 +146,8 @@ class FakeMyosApi {
   String equipmentAccess = equipmentAccessCommercialGym;
   String currentGoal = 'Get stronger';
   String injuriesOrLimitations = 'None';
+  List<String> movementRestrictions = <String>[];
+  List<String> profileSuggestedMovementRestrictions = <String>[];
   double weightKg = 75;
   double? targetWeightKg;
   int weightEntryRequests = 0;
@@ -389,6 +391,9 @@ class FakeMyosApi {
   /// assert its equivalent minimum RIR (#111).
   final Map<String, double> prescriptionTargetRpe = <String, double>{};
   final Map<String, int> prescriptionEffectiveSets = <String, int>{};
+  final Map<String, String> prescriptionMovementRestrictions = <String, String>{};
+  final Map<String, String?> movementAnnotationResponses = <String, String?>{};
+  final Map<int, String?> movementAnnotationResponsesByRow = <int, String?>{};
   bool prescriptionOffline = false;
   Map<String, dynamic> prescriptionDeload = <String, dynamic>{
     'state': 'none',
@@ -570,6 +575,10 @@ class FakeMyosApi {
   Map<String, Object?> intakeAnswers = <String, Object?>{};
   Map<String, dynamic>? intakeProgram;
   List<String> intakeSuggestedWeakPoints = <String>[];
+  List<String> intakeSuggestedMovementRestrictions = <String>[];
+  List<String> intakeMovementRestrictions = <String>[];
+  Map<String, dynamic>? lastIntakeConfirmData;
+  bool failIntakeConfirm = false;
   // When true, `GET /onboarding/intake` omits the required `fields` key.
   bool intakeMalformed = false;
   bool legacyEquipmentIntakeContract = false;
@@ -693,6 +702,26 @@ class FakeMyosApi {
     }
     if (path == '/workouts/prescription') {
       return _prescription(request);
+    }
+    if (path == '/workouts/movement-restrictions') {
+      final dynamic rawExerciseIds = request.query['exercise_ids'];
+      final List<String> exerciseIds = rawExerciseIds is Iterable
+          ? rawExerciseIds.map((dynamic id) => id.toString()).toList(growable: false)
+          : <String>[];
+      return FakeResponse(200, <String, dynamic>{
+        'annotations': <Map<String, dynamic>>[
+          for (final MapEntry<int, String> row in exerciseIds.asMap().entries)
+            <String, dynamic>{
+              'row_index': row.key,
+              'exercise_id': row.value,
+              'movement_restriction': movementAnnotationResponsesByRow.containsKey(row.key)
+                  ? movementAnnotationResponsesByRow[row.key]
+                  : movementAnnotationResponses.containsKey(row.value)
+                  ? movementAnnotationResponses[row.value]
+                  : prescriptionMovementRestrictions[row.value],
+            },
+        ],
+      });
     }
     if (path == '/workouts/baselines') {
       return _baselines(request);
@@ -3801,6 +3830,8 @@ class FakeMyosApi {
         'gender': gender,
         'weak_points': weakPoints,
         'suggested_weak_points': profileSuggestedWeakPoints,
+        'movement_restrictions': movementRestrictions,
+        'suggested_movement_restrictions': profileSuggestedMovementRestrictions,
         'rep_preference': repPreference,
         'weekly_frequency': weeklyFrequency,
         'equipment_access': equipmentAccess,
@@ -3939,12 +3970,14 @@ class FakeMyosApi {
     final String? preference = request.body['rep_preference'] as String?;
     final String? access = request.body['equipment_access'] as String?;
     final String? injuries = request.body['injuries_or_limitations'] as String?;
+    final List<String>? restrictions = (request.body['movement_restrictions'] as List<dynamic>?)?.map((dynamic item) => item.toString()).toList();
     final Map<String, Object?> proposed = <String, Object?>{
       'weekly_frequency': frequency,
       'rep_preference': preference,
       'equipment_access': access,
       'injuries_or_limitations': injuries,
       'current_goal': request.body['current_goal'],
+      'movement_restrictions': restrictions,
     };
     final Map<String, Object?> before = <String, Object?>{
       'weekly_frequency': weeklyFrequency,
@@ -3952,6 +3985,7 @@ class FakeMyosApi {
       'equipment_access': equipmentAccess,
       'injuries_or_limitations': injuriesOrLimitations,
       'current_goal': currentGoal,
+      'movement_restrictions': movementRestrictions,
     };
     final bool rebuildWarranted = _profileRebuildFields.any(
       (String field) =>
@@ -3961,6 +3995,7 @@ class FakeMyosApi {
     if (preference != null) repPreference = preference;
     if (access != null) equipmentAccess = access;
     if (injuries != null) injuriesOrLimitations = injuries;
+    if (restrictions != null) movementRestrictions = restrictions;
     if (request.body.containsKey('preferred_name')) {
       final String? submittedName = request.body['preferred_name'] as String?;
       if (submittedName != null &&
@@ -4004,6 +4039,8 @@ class FakeMyosApi {
       'program': rebuildWarranted ? _activeProgramBody() : null,
       'program_blocked': false,
       'program_message': null,
+      'removed_exercises': <dynamic>[],
+      'coach_notified_of_movement_restrictions': false,
     });
   }
 
@@ -4134,6 +4171,7 @@ class FakeMyosApi {
     'equipment_access',
     'weekly_frequency',
     'rep_preference',
+    'movement_restrictions',
   ];
 
   static const List<Map<String, dynamic>> _intakeSchema =
@@ -4361,6 +4399,8 @@ class FakeMyosApi {
       'disclosure_acknowledged': intakeDisclosureAcknowledged,
       'fields': fields,
       'suggested_weak_points': intakeSuggestedWeakPoints,
+      'suggested_movement_restrictions': intakeSuggestedMovementRestrictions,
+      'movement_restrictions': intakeMovementRestrictions,
       'profile_rebuild_fields': _profileRebuildFields,
       'progress': <String, dynamic>{
         'answered_required': answeredRequired,
@@ -4461,6 +4501,8 @@ class FakeMyosApi {
       return FakeResponse(200, _intakeView());
     }
     if (path == '/onboarding/intake/confirm' && request.method == 'POST') {
+      lastIntakeConfirmData = Map<String, dynamic>.from(request.body);
+      if (failIntakeConfirm) return const FakeResponse(503, <String, dynamic>{'detail': 'Unavailable'});
       if (intakeStatus == 'confirmed') {
         return FakeResponse(200, <String, dynamic>{
           'status': 'confirmed',
@@ -5021,6 +5063,8 @@ class FakeMyosApi {
                 (entry['target_rpe'] as num).toDouble(),
             'projected_weight': 60.0,
             'last_perf': <dynamic>[],
+            if (prescriptionMovementRestrictions.containsKey(entry['exercise_id']))
+              'movement_restriction': <String, dynamic>{'label': prescriptionMovementRestrictions[entry['exercise_id']], 'message_code': 'program.movement_restricted.v1'},
           },
       ],
     });
@@ -5154,7 +5198,12 @@ class FakeMyosApi {
     matches.sort((Map<String, dynamic> a, Map<String, dynamic> b) =>
         (a['name'] as String).length.compareTo((b['name'] as String).length));
     return FakeResponse(200, <String, dynamic>{
-      'exercises': List<Map<String, dynamic>>.from(matches)
+      'exercises': List<Map<String, dynamic>>.from(matches),
+      'movement_restrictions_excluded':
+          request.query['replacing_exercise_id'] != null && movementRestrictions.isNotEmpty,
+      'message_code': request.query['replacing_exercise_id'] != null && movementRestrictions.isNotEmpty
+          ? 'program.movement_restricted.v1'
+          : null,
     });
   }
 
