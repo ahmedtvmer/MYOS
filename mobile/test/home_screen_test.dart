@@ -1874,7 +1874,29 @@ void main() {
           .any((request) => request.path == '/workouts/sessions/latest'),
       isTrue,
     );
-    expect(find.text('Upper 1'), findsOneWidget);
+    expect(find.text('Upper 1'), findsNWidgets(2));
+  });
+
+  testWidgets('latest saved workout on Home offers Share to Story', (tester) async {
+    final FakeMayosApi fake = _signedInFake()
+      ..latestSessionBody = <String, dynamic>{
+        'session_id': 'sess-share',
+        'session_date': '2026-09-20',
+        'split_name': 'Upper 1',
+        'day_order': null,
+        'program_version': 1,
+        'duration_seconds': 3600,
+        'working_sets': 3,
+        'volume_kg': 1500,
+        'pr_count': 2,
+      };
+    await _pumpHome(tester, fake);
+    expect(find.text('Upper 1'), findsNWidgets(2));
+    expect(find.text('Share to Story'), findsOneWidget);
+    await tester.tap(find.text('Share to Story'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose from gallery'), findsOneWidget);
+    expect(find.text('No photo'), findsOneWidget);
   });
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',

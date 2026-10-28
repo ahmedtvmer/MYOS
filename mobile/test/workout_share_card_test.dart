@@ -3,10 +3,55 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mayos_mobile/src/core/models.dart';
 import 'package:mayos_mobile/src/core/personal_records.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 
 void main() {
+  testWidgets('Home latest workout omits unknown duration but keeps session stats',
+      (WidgetTester tester) async {
+    final LatestSession session = LatestSession.fromJson(<String, dynamic>{
+      'session_id': 'latest',
+      'session_date': '2026-10-29',
+      'split_name': 'Upper 1',
+      'duration_seconds': null,
+      'working_sets': 3,
+      'volume_kg': 1500,
+      'cardio_minutes': 0,
+      'pr_count': 0,
+    });
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: latestSessionShareCard(
+          session: session,
+          languageCode: 'en',
+        ),
+      ),
+    ));
+    expect(find.text('DURATION'), findsNothing);
+    expect(find.text('0m'), findsNothing);
+    expect(find.text('1,500 kg'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('Finish share card continues to show its elapsed duration',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: WorkoutShareCard(
+          languageCode: 'en',
+          dayName: 'Upper 1',
+          duration: Duration(minutes: 58),
+          stats: WorkoutSummaryStats(
+              exercisesDone: 1, workingSets: 3, totalVolumeKg: 1500),
+          records: <WorkoutRecord>[],
+        ),
+      ),
+    ));
+    expect(find.text('58m'), findsOneWidget);
+    expect(find.text('DURATION'), findsOneWidget);
+  });
+
   testWidgets('photo background uses centred cover crop and bounded decoding',
       (WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(

@@ -66,9 +66,9 @@ void main() {
     expect(entry.titleEn, isNotEmpty);
     expect(entry.titleAr, isNotEmpty);
     expect(entry.sentenceEn,
-        'Share a workout card from the saved summary after you finish.');
+        'Share a workout card after a workout or from Home.');
     expect(entry.sentenceAr,
-        'شارك بطاقة للحصة من الملخص المحفوظ بعد إنهائها.');
+        'شارك بطاقة للحصة بعد التمرين أو من الرئيسية.');
     expect(entry.target, 'home');
     expect(entry.release, currentFeatureRelease);
     expect(entry.audience, 'lifter');

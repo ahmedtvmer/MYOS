@@ -4563,6 +4563,11 @@ class LatestSession {
     this.programVersion,
     this.warmupMovements = const <WarmupMovementLog>[],
     this.cardio = const <WorkoutCardio>[],
+    this.durationSeconds,
+    this.workingSets = 0,
+    this.volumeKg = 0,
+    this.cardioMinutes = 0,
+    this.prCount = 0,
   });
 
   factory LatestSession.fromJson(Map<String, dynamic> json) => LatestSession(
@@ -4578,6 +4583,11 @@ class LatestSession {
                 WarmupMovementLog.fromJson(movement as Map<String, dynamic>))
             .toList(growable: false),
         cardio: workoutCardioListFromJson(json['cardio']),
+        durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
+        workingSets: (json['working_sets'] as num?)?.toInt() ?? 0,
+        volumeKg: (json['volume_kg'] as num?)?.toDouble() ?? 0,
+        cardioMinutes: (json['cardio_minutes'] as num?)?.toInt() ?? 0,
+        prCount: (json['pr_count'] as num?)?.toInt() ?? 0,
       );
 
   final String sessionId;
@@ -4588,6 +4598,11 @@ class LatestSession {
   final int? programVersion;
   final List<WarmupMovementLog> warmupMovements;
   final List<WorkoutCardio> cardio;
+  final int? durationSeconds;
+  final int workingSets;
+  final double volumeKg;
+  final int cardioMinutes;
+  final int prCount;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'session_id': sessionId,
@@ -4596,6 +4611,11 @@ class LatestSession {
         'day_order': dayOrder,
         'week_order': weekOrder,
         'program_version': programVersion,
+        if (durationSeconds != null) 'duration_seconds': durationSeconds,
+        'working_sets': workingSets,
+        'volume_kg': volumeKg,
+        'cardio_minutes': cardioMinutes,
+        'pr_count': prCount,
         'warmup_movements': <Map<String, dynamic>>[
           for (final WarmupMovementLog movement in warmupMovements)
             movement.toJson(),

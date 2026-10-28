@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/display_language/workout_copy.dart';
+import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
 
 /// A device-rendered 9:16 workout card. Its inputs are the immutable summary
@@ -17,25 +18,29 @@ class WorkoutShareCard extends StatelessWidget {
   const WorkoutShareCard({
     required this.languageCode,
     required this.dayName,
-    required this.duration,
+    this.duration,
     required this.stats,
     required this.records,
+    this.prCount,
     this.photoBytes,
     super.key,
   });
 
   final String languageCode;
   final String? dayName;
-  final Duration duration;
+  final Duration? duration;
   final WorkoutSummaryStats stats;
   final List<WorkoutRecord> records;
+  final int? prCount;
   final Uint8List? photoBytes;
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
 
-  String get _duration {
-    final int minutes = duration.inMinutes;
+  String? get _duration {
+    final Duration? elapsed = duration;
+    if (elapsed == null) return null;
+    final int minutes = elapsed.inMinutes;
     if (minutes >= 60) {
       final int hours = minutes ~/ 60;
       final int remainder = minutes % 60;
@@ -48,7 +53,7 @@ class WorkoutShareCard extends StatelessWidget {
       ? '${NumberFormat('#,##0', 'en').format(stats.cardioMinutes!)} ${_copy.minutes}'
       : '${NumberFormat('#,##0', 'en').format(stats.cardioMinutes!)} min';
 
-  int get _prExerciseCount => records
+  int get _prExerciseCount => prCount ?? records
       .map((WorkoutRecord r) => r.exerciseId ?? r.exerciseName)
       .toSet()
       .length;
@@ -186,7 +191,8 @@ class WorkoutShareCard extends StatelessWidget {
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _stat(_duration, _copy.duration.toUpperCase()),
+          if (_duration case final String durationLabel)
+            _stat(durationLabel, _copy.duration.toUpperCase()),
           if (cardioOnly)
             _stat(_cardioMinutes, _copy.cardio.toUpperCase())
           else ...<Widget>[
@@ -222,6 +228,29 @@ class WorkoutShareCard extends StatelessWidget {
         ),
       );
 }
+
+WorkoutShareCard latestSessionShareCard({
+  required LatestSession session,
+  required String languageCode,
+  Uint8List? photoBytes,
+}) =>
+    WorkoutShareCard(
+      languageCode: languageCode,
+      dayName: session.splitName == 'Day' ? null : session.splitName,
+      duration: switch (session.durationSeconds) {
+        final int seconds when seconds > 0 => Duration(seconds: seconds),
+        _ => null,
+      },
+      stats: WorkoutSummaryStats(
+        exercisesDone: 0,
+        workingSets: session.workingSets,
+        totalVolumeKg: session.volumeKg,
+        cardioMinutes: session.cardioMinutes == 0 ? null : session.cardioMinutes,
+      ),
+      records: const <WorkoutRecord>[],
+      prCount: session.prCount,
+      photoBytes: photoBytes,
+    );
 
 /// Captures an off-screen card locally and opens the platform share sheet.
 Future<void> shareWorkoutCard(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
+import '../../../core/display_language/workout_copy.dart';
 import '../../../core/theme/mayos_spacing.dart';
 import '../../../core/theme/mayos_theme.dart';
 import '../../../core/theme/mayos_typography.dart';
@@ -22,6 +24,7 @@ import '../../../core/ui/mayos_section_header.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
 import '../program/preparing_program_banner.dart';
+import '../workout/workout_share_card.dart';
 import '../workout/active_workout_prompt.dart';
 import 'home_planning.dart';
 import '../../shared/install_prompt.dart';
@@ -215,6 +218,20 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   void _openDrafts() => context.push(workoutsPath);
 
+  Future<void> _shareLatest(LatestSession session) async {
+    final String language = ref.read(displayLanguageProvider);
+    final Uint8List? photo = await chooseWorkoutPhoto(context, languageCode: language);
+    if (!mounted) return;
+    await shareWorkoutCard(
+      context,
+      latestSessionShareCard(
+        session: session,
+        languageCode: language,
+        photoBytes: photo,
+      ),
+    );
+  }
+
   Future<void> _openCheckpointReview(int checkpoint) async {
     await context.push('$checkpointReviewPath/$checkpoint');
     if (mounted) await _refresh();
@@ -301,6 +318,7 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                 onOpenCheckpointReview: _openCheckpointReview,
                 onOpenProgram: _openProgram,
                 onLogWorkout: _logWorkout,
+                onShareLatest: _shareLatest,
                 trainedDays: <TrainedDay>[
                   if (latest != null) TrainedDay.fromLatestSession(latest),
                   for (final WorkoutDraft draft in drafts)
@@ -331,6 +349,7 @@ class _HomeBody extends StatelessWidget {
     required this.onOpenCheckpointReview,
     required this.onOpenProgram,
     required this.onLogWorkout,
+    required this.onShareLatest,
     required this.trainedDays,
     required this.pendingDrafts,
   });
@@ -348,6 +367,7 @@ class _HomeBody extends StatelessWidget {
   final VoidCallback onOpenProgram;
   final void Function(ProgramDay day, int? programVersion, int programWeekCount)
       onLogWorkout;
+  final Future<void> Function(LatestSession session) onShareLatest;
   final List<TrainedDay> trainedDays;
   final int pendingDrafts;
 
@@ -410,6 +430,14 @@ class _HomeBody extends StatelessWidget {
               onTap: onOpenCheckpointReview,
             ),
           ],
+          if (data.latestSession != null) ...<Widget>[
+            const SizedBox(height: MayosSpacing.md),
+            _LatestWorkoutCard(
+              session: data.latestSession!,
+              onShare: () => onShareLatest(data.latestSession!),
+              languageCode: displayCopyOf(context).isArabic ? 'ar' : 'en',
+            ),
+          ],
           // No program means no next session to show: the Program tab owns the
           // generate flow, and a training day cannot be derived without one.
           if (nextDay != null) ...<Widget>[
@@ -438,6 +466,37 @@ class _HomeBody extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LatestWorkoutCard extends StatelessWidget {
+  const _LatestWorkoutCard({
+    required this.session,
+    required this.onShare,
+    required this.languageCode,
+  });
+
+  final LatestSession session;
+  final VoidCallback onShare;
+  final String languageCode;
+
+  @override
+  Widget build(BuildContext context) => MayosCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(languageCode == 'ar' ? 'أحدث تمرين' : 'Latest workout'),
+            const SizedBox(height: MayosSpacing.xs),
+            Text(session.splitName),
+            const SizedBox(height: MayosSpacing.sm),
+            MayosButton(
+              key: const ValueKey<String>('home.shareLatestWorkout'),
+              label: WorkoutCopy(languageCode).shareToStory,
+              icon: Icons.ios_share,
+              onPressed: onShare,
+            ),
+          ],
+        ),
+      );
 }
 
 class _CheckpointReviewCard extends StatelessWidget {

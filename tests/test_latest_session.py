@@ -184,6 +184,35 @@ def test_latest_session_returns_the_most_recent_committed(api):
     assert body["program_version"] == version
 
 
+def test_latest_session_includes_distinct_exercises_with_session_records(api):
+    client, db = api
+    headers, version = _prepare_player(client, db)
+    latest = _commit(
+        client, headers, version, date="2026-09-26",
+        client_id="55555555-5555-4555-8555-555555555555",
+    )
+    db.ledger_conn.execute(
+        "INSERT INTO personal_records"
+        " (id, exercise_id, record_type, reps, value, prev_value, achieved_at, session_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("pr-1", "sq", "max_weight", 5, 100, 90, "2026-09-26T11:00:00Z", latest["session_id"]),
+    )
+    db.ledger_conn.execute(
+        "INSERT INTO personal_records"
+        " (id, exercise_id, record_type, reps, value, prev_value, achieved_at, session_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("pr-2", "sq", "max_e1rm", 5, 115, 110, "2026-09-26T11:00:00Z", latest["session_id"]),
+    )
+    db.ledger_conn.commit()
+
+    body = client.get("/workouts/sessions/latest", headers=headers).json()
+    assert body["pr_count"] == 1
+    assert body["working_sets"] == 1
+    assert body["volume_kg"] == 500
+    assert body["cardio_minutes"] == 0
+    assert body["duration_seconds"] is None
+
+
 def test_latest_session_is_isolated_per_account(api):
     client, db = api
     headers_a, version_a = _prepare_player(client, db, username="alice", day_name="Full A")

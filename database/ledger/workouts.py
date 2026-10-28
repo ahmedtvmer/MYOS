@@ -432,7 +432,7 @@ class LedgerWorkoutsMixin:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT id, session_date, split_name, program_version,
-                   program_week_order, program_day_order
+                   program_week_order, program_day_order, started_at, completed_at
             FROM workout_sessions
             ORDER BY session_date DESC, started_at DESC, rowid DESC
             LIMIT 1
@@ -440,15 +440,41 @@ class LedgerWorkoutsMixin:
         row = cursor.fetchone()
         if row is None:
             return None
+        session_id = row[0]
+        stats = self.conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(weight_kg * reps), 0)"
+            " FROM workout_sets WHERE session_id = ? AND is_warmup = 0",
+            (session_id,),
+        ).fetchone()
+        pr_count = self.conn.execute(
+            "SELECT COUNT(DISTINCT exercise_id) FROM personal_records WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()[0]
+        cardio = self.get_session_cardio(session_id) or []
+        duration_seconds = None
+        if row[7] and row[6]:
+            try:
+                elapsed = int(
+                    (datetime.fromisoformat(row[7]) - datetime.fromisoformat(row[6])).total_seconds()
+                )
+                if elapsed > 0:
+                    duration_seconds = elapsed
+            except ValueError:
+                pass
         return {
-            "session_id": row[0],
+            "session_id": session_id,
             "session_date": row[1],
             "split_name": row[2],
             "day_order": row[5],
             "week_order": row[4],
             "program_version": row[3],
-            "warmup_movements": self.list_session_warmup_movements(row[0]),
-            "cardio": self.get_session_cardio(row[0]),
+            "warmup_movements": self.list_session_warmup_movements(session_id),
+            "cardio": cardio,
+            "duration_seconds": duration_seconds,
+            "working_sets": stats[0],
+            "volume_kg": stats[1],
+            "cardio_minutes": sum(int(item.get("minutes", 0) or 0) for item in cardio),
+            "pr_count": pr_count,
         }
 
     def get_latest_session_summary(self) -> dict[str, Any] | None:

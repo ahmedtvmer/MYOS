@@ -742,6 +742,11 @@ class PlayerLatestSessionOut(BaseModel):
     program_version: int | None = None
     warmup_movements: list[WarmupMovementOut] = []
     cardio: list[CardioOut] | None = None
+    duration_seconds: int | None = None
+    working_sets: int = 0
+    volume_kg: float = 0
+    cardio_minutes: int = 0
+    pr_count: int = 0
 
 
 class CoachPlayerDivergenceOut(BaseModel):
