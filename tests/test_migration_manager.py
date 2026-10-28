@@ -664,7 +664,7 @@ def test_v38_lazy_migration_adds_nutrition_authority_assignment_id(temp_db_env):
     set_ledger_schema_version(conn, 38)
     conn.commit()
     apply_lazy_migrations(conn, "nutrition-v38", ledgers_dir, backups_dir)
-    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION == 51
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION
     assert conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='nutrition_pace_proposals'"
     ).fetchone() is not None
@@ -1859,7 +1859,22 @@ def test_v49_to_v50_lazy_migration_adds_cardio_calorie_snapshot_columns(temp_db_
 
     columns = {row[1] for row in conn.execute("PRAGMA table_info(session_cardio_entries)")}
     assert {"calories_kcal", "calories_are_estimate"} <= columns
-    assert get_ledger_schema_version(conn) == 51
+    assert get_ledger_schema_version(conn) == CURRENT_LEDGER_SCHEMA_VERSION
+
+
+def test_v51_upgrade_adds_deleted_injury_source_event_storage(temp_db_env):
+    db, ledgers_dir, backups_dir = temp_db_env
+    conn = db.conn
+    conn.execute("DROP TABLE deleted_injury_source_events")
+    set_ledger_schema_version(conn, 51)
+    conn.commit()
+
+    apply_lazy_migrations(conn, "injury-delete-v51", ledgers_dir, backups_dir)
+
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(deleted_injury_source_events)")
+    }
+    assert columns == {"source_event_key", "description", "deleted_at"}
     assert "movement_restrictions_json" in {
         row[1] for row in conn.execute("PRAGMA table_info(user_profile)")
     }

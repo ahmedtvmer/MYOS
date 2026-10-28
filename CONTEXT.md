@@ -252,7 +252,7 @@ The editable facts a player can update after onboarding: current goal, Equipment
 _Arabic_: الملف التدريبي
 
 **Injury**:
-A per-Player Training ledger record with an optional fixed body area, the player's description, its reported time, and a status of reported, physician seen, or resolved. An unknown body area stays unknown until clarified. Active Coaches can read the record only while their Assignment is active.
+A per-Player Training ledger record with an optional fixed body area, the player's description, its reported time, and a status of reported, physician seen, or resolved. An unknown body area stays unknown until clarified. The Player can delete a record added by mistake, including its Exercise clearances; resolved records remain as history. Active Coaches can read the record only while their Assignment is active.
 _Arabic_: إصابة
 
 **Exercise clearance**:

@@ -803,6 +803,39 @@ def test_profile_edit_uses_intake_catalog_validation(api):
         assert response.status_code == 422, (body, response.text)
 
 
+@pytest.mark.parametrize(
+    ("replacement", "expected_descriptions"),
+    [
+        ("Left knee pain", []),
+        ("New shoulder pain", ["New shoulder pain"]),
+    ],
+)
+def test_profile_legacy_injury_deleted_record_can_be_reimported_by_text(
+    api, monkeypatch, replacement, expected_descriptions
+):
+    client, db, _ = api
+    _, player_headers, _, _, _ = _assigned_player(api, "legacy-profile-player")
+    db.switch_user("legacy-profile-player")
+    db.ledger.upsert_player_profile({"injuries_or_limitations": "None"})
+    _profile_generation(db, monkeypatch)
+
+    saved = client.put(
+        "/profile", headers=player_headers, json={"injuries_or_limitations": "Left knee pain"}
+    )
+    assert saved.status_code == 200, saved.text
+    injury = client.get("/profile/injuries", headers=player_headers).json()[0]
+    deleted = client.delete(f"/profile/injuries/{injury['id']}", headers=player_headers)
+    assert deleted.status_code == 204
+
+    replayed = client.put(
+        "/profile", headers=player_headers, json={"injuries_or_limitations": replacement}
+    )
+
+    assert replayed.status_code == 200, replayed.text
+    injuries = client.get("/profile/injuries", headers=player_headers).json()
+    assert [item["description"] for item in injuries] == expected_descriptions
+
+
 def test_profile_rebuild_blocked_during_control(api, monkeypatch):
     client, db, _ = api
     coach_headers, player_headers, assignment_id, _, _ = _assigned_player(api)

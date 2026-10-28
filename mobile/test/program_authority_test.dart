@@ -436,6 +436,73 @@ void main() {
     expect(fake.injuries.single['status'], 'resolved');
   });
 
+  testWidgets('Profile direct resolve and delete actions confirm and cancel',
+      (tester) async {
+    final FakeMyosApi fake = _playerFake();
+    fake.injuries.add(<String, dynamic>{
+      'id': 'injury-direct', 'body_area': 'knee',
+      'catalog_body_parts': <String>['upper legs', 'lower legs'],
+      'description': 'Pain during squats',
+      'reported_at': '2026-10-01T10:00:00+00:00', 'status': 'reported',
+      'clarification_pending': false,
+    });
+    await _pumpApp(tester, fake);
+    await _openProfile(tester);
+
+    expect(find.text('Mark resolved'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('mark_resolved_injury-direct')));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm injury resolved'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.injuryUpdateRequests, 0);
+    expect(fake.injuries, hasLength(1));
+
+    await tester.tap(find.byKey(const Key('mark_resolved_injury-direct')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('injury_resolve_confirm_button_injury-direct')));
+    await tester.pumpAndSettle();
+    expect(fake.lastInjuryUpdatePayload?['status'], 'resolved');
+
+    await tester.tap(find.byKey(const Key('delete_injury_injury-direct')));
+    await tester.pumpAndSettle();
+    expect(find.text('This permanently removes the injury record and its exercise clearances.'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.injuryDeleteRequests, 0);
+    expect(fake.injuries, hasLength(1));
+
+    await tester.tap(find.byKey(const Key('delete_injury_injury-direct')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm_delete_injury_injury-direct')));
+    await tester.pumpAndSettle();
+    expect(fake.injuryDeleteRequests, 1);
+    expect(fake.injuries, isEmpty);
+  });
+
+  testWidgets('Arabic Profile shows direct injury actions and delete confirmation',
+      (tester) async {
+    final FakeMyosApi fake = _playerFake()..displayLanguage = 'ar';
+    fake.injuries.add(<String, dynamic>{
+      'id': 'injury-ar-actions', 'body_area': 'knee',
+      'catalog_body_parts': <String>['upper legs', 'lower legs'],
+      'description': 'ألم في الركبة',
+      'reported_at': '2026-10-01T10:00:00+00:00', 'status': 'reported',
+      'clarification_pending': false,
+    });
+    await _pumpApp(tester, fake);
+    await _openSettings(tester);
+    await tester.tap(find.text('الملف التدريبي'));
+    await _pumpUntilFound(tester, find.byKey(const Key('delete_injury_injury-ar-actions')));
+    expect(find.text('تسجيل الإصابة كمحلولة'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete_injury_injury-ar-actions')));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف الإصابة نهائيًا؟'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(fake.injuryDeleteRequests, 0);
+  });
+
   testWidgets('Arabic Profile shows Arabic injury resolution confirmation',
       (tester) async {
     final FakeMyosApi fake = _playerFake()..displayLanguage = 'ar';

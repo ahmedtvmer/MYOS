@@ -523,6 +523,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _markInjuryResolved(InjuryRecord injury) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(_copy.confirmResolveInjury),
+        content: Text(_copy.confirmResolveInjuryDetails),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(_copy.cancel)),
+          FilledButton(
+            key: Key('injury_resolve_confirm_button_${injury.id}'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(_copy.continueAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _savingInjury = true; _injuryFailure = null; });
+    try {
+      await ref.read(apiClientProvider).updateInjury(
+        id: injury.id,
+        bodyArea: injury.bodyArea,
+        description: injury.description,
+        status: 'resolved',
+      );
+      final PlayerProfile profile = await ref.read(apiClientProvider).profile();
+      if (!mounted) return;
+      setState(() { _savingInjury = false; _injuries = profile.injuries; });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() { _savingInjury = false; _injuryFailure = _mutationFailure(error); });
+    }
+  }
+
+  Future<void> _deleteInjury(InjuryRecord injury) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(_copy.confirmDeleteInjury),
+        content: Text(_copy.confirmDeleteInjuryDetails),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(_copy.cancel)),
+          FilledButton(
+            key: Key('confirm_delete_injury_${injury.id}'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(_copy.deleteInjury),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _savingInjury = true; _injuryFailure = null; });
+    try {
+      await ref.read(apiClientProvider).deleteInjury(id: injury.id);
+      final PlayerProfile profile = await ref.read(apiClientProvider).profile();
+      if (!mounted) return;
+      setState(() { _savingInjury = false; _injuries = profile.injuries; });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() { _savingInjury = false; _injuryFailure = _mutationFailure(error); });
+    }
+  }
+
   Future<void> _editClearance(
     InjuryRecord injury,
     ExerciseClearance clearance,
@@ -624,17 +687,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Card(
             key: Key('injury_record_${injury.id}'),
             margin: const EdgeInsets.only(top: MyosSpacing.xs),
-            child: ListTile(
-              title: Text(
-                '${injury.bodyArea == null ? copy.unknownArea : copy.bodyArea(injury.bodyArea!)} · ${copy.injuryStatusLabel(injury.status)}',
-              ),
-              subtitle: Text(injury.description),
-              trailing: IconButton(
-                key: Key('edit_injury_${injury.id}'),
-                tooltip: copy.editInjury,
-                onPressed: _savingInjury ? null : () => _editInjury(injury: injury),
-                icon: const Icon(Icons.edit_outlined),
-              ),
+            child: Column(
+              children: <Widget>[
+                ListTile(
+                  title: Text(
+                    '${injury.bodyArea == null ? copy.unknownArea : copy.bodyArea(injury.bodyArea!)} · ${copy.injuryStatusLabel(injury.status)}',
+                  ),
+                  subtitle: Text(injury.description),
+                  trailing: IconButton(
+                    key: Key('edit_injury_${injury.id}'),
+                    tooltip: copy.editInjury,
+                    onPressed: _savingInjury ? null : () => _editInjury(injury: injury),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: MyosSpacing.xs, bottom: MyosSpacing.xs),
+                  child: Wrap(spacing: MyosSpacing.xxs, children: <Widget>[
+                    if (injury.status != 'resolved') TextButton(
+                      key: Key('mark_resolved_${injury.id}'),
+                      onPressed: _savingInjury ? null : () => _markInjuryResolved(injury),
+                      child: Text(copy.markResolved),
+                    ),
+                    TextButton.icon(
+                      key: Key('delete_injury_${injury.id}'),
+                      onPressed: _savingInjury ? null : () => _deleteInjury(injury),
+                      icon: const Icon(Icons.delete_outline),
+                      label: Text(copy.deleteInjury),
+                    ),
+                  ]),
+                ),
+              ],
             ),
           ),
         for (final ExerciseClearance clearance in injury.clearances)

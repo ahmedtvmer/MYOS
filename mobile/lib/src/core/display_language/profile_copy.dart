@@ -43,6 +43,12 @@ class ProfileCopy {
   String get confirmResolveInjuryDetails => isArabic
       ? 'هل تؤكد أن هذه الإصابة انتهت؟'
       : 'Confirm that this injury is resolved.';
+  String get markResolved => isArabic ? 'تسجيل الإصابة كمحلولة' : 'Mark resolved';
+  String get deleteInjury => isArabic ? 'حذف الإصابة' : 'Delete';
+  String get confirmDeleteInjury => isArabic ? 'حذف الإصابة نهائيًا؟' : 'Delete injury record?';
+  String get confirmDeleteInjuryDetails => isArabic
+      ? 'سيؤدي ذلك إلى حذف سجل الإصابة وتوصيات التمارين المرتبطة به نهائيًا.'
+      : 'This permanently removes the injury record and its exercise clearances.';
   String get exerciseClearances => isArabic ? 'توصيات الطبيب للتمارين' : 'Exercise clearances';
   String get editClearance => isArabic ? 'تعديل التوصية' : 'Edit clearance';
   String get deleteClearance => isArabic ? 'حذف التوصية' : 'Delete clearance';

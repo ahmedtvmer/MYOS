@@ -127,6 +127,11 @@ async def create_injury(
         )
     except injuries_service.InjuryValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This injury source was previously deleted.",
+        )
     return InjuryRecordOut(**record)
 
 
@@ -156,6 +161,27 @@ async def update_injury(
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Injury record not found.")
     return InjuryRecordOut(**record)
+
+
+@router.delete("/injuries/{injury_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_injury(
+    request: Request,
+    injury_id: str,
+    player: Annotated[Any, Depends(get_verified_player)],
+    ledger: Annotated[Any, Depends(get_ledger)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    deleted = await asyncio.to_thread(
+        injuries_service.delete_injury,
+        db,
+        ledger,
+        injury_id,
+        player_account_id=account_id_of(player),
+        client=analytics.client_context(request),
+    )
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Injury record not found.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(

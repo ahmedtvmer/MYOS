@@ -394,7 +394,7 @@ def create_injury(
     source_event_key: str | None = None,
     clarification_pending: bool = False,
     client: Any = None,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     area = _validated_area(body_area)
     detail = _validated_description(description)
     record, created = ledger.create_injury_record(
@@ -412,6 +412,8 @@ def create_injury(
             change="created",
             client=client,
         )
+    if not record:
+        return None
     return render_injury_record(record)
 
 
@@ -426,6 +428,22 @@ def import_legacy_injury_text(
         _sync_legacy_limitations(ledger)
         return None
 
+    deleted_source = ledger.conn.execute(
+        "SELECT description FROM deleted_injury_source_events WHERE source_event_key = ?",
+        (LEGACY_INJURY_SOURCE_EVENT_KEY,),
+    ).fetchone()
+    if deleted_source:
+        if deleted_source[0] == description:
+            _sync_legacy_limitations(ledger)
+            return None
+        # The legacy key represents the profile's current free-text value. A changed
+        # value is a new report, so it may consume the key again.
+        with ledger.ledger_transaction():
+            ledger.conn.execute(
+                "DELETE FROM deleted_injury_source_events WHERE source_event_key = ?",
+                (LEGACY_INJURY_SOURCE_EVENT_KEY,),
+            )
+
     area = body_area_in_text(description)
     record, created = ledger.create_injury_record(
         area,
@@ -434,6 +452,9 @@ def import_legacy_injury_text(
     )
     if created:
         return _record_imported_injury(db, ledger, record, command)
+    if not record:
+        _sync_legacy_limitations(ledger)
+        return None
 
     if record.get("description") != description or record.get("body_area") != area:
         return _update_imported_injury(db, ledger, record, command)
@@ -534,6 +555,24 @@ def update_injury(
             client=client,
         )
     return render_injury_record(after)
+
+
+def delete_injury(
+    db: Any,
+    ledger: Any,
+    injury_id: str,
+    *,
+    player_account_id: str | None,
+    client: Any = None,
+) -> bool:
+    before = ledger.delete_injury_record(injury_id)
+    if before is None:
+        return False
+    _sync_legacy_limitations(ledger)
+    profile_change_alerts.record_injury_change(
+        db, player_account_id, before, change="deleted", client=client
+    )
+    return True
 
 
 def _sync_legacy_limitations(ledger: Any) -> None:
