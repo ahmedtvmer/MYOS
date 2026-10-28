@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from database.database_manager import DatabaseManager
+from database.registry.accounts import CURRENT_FEATURE_RELEASE, CURRENT_TOUR_VERSION
 from service import auth as auth_service
 from service import coach as coach_service
 from svc.app import create_app
@@ -173,6 +174,11 @@ def test_owner_issued_invite_grants_capability_without_reissuing_token(api, monk
             "coach": {"plan": "pro", "status": "active"},
         },
         "analytics_allowed": True,
+        # A freshly registered account: Tour not seen yet, created at the
+        # current Tour version, and already past every shipped What's new item.
+        "tour_seen_version": 0,
+        "tour_created_version": CURRENT_TOUR_VERSION,
+        "whats_new_seen_release": CURRENT_FEATURE_RELEASE,
         "lifter_ai_allowance": None,
         "coach_ai_allowance": None,
     }

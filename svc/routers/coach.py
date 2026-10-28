@@ -66,6 +66,9 @@ async def redeem_coach_invite(
         result["has_password"] = auth_service.account_has_password(db, account)
         result["linked_sign_ins"] = db.list_linked_sign_in_providers(result["account_id"])
         result["display_language"] = account["display_language"]
+        result["tour_seen_version"] = account["tour_seen_version"]
+        result["tour_created_version"] = account["tour_created_version"]
+        result["whats_new_seen_release"] = account["whats_new_seen_release"]
         result["recovery_email_verified"] = db.is_recovery_email_verified(result["account_id"])
         result["google_email"] = db.get_linked_sign_in_email(result["account_id"])
         result["product_emails_opted_in"] = db.get_product_email_consent(result["account_id"])[0]
@@ -80,6 +83,9 @@ async def redeem_coach_invite(
         has_password=result["has_password"],
         linked_sign_ins=result["linked_sign_ins"],
         display_language=result["display_language"],
+        tour_seen_version=result["tour_seen_version"],
+        tour_created_version=result["tour_created_version"],
+        whats_new_seen_release=result["whats_new_seen_release"],
         recovery_email_verified=result["recovery_email_verified"],
         google_email=result["google_email"],
         product_emails_opted_in=result["product_emails_opted_in"],

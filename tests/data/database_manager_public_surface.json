@@ -577,6 +577,14 @@
       "kind": "method",
       "signature": "(self, account_id: str, email: str) -> None"
     },
+    "set_account_tour_seen_version": {
+      "kind": "method",
+      "signature": "(self, account_id: str, version: int) -> bool"
+    },
+    "set_account_whats_new_seen_release": {
+      "kind": "method",
+      "signature": "(self, account_id: str, release: int) -> bool"
+    },
     "set_product_email_consent": {
       "kind": "method",
       "signature": "(self, account_id: str, allowed: bool) -> bool"
