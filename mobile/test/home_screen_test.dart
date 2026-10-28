@@ -328,7 +328,14 @@ void main() {
       of: find.text(featureList.firstWhere((FeatureEntry entry) => entry.id == 'weak_points').titleEn),
       matching: find.byType(WhatsNewFeatureRow),
     );
-    await tester.tap(find.descendant(of: row, matching: find.text('Show me')));
+    final Finder showMe = find.descendant(of: row, matching: find.text('Show me'));
+    final Finder sheetList = find.descendant(
+      of: find.byType(BottomSheet), matching: find.byType(Scrollable),
+    ).first;
+    await tester.scrollUntilVisible(showMe, 180, scrollable: sheetList);
+    await tester.ensureVisible(showMe);
+    await tester.pumpAndSettle();
+    await tester.tap(showMe);
     await tester.pumpAndSettle();
     expect(analytics.events.where((Map<String, Object> event) =>
         event['event'] == 'whats_new_opened' || event['event'] == 'show_me_tapped'), isEmpty);
@@ -499,12 +506,19 @@ void main() {
     };
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text("What's new"));
-    await tester.tap(find.descendant(
+    final Finder showMe = find.descendant(
       of: find.ancestor(
         of: find.text('Weak points'), matching: find.byType(WhatsNewFeatureRow),
       ),
       matching: find.text('Show me'),
-    ));
+    );
+    final Finder sheetList = find.descendant(
+      of: find.byType(BottomSheet), matching: find.byType(Scrollable),
+    ).first;
+    await tester.scrollUntilVisible(showMe, 180, scrollable: sheetList);
+    await tester.ensureVisible(showMe);
+    await tester.pumpAndSettle();
+    await tester.tap(showMe);
     await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
     expect(find.byKey(const ValueKey<String>('profile_weak_points_section')), findsOneWidget);
     seenRequest.complete();

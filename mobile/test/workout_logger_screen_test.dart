@@ -595,6 +595,10 @@ Future<void> _finishAndOpenSummary(WidgetTester tester) async {
     await tester.tap(discard);
   }
   await tester.pumpAndSettle();
+  if (find.text('New PR!').evaluate().isNotEmpty ||
+      find.text('رقم قياسي جديد!').evaluate().isNotEmpty) {
+    await tester.pump(const Duration(seconds: 2));
+  }
 }
 
 WorkoutDraft _summaryDraft(String id, String performedDate) => WorkoutDraft(
@@ -2623,6 +2627,10 @@ void main() {
     await tester.tap(find.text('Discard unticked sets and finish'));
     await tester.pumpAndSettle();
 
+    expect(find.text('New PR!'), findsOneWidget);
+    expect(find.text('Bench Press · 110 kg × 6'), findsOneWidget);
+    expect(find.text('Workout summary'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
     expect(find.text('Workout summary'), findsOneWidget);
     expect(find.text('Personal records'), findsOneWidget);
     // Only the current bests celebrate: 105's badges were taken over by 110.
@@ -2871,6 +2879,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Discard unticked sets and finish'));
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
       expect(find.text('Workout summary'), findsOneWidget);
       expect(find.text('Bench Press · PR 105 kg'), findsOneWidget);
       expect(find.text('Bench Press · PR e1RM 126 kg'), findsOneWidget);
@@ -3077,6 +3086,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discard unticked sets and finish'));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
 
     expect(find.text('Bench Press · PR 110 kg'), findsOneWidget);
     expect(find.widgetWithText(MayosStat, '1185'), findsOneWidget);

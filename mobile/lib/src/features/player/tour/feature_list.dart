@@ -162,6 +162,17 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     audience: 'lifter',
   ),
   FeatureEntry(
+    id: 'pr_celebration',
+    titleEn: 'Personal record celebration',
+    sentenceEn: 'See your personal record celebration after you finish a workout.',
+    titleAr: 'الاحتفال برقم قياسي شخصي',
+    sentenceAr: 'شاهد احتفالك برقم قياسي شخصي بعد إنهاء الحصة.',
+    target: 'home',
+    location: TourShellTabLocation(tabIndex: 0),
+    release: currentFeatureRelease,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
     id: 'weak_points',
     titleEn: 'Weak points',
     sentenceEn: 'Choose muscles you want your Training program to focus on.',
