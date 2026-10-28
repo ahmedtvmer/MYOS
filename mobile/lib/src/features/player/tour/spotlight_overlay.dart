@@ -201,26 +201,6 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
                       ),
                     ),
                   ),
-                Positioned(
-                  top: 8,
-                  right: Directionality.of(context) == TextDirection.rtl
-                      ? null
-                      : 8,
-                  left: Directionality.of(context) == TextDirection.rtl
-                      ? 8
-                      : null,
-                  child: TextButton(
-                    key: const ValueKey<String>('tour_skip'),
-                    onPressed: widget.onSkip,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.textPrimary,
-                      backgroundColor: colors.surfaceElevated,
-                      minimumSize: const Size(64, 44),
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Text(copy.tourSkip),
-                  ),
-                ),
                 if (geometry != null) ...<Widget>[
                   Positioned(
                     top: geometry.pointerTop,
@@ -338,6 +318,26 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
                     ),
                   ),
                 ],
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 8,
+                  right: Directionality.of(context) == TextDirection.rtl
+                      ? null
+                      : 8,
+                  left: Directionality.of(context) == TextDirection.rtl
+                      ? 8
+                      : null,
+                  child: TextButton(
+                    key: const ValueKey<String>('tour_skip'),
+                    onPressed: widget.onSkip,
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textPrimary,
+                      backgroundColor: colors.surfaceElevated,
+                      minimumSize: const Size(64, 44),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(copy.tourSkip),
+                  ),
+                ),
               ],
             ),
           );

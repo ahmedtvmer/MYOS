@@ -83,6 +83,7 @@ class FakeMyosApi {
   bool analyticsPreferenceUpdateFails = false;
   bool analyticsAllowed = true;
   int tourSeenVersion = 1;
+  int tourSeenWriteCount = 0;
   int tourCreatedVersion = 1;
   int tourSeenWriteFailures = 0;
   bool productEmailsOptedIn = false;
@@ -875,6 +876,7 @@ class FakeMyosApi {
       case '/auth/me':
         return _me(request);
       case '/auth/tour-seen':
+        tourSeenWriteCount++;
         if (!_authorized(request)) return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
         if (tourSeenWriteFailures > 0) {
           tourSeenWriteFailures--;

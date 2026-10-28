@@ -7,6 +7,7 @@ import '../../../core/display_language/nutrition_copy.dart';
 import '../../../core/models.dart';
 import '../../../providers.dart';
 import '../../nutrition/pace_proposal_card.dart';
+import '../tour/tour_targets.dart';
 import 'nutrition_pace_dial.dart';
 
 class NutritionTab extends ConsumerStatefulWidget {
@@ -132,7 +133,11 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     final NutritionCopy copy = NutritionCopy(arabic ? 'ar' : 'en');
     return Directionality(
       textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
-      child: _content(context, copy),
+      child: TourTarget(
+        id: 'nutrition',
+        location: const TourShellTabLocation(tabIndex: 2),
+        child: _content(context, copy),
+      ),
     );
   }
 

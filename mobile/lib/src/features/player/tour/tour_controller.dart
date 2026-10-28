@@ -22,6 +22,7 @@ class TourSession {
     required this.visible,
     required this.singleStop,
     required this.version,
+    this.replay = false,
   });
 
   final List<String> stopIds;
@@ -29,6 +30,7 @@ class TourSession {
   final bool visible;
   final bool singleStop;
   final int version;
+  final bool replay;
 
   String get featureId => stopIds[index];
 
@@ -38,6 +40,7 @@ class TourSession {
         visible: visible ?? this.visible,
         singleStop: singleStop,
         version: version,
+        replay: replay,
       );
 }
 
@@ -93,11 +96,11 @@ class TourController extends StateNotifier<TourSession?> {
   bool hasPendingSeenWriteFor(String accountId) =>
       _pendingAccountId == accountId && _pendingVersion != null;
 
-  Future<void> startTour(int version) async {
+  Future<void> startTour(int version, {bool replay = false}) async {
     if (state != null || _starting) return;
     final Account? account = _ref.read(authControllerProvider).session?.account;
     if (account == null) return;
-    if (account.tourSeenVersion >= version &&
+    if (!replay && account.tourSeenVersion >= version &&
         _pendingAccountId != account.accountId) {
       return;
     }
@@ -107,12 +110,12 @@ class TourController extends StateNotifier<TourSession?> {
     final AuthController auth = _ref.read(authControllerProvider.notifier);
     final ApiClient api = _ref.read(apiClientProvider);
     try {
-      if (_pendingAccountId == accountId && _pendingVersion != null) {
+      if (!replay && _pendingAccountId == accountId && _pendingVersion != null) {
         await _persistPending(accountId, retryStore, auth: auth, api: api);
         if (!mounted || !auth.ownsAccount(accountId)) return;
         if (_pendingVersion != null && _pendingVersion! >= version) return;
       }
-      final int? persisted = await retryStore.read(accountId);
+      final int? persisted = replay ? null : await retryStore.read(accountId);
       if (!mounted || !auth.ownsAccount(accountId)) return;
       if (persisted != null) {
         _pendingAccountId = accountId;
@@ -131,7 +134,7 @@ class TourController extends StateNotifier<TourSession?> {
         _ref.read(authControllerProvider).session?.account;
     if (!auth.ownsAccount(accountId) ||
         currentAccount == null ||
-        !isTourEligible(currentAccount, currentVersion: version)) {
+        (!replay && !isTourEligible(currentAccount, currentVersion: version))) {
       return;
     }
     state = TourSession(
@@ -140,6 +143,7 @@ class TourController extends StateNotifier<TourSession?> {
       visible: false,
       singleStop: false,
       version: version,
+      replay: replay,
     );
     await _focusCurrent(started: true);
   }
@@ -262,8 +266,8 @@ class TourController extends StateNotifier<TourSession?> {
       }
       state = state!.copyWith(visible: true);
       if (current.singleStop) return;
-      if (started) analytics.tourEvent('tour_started');
-      analytics.tourEvent('tour_step', step: state!.index + 1);
+      if (started) analytics.tourEvent('tour_started', replay: current.replay);
+      analytics.tourEvent('tour_step', step: state!.index + 1, replay: current.replay);
     } finally {
       _focusing = false;
     }
@@ -281,8 +285,9 @@ class TourController extends StateNotifier<TourSession?> {
     final TourSeenRetryStore retryStore = _ref.read(tourSeenRetryStoreProvider);
     final ApiClient api = _ref.read(apiClientProvider);
     _ref.read(analyticsClientProvider).tourEvent(
-          skipped ? 'tour_skipped' : 'tour_completed',
+          skipped ? 'tour_skipped' : 'tour_completed', replay: current.replay,
         );
+    if (current.replay) return;
     if (accountId == null) return;
     _pendingAccountId = accountId;
     _pendingVersion = current.version;

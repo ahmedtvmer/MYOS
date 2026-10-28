@@ -8,6 +8,9 @@ class ProfileCopy {
   String get signInMethods => isArabic ? 'طرق تسجيل الدخول' : 'Sign-in methods';
   String get trainingProfile =>
       isArabic ? 'الملف التدريبي' : 'Training profile';
+  String get guides => isArabic ? 'الأدلة' : 'Guides';
+  String get featureGuide => isArabic ? 'دليل الميزات' : 'Feature guide';
+  String get replayTour => isArabic ? 'إعادة الجولة' : 'Replay tour';
   String get profileLead => isArabic
       ? 'حدّث معلومات الملف التي تساعد على تخصيص تدريبك.'
       : 'Update the profile facts used to personalize your training.';

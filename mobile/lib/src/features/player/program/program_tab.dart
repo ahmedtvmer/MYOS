@@ -27,6 +27,7 @@ import '../assignment/program_request_dialog.dart';
 import '../dashboard/home_planning.dart';
 import '../exercise_picker_dialog.dart';
 import '../workout/active_workout_prompt.dart';
+import '../tour/tour_targets.dart';
 import '../workout/deload_banner.dart';
 import 'program_authority_recovery.dart';
 import 'program_change_summary_card.dart';
@@ -1393,7 +1394,13 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
             ],
             Padding(
               padding: const EdgeInsets.only(bottom: MyosSpacing.md),
-              child: MyosCard(
+              child: TourTarget(
+                id: day.weekOrder == program.days.first.weekOrder &&
+                        day.dayOrder == program.days.first.dayOrder
+                    ? 'program'
+                    : 'program_day_${day.weekOrder}_${day.dayOrder}',
+                location: const TourShellTabLocation(tabIndex: 1),
+                child: MyosCard(
                 padding: EdgeInsets.zero,
                 child: ExpansionTile(
                   key: ValueKey<String>(
@@ -1481,6 +1488,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                       _CardioRow(cardio: day.cardio!),
                     ],
                   ],
+                ),
                 ),
               ),
             ),
