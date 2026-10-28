@@ -1,4 +1,4 @@
-"""Exercise library upserts with curation from MYOS-owned data (ADR 070)."""
+"""Exercise library upserts with curation from MAYOS-owned data (ADR 070)."""
 
 import re
 
@@ -10,9 +10,9 @@ from database.exercise_library.embeddings import sync_exercise_embeddings
 from database.exercise_library.schema import EXERCISE_COLUMNS
 from database.food_library.seeding import FoodLibraryPaths, seed_food_library
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 class ExerciseSeedingMixin:
@@ -51,7 +51,7 @@ class ExerciseSeedingMixin:
             _upsert_exercise_rows(cursor, authored_rows)
             _replace_secondary_muscles(cursor, authored_rows, authored_muscles)
             _upsert_provenance(cursor, exercise_rows, "ExerciseDB")
-            _upsert_provenance(cursor, authored_rows, "MYOS")
+            _upsert_provenance(cursor, authored_rows, "MAYOS")
             apply_exercise_curation(cursor, curation_path)
             sync_exercise_embeddings(cursor, all_rows)
             food_paths = FoodLibraryPaths(
@@ -133,7 +133,7 @@ def _secondary_muscle_rows(df, muscle_cols):
 def _authored_seed_rows():
     rows = []
     muscles = []
-    for exercise in authored.MYOS_AUTHORED_EXERCISES:
+    for exercise in authored.MAYOS_AUTHORED_EXERCISES:
         rows.append((
             exercise["id"], exercise["name"], exercise["body_part"],
             exercise["target_muscle"], exercise["equipment"],

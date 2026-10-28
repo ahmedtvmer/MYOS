@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/theme/myos_spacing.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/ui/myos_bottom_navigation.dart';
-import 'package:myos_mobile/src/core/ui/myos_scaffold.dart';
-import 'package:myos_mobile/src/features/coach/coach_assignments_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_spacing.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_bottom_navigation.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_scaffold.dart';
+import 'package:mayos_mobile/src/features/coach/coach_assignments_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 Future<void> _pumpUntilFound(
   WidgetTester tester,
@@ -31,7 +31,7 @@ Future<void> _pumpUntilFound(
 
 Future<void> _pumpApp(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   required Size size,
   AppMode? mode,
 }) async {
@@ -60,14 +60,14 @@ Future<void> _pumpApp(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text(fake.coach ? 'Roster' : 'Home'));
 }
 
-FakeMyosApi _playerFake() {
-  final FakeMyosApi fake = FakeMyosApi()
+FakeMayosApi _playerFake() {
+  final FakeMayosApi fake = FakeMayosApi()
     ..issuedToken = 'token-alice'
     ..currentUsername = 'alice'
     ..tokenValid = true
@@ -76,8 +76,8 @@ FakeMyosApi _playerFake() {
   return fake;
 }
 
-FakeMyosApi _coachFake() {
-  final FakeMyosApi fake = FakeMyosApi()
+FakeMayosApi _coachFake() {
+  final FakeMayosApi fake = FakeMayosApi()
     ..issuedToken = 'token-alice'
     ..currentUsername = 'alice'
     ..tokenValid = true
@@ -123,12 +123,12 @@ FakeMyosApi _coachFake() {
 }
 
 Finder _railDestination(String label) => find.descendant(
-      of: find.byType(MyosNavigationRail),
+      of: find.byType(MayosNavigationRail),
       matching: find.text(label),
     );
 
 Finder _bottomDestination(String label) => find.descendant(
-      of: find.byType(MyosBottomNavigation),
+      of: find.byType(MayosBottomNavigation),
       matching: find.text(label),
     );
 
@@ -144,7 +144,7 @@ Future<void> _checkOverlayWidths(
   required double expectedCenter,
 }) async {
   final BuildContext context =
-      tester.element(find.byKey(MyosScaffold.bodyContentKey));
+      tester.element(find.byKey(MayosScaffold.bodyContentKey));
   final Future<void> sheet = showModalBottomSheet<void>(
     context: context,
     builder: (BuildContext context) => const SizedBox(
@@ -190,21 +190,21 @@ void main() {
     (WidgetTester tester) async {
       await _pumpApp(tester, _playerFake(), size: const Size(1280, 800));
 
-      expect(find.byType(MyosNavigationRail), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsOneWidget);
       expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(MyosBottomNavigation), findsNothing);
+      expect(find.byType(MayosBottomNavigation), findsNothing);
       expect(_railDestination('Home'), findsOneWidget);
       expect(_railDestination('Program'), findsOneWidget);
       expect(_railDestination('Nutrition'), findsOneWidget);
       expect(_railDestination('Progress'), findsOneWidget);
 
       final Rect shellBody = tester.getRect(
-        find.byKey(MyosScaffold.bodyContentKey),
+        find.byKey(MayosScaffold.bodyContentKey),
       );
-      expect(shellBody.width, MyosLayout.playerColumnMaxWidth);
+      expect(shellBody.width, MayosLayout.playerColumnMaxWidth);
       expect(
         shellBody.center.dx,
-        (MyosLayout.navigationRailWidth + 1280) / 2,
+        (MayosLayout.navigationRailWidth + 1280) / 2,
       );
 
       await tester.tap(_railDestination('Progress'));
@@ -219,15 +219,15 @@ void main() {
 
       _resize(tester, const Size(390, 844));
       await tester.pump();
-      expect(find.byType(MyosNavigationRail), findsNothing);
-      expect(find.byType(MyosBottomNavigation), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsNothing);
+      expect(find.byType(MayosBottomNavigation), findsOneWidget);
       expect(_bottomDestination('Home'), findsOneWidget);
       expect(_bottomDestination('Program'), findsOneWidget);
       expect(_bottomDestination('Nutrition'), findsOneWidget);
       expect(_bottomDestination('Progress'), findsOneWidget);
       expect(
         tester
-            .widget<MyosBottomNavigation>(find.byType(MyosBottomNavigation))
+            .widget<MayosBottomNavigation>(find.byType(MayosBottomNavigation))
             .index,
         3,
       );
@@ -238,10 +238,10 @@ void main() {
 
       _resize(tester, const Size(1280, 800));
       await tester.pump();
-      expect(find.byType(MyosNavigationRail), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsOneWidget);
       expect(
         tester
-            .widget<MyosNavigationRail>(find.byType(MyosNavigationRail))
+            .widget<MayosNavigationRail>(find.byType(MayosNavigationRail))
             .index,
         3,
       );
@@ -255,14 +255,14 @@ void main() {
       await tester.tap(find.text('Lifter plan'));
       await _pumpUntilFound(tester, find.text('Lifter Free'));
       final Rect pushedBody = tester.getRect(
-        find.byKey(MyosScaffold.bodyContentKey),
+        find.byKey(MayosScaffold.bodyContentKey),
       );
-      expect(pushedBody.width, MyosLayout.playerColumnMaxWidth);
+      expect(pushedBody.width, MayosLayout.playerColumnMaxWidth);
       expect(pushedBody.center.dx, 640);
       await _checkOverlayWidths(
         tester,
-        expectedSheetWidth: MyosLayout.playerColumnMaxWidth,
-        expectedSnackBarWidth: MyosLayout.playerColumnMaxWidth,
+        expectedSheetWidth: MayosLayout.playerColumnMaxWidth,
+        expectedSnackBarWidth: MayosLayout.playerColumnMaxWidth,
         expectedCenter: 640,
       );
     },
@@ -277,8 +277,8 @@ void main() {
         mode: AppMode.coach,
         size: const Size(390, 844),
       );
-      expect(find.byType(MyosBottomNavigation), findsOneWidget);
-      expect(find.byType(MyosNavigationRail), findsNothing);
+      expect(find.byType(MayosBottomNavigation), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsNothing);
       for (final String destination in <String>[
         'Roster',
         'Alerts',
@@ -289,7 +289,7 @@ void main() {
       }
       expect(
         find.descendant(
-          of: find.byType(MyosBottomNavigation),
+          of: find.byType(MayosBottomNavigation),
           matching: find.text('1'),
         ),
         findsOneWidget,
@@ -304,17 +304,17 @@ void main() {
 
       _resize(tester, const Size(1023, 800));
       await tester.pump();
-      expect(find.byType(MyosBottomNavigation), findsOneWidget);
-      expect(find.byType(MyosNavigationRail), findsNothing);
+      expect(find.byType(MayosBottomNavigation), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsNothing);
       expect(find.text(resolved), findsOneWidget);
 
       _resize(tester, const Size(1024, 800));
       await tester.pump();
-      expect(find.byType(MyosNavigationRail), findsOneWidget);
+      expect(find.byType(MayosNavigationRail), findsOneWidget);
       expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(MyosBottomNavigation), findsNothing);
-      final MyosNavigationRail rail = tester.widget<MyosNavigationRail>(
-        find.byType(MyosNavigationRail),
+      expect(find.byType(MayosBottomNavigation), findsNothing);
+      final MayosNavigationRail rail = tester.widget<MayosNavigationRail>(
+        find.byType(MayosNavigationRail),
       );
       expect(rail.index, 1);
       for (final String destination in <String>[
@@ -327,7 +327,7 @@ void main() {
       }
       expect(
         find.descendant(
-          of: find.byType(MyosNavigationRail),
+          of: find.byType(MayosNavigationRail),
           matching: find.text('1'),
         ),
         findsOneWidget,
@@ -336,11 +336,11 @@ void main() {
 
       _resize(tester, const Size(1280, 800));
       await tester.pump();
-      expect(find.byType(MyosNavigationRail), findsOneWidget);
-      expect(find.byType(MyosBottomNavigation), findsNothing);
+      expect(find.byType(MayosNavigationRail), findsOneWidget);
+      expect(find.byType(MayosBottomNavigation), findsNothing);
       expect(
         tester
-            .widget<MyosNavigationRail>(find.byType(MyosNavigationRail))
+            .widget<MayosNavigationRail>(find.byType(MayosNavigationRail))
             .index,
         1,
       );
@@ -348,17 +348,17 @@ void main() {
       await tester.tap(_railDestination('Roster'));
       await _pumpUntilFound(tester, find.text('Active assignments'));
       expect(
-        tester.getRect(find.byKey(MyosScaffold.bodyContentKey)).width,
-        1280 - MyosLayout.navigationRailWidth,
+        tester.getRect(find.byKey(MayosScaffold.bodyContentKey)).width,
+        1280 - MayosLayout.navigationRailWidth,
       );
       expect(
         tester.getRect(find.byType(CoachAssignmentsScreen)).width,
-        1280 - MyosLayout.navigationRailWidth,
+        1280 - MayosLayout.navigationRailWidth,
       );
       await _checkOverlayWidths(
         tester,
-        expectedSheetWidth: MyosLayout.coachOverlayMaxWidth,
-        expectedSnackBarWidth: MyosLayout.coachOverlayMaxWidth,
+        expectedSheetWidth: MayosLayout.coachOverlayMaxWidth,
+        expectedSnackBarWidth: MayosLayout.coachOverlayMaxWidth,
         expectedCenter: 640,
       );
 
@@ -367,7 +367,7 @@ void main() {
       await _checkOverlayWidths(
         tester,
         expectedSheetWidth: 800,
-        minimumSnackBarWidth: MyosLayout.coachOverlayMaxWidth,
+        minimumSnackBarWidth: MayosLayout.coachOverlayMaxWidth,
         expectedCenter: 400,
       );
     },

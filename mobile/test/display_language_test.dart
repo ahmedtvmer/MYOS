@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/display_language.dart';
-import 'package:myos_mobile/src/core/display_language/assignment_copy.dart';
-import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
-import 'package:myos_mobile/src/core/display_language/workout_copy.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/browser_key_value_store.dart';
-import 'package:myos_mobile/src/core/training_status_projection.dart';
+import 'package:mayos_mobile/src/core/display_language.dart';
+import 'package:mayos_mobile/src/core/display_language/assignment_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/workout_copy.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/browser_key_value_store.dart';
+import 'package:mayos_mobile/src/core/training_status_projection.dart';
 
 class _BrowserStore implements BrowserKeyValueStore {
   final Map<String, String> values = <String, String>{};
@@ -33,8 +33,8 @@ void main() {
       'calves', 'abs',
     ];
     for (final String muscle in muscles) {
-      expect(const MyosCopy('en').weakPointMuscle(muscle), isNotEmpty);
-      expect(const MyosCopy('ar').weakPointMuscle(muscle), isNotEmpty);
+      expect(const MayosCopy('en').weakPointMuscle(muscle), isNotEmpty);
+      expect(const MayosCopy('ar').weakPointMuscle(muscle), isNotEmpty);
     }
   });
 
@@ -44,7 +44,7 @@ void main() {
       'Front Delts', 'Side Delts', 'Rear Delts',
     ];
     for (final String muscle in muscles) {
-      expect(const MyosCopy('ar').programVolumeWarning(muscle, 12, 10),
+      expect(const MayosCopy('ar').programVolumeWarning(muscle, 12, 10),
           isNot(contains(muscle)));
     }
   });
@@ -53,7 +53,7 @@ void main() {
     final ProgramCardio cardio = ProgramCardio(
       machine: 'rower', minutes: 20, watts: 100, distanceM: 2000,
     );
-    final String display = cardio.display(const MyosCopy('ar'));
+    final String display = cardio.display(const MayosCopy('ar'));
     expect(display, contains('جهاز التجديف'));
     expect(display, contains('100'));
     expect(display, contains('واط'));
@@ -62,20 +62,20 @@ void main() {
     expect(display, isNot(contains(' W')));
     expect(display, isNot(contains(' m')));
     expect(const CoachCopy('ar').cardioMachineName('rower'),
-        const MyosCopy('ar').cardioMachineName('rower'));
+        const MayosCopy('ar').cardioMachineName('rower'));
     expect(const WorkoutCopy('ar').cardioMachine('rower'),
-        const MyosCopy('ar').cardioMachineName('rower'));
+        const MayosCopy('ar').cardioMachineName('rower'));
   });
   test('Progress Volume tab names the counted-sets-per-muscle chart', () {
-    expect(const MyosCopy('en').volume, 'Volume');
-    expect(const MyosCopy('ar').volume, 'مجموعات محسوبة لكل عضلة');
-    expect(const MyosCopy('ar').countedSetsExplanation,
+    expect(const MayosCopy('en').volume, 'Volume');
+    expect(const MayosCopy('ar').volume, 'مجموعات محسوبة لكل عضلة');
+    expect(const MayosCopy('ar').countedSetsExplanation,
         'تُحسب مجموعة التدريب بقيمة 1 للعضلة الأساسية و0.5 لكل عضلة مساعدة.');
-    expect(const MyosCopy('ar').weeklyVolumeAndRecords,
+    expect(const MayosCopy('ar').weeklyVolumeAndRecords,
         'لوحة مجموعات التدريب والأرقام القياسية الأسبوعية');
-    expect(const MyosCopy('ar').homeHistoryLead,
+    expect(const MayosCopy('ar').homeHistoryLead,
         'سجّل حصة تدريبية لعرض تقدم القوة ومجموعات التدريب لكل تمرين هنا.');
-    expect(const MyosCopy('ar').logToSeeHistory,
+    expect(const MayosCopy('ar').logToSeeHistory,
         'سجّل حصة تدريبية لعرض تقدم القوة ومجموعات التدريب وسجل كل تمرين هنا.');
   });
 
@@ -165,7 +165,7 @@ void main() {
       'إنشاء دعوة لاعب للتدريب',
     );
     expect(
-      const MyosCopy('ar').coachInviteCode,
+      const MayosCopy('ar').coachInviteCode,
       'رمز دعوة لتفعيل دور المدرب',
     );
     const WorkoutCopy workout = WorkoutCopy('ar');
@@ -173,13 +173,13 @@ void main() {
     expect(workout.replaceQuestion, 'استبدال تمرين لهذه الحصة؟');
     expect(workout.keepProgramSwap, 'تبديل تمرين في البرنامج');
     expect(workout.askCoachPermanent, 'طلب تبديل تمرين من المدرب');
-    expect(const MyosCopy('ar').substituteExercise, 'تبديل تمرين في البرنامج');
+    expect(const MayosCopy('ar').substituteExercise, 'تبديل تمرين في البرنامج');
     expect(
-      const MyosCopy('ar').substituteExerciseQuestion,
+      const MayosCopy('ar').substituteExerciseQuestion,
       'هل تريد تبديل تمرين في البرنامج؟',
     );
     expect(
-      const MyosCopy('ar').substitutionUndone,
+      const MayosCopy('ar').substitutionUndone,
       'تم التراجع عن تبديل التمرين في البرنامج.',
     );
   });
@@ -275,9 +275,9 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
       locale: Locale('ar'),
-      home: Scaffold(body: Text('0123456789 · MYOS · Free · Pro · RIR')),
+      home: Scaffold(body: Text('0123456789 · MAYOS · Free · Pro · RIR')),
     ));
-    expect(find.text('0123456789 · MYOS · Free · Pro · RIR'), findsOneWidget);
+    expect(find.text('0123456789 · MAYOS · Free · Pro · RIR'), findsOneWidget);
   });
 
   test('failed local persistence keeps the manual choice active in memory',

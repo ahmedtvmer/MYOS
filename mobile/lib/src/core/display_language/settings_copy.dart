@@ -9,8 +9,8 @@ class SettingsCopy {
 
   String get appearance => isArabic ? 'المظهر' : 'Appearance';
   String get appearanceLead => isArabic
-      ? 'اختر مظهر MYOS. يتبع خيار النظام إعداد جهازك.'
-      : 'Choose how MYOS looks. System follows your device.';
+      ? 'اختر مظهر MAYOS. يتبع خيار النظام إعداد جهازك.'
+      : 'Choose how MAYOS looks. System follows your device.';
   String get system => isArabic ? 'النظام' : 'System';
   String get light => isArabic ? 'فاتح' : 'Light';
   String get dark => isArabic ? 'داكن' : 'Dark';
@@ -137,19 +137,19 @@ class SettingsCopy {
       ? 'محفوظة على هذا الجهاز وتتم مزامنتها عند الاتصال'
       : 'Saved on this device, syncing when online';
   String get about => isArabic ? 'حول التطبيق' : 'About';
-  String get myosAboutSubtitle =>
+  String get mayosAboutSubtitle =>
       isArabic ? 'يعني العضلة باليوناني' : 'Greek for muscle · said “meyos”';
   String get privacyPolicy => isArabic ? 'سياسة الخصوصية' : 'Privacy policy';
   String get privacySubtitle => isArabic
-      ? 'ما يجمعه MYOS، ومن يمكنه الاطلاع عليه، وكيفية الحذف'
-      : 'What MYOS collects, who can see it, and deletion';
+      ? 'ما يجمعه MAYOS، ومن يمكنه الاطلاع عليه، وكيفية الحذف'
+      : 'What MAYOS collects, who can see it, and deletion';
   String get productAnalytics =>
       isArabic ? 'تحليلات المنتج' : 'Product analytics';
   String get allowAnalytics =>
       isArabic ? 'السماح بتحليلات المنتج' : 'Allow product analytics';
   String get analyticsDescription => isArabic
-      ? 'يستخدم MYOS خدمة PostHog (في الاتحاد الأوروبي) لقياس استخدام الميزات عبر أحداث بمعرّف مستعار. لا تتضمن الأحداث نصوصًا تكتبها. يمكنك إيقاف ذلك في أي وقت.'
-      : 'MYOS uses PostHog (EU) to measure feature use through pseudonymous events. Events exclude text you write. You can turn this off at any time.';
+      ? 'يستخدم MAYOS خدمة PostHog (في الاتحاد الأوروبي) لقياس استخدام الميزات عبر أحداث بمعرّف مستعار. لا تتضمن الأحداث نصوصًا تكتبها. يمكنك إيقاف ذلك في أي وقت.'
+      : 'MAYOS uses PostHog (EU) to measure feature use through pseudonymous events. Events exclude text you write. You can turn this off at any time.';
   String get analyticsSaveFailed => isArabic
       ? 'تعذر حفظ تفضيل التحليلات. حاول مرة أخرى.'
       : 'Could not save your analytics preference. Please try again.';
@@ -209,12 +209,12 @@ class SettingsCopy {
   String creditsBody(String requiredCredit) => isArabic
       ? 'تُنسب صور التمارين ومقاطع GIF في المكتبة وفق شروط استخدامها:\n\n'
           '${_ltr(requiredCredit)}\n\n'
-          'تُعرض الوسائط بحجمها الأصلي وبحد أقصى ${_ltr('180 × 180')} مع هذا الاعتماد، بينما لا يزال ترخيص MYOS الخاص من Gym visual قيد الانتظار.'
+          'تُعرض الوسائط بحجمها الأصلي وبحد أقصى ${_ltr('180 × 180')} مع هذا الاعتماد، بينما لا يزال ترخيص MAYOS الخاص من Gym visual قيد الانتظار.'
       : 'Exercise media (the catalog pictures and GIFs) is credited as '
           'required by its terms:\n\n'
           '$requiredCredit\n\n'
           'The media is shown at its native size, never larger than 180 × 180, '
-          'with this credit, while MYOS\'s own licence from Gym visual is '
+          'with this credit, while MAYOS\'s own licence from Gym visual is '
           'pending.';
   String get couldNotOpenCredits =>
       isArabic ? 'تعذر فتح gymvisual.com.' : 'Could not open gymvisual.com.';

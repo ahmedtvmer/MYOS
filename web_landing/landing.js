@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var config = window.MYOS_LANDING || {};
+  var config = window.MAYOS_LANDING || {};
   var securePrefix = 'FlutterSecureStorage.';
   var languageKey = 'mayos.display_language';
   var firstTouchKey = 'mayos.first_touch';
@@ -46,10 +46,10 @@
   }
 
   function updatePageMetadata(language) {
-    document.title = language === 'ar' ? 'MYOS — تمرينك. مدروس.' : 'MYOS — Your training. Engineered.';
+    document.title = language === 'ar' ? 'MAYOS — تمرينك. مدروس.' : 'MAYOS — Your training. Engineered.';
     document.querySelector('meta[name="description"]').content = language === 'ar'
       ? 'يبني ميوس برنامج تمرينك بالذكاء الاصطناعي حسب هدفك ووقتك والأدوات المتاحة لك. سجّل كل مجموعة وتابع قوتك وهي تزيد.'
-      : 'MYOS uses AI to build your training program around your goal, schedule and equipment. Log every set and watch your strength grow.';
+      : 'MAYOS uses AI to build your training program around your goal, schedule and equipment. Log every set and watch your strength grow.';
   }
 
   function updateCopy(language) {
@@ -92,25 +92,25 @@
     script.src = '/app/posthog_init.js';
     script.async = true;
     script.onload = function () {
-      window.myosInitializePosthog(config.posthogKey, '{}').then(function () {
+      window.mayosInitializePosthog(config.posthogKey, '{}').then(function () {
         analyticsReady = true;
         flushAnalyticsQueue();
       }).catch(function (error) {
-        console.error('MYOS analytics could not initialize.', error);
+        console.error('MAYOS analytics could not initialize.', error);
       });
     };
     document.head.appendChild(script);
   }
 
   function flushAnalyticsQueue() {
-    if (!analyticsReady || !window.myosCapturePosthog) return;
+    if (!analyticsReady || !window.mayosCapturePosthog) return;
     while (analyticsQueue.length) {
       var queuedEvent = analyticsQueue[0];
       try {
-        window.myosCapturePosthog(queuedEvent.event, JSON.stringify(queuedEvent.properties));
+        window.mayosCapturePosthog(queuedEvent.event, JSON.stringify(queuedEvent.properties));
         analyticsQueue.shift();
       } catch (error) {
-        console.error('MYOS analytics event remains queued after capture failed.', error);
+        console.error('MAYOS analytics event remains queued after capture failed.', error);
         return;
       }
     }

@@ -29,9 +29,9 @@ sys.path.append(str(BASE_DIR))
 
 from database.database_manager import DEFAULT_CATALOG_PATH  # noqa: E402
 from service import model_metering as metering_service  # noqa: E402
-from utils.logger import MyosLogger  # noqa: E402
+from utils.logger import MayosLogger  # noqa: E402
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def _parse_day(value: str) -> datetime:

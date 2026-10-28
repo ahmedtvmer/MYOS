@@ -56,8 +56,8 @@ def test_workbox_generated_and_assembled_manifest_has_required_assets_and_routes
     shutil.copy2(repo / "mobile/web/workbox-config.cjs", web / "workbox-config.cjs")
     files = [
         "index.html", "flutter.js", "flutter_bootstrap.js", "main.dart.js",
-        "manifest.json", "favicon.png", "apple-touch-icon.png", "myos-icon-192.png",
-        "myos-loading-wallpaper.jpg", "myos-lockup-white.png", "pwa_bridge.js",
+        "manifest.json", "favicon.png", "apple-touch-icon.png", "mayos-icon-192.png",
+        "mayos-loading-wallpaper.jpg", "mayos-lockup-white.png", "pwa_bridge.js",
         "offline.html", "offline.js", "canvaskit/canvaskit.js",
         "canvaskit/canvaskit.wasm", "canvaskit/chromium/canvaskit.js",
         "canvaskit/chromium/canvaskit.wasm", "canvaskit/skwasm.js",
@@ -158,7 +158,7 @@ def test_offline_deep_route_runs_arabic_copy_and_retry():
       const {URL} = require('node:url');
       const html = fs.readFileSync(process.env.OFFLINE_HTML, 'utf8');
       const scriptPath = html.match(/<script src="([^"]+)"><\\/script>/)[1];
-      const resolved = new URL(scriptPath, 'https://myos.example/app/coach/players/12');
+      const resolved = new URL(scriptPath, 'https://mayos.example/app/coach/players/12');
       if (resolved.pathname !== '/app/offline.js') throw new Error(`bad script URL: ${resolved}`);
       const attrs = {};
       const elements = {
@@ -220,12 +220,12 @@ def test_bridge_reconciles_cross_tab_updates_and_only_reloads_after_apply():
       let reloads = 0;
       const location = {reload: () => reloads++};
       const states = [];
-      window.addEventListener('myos-update-waiting', () => states.push(window.MYOS_UPDATE_WAITING));
+      window.addEventListener('mayos-update-waiting', () => states.push(window.MAYOS_UPDATE_WAITING));
       vm.runInNewContext(fs.readFileSync(process.env.BRIDGE_JS, 'utf8'), {window, navigator, location, Event: MockEvent});
       const tick = () => new Promise(resolve => setTimeout(resolve, 0));
       (async () => {
         await tick();
-        if (window.MYOS_UPDATE_WAITING !== false || states.length !== 0) throw new Error('first install reported waiting');
+        if (window.MAYOS_UPDATE_WAITING !== false || states.length !== 0) throw new Error('first install reported waiting');
         serviceWorker.controller = {};
         const worker = new Target();
         worker.state = 'installing';
@@ -236,22 +236,22 @@ def test_bridge_reconciles_cross_tab_updates_and_only_reloads_after_apply():
         registration.waiting = worker;
         worker.state = 'installed';
         worker.dispatchEvent(new MockEvent('statechange'));
-        if (window.MYOS_UPDATE_WAITING !== true || states.at(-1) !== true) throw new Error('waiting update not reported');
+        if (window.MAYOS_UPDATE_WAITING !== true || states.at(-1) !== true) throw new Error('waiting update not reported');
 
         registration.waiting = null;
         worker.state = 'activating';
         worker.dispatchEvent(new MockEvent('statechange'));
-        if (window.MYOS_UPDATE_WAITING !== false || states.at(-1) !== false) throw new Error('waiting state change did not clear waiting');
+        if (window.MAYOS_UPDATE_WAITING !== false || states.at(-1) !== false) throw new Error('waiting state change did not clear waiting');
         serviceWorker.dispatchEvent(new MockEvent('controllerchange'));
-        if (window.MYOS_UPDATE_WAITING !== false || states.at(-1) !== false) throw new Error('other tab activation did not clear waiting');
+        if (window.MAYOS_UPDATE_WAITING !== false || states.at(-1) !== false) throw new Error('other tab activation did not clear waiting');
         const listenerCount = serviceWorker.count('controllerchange');
-        window.MYOS_APPLY_UPDATE();
+        window.MAYOS_APPLY_UPDATE();
         await tick();
         if (worker.messages.length !== 0 || serviceWorker.count('controllerchange') !== listenerCount) throw new Error('apply armed without a waiting worker');
 
         registration.waiting = worker;
         worker.dispatchEvent(new MockEvent('statechange'));
-        window.MYOS_APPLY_UPDATE();
+        window.MAYOS_APPLY_UPDATE();
         await tick();
         if (worker.messages.length !== 1 || worker.messages[0].type !== 'SKIP_WAITING') throw new Error('apply did not message the waiting worker');
         serviceWorker.dispatchEvent(new MockEvent('controllerchange'));
@@ -301,7 +301,7 @@ def test_bridge_reports_update_already_installing_when_registration_resolves():
         registration.waiting = worker;
         worker.state = 'installed';
         worker.dispatchEvent(new MockEvent('statechange'));
-        if (window.MYOS_UPDATE_WAITING !== true) {
+        if (window.MAYOS_UPDATE_WAITING !== true) {
           console.error('update installing at registration was not reported');
           process.exitCode = 1;
         }
@@ -334,8 +334,8 @@ def test_bridge_captures_and_prompts_for_install_before_flutter_boot():
       const window = new Target();
       const navigator = {};
       const events = [];
-      window.addEventListener('myos-install-state', () => events.push('state'));
-      window.addEventListener('myos-app-installed', () => events.push('installed'));
+      window.addEventListener('mayos-install-state', () => events.push('state'));
+      window.addEventListener('mayos-app-installed', () => events.push('installed'));
       vm.runInNewContext(fs.readFileSync(process.env.BRIDGE_JS, 'utf8'),
         {window, navigator, location: {}, Event: MockEvent});
       (async () => {
@@ -346,14 +346,14 @@ def test_bridge_captures_and_prompts_for_install_before_flutter_boot():
         installEvent.prompt = async () => { prompted = true; };
         installEvent.userChoice = Promise.resolve({outcome: 'accepted'});
         window.dispatchEvent(installEvent);
-        if (!prevented || !window.MYOS_INSTALL_PROMPT_AVAILABLE) throw new Error('prompt was not captured');
-        if (await window.MYOS_PROMPT_INSTALL() !== 'accepted' || !prompted) throw new Error('accepted outcome missing');
-        if (window.MYOS_INSTALL_PROMPT_AVAILABLE) throw new Error('prompt remained available');
+        if (!prevented || !window.MAYOS_INSTALL_PROMPT_AVAILABLE) throw new Error('prompt was not captured');
+        if (await window.MAYOS_PROMPT_INSTALL() !== 'accepted' || !prompted) throw new Error('accepted outcome missing');
+        if (window.MAYOS_INSTALL_PROMPT_AVAILABLE) throw new Error('prompt remained available');
         window.dispatchEvent(new MockEvent('appinstalled'));
         if (!events.includes('installed')) throw new Error('installed event missing');
-        if (!window.MYOS_APP_INSTALLED) throw new Error('installed state was not retained');
-        if (!window.MYOS_CONSUME_APP_INSTALLED()) throw new Error('installed state was not consumable');
-        if (window.MYOS_CONSUME_APP_INSTALLED()) throw new Error('installed state was not consumed once');
+        if (!window.MAYOS_APP_INSTALLED) throw new Error('installed state was not retained');
+        if (!window.MAYOS_CONSUME_APP_INSTALLED()) throw new Error('installed state was not consumable');
+        if (window.MAYOS_CONSUME_APP_INSTALLED()) throw new Error('installed state was not consumed once');
       })().catch(error => { console.error(error); process.exitCode = 1; });
     """)
     env = os.environ.copy()

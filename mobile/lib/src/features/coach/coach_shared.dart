@@ -6,10 +6,10 @@ import '../../core/models.dart';
 import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/controller.dart';
 import '../../core/display_language/feature_copy_context.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_card.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_card.dart';
 import '../../core/ui/first_strong_direction.dart';
 import '../../providers.dart';
 import 'coach_request_sheet.dart';
@@ -33,10 +33,10 @@ class CoachListDetail extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             key: listKey,
-            width: MyosLayout.coachListPaneWidth,
+            width: MayosLayout.coachListPaneWidth,
             child: list,
           ),
-          const VerticalDivider(width: MyosBorderWidths.hairline),
+          const VerticalDivider(width: MayosBorderWidths.hairline),
           Expanded(key: detailKey, child: detail),
         ],
       );
@@ -44,23 +44,23 @@ class CoachListDetail extends StatelessWidget {
 
 /// A tinted caption pill — the roster's urgency chips and the alert state
 /// chip (#120). Colour comes from the theme tokens, type from
-/// [MyosTypography.of(context).caption].
+/// [MayosTypography.of(context).caption].
 Widget coachPillChip(BuildContext context, String label, Color color) {
   return Container(
     padding: const EdgeInsets.symmetric(
-        horizontal: MyosSpacing.sm, vertical: MyosSpacing.xxs),
+        horizontal: MayosSpacing.sm, vertical: MayosSpacing.xxs),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.12),
-      borderRadius: MyosRadii.pillRadius,
+      borderRadius: MayosRadii.pillRadius,
     ),
-    child: Text(label, style: MyosTypography.of(context).caption.copyWith(color: color)),
+    child: Text(label, style: MayosTypography.of(context).caption.copyWith(color: color)),
   );
 }
 
 /// The theme colour of a coach alert's state: danger while new, warning while
 /// acknowledged, muted once resolved (#120).
 Color coachAlertStateColor(BuildContext context, String state) {
-  final MyosThemeExtension c = MyosTheme.of(context);
+  final MayosThemeExtension c = MayosTheme.of(context);
   return switch (state) {
     'new' => c.danger,
     'acknowledged' => c.warning,
@@ -196,12 +196,12 @@ class CoachRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     final String player =
         playerUsername ?? request.playerUsername ?? copy.player;
     final DateTime? sent = DateTime.tryParse(request.createdAt);
-    return MyosCard(
+    return MayosCard(
       key: Key('request_card_${request.requestId}'),
       onTap: request.isPending ? onTap : null,
       selected: selected,
@@ -217,20 +217,20 @@ class CoachRequestCard extends StatelessWidget {
                 size: 20,
                 color: c.accent,
               ),
-              const SizedBox(width: MyosSpacing.xs),
+              const SizedBox(width: MayosSpacing.xs),
               Expanded(
                 child: Text(
                   request.dayName == null
                       ? player
                       : copy.requestPlayerDay(player, request.dayName!),
                   style:
-                      MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+                      MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
                 ),
               ),
               coachRequestStatusChip(context, request),
             ],
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             copy.programRequestTitle(
               isSubstitution: request.isExerciseSubstitution,
@@ -240,34 +240,34 @@ class CoachRequestCard extends StatelessWidget {
               frequency: request.desiredWeeklyFrequency,
               preference: request.desiredSplitPreference,
             ),
-            style: MyosTypography.of(context).exerciseTitle.copyWith(color: c.textPrimary),
+            style: MayosTypography.of(context).exerciseTitle.copyWith(color: c.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           FirstStrongDirection(
             text: request.reason,
             child: Text(
               '“${request.reason}”',
               style:
-                  MyosTypography.of(context).bodySecondary.copyWith(color: c.textPrimary),
+                  MayosTypography.of(context).bodySecondary.copyWith(color: c.textPrimary),
             ),
           ),
           if (request.hasResponse) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             FirstStrongDirection(
               text: copy.youReplied(request.response!),
               child: Text(
                 copy.youReplied(request.response!),
-                style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+                style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
               ),
             ),
           ],
           if (request.isPending) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xxs),
+            const SizedBox(height: MayosSpacing.xxs),
             Text(
               sent == null
                   ? copy.sentOn(request.createdAt)
                   : copy.sentOn(isoDateOf(sent)),
-              style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+              style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
             ),
           ],
         ],

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/display_language/feature_copy_context.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_button.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_button.dart';
 
 class LoggerReplaceConfirmation {
   const LoggerReplaceConfirmation({
@@ -54,8 +54,8 @@ class LoggerCoachRequestReasonPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: MyosSpacing.md,
-          vertical: MyosSpacing.xs,
+          horizontal: MayosSpacing.md,
+          vertical: MayosSpacing.xs,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -74,8 +74,8 @@ class LoggerCoachRequestReasonPrompt extends StatelessWidget {
                     : null,
               ),
             ),
-            const SizedBox(height: MyosSpacing.xs),
-            MyosButton(
+            const SizedBox(height: MayosSpacing.xs),
+            MayosButton(
               key: const ValueKey<String>('logger.refreshedCoachSubmit'),
               label: submitting
                   ? workoutCopyOf(context).sending
@@ -101,7 +101,7 @@ class _LoggerReplaceConfirmationDialogState
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     final int ticked = widget.tickedSetCount;
     final String optionLabel = widget.coachControlled
@@ -122,10 +122,10 @@ class _LoggerReplaceConfirmationDialogState
             children: <Widget>[
               if (ticked > 0)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+                  padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
                   child: Text(
                     copy.loggedSetsCleared,
-                    style: MyosTypography.of(context).bodySecondary
+                    style: MayosTypography.of(context).bodySecondary
                         .copyWith(color: colors.textPrimary),
                   ),
                 ),
@@ -137,7 +137,7 @@ class _LoggerReplaceConfirmationDialogState
                   value: _keepInProgram,
                   title: Text(
                     optionLabel,
-                    style: MyosTypography.of(context).body
+                    style: MayosTypography.of(context).body
                         .copyWith(color: colors.textPrimary),
                   ),
                   onChanged: (bool? value) => setState(() {
@@ -146,7 +146,7 @@ class _LoggerReplaceConfirmationDialogState
                   }),
                 ),
               if (asksCoach) ...<Widget>[
-                const SizedBox(height: MyosSpacing.xs),
+                const SizedBox(height: MayosSpacing.xs),
                 TextField(
                   key: const ValueKey<String>('logger.keepSwapReasonField'),
                   controller: _reason,
@@ -171,15 +171,15 @@ class _LoggerReplaceConfirmationDialogState
         ),
       ),
       actions: <Widget>[
-        MyosButton(
+        MayosButton(
           label: ticked == 0 ? copy.cancel : copy.keepLogging,
-          variant: MyosButtonVariant.secondary,
+          variant: MayosButtonVariant.secondary,
           expand: false,
           onPressed: () => Navigator.of(context).pop(
             const LoggerReplaceConfirmation(confirmed: false),
           ),
         ),
-        MyosButton(
+        MayosButton(
           label: copy.replace,
           destructive: ticked > 0,
           expand: false,

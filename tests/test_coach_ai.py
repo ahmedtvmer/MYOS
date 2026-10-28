@@ -140,7 +140,7 @@ def _account_id(db, username):
 
 def test_prompt_version_hash_is_bound_to_name_aware_context():
     assert coach_ai.prompt_version_hash() == (
-        "e407fa51396bca4bde1b3f5392bd4e084d01be211d4edadbc8c8a8ce4bfaf743"
+        "7876d2d4f56b69f8552b171469820f3cc8f46fb3549026fc5c163d6be23103a4"
     )
 
 
@@ -1663,7 +1663,7 @@ def test_issue_148_messages_have_one_leading_system_message():
     ]
     assert system_message_indexes == [0]
     assert messages[0].content.startswith(
-        'You are "CoachIdentifyName"\'s coaching assistant in MYOS.\n'
+        'You are "CoachIdentifyName"\'s coaching assistant in MAYOS.\n'
         'You are talking to "CoachIdentifyName" about their player "Ahmed", whose data follows.'
     )
     assert messages[0].content.endswith(context_text)

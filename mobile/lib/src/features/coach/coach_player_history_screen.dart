@@ -11,15 +11,15 @@ import '../../core/display_language/controller.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/display_language/message_resolver.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
-import '../../core/ui/myos_section_header.dart';
-import '../../core/ui/myos_segmented_control.dart';
-import '../../core/ui/myos_settings_tile.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
+import '../../core/ui/mayos_section_header.dart';
+import '../../core/ui/mayos_segmented_control.dart';
+import '../../core/ui/mayos_settings_tile.dart';
 import '../../core/ui/first_strong_direction.dart';
 import '../../providers.dart';
 import '../../router.dart';
@@ -425,7 +425,7 @@ class _GenerateDraftDialogState extends State<_GenerateDraftDialog> {
   @override
   Widget build(BuildContext context) {
     final copy = coachCopyOf(context);
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final List<CoachProgramSplitOption> splitOptions =
         widget.options.optionsByDays[_frequency] ??
             const <CoachProgramSplitOption>[];
@@ -458,15 +458,15 @@ class _GenerateDraftDialogState extends State<_GenerateDraftDialog> {
             ),
           ),
           if (_failure != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               displayCopyOf(context).failureMessage(_failure!),
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .bodySecondary
                   .copyWith(color: c.danger),
             ),
           ],
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           DropdownButtonFormField<String>(
             key: const Key('generate_draft_rep_field'),
             initialValue: _repPreference,
@@ -486,7 +486,7 @@ class _GenerateDraftDialogState extends State<_GenerateDraftDialog> {
               () => _repPreference = value ?? _repPreference,
             ),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           DropdownButtonFormField<int>(
             key: const Key('generate_draft_frequency_field'),
             initialValue: _frequency,
@@ -517,16 +517,16 @@ class _GenerateDraftDialogState extends State<_GenerateDraftDialog> {
               });
             },
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _cardioTypeField(),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _cardioDaysField(),
           if (_cardioDays > 0) ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             _cardioMinutesField(),
           ],
           if (_cardioDays > 0 && _cardioType == 'custom') ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             _customCardioNoteField(),
           ],
         ],
@@ -536,7 +536,7 @@ class _GenerateDraftDialogState extends State<_GenerateDraftDialog> {
           onPressed: _submitting ? null : () => Navigator.of(context).pop(),
           child: Text(copy.cancel),
         ),
-        MyosButton(
+        MayosButton(
           key: const Key('generate_draft_confirm_button'),
           label: copy.generate,
           expand: false,
@@ -948,37 +948,37 @@ class _CoachPlayerHistoryScreenState
   }
 
   Widget _checkInsSegment(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
           copy.nextFollowUpLabel(_nextFollowUpOn),
-          style: MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+          style: MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
         ),
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         Align(
           alignment: AlignmentDirectional.centerStart,
-          child: MyosButton(
+          child: MayosButton(
             key: const Key('record_check_in_button'),
             label: copy.logCheckIn,
             icon: Icons.note_add_outlined,
-            variant: MyosButtonVariant.secondary,
+            variant: MayosButtonVariant.secondary,
             expand: false,
             onPressed: _openCheckInSheet,
           ),
         ),
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         if (_checkIns.isEmpty)
           Text(
             copy.noRecordedCheckIns,
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           )
         else
           for (final CheckIn checkIn in _checkIns)
-            MyosSettingsTile(
+            MayosSettingsTile(
               key: Key('check_in_${checkIn.checkInId}'),
               icon: Icons.forum_outlined,
               title: copy.checkInTitle(
@@ -997,24 +997,24 @@ class _CoachPlayerHistoryScreenState
   /// requests in the tab's order, with the shared resolve sheet. A pending
   /// row opens the sheet; answered rows are read-only.
   Widget _requestsSegment(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        MyosSectionHeader(title: copy.programRequests),
+        MayosSectionHeader(title: copy.programRequests),
         if (_requestError != null) ...<Widget>[
           Text(
             displayCopyOf(context).failureMessage(_requestError!),
-            style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+            style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
         ],
         if (_programRequests.isEmpty)
           Text(
             copy.noProgramRequests,
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           )
         else
           for (final ProgramRequest request in _programRequests)
@@ -1031,15 +1031,15 @@ class _CoachPlayerHistoryScreenState
     final CoachActiveProgram active = _activeProgram!;
     final copy = coachCopyOf(context);
     final List<Widget> emphasis = <Widget>[
-      MyosSectionHeader(title: copy.weakPoints),
+      MayosSectionHeader(title: copy.weakPoints),
       if (active.weakPoints.isEmpty) Text(copy.noWeakPoints),
       for (final Map<String, dynamic> point in active.weakPoints)
         Text(
           '${copy.muscleName(point['muscle'] as String? ?? '')} · '
           '${copy.weakPointSource(point['source'] as String? ?? '')}',
         ),
-      const SizedBox(height: MyosSpacing.sm),
-      MyosSectionHeader(title: copy.focusMuscles),
+      const SizedBox(height: MayosSpacing.sm),
+      MayosSectionHeader(title: copy.focusMuscles),
       if (active.focusMuscles.isEmpty) Text(copy.noFocusMuscles),
       for (final Map<String, dynamic> focus in active.focusMuscles)
         Text(
@@ -1047,7 +1047,7 @@ class _CoachPlayerHistoryScreenState
           '${copy.weakPointSource(focus['source'] as String? ?? '')}'
           '${focus['status'] == 'unavailable' ? ' · ${copy.noExtraExerciseAvailable}' : ''}',
         ),
-      const SizedBox(height: MyosSpacing.md),
+      const SizedBox(height: MayosSpacing.md),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1074,7 +1074,7 @@ class _CoachPlayerHistoryScreenState
             saveAsTemplate: _saveProgramAsTemplate,
           ),
         ),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         ...emphasis,
       ],
     );
@@ -1404,7 +1404,7 @@ class _CoachPlayerHistoryScreenState
   /// through the existing alert client calls, plus **Log check-in** while a
   /// follow-up is due.
   Widget _alertCard(BuildContext context, CoachAlert alert) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     final String description = resolveCoachAlertDescription(
       alert,
@@ -1412,8 +1412,8 @@ class _CoachPlayerHistoryScreenState
     );
     final bool busy = _busyAlertId == alert.alertId;
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
-      child: MyosCard(
+      padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
+      child: MayosCard(
         key: Key('player_alert_${alert.alertId}'),
         borderColor: alert.isNew ? c.danger : c.border,
         child: Column(
@@ -1427,29 +1427,29 @@ class _CoachPlayerHistoryScreenState
                     child: Text(
                       description,
                       style:
-                          MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+                          MayosTypography.of(context).body.copyWith(color: c.textPrimary),
                     ),
                   ),
                 ),
                 coachAlertStateChip(context, alert),
               ],
             ),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Wrap(
-              spacing: MyosSpacing.xs,
-              runSpacing: MyosSpacing.xs,
+              spacing: MayosSpacing.xs,
+              runSpacing: MayosSpacing.xs,
               children: <Widget>[
                 if (alert.isFollowUpDue)
-                  MyosButton(
+                  MayosButton(
                     label: copy.logCheckInAction,
-                    variant: MyosButtonVariant.tertiary,
+                    variant: MayosButtonVariant.tertiary,
                     expand: false,
                     onPressed: busy ? null : _openCheckInSheet,
                   ),
                 if (alert.isNew)
-                  MyosButton(
+                  MayosButton(
                     label: copy.acknowledge,
-                    variant: MyosButtonVariant.tertiary,
+                    variant: MayosButtonVariant.tertiary,
                     expand: false,
                     onPressed: busy
                         ? null
@@ -1461,9 +1461,9 @@ class _CoachPlayerHistoryScreenState
                             ),
                   ),
                 if (!alert.isResolved)
-                  MyosButton(
+                  MayosButton(
                     label: copy.resolve,
-                    variant: MyosButtonVariant.tertiary,
+                    variant: MayosButtonVariant.tertiary,
                     expand: false,
                     loading: busy,
                     onPressed: busy
@@ -1484,7 +1484,7 @@ class _CoachPlayerHistoryScreenState
   }
 
   Widget _buildBody(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -1492,7 +1492,7 @@ class _CoachPlayerHistoryScreenState
     if (_error != null || _assignmentDenied) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -1501,9 +1501,9 @@ class _CoachPlayerHistoryScreenState
                       ? copy.noActiveAssignment
                       : displayCopyOf(context).failureMessage(_error!),
                   textAlign: TextAlign.center,
-                  style: MyosTypography.of(context).body.copyWith(color: c.textPrimary)),
-              const SizedBox(height: MyosSpacing.md),
-              MyosButton(
+                  style: MayosTypography.of(context).body.copyWith(color: c.textPrimary)),
+              const SizedBox(height: MayosSpacing.md),
+              MayosButton(
                 label: copy.retry,
                 expand: false,
                 onPressed: _load,
@@ -1515,40 +1515,40 @@ class _CoachPlayerHistoryScreenState
     }
     return ListView(
       key: const Key('coach_player_history_scroll'),
-      padding: const EdgeInsets.all(MyosSpacing.md),
+      padding: const EdgeInsets.all(MayosSpacing.md),
       children: <Widget>[
         if (_alerts.isNotEmpty) ...<Widget>[
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           Text(copy.openAlerts,
-              style: MyosTypography.of(context).sectionHeading
+              style: MayosTypography.of(context).sectionHeading
                   .copyWith(color: c.textPrimary)),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           for (final CoachAlert alert in _alerts) _alertCard(context, alert),
         ],
-        const SizedBox(height: MyosSpacing.md),
-        MyosSegmentedControl<_PlayerSegment>(
-          segments: <MyosSegment<_PlayerSegment>>[
-            MyosSegment<_PlayerSegment>(
+        const SizedBox(height: MayosSpacing.md),
+        MayosSegmentedControl<_PlayerSegment>(
+          segments: <MayosSegment<_PlayerSegment>>[
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.program,
               label: copy.program,
             ),
-            MyosSegment<_PlayerSegment>(
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.nutrition,
               label: displayCopyOf(context).nutritionTab,
             ),
-            MyosSegment<_PlayerSegment>(
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.charts,
               label: displayCopyOf(context).nutrition.coachCharts,
             ),
-            MyosSegment<_PlayerSegment>(
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.history,
               label: copy.history,
             ),
-            MyosSegment<_PlayerSegment>(
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.checkIns,
               label: copy.checkIns,
             ),
-            MyosSegment<_PlayerSegment>(
+            MayosSegment<_PlayerSegment>(
               value: _PlayerSegment.requests,
               label: _pendingRequests > 0
                   ? copy.requestsWithCount(_pendingRequests)
@@ -1558,7 +1558,7 @@ class _CoachPlayerHistoryScreenState
           selected: _segment,
           onChanged: (_PlayerSegment value) => setState(() => _segment = value),
         ),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         if (_segment == _PlayerSegment.program)
           _programCard(context)
         else if (_segment == _PlayerSegment.nutrition)

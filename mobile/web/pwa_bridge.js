@@ -1,12 +1,12 @@
-// Small host API for Dart: window.MYOS_UPDATE_WAITING (boolean),
-// window.MYOS_APPLY_UPDATE() (activate then reload once on controller change).
+// Small host API for Dart: window.MAYOS_UPDATE_WAITING (boolean),
+// window.MAYOS_APPLY_UPDATE() (activate then reload once on controller change).
 // Install bridge additions for #456 belong in the delimited section below.
 (() => {
   let waiting = false;
   let applying = false;
   let registration = null;
   const watchedWaitingWorkers = new WeakSet();
-  const notify = () => window.dispatchEvent(new Event('myos-update-waiting'));
+  const notify = () => window.dispatchEvent(new Event('mayos-update-waiting'));
   const setWaiting = value => {
     if (waiting === value) return;
     waiting = value;
@@ -34,8 +34,8 @@
     }, {once: true});
     waitingWorker.postMessage({type: 'SKIP_WAITING'});
   };
-  Object.defineProperty(window, 'MYOS_UPDATE_WAITING', {get: () => waiting});
-  window.MYOS_APPLY_UPDATE = apply;
+  Object.defineProperty(window, 'MAYOS_UPDATE_WAITING', {get: () => waiting});
+  window.MAYOS_APPLY_UPDATE = apply;
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reconcile();
@@ -64,19 +64,19 @@
 (() => {
   let installPrompt = null;
   let installed = false;
-  const notify = () => window.dispatchEvent(new Event('myos-install-state'));
-  Object.defineProperty(window, 'MYOS_INSTALL_PROMPT_AVAILABLE', {
+  const notify = () => window.dispatchEvent(new Event('mayos-install-state'));
+  Object.defineProperty(window, 'MAYOS_INSTALL_PROMPT_AVAILABLE', {
     get: () => installPrompt !== null,
   });
-  Object.defineProperty(window, 'MYOS_APP_INSTALLED', {
+  Object.defineProperty(window, 'MAYOS_APP_INSTALLED', {
     get: () => installed,
   });
-  window.MYOS_CONSUME_APP_INSTALLED = () => {
+  window.MAYOS_CONSUME_APP_INSTALLED = () => {
     const wasInstalled = installed;
     installed = false;
     return wasInstalled;
   };
-  window.MYOS_PROMPT_INSTALL = async () => {
+  window.MAYOS_PROMPT_INSTALL = async () => {
     if (!installPrompt) return 'unavailable';
     const prompt = installPrompt;
     installPrompt = null;
@@ -94,6 +94,6 @@
     installed = true;
     installPrompt = null;
     notify();
-    window.dispatchEvent(new Event('myos-app-installed'));
+    window.dispatchEvent(new Event('mayos-app-installed'));
   });
 })();

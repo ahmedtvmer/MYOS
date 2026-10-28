@@ -60,8 +60,8 @@ _ADMIN_ASSET_TYPES = {
     "admin.css": "text/css",
     "Inter-Variable.ttf": "font/ttf",
     "PlayfairDisplay-Variable.ttf": "font/ttf",
-    "myos-logo-blue.png": "image/png",
-    "myos-logo-white.png": "image/png",
+    "mayos-logo-blue.png": "image/png",
+    "mayos-logo-white.png": "image/png",
     "favicon.png": "image/png",
     "apple-touch-icon.png": "image/png",
     "OFL-Inter.txt": "text/plain",
@@ -786,11 +786,11 @@ def _asset_url(asset_name: str) -> str:
 
 def _brand_lockup() -> str:
     return (
-        '<div class="brand-lockup" role="img" aria-label="MYOS">'
+        '<div class="brand-lockup" role="img" aria-label="MAYOS">'
         "<picture>"
-        f'<source media="(prefers-color-scheme: dark)" srcset="{_asset_url("myos-logo-white.png")}">'
-        f'<img src="{_asset_url("myos-logo-blue.png")}" alt="">'
-        '</picture><span class="brand-wordmark" aria-hidden="true">MYOS</span></div>'
+        f'<source media="(prefers-color-scheme: dark)" srcset="{_asset_url("mayos-logo-white.png")}">'
+        f'<img src="{_asset_url("mayos-logo-blue.png")}" alt="">'
+        '</picture><span class="brand-wordmark" aria-hidden="true">MAYOS</span></div>'
     )
 
 
@@ -798,7 +798,7 @@ def _admin_nav(csrf_token: str, alert_failed: bool, active_page: str) -> str:
     brand_current = ' aria-current="page"' if active_page == "home" else ""
     nav = (
         '<nav class="admin-nav"><div class="admin-nav-main">'
-        f'<a class="brand-link" href="/admin" aria-label="MYOS owner dashboard"{brand_current}>'
+        f'<a class="brand-link" href="/admin" aria-label="MAYOS owner dashboard"{brand_current}>'
         + _brand_lockup()
         + '</a><div class="admin-nav-links">'
         + _admin_nav_link("Accounts", "/admin/accounts", "accounts", active_page)
@@ -1610,7 +1610,7 @@ def _issued_coach_invite(issued: dict[str, Any]) -> str:
     expires_at = datetime.fromisoformat(issued["expires_at"]).astimezone(UTC)
     expires_display = expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
     message = (
-        f"Your MYOS coach code: {token}. Redeem it in the app: Settings → Become a coach. "
+        f"Your MAYOS coach code: {token}. Redeem it in the app: Settings → Become a coach. "
         f"It works once and expires {expires_display}."
     )
     share_url = f"https://wa.me/?{urlencode({'text': message})}"
@@ -1698,7 +1698,7 @@ def _issued_reset_link(reset_result: dict[str, str]) -> str:
     link = reset_result["link"]
     expires_at = datetime.fromisoformat(reset_result["expires_at"]).astimezone(UTC)
     expires_display = expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-    message = f"Your MYOS password reset link: {link} It works once and expires {expires_display}."
+    message = f"Your MAYOS password reset link: {link} It works once and expires {expires_display}."
     share_url = f"https://wa.me/?{urlencode({'text': message})}"
     return (
         '<label for="issued_reset_link">Reset link</label>'

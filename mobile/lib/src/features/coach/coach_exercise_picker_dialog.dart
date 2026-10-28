@@ -12,11 +12,11 @@ import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/exercise_filters.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_settings_tile.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_settings_tile.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 import '../../shared/exercise_filter_bar.dart';
 
@@ -136,7 +136,7 @@ class _CoachExercisePickerDialogState
   @override
   Widget build(BuildContext context) {
     final CoachCopy coachCopy = coachCopyOf(context);
-    final MyosCopy copy = displayCopyOf(context);
+    final MayosCopy copy = displayCopyOf(context);
     if (widget.phonePresentation) {
       return Scaffold(
         key: const Key('coach_exercise_picker_phone'),
@@ -150,10 +150,10 @@ class _CoachExercisePickerDialogState
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(
-              MyosSpacing.md,
-              MyosSpacing.sm,
-              MyosSpacing.md,
-              MyosSpacing.sm,
+              MayosSpacing.md,
+              MayosSpacing.sm,
+              MayosSpacing.md,
+              MayosSpacing.sm,
             ),
             child: Column(
               children: <Widget>[
@@ -164,7 +164,7 @@ class _CoachExercisePickerDialogState
                     bottom: MediaQuery.of(context).viewInsets.bottom,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.only(top: MyosSpacing.sm),
+                    padding: const EdgeInsets.only(top: MayosSpacing.sm),
                     child: Row(
                       children: _pickerActions(context, coachCopy, copy)
                           .map((Widget action) => Expanded(child: action))
@@ -189,7 +189,7 @@ class _CoachExercisePickerDialogState
   }
 
   Widget _pickerContent(
-          BuildContext context, CoachCopy coachCopy, MyosCopy copy) =>
+          BuildContext context, CoachCopy coachCopy, MayosCopy copy) =>
       Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +216,7 @@ class _CoachExercisePickerDialogState
         ),
       );
 
-  Widget _searchField(MyosCopy copy) => MyosTextField(
+  Widget _searchField(MayosCopy copy) => MayosTextField(
         controller: _query,
         autofocus: true,
         label: copy.searchExerciseCatalog,
@@ -224,27 +224,27 @@ class _CoachExercisePickerDialogState
         onSubmitted: (_) => _search(),
       );
 
-  Widget _searchError(MyosCopy copy) => Padding(
-        padding: const EdgeInsets.only(top: MyosSpacing.sm),
+  Widget _searchError(MayosCopy copy) => Padding(
+        padding: const EdgeInsets.only(top: MayosSpacing.sm),
         child: Text(
           _failure == null ? _error! : copy.failureMessage(_failure!),
-          style: MyosTypography.of(context).bodySecondary,
+          style: MayosTypography.of(context).bodySecondary,
         ),
       );
 
   List<Widget> _pickerActions(
     BuildContext context,
     CoachCopy coachCopy,
-    MyosCopy copy,
+    MayosCopy copy,
   ) =>
       <Widget>[
-        MyosButton(
+        MayosButton(
           label: coachCopy.cancel,
-          variant: MyosButtonVariant.tertiary,
+          variant: MayosButtonVariant.tertiary,
           expand: false,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        MyosButton(
+        MayosButton(
           key: const Key('coach_exercise_search'),
           label: copy.search,
           expand: false,
@@ -266,7 +266,7 @@ class _ExerciseSearchProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.only(top: MyosSpacing.sm),
+        padding: EdgeInsets.only(top: MayosSpacing.sm),
         child: Center(child: CircularProgressIndicator()),
       );
 }
@@ -287,7 +287,7 @@ class _ExerciseSearchResults extends StatelessWidget {
         shrinkWrap: true,
         children: exercises
             .map(
-              (ExerciseCatalogEntry exercise) => MyosSettingsTile(
+              (ExerciseCatalogEntry exercise) => MayosSettingsTile(
                 icon: Icons.fitness_center,
                 title: exercise.name,
                 subtitle: exercise.isCoachExercise ? yourExerciseLabel : null,
@@ -306,16 +306,16 @@ class _NoExerciseMatches extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: MyosSpacing.sm),
+        padding: const EdgeInsets.only(top: MayosSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(copy.noMatchingExercise),
-            const SizedBox(height: MyosSpacing.xs),
-            MyosButton(
+            const SizedBox(height: MayosSpacing.xs),
+            MayosButton(
               key: const Key('coach_create_exercise_open'),
               label: copy.createExercise,
-              variant: MyosButtonVariant.secondary,
+              variant: MayosButtonVariant.secondary,
               onPressed: onCreate,
             ),
           ],
@@ -422,41 +422,41 @@ class _CoachExerciseCreateDialogState
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           _nameField(copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _bodyPartField(copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _equipmentField(copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _noteField(copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _videoField(copy),
           if (_error != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
-            Text(_error!, style: MyosTypography.of(context).bodySecondary),
+            const SizedBox(height: MayosSpacing.xs),
+            Text(_error!, style: MayosTypography.of(context).bodySecondary),
           ],
         ],
       );
 
-  Widget _nameField(CoachCopy copy) => MyosTextField(
+  Widget _nameField(CoachCopy copy) => MayosTextField(
         controller: _name,
         autofocus: true,
         label: copy.exerciseName,
         fieldKey: const Key('coach_exercise_name'),
       );
 
-  Widget _bodyPartField(CoachCopy copy) => MyosTextField(
+  Widget _bodyPartField(CoachCopy copy) => MayosTextField(
         controller: _bodyPart,
         label: copy.bodyPartTag,
         fieldKey: const Key('coach_exercise_body_part'),
       );
 
-  Widget _equipmentField(CoachCopy copy) => MyosTextField(
+  Widget _equipmentField(CoachCopy copy) => MayosTextField(
         controller: _equipment,
         label: copy.equipmentTag,
         fieldKey: const Key('coach_exercise_equipment'),
       );
 
-  Widget _noteField(CoachCopy copy) => MyosTextField(
+  Widget _noteField(CoachCopy copy) => MayosTextField(
         controller: _note,
         label: copy.exerciseNoteOptional,
         fieldKey: const Key('coach_exercise_note'),
@@ -464,7 +464,7 @@ class _CoachExerciseCreateDialogState
         maxLines: 4,
       );
 
-  Widget _videoField(CoachCopy copy) => MyosTextField(
+  Widget _videoField(CoachCopy copy) => MayosTextField(
         controller: _video,
         label: copy.videoLinkOptional,
         keyboardType: TextInputType.url,
@@ -472,13 +472,13 @@ class _CoachExerciseCreateDialogState
       );
 
   List<Widget> _formActions(CoachCopy copy) => <Widget>[
-        MyosButton(
+        MayosButton(
           label: copy.cancel,
-          variant: MyosButtonVariant.tertiary,
+          variant: MayosButtonVariant.tertiary,
           expand: false,
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
-        MyosButton(
+        MayosButton(
           key: const Key('coach_exercise_create'),
           label: copy.saveExercise,
           loading: _saving,

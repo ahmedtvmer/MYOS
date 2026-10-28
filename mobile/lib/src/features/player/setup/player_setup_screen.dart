@@ -5,12 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/app_mode.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_app_header.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_scaffold.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_app_header.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_scaffold.dart';
 import '../../../router.dart';
 import '../../shared/mode_switch.dart';
 
@@ -24,41 +24,41 @@ class PlayerSetupScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final MyosThemeExtension c = MyosTheme.of(context);
-    final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
-    return MyosScaffold(
-      header: const MyosAppHeader(
+    final MayosThemeExtension c = MayosTheme.of(context);
+    final MayosCopy copy = MayosCopy(ref.watch(displayLanguageProvider));
+    return MayosScaffold(
+      header: const MayosAppHeader(
         actions: <Widget>[ModeAvatarButton()],
       ),
       body: Padding(
-        padding: MyosSpacing.screen,
+        padding: MayosSpacing.screen,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Icon(Icons.fitness_center, size: 40, color: c.accent),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             Text(
               copy.setupOwnTraining,
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
             ),
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               copy.setupLead,
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).bodySecondary
+              style: MayosTypography.of(context).bodySecondary
                   .copyWith(color: c.textSecondary),
             ),
-            const SizedBox(height: MyosSpacing.xl),
-            MyosButton(
+            const SizedBox(height: MayosSpacing.xl),
+            MayosButton(
               label: copy.startIntake,
               onPressed: () => context.go(onboardingPath),
             ),
-            const SizedBox(height: MyosSpacing.sm),
-            MyosButton(
+            const SizedBox(height: MayosSpacing.sm),
+            MayosButton(
               label: copy.backToCoachMode,
-              variant: MyosButtonVariant.tertiary,
+              variant: MayosButtonVariant.tertiary,
               onPressed: () => switchToMode(context, ref, AppMode.coach),
             ),
           ],

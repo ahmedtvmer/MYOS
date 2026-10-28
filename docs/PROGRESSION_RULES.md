@@ -1,6 +1,6 @@
-# Myos: Biomechanical Progression Rules, Quantization & Auto-Regulation Reference
+# Mayos: Biomechanical Progression Rules, Quantization & Auto-Regulation Reference
 
-This document formalizes the mathematical formulations, physiological heuristics, and algorithmic rules governing the Myos auto-regulation engine (`agent/progression_engine.py`, `agent/plate_calculator.py`, and `agent/program_rules.py`).
+This document formalizes the mathematical formulations, physiological heuristics, and algorithmic rules governing the Mayos auto-regulation engine (`agent/progression_engine.py`, `agent/plate_calculator.py`, and `agent/program_rules.py`).
 
 ---
 
@@ -10,7 +10,7 @@ Standard strength-training trackers rely on static Epley 1RM estimates based pur
 
 $$\text{e1RM}_{\text{Epley}} = w \cdot \left(1 + \frac{r}{30}\right)$$
 
-In submaximal hypertrophy training, true muscular failure ($\text{RPE } 10$) is avoided on compound movements to manage systemic neurological and connective tissue fatigue. Myos calculates **effective repetitions** by projecting repetitions in reserve ($\text{RIR} = 10 - \text{RPE}$) into standard work capacity:
+In submaximal hypertrophy training, true muscular failure ($\text{RPE } 10$) is avoided on compound movements to manage systemic neurological and connective tissue fatigue. Mayos calculates **effective repetitions** by projecting repetitions in reserve ($\text{RIR} = 10 - \text{RPE}$) into standard work capacity:
 
 $$\text{effective\_reps} = r + (10 - \text{RPE})$$
 
@@ -27,7 +27,7 @@ $$\text{e1RM} = w \cdot \left(1 + \frac{r + (10 - \text{RPE})}{30}\right)$$
 
 ## 2. Double Progression Corridors & Target Load Projection
 
-Myos applies a double progression framework inside prescribed repetition brackets $[R_{\min}, R_{\max}]$ (e.g., 6–10 reps, 8–12 reps). The progression engine determines load step actions based on the trainee's execution envelope:
+Mayos applies a double progression framework inside prescribed repetition brackets $[R_{\min}, R_{\max}]$ (e.g., 6–10 reps, 8–12 reps). The progression engine determines load step actions based on the trainee's execution envelope:
 
 ```
                                   [ Working Set Logged ]
@@ -121,7 +121,7 @@ $$w_{\text{remaining}} \leftarrow w_{\text{remaining}} - (\text{count}(p) \cdot 
 
 ## 4. Potentiating Warmup Ramp Protocol
 
-To prepare neuromuscular recruitment without accumulating metabolic fatigue, Myos generates a 3-tier potentiating warmup ramp for primary compound movements ($R_{\min} \le 8$ or the first movement of a training session):
+To prepare neuromuscular recruitment without accumulating metabolic fatigue, Mayos generates a 3-tier potentiating warmup ramp for primary compound movements ($R_{\min} \le 8$ or the first movement of a training session):
 
 ```
   % of Working Load
@@ -149,7 +149,7 @@ To prepare neuromuscular recruitment without accumulating metabolic fatigue, Myo
 
 Conventional tracking systems either count volume exclusively for prime movers or assign a full $1.0$ set to all involved muscles, causing significant volume distortion.
 
-Myos scores systemic weekly volume using fractional attribution:
+Mayos scores systemic weekly volume using fractional attribution:
 
 ```
                [ Multi-Joint Exercise Executed (e.g., Incline Bench Press) ]
@@ -213,7 +213,7 @@ When `deload_recommended == True`, Tab 2 automatically adjusts training targets:
 
 ## 7. Clinical Red-Flag Interception Boundaries
 
-Myos strictly separates biomechanical auto-regulation from medical diagnosis. Clinical safety is evaluated in three tiers, and any positive tier bypasses all progression logic and halts generation:
+Mayos strictly separates biomechanical auto-regulation from medical diagnosis. Clinical safety is evaluated in three tiers, and any positive tier bypasses all progression logic and halts generation:
 
 **Tier 0a — Unconditional trauma signals** (fast-path regex, ~0.02 ms). These intercept regardless of context:
 

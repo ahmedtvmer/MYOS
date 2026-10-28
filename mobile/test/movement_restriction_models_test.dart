@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/display_language/message_resolver.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/display_language/message_resolver.dart';
 
 void main() {
   test('program exercise keeps its slot for restriction annotation refresh', () {

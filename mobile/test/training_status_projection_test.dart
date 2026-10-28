@@ -1,22 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/training_status_projection.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/training_status_projection.dart';
 
 TrainingStatus _status({
   String weekStart = '2026-09-26',
   int weeklyStreak = 2,
   int weekDone = 1,
   int weekTarget = 2,
-  int myosWorkouts = 8,
+  int mayosWorkouts = 8,
 }) =>
     TrainingStatus(
       weeklyStreak: weeklyStreak,
       weekStart: weekStart,
       weekDone: weekDone,
       weekTarget: weekTarget,
-      myosWorkouts: myosWorkouts,
+      mayosWorkouts: mayosWorkouts,
       nextCheckpoint: 10,
-      workoutsToNext: 10 - myosWorkouts,
+      workoutsToNext: 10 - mayosWorkouts,
     );
 
 WorkoutDraft _draft(
@@ -65,7 +65,7 @@ void main() {
     () {
       expect(
         _englishLines(projectTrainingStatusSummary(
-          status: _status(weekStart: '2026-09-19', myosWorkouts: 9),
+          status: _status(weekStart: '2026-09-19', mayosWorkouts: 9),
           drafts: const <WorkoutDraft>[],
           now: currentWeek,
         )),
@@ -78,7 +78,7 @@ void main() {
     'counts only pending drafts from this week toward the weekly projection',
     () {
       final List<String> lines = _englishLines(projectTrainingStatusSummary(
-        status: _status(weekDone: 1, weekTarget: 3, myosWorkouts: 7),
+        status: _status(weekDone: 1, weekTarget: 3, mayosWorkouts: 7),
         drafts: <WorkoutDraft>[
           _draft('current-week', '2026-09-29'),
           _draft('previous-week', '2026-09-20'),
@@ -101,7 +101,7 @@ void main() {
           weeklyStreak: 1,
           weekDone: 0,
           weekTarget: 3,
-          myosWorkouts: 24,
+          mayosWorkouts: 24,
         ),
         drafts: const <WorkoutDraft>[],
         now: currentWeek,
@@ -118,7 +118,7 @@ void main() {
           weeklyStreak: 1,
           weekDone: 0,
           weekTarget: 3,
-          myosWorkouts: 49,
+          mayosWorkouts: 49,
         ),
         drafts: const <WorkoutDraft>[],
         now: currentWeek,

@@ -1,9 +1,9 @@
 services:
-  myos-api:
+  mayos-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: myos_api
+    container_name: mayos_api
     restart: unless-stopped
     # SQLite has a single writer, and the API uses a bounded hosted model client.
     stop_grace_period: 60s
@@ -33,8 +33,8 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: myos_tunnel
+    container_name: mayos_tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://myos-api:8000
+    command: tunnel --no-autoupdate --url http://mayos-api:8000
     depends_on:
-      - myos-api
+      - mayos-api

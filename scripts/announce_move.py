@@ -22,51 +22,51 @@ from database.database_manager import (  # noqa: E402
     DatabaseManager,
 )
 from service import audit_log, email_sender  # noqa: E402
-from utils.logger import MyosLogger  # noqa: E402
+from utils.logger import MayosLogger  # noqa: E402
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 DEFAULT_PLAY_URL = "https://play.google.com/store/apps/details?id=com.mayos.mayos_mobile"
 
 TEMPLATES = {
     "update-required": {
         "en": {
-            "subject": "Please update MYOS before the move",
+            "subject": "Please update MAYOS before the move",
             "body": (
                 "Hello,\n\n"
-                "MYOS is moving to a faster server on {move_date}. Please update the app before then "
-                "to keep using MYOS. You can download the latest version here:\n{play_url}\n\n"
-                "Thank you,\nThe MYOS team"
+                "MAYOS is moving to a faster server on {move_date}. Please update the app before then "
+                "to keep using MAYOS. You can download the latest version here:\n{play_url}\n\n"
+                "Thank you,\nThe MAYOS team"
             ),
         },
         "ar": {
-            "subject": "حدّث MYOS قبل النقل",
+            "subject": "حدّث MAYOS قبل النقل",
             "body": (
                 "أهلاً،\n\n"
-                "MYOS هيتنقل على سيرفر أسرع يوم {move_date}. من فضلك حدّث التطبيق قبل اليوم ده "
-                "عشان تفضل تستخدم MYOS من غير مشاكل. تقدر تنزّل آخر إصدار من هنا:\n{play_url}\n\n"
-                "شكرًا،\nفريق MYOS"
+                "MAYOS هيتنقل على سيرفر أسرع يوم {move_date}. من فضلك حدّث التطبيق قبل اليوم ده "
+                "عشان تفضل تستخدم MAYOS من غير مشاكل. تقدر تنزّل آخر إصدار من هنا:\n{play_url}\n\n"
+                "شكرًا،\nفريق MAYOS"
             ),
         },
     },
     "move-day": {
         "en": {
-            "subject": "MYOS move-day service notice",
+            "subject": "MAYOS move-day service notice",
             "body": (
                 "Hello,\n\n"
-                "MYOS is moving to a faster server{date_phrase}. The service will be unavailable "
+                "MAYOS is moving to a faster server{date_phrase}. The service will be unavailable "
                 "during this window: {window}. Workouts you log in the Android app during this time stay saved "
-                "on your phone and sync automatically once MYOS is back.\n\n"
-                "Thank you,\nThe MYOS team"
+                "on your phone and sync automatically once MAYOS is back.\n\n"
+                "Thank you,\nThe MAYOS team"
             ),
         },
         "ar": {
-            "subject": "MYOS هيقف مؤقتًا يوم النقل",
+            "subject": "MAYOS هيقف مؤقتًا يوم النقل",
             "body": (
                 "أهلاً،\n\n"
-                "MYOS بيتنقل على سيرفر أسرع{date_phrase}. الخدمة هتكون واقفة في الفترة دي: {window}. "
+                "MAYOS بيتنقل على سيرفر أسرع{date_phrase}. الخدمة هتكون واقفة في الفترة دي: {window}. "
                 "الحصص التدريبية اللي هتسجّلها على تطبيق Android في الوقت ده هتفضل محفوظة على موبايلك، "
-                "وهتتزامن لوحدها أول ما MYOS يرجع.\n\n"
-                "شكرًا،\nفريق MYOS"
+                "وهتتزامن لوحدها أول ما MAYOS يرجع.\n\n"
+                "شكرًا،\nفريق MAYOS"
             ),
         },
     },
@@ -183,7 +183,7 @@ def _request_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Send or preview MYOS move announcements.")
+    parser = argparse.ArgumentParser(description="Send or preview MAYOS move announcements.")
     parser.add_argument("--template", choices=tuple(TEMPLATES), required=True)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Print recipient counts and rendered previews without sending.")

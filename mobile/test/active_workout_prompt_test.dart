@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/device_timezone.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/workout/workout_logger_screen.dart';
-import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/device_timezone.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
+import 'package:mayos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_analytics_client.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/fake_tour_seen_retry_store.dart';
 
 const String _account = 'account-alice';
@@ -34,8 +34,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -75,7 +75,7 @@ ActiveWorkout _storedWorkout() => ActiveWorkout(
 /// is "already there" when the shell opens.
 Future<ProviderContainer> _pumpApp(
   WidgetTester tester,
-  FakeMyosApi fake,
+  FakeMayosApi fake,
   InMemoryActiveWorkoutStore store, {
   FakeAnalyticsClient? analytics,
 }
@@ -119,11 +119,11 @@ Future<ProviderContainer> _pumpApp(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text('Home'));
-  return ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+  return ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
 }
 
 void main() {
@@ -163,7 +163,7 @@ void main() {
       (WidgetTester tester) async {
     final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
     await store.write(_account, _storedWorkout());
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpApp(tester, fake, store);
 
     await tester.pumpAndSettle();

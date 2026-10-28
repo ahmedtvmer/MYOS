@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/display_language/assignment_copy.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/display_language/store.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/player/assignment/player_assignment_activity.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/display_language/assignment_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/display_language/store.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/player/assignment/player_assignment_activity.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 /// Pumps finite frames until [finder] matches, then a few more so transitions
 /// settle without depending on `pumpAndSettle` (indeterminate spinners never settle).
@@ -30,7 +30,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
+Future<void> _pumpApp(WidgetTester tester, FakeMayosApi fake) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -53,7 +53,7 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(
@@ -65,8 +65,8 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
               : 'Home'));
 }
 
-FakeMyosApi _signedInFake({required bool coach}) {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake({required bool coach}) {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -143,7 +143,7 @@ void main() {
           systemDisplayLanguageProvider.overrideWithValue('en'),
         ],
         child: MaterialApp(
-          theme: MyosTheme.light,
+          theme: MayosTheme.light,
           home: Consumer(
             builder: (BuildContext context, WidgetRef ref, Widget? child) {
               final String language = ref.watch(displayLanguageProvider);
@@ -184,7 +184,7 @@ void main() {
   testWidgets(
       'Arabic settings and assignment surfaces keep server text and Western dates',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..displayLanguage = 'ar'
       ..activeAssignmentId = 'assignment-1'
       ..activeCoachDisplayName = 'Coach Alice'
@@ -274,7 +274,7 @@ void main() {
 
   testWidgets('Arabic player profile labels keep profile data and digits',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..displayLanguage = 'ar'
       ..currentGoal = 'Build strength.';
     fake.injuries.add(<String, dynamic>{
@@ -339,7 +339,7 @@ void main() {
 
   testWidgets('player previews access, consents, then ends the assignment',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false);
+    final FakeMayosApi fake = _signedInFake(coach: false);
     fake.pendingAssignmentToken = 'assignment-invite-token-123456';
     fake.pendingCoachDisplayName = 'Coach Bob';
     fake.pendingCoachSpecialization = 'Strength';
@@ -403,7 +403,7 @@ void main() {
 
   testWidgets('legacy assignment notice records the disclosure when acknowledged',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..activeAssignmentId = 'assignment-1'
       ..activeCoachDisplayName = 'Coach Bob'
       ..rosterAiDisclosureVersion = null;
@@ -432,7 +432,7 @@ void main() {
 
   testWidgets('version 1 disclosure with an acknowledgement timestamp is renewed',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..activeAssignmentId = 'assignment-1'
       ..activeCoachDisplayName = 'Coach Bob'
       ..rosterAiDisclosureVersion = '1';
@@ -456,7 +456,7 @@ void main() {
 
   testWidgets('legacy assignment notice shows ack failure and retries',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..activeAssignmentId = 'assignment-1'
       ..activeCoachDisplayName = 'Coach Bob'
       ..rosterAiDisclosureVersion = null
@@ -491,7 +491,7 @@ void main() {
 
   testWidgets('legacy assignment notice cannot be dismissed without ack',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..activeAssignmentId = 'assignment-1'
       ..activeCoachDisplayName = 'Coach Bob'
       ..rosterAiDisclosureVersion = null;
@@ -512,7 +512,7 @@ void main() {
 
   testWidgets('Arabic assignment acceptance shows the roster-AI disclosure',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false)
+    final FakeMayosApi fake = _signedInFake(coach: false)
       ..displayLanguage = 'ar'
       ..pendingAssignmentToken = 'assignment-invite-token-123456';
     await _pumpApp(tester, fake);
@@ -538,7 +538,7 @@ void main() {
 
   testWidgets('editing the code after preview clears the previewed consent',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false);
+    final FakeMayosApi fake = _signedInFake(coach: false);
     fake.pendingAssignmentToken = 'coach-a-token-123456';
     fake.pendingCoachDisplayName = 'Coach A';
     await _pumpApp(tester, fake);
@@ -575,7 +575,7 @@ void main() {
   testWidgets(
       'a committed assignment is not reported as failed when a read would fail',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: false);
+    final FakeMayosApi fake = _signedInFake(coach: false);
     fake.pendingAssignmentToken = 'coach-b-token-123456';
     fake.pendingCoachDisplayName = 'Coach Bob';
     await _pumpApp(tester, fake);
@@ -607,7 +607,7 @@ void main() {
 
   testWidgets('coach issues a code, reviews notices, revokes, disables',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake(coach: true);
+    final FakeMayosApi fake = _signedInFake(coach: true);
     fake.assignments.add(<String, dynamic>{
       'assignment_id': 'assignment-1',
       'player_username': 'bob',

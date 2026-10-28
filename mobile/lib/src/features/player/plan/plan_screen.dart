@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/models.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_card.dart';
-import '../../../core/ui/myos_section_header.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_card.dart';
+import '../../../core/ui/mayos_section_header.dart';
 import '../../../providers.dart';
 
 enum PlanCapability { lifter, coach }
@@ -28,7 +28,7 @@ class PlanScreen extends ConsumerWidget {
     }
     final copy = displayCopyOf(context);
     final AccountPlans plans = account.plans;
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final List<Widget> cards = <Widget>[
       if (capability == PlanCapability.lifter && plans.lifter != null)
         _PlanCard(
@@ -81,27 +81,27 @@ class PlanScreen extends ConsumerWidget {
     if (cards.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Text(
             copy.noPlanAvailable,
             textAlign: TextAlign.center,
-            style: MyosTypography.of(context).body.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).body.copyWith(color: c.textSecondary),
           ),
         ),
       );
     }
     return ListView(
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
         for (final Widget card in cards) ...<Widget>[
           card,
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
         ],
       ],
     );
   }
 
-  String _coachAllowanceState(MyosCopy copy, AiAllowance allowance) {
+  String _coachAllowanceState(MayosCopy copy, AiAllowance allowance) {
     final int remaining = allowance.requestsRemaining ?? 0;
     return switch (allowance.status) {
       'warning' => copy.coachAllowanceWarning(remaining, allowance.resetAt),
@@ -134,59 +134,59 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
-    return MyosCard(
+    final MayosThemeExtension c = MayosTheme.of(context);
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          MyosSectionHeader(
+          MayosSectionHeader(
             title: '$capability ${plan.label}',
             subtitle:
                 plan.isFree ? displayCopyOf(context).ongoingPlanNotTrial : null,
             padding: EdgeInsets.zero,
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           Text(
             displayCopyOf(context).includedFeatures,
-            style: MyosTypography.of(context).label.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).label.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           for (final String benefit in benefits)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: MyosSpacing.xxs),
+              padding: const EdgeInsets.symmetric(vertical: MayosSpacing.xxs),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Icon(Icons.check_circle_outline, size: 20, color: c.accent),
-                  const SizedBox(width: MyosSpacing.xs),
+                  const SizedBox(width: MayosSpacing.xs),
                   Expanded(
                     child: Text(
                       benefit,
                       style:
-                          MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+                          MayosTypography.of(context).body.copyWith(color: c.textPrimary),
                     ),
                   ),
                 ],
               ),
             ),
           if (allowance != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               allowance!,
-              style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
             if (resourceDisclosure != null) ...<Widget>[
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(
                 resourceDisclosure!,
-                style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+                style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
               ),
             ],
             if (allowanceState != null) ...<Widget>[
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(
                 allowanceState!,
-                style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+                style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
               ),
             ],
           ],

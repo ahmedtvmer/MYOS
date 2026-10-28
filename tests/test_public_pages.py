@@ -185,14 +185,14 @@ def test_app_version_policy_is_public_and_uses_configured_values(api, monkeypatc
         "store_url": "https://play.google.com/store/apps/details?id=com.mayos.mayos_mobile",
     }
     monkeypatch.setenv("MIN_ANDROID_BUILD", "321")
-    monkeypatch.setenv("ANDROID_STORE_URL", "https://play.example.test/myos")
+    monkeypatch.setenv("ANDROID_STORE_URL", "https://play.example.test/mayos")
 
     response = client.get("/app/version-policy")
 
     assert response.status_code == 200
     assert response.json() == {
         "min_build": 321,
-        "store_url": "https://play.example.test/myos",
+        "store_url": "https://play.example.test/mayos",
     }
 
 
@@ -210,7 +210,7 @@ def test_register_is_exempt_from_android_build_policy(api, monkeypatch):
 def test_android_build_below_policy_gets_structured_upgrade_required(api, monkeypatch):
     client, _db = api
     monkeypatch.setenv("MIN_ANDROID_BUILD", "50")
-    monkeypatch.setenv("ANDROID_STORE_URL", "https://play.example.test/myos")
+    monkeypatch.setenv("ANDROID_STORE_URL", "https://play.example.test/mayos")
 
     response = client.get(
         "/auth/me",
@@ -225,7 +225,7 @@ def test_android_build_below_policy_gets_structured_upgrade_required(api, monkey
     assert body["message_params"] == {"min_build": 50}
     assert body["message_fallback"]
     assert body["min_build"] == 50
-    assert body["store_url"] == "https://play.example.test/myos"
+    assert body["store_url"] == "https://play.example.test/mayos"
 
 
 @pytest.mark.parametrize(
@@ -325,7 +325,7 @@ def test_privacy_page_is_public_and_cacheable(api):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert response.headers["cache-control"] == "public, max-age=3600"
-    assert "MYOS Privacy Policy" in response.text
+    assert "MAYOS Privacy Policy" in response.text
     assert f"Effective date: {POLICY_EFFECTIVE_DATE}" in response.text
     assert f"Policy version {POLICY_VERSION}" in response.text
     assert "the app build you last used" in response.text
@@ -349,7 +349,7 @@ def test_privacy_page_discloses_coach_access_hosted_ai_and_retention(api):
     # Earlier opted-in history imports left an audit record. New imports are no
     # longer accepted, but existing records remain until account deletion.
     assert "Imported history (existing records only)" in body
-    assert "MYOS does not accept new history imports" in body
+    assert "MAYOS does not accept new history imports" in body
     assert "deleted with your account" in body
     # Retention: live data, the 30-day restricted snapshot, the deletion record.
     assert "at most **30 days**" not in body  # emphasis is rendered, not literal
@@ -456,7 +456,7 @@ def test_policy_source_file_exists_and_every_section_is_served(api):
         "at most 30 days",
         "/account/delete-request",
         "Imported history (existing records only): these records may include the source file name, a snapshot fingerprint, per-table row counts, the opt-in reference, and the import time",
-        "MYOS does not accept new history imports",
+        "MAYOS does not accept new history imports",
         "deleted with your account",
         "last day you used the app",
         "owner-only admin page",

@@ -10,12 +10,12 @@ import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/exercise_filters.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_settings_tile.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_settings_tile.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 import '../../shared/exercise_filter_bar.dart';
 
@@ -224,7 +224,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = displayCopyOf(context);
     final List<ExerciseCatalogEntry> visible = _visible;
     final bool filteredOut = _results.isNotEmpty && visible.isEmpty;
@@ -247,7 +247,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
                   unawaited(_search());
                 },
               ),
-            MyosTextField(
+            MayosTextField(
               controller: _query,
               autofocus: true,
               textInputAction: TextInputAction.search,
@@ -256,7 +256,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
             ),
             if (widget.targetMuscle != null)
               Padding(
-                padding: const EdgeInsets.only(top: MyosSpacing.xs),
+                padding: const EdgeInsets.only(top: MayosSpacing.xs),
                 child: _ExercisePickerTargetMuscleFilterChip(
                   muscle: widget.targetMuscle!,
                   active: _targetMuscleFilter,
@@ -269,26 +269,26 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
             ),
             if (_searching)
               const Padding(
-                padding: EdgeInsets.only(top: MyosSpacing.sm),
+                padding: EdgeInsets.only(top: MayosSpacing.sm),
                 child: Center(child: CircularProgressIndicator()),
               ),
             if (_error != null || _failure != null)
               Padding(
-                padding: const EdgeInsets.only(top: MyosSpacing.sm),
+                padding: const EdgeInsets.only(top: MayosSpacing.sm),
                 child: Text(
                   _failure == null ? _error! : copy.failureMessage(_failure!),
-                  style: MyosTypography.of(context).bodySecondary.copyWith(
+                  style: MayosTypography.of(context).bodySecondary.copyWith(
                     color: c.danger,
                   ),
                 ),
               ),
             if (filteredOut)
               Padding(
-                padding: const EdgeInsets.only(top: MyosSpacing.sm),
+                padding: const EdgeInsets.only(top: MayosSpacing.sm),
                 child: Text(
                   widget.emptyFilteredMessage ??
                       copy.everyExerciseMatchInWorkout,
-                  style: MyosTypography.of(context).bodySecondary.copyWith(
+                  style: MayosTypography.of(context).bodySecondary.copyWith(
                     color: c.textSecondary,
                   ),
                 ),
@@ -300,12 +300,12 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
                   children: <Widget>[
                     if (_visibleSuggestions.isNotEmpty) ...<Widget>[
                       Padding(
-                        padding: EdgeInsets.only(top: MyosSpacing.sm),
+                        padding: EdgeInsets.only(top: MayosSpacing.sm),
                         child: Text(copy.suggestedSubstitutes),
                       ),
                       for (final SuggestedSubstitute item
                           in _visibleSuggestions)
-                        MyosSettingsTile(
+                        MayosSettingsTile(
                           icon: Icons.swap_horiz,
                           title: item.exerciseName,
                           onTap: () => _selectExercise((
@@ -318,7 +318,7 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
                         ),
                     ],
                     for (final ExerciseCatalogEntry entry in visible)
-                      MyosSettingsTile(
+                      MayosSettingsTile(
                         icon: Icons.fitness_center,
                         title: entry.name,
                         onTap: () => _selectExercise((entry, _showAllEquipment)),
@@ -330,13 +330,13 @@ class _ExercisePickerDialogState extends ConsumerState<ExercisePickerDialog> {
         ),
       ),
       actions: <Widget>[
-        MyosButton(
+        MayosButton(
           label: copy.cancel,
-          variant: MyosButtonVariant.tertiary,
+          variant: MayosButtonVariant.tertiary,
           expand: false,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        MyosButton(
+        MayosButton(
           label: copy.search,
           expand: false,
           loading: _searching,
@@ -372,23 +372,23 @@ class _ExercisePickerTargetMuscleFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return SizedBox(
-      height: kMyosMinTapTarget,
+      height: kMayosMinTapTarget,
       child: Align(
         alignment: AlignmentDirectional.centerStart,
         child: InkWell(
           key: const ValueKey<String>('logger.search.muscleFilter'),
-          borderRadius: MyosRadii.pillRadius,
+          borderRadius: MayosRadii.pillRadius,
           onTap: onToggle,
           child: Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: MyosSpacing.sm,
-              vertical: MyosSpacing.xxs,
+              horizontal: MayosSpacing.sm,
+              vertical: MayosSpacing.xxs,
             ),
             decoration: BoxDecoration(
               color: active ? c.accentSubtle : c.surfaceSunken,
-              borderRadius: MyosRadii.pillRadius,
+              borderRadius: MayosRadii.pillRadius,
               border: Border.all(color: active ? c.accent : c.border),
             ),
             child: Row(
@@ -396,15 +396,15 @@ class _ExercisePickerTargetMuscleFilterChip extends StatelessWidget {
               children: <Widget>[
                 Text(
                   displayCopyOf(context).muscleFilterLabel(muscle),
-                  style: MyosTypography.of(context).caption.copyWith(
+                  style: MayosTypography.of(context).caption.copyWith(
                     color: active ? c.accent : c.textSecondary,
                   ),
                 ),
                 if (active) ...<Widget>[
-                  const SizedBox(width: MyosSpacing.xs),
+                  const SizedBox(width: MayosSpacing.xs),
                   Icon(
                     Icons.close,
-                    size: MyosIconSizes.small,
+                    size: MayosIconSizes.small,
                     color: c.textMuted,
                     semanticLabel: displayCopyOf(context).clearMuscleFilter,
                   ),

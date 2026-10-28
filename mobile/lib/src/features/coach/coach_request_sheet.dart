@@ -6,13 +6,13 @@ import '../../core/app_failure.dart';
 import '../../core/connectivity_message.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_bottom_sheet_editor.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/ui/mayos_bottom_sheet_editor.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../core/ui/first_strong_direction.dart';
 import '../../providers.dart';
 import 'coach_shared.dart';
@@ -88,7 +88,7 @@ class _CoachRequestDecisionControlsState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        MyosButton(
+        MayosButton(
           key: const Key('request_apply_button'),
           label: widget.request.isExerciseSubstitution
               ? coachCopyOf(context).applySwap
@@ -98,8 +98,8 @@ class _CoachRequestDecisionControlsState
               ? null
               : () => widget.onDecision(CoachRequestDecision.apply),
         ),
-        const SizedBox(height: MyosSpacing.md),
-        MyosTextField(
+        const SizedBox(height: MayosSpacing.md),
+        MayosTextField(
           fieldKey: const Key('request_reply_field'),
           controller: widget.replyController,
           label: coachCopyOf(context).reasonForDeclining,
@@ -110,11 +110,11 @@ class _CoachRequestDecisionControlsState
           enabled: !widget.busy,
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: MyosSpacing.sm),
-        MyosButton(
+        const SizedBox(height: MayosSpacing.sm),
+        MayosButton(
           key: const Key('request_decline_button'),
           label: coachCopyOf(context).decline,
-          variant: MyosButtonVariant.secondary,
+          variant: MayosButtonVariant.secondary,
           loading: widget.busy,
           onPressed: widget.busy || !canDecline
               ? null
@@ -140,7 +140,7 @@ String coachRequestTitle(BuildContext context, ProgramRequest request) =>
 /// One request's status pill: accent while pending, success once applied,
 /// muted otherwise (#121).
 Widget coachRequestStatusChip(BuildContext context, ProgramRequest request) {
-  final MyosThemeExtension c = MyosTheme.of(context);
+  final MayosThemeExtension c = MayosTheme.of(context);
   return coachPillChip(
     context,
     coachCopyOf(context).requestStatus(request.status),
@@ -189,7 +189,7 @@ Future<CoachRequestResolution> _showPhoneCoachRequestResolveSheet(
   required String? playerUsername,
 }) async {
   final CoachRequestResolution? result =
-      await showMyosBottomSheetEditor<CoachRequestResolution>(
+      await showMayosBottomSheetEditor<CoachRequestResolution>(
     context: context,
     content: _PhoneRequestDecisionEditor(
       request: request,
@@ -247,7 +247,7 @@ class _PhoneRequestDecisionEditorState
             widget.request,
             widget.playerUsername,
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           CoachRequestDecisionControls(
             request: widget.request,
             replyController: _reply,
@@ -264,7 +264,7 @@ Widget _phoneRequestSummary(
   ProgramRequest request,
   String? playerUsername,
 ) {
-  final MyosThemeExtension colors = MyosTheme.of(context);
+  final MayosThemeExtension colors = MayosTheme.of(context);
   final copy = coachCopyOf(context);
   return Column(
     key: const Key('resolve_request_sheet'),
@@ -272,22 +272,22 @@ Widget _phoneRequestSummary(
     children: <Widget>[
       Text(
         copy.playerAsks(playerUsername ?? copy.player),
-        style: MyosTypography.of(context).caption
+        style: MayosTypography.of(context).caption
             .copyWith(color: colors.textSecondary),
       ),
-      const SizedBox(height: MyosSpacing.xxs),
+      const SizedBox(height: MayosSpacing.xxs),
       Text(
         coachRequestTitle(context, request),
-        style: MyosTypography.of(context).sectionHeading
+        style: MayosTypography.of(context).sectionHeading
             .copyWith(color: colors.textPrimary),
       ),
-      const SizedBox(height: MyosSpacing.xxs),
+      const SizedBox(height: MayosSpacing.xxs),
       Text(
         copy.requestScope(request.dayName, request.programVersion),
-        style: MyosTypography.of(context).caption
+        style: MayosTypography.of(context).caption
             .copyWith(color: colors.textSecondary),
       ),
-      const SizedBox(height: MyosSpacing.sm),
+      const SizedBox(height: MayosSpacing.sm),
       FirstStrongDirection(
         text: request.reason,
         child: Text('“${request.reason}”'),
@@ -334,16 +334,16 @@ class _ResolveRequestSheetState extends ConsumerState<_ResolveRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     final ProgramRequest request = widget.request;
     return Padding(
       key: const Key('resolve_request_sheet'),
       padding: EdgeInsetsDirectional.fromSTEB(
-        MyosSpacing.lg,
+        MayosSpacing.lg,
         0,
-        MyosSpacing.lg,
-        MyosSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
+        MayosSpacing.lg,
+        MayosSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -351,29 +351,29 @@ class _ResolveRequestSheetState extends ConsumerState<_ResolveRequestSheet> {
         children: <Widget>[
           Text(
             copy.playerAsks(widget.playerUsername ?? copy.player),
-            style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             coachRequestTitle(context, request),
             style:
-                MyosTypography.of(context).sectionHeading.copyWith(color: c.textPrimary),
+                MayosTypography.of(context).sectionHeading.copyWith(color: c.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             copy.requestScope(request.dayName, request.programVersion),
-            style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           FirstStrongDirection(
             text: request.reason,
             child: Text(
               '“${request.reason}”',
               style:
-                  MyosTypography.of(context).bodySecondary.copyWith(color: c.textPrimary),
+                  MayosTypography.of(context).bodySecondary.copyWith(color: c.textPrimary),
             ),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           CoachRequestDecisionControls(
             request: request,
             replyController: _declineReason,

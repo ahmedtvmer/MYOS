@@ -1303,7 +1303,7 @@ wheels = [
 ]
 
 [[package]]
-name = "myos"
+name = "mayos"
 version = "2.0.0"
 source = { editable = "." }
 dependencies = [

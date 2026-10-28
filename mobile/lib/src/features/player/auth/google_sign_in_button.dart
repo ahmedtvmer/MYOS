@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/app_failure.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
 import '../../../providers.dart';
 import 'google_auth_gateway.dart';
 
@@ -18,7 +18,7 @@ import 'google_auth_gateway.dart';
 /// This is the documented exception to "no literal hex colours outside
 /// `core/theme/`" (see `mobile/DESIGN.md`): a third-party mark must render
 /// exactly as published, so its palette lives in one commented block here
-/// instead of being folded into `MyosPalette`.
+/// instead of being folded into `MayosPalette`.
 abstract final class GoogleBrand {
   /// The four standard "G" segments (Google branding guidelines).
   static const Color red = Color(0xFFEA4335);
@@ -77,9 +77,9 @@ class GoogleSignInSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         button,
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         const AuthOrDivider(),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
       ],
     );
   }
@@ -153,7 +153,7 @@ class _GoogleWebSignInButtonState extends ConsumerState<GoogleWebSignInButton> {
       builder: (BuildContext context, BoxConstraints constraints) {
         final double width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : MyosLayout.googleButtonMaxWidth;
+            : MayosLayout.googleButtonMaxWidth;
         return _button(gateway, darkTheme, width);
       },
     );
@@ -166,7 +166,7 @@ class _GoogleWebSignInButtonState extends ConsumerState<GoogleWebSignInButton> {
   ) {
     final double? width = _widthBucket(availableWidth);
     if (width == null) {
-      return const SizedBox(height: kMyosMinTapTarget);
+      return const SizedBox(height: kMayosMinTapTarget);
     }
     _updateCachedButton(gateway, darkTheme, width);
     return _buttonSlot(width, _cachedWebButton!);
@@ -174,9 +174,9 @@ class _GoogleWebSignInButtonState extends ConsumerState<GoogleWebSignInButton> {
 
   double? _widthBucket(double availableWidth) {
     final double width = availableWidth
-        .clamp(0.0, MyosLayout.googleButtonMaxWidth)
+        .clamp(0.0, MayosLayout.googleButtonMaxWidth)
         .floorToDouble();
-    return width < MyosSpacing.xxs ? null : width;
+    return width < MayosSpacing.xxs ? null : width;
   }
 
   void _updateCachedButton(
@@ -193,11 +193,11 @@ class _GoogleWebSignInButtonState extends ConsumerState<GoogleWebSignInButton> {
   }
 
   Widget _buttonSlot(double width, Widget webButton) => SizedBox(
-        height: kMyosMinTapTarget,
+        height: kMayosMinTapTarget,
         child: Center(
           child: SizedBox(
             width: width,
-            height: kMyosMinTapTarget,
+            height: kMayosMinTapTarget,
             child: AbsorbPointer(
               absorbing: widget.loading,
               child: webButton,
@@ -225,7 +225,7 @@ class GoogleSignInButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String label = MyosCopy(
+    final String label = MayosCopy(
       Localizations.localeOf(context).languageCode,
     ).googleName;
     // Google allows one light and one dark theme; pick the one matching the
@@ -249,14 +249,14 @@ class GoogleSignInButton extends StatelessWidget {
           color: fill,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: MyosRadii.smallRadius,
+            borderRadius: MayosRadii.smallRadius,
             side: BorderSide(color: stroke, width: 1),
           ),
           child: InkWell(
             onTap: enabled ? () => onPressed!() : null,
-            borderRadius: MyosRadii.smallRadius,
+            borderRadius: MayosRadii.smallRadius,
             child: SizedBox(
-              height: kMyosMinTapTarget,
+              height: kMayosMinTapTarget,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
@@ -275,7 +275,7 @@ class GoogleSignInButton extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        fontFamily: MyosTypography.of(context).interfaceFamily,
+                        fontFamily: MayosTypography.of(context).interfaceFamily,
                         fontSize: 14,
                         height: 20 / 14,
                         fontWeight: FontWeight.w500,
@@ -310,15 +310,15 @@ class AuthOrDivider extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Row(
       children: <Widget>[
         Expanded(child: Divider(height: 1, thickness: 1, color: c.border)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: MyosSpacing.sm),
+          padding: const EdgeInsets.symmetric(horizontal: MayosSpacing.sm),
           child: Text(
-            MyosCopy(ref.watch(displayLanguageProvider)).signInOr,
-            style: MyosTypography.of(context).bodySecondary.copyWith(color: c.textMuted),
+            MayosCopy(ref.watch(displayLanguageProvider)).signInOr,
+            style: MayosTypography.of(context).bodySecondary.copyWith(color: c.textMuted),
           ),
         ),
         Expanded(child: Divider(height: 1, thickness: 1, color: c.border)),

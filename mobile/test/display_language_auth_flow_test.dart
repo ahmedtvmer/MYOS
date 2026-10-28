@@ -3,27 +3,28 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_failure.dart';
-import 'package:myos_mobile/src/core/display_language/catalog.dart';
-import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/display_language/store.dart';
-import 'package:myos_mobile/src/core/theme/myos_spacing.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/settings/settings_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/router.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_failure.dart';
+import 'package:mayos_mobile/src/core/display_language/catalog.dart';
+import 'package:mayos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/display_language/store.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_spacing.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:mayos_mobile/src/features/settings/settings_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/router.dart';
 
 import 'support/auth_harness.dart';
 import 'support/fake_google_auth.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 void main() {
   testWidgets('login failure follows the selected display language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()..loginNetworkFails = true;
+    final FakeMayosApi fake = FakeMayosApi()..loginNetworkFails = true;
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
         InMemoryDisplayLanguageStore()..value = 'en';
@@ -50,7 +51,7 @@ void main() {
 
     await _selectArabicOnAuth(tester);
     expect(
-      find.text(const MyosCopy('ar').failureMessage(connectionFailure)),
+      find.text(const MayosCopy('ar').failureMessage(connectionFailure)),
       findsOneWidget,
     );
     expect(find.text('Cannot reach the service. Check your connection.'),
@@ -64,7 +65,7 @@ void main() {
 
   testWidgets('Arabic auth screen keeps password-length digits Western',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
         InMemoryDisplayLanguageStore()..value = 'ar';
@@ -77,7 +78,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('display_language_selector')))
             .height,
-        greaterThanOrEqualTo(kMyosMinTapTarget));
+        greaterThanOrEqualTo(kMayosMinTapTarget));
     await tester.tap(find.text('إنشاء حساب'));
     await tester.pumpAndSettle();
     expect(find.text('8 أحرف على الأقل'), findsOneWidget);
@@ -87,7 +88,7 @@ void main() {
   testWidgets('disabling coaching preserves Arabic account language',
       (WidgetTester tester) async {
     final String activeAssignments = const CoachCopy('ar').activeAssignments;
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'coach@example.com'
       ..coach = true
@@ -114,12 +115,12 @@ void main() {
     expect(find.text(coachCopy.disableCoachingQuestion), findsOneWidget);
     await tester.tap(find.text(coachCopy.disableCoaching).last);
     for (var i = 0;
-        i < 30 && find.text(const MyosCopy('ar').home).evaluate().isEmpty;
+        i < 30 && find.text(const MayosCopy('ar').home).evaluate().isEmpty;
         i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    final Finder home = find.text(const MyosCopy('ar').home);
+    final Finder home = find.text(const MayosCopy('ar').home);
     expect(home, findsOneWidget);
     expect(Directionality.of(tester.element(home)), TextDirection.rtl);
     expect(fake.coach, isFalse);
@@ -128,7 +129,7 @@ void main() {
   testWidgets(
       'Arabic account recovery-email screen has no logged-out language selector',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..displayLanguage = 'ar';
     fake.passwords['alice'] = 'password-123';
@@ -147,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     expect(
@@ -167,7 +168,7 @@ void main() {
   testWidgets('Arabic account stays Arabic after redeeming a Coach invite',
       (WidgetTester tester) async {
     final String activeAssignments = const CoachCopy('ar').activeAssignments;
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com'
       ..displayLanguage = 'ar'
@@ -185,12 +186,12 @@ void main() {
     await _signIn(tester, 'alice');
     expect(
         Directionality.of(
-            tester.element(find.text(const MyosCopy('ar').home))),
+            tester.element(find.text(const MayosCopy('ar').home))),
         TextDirection.rtl);
 
     // Settings UI path is covered by coach_profile_test.
     final container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     bool redemptionCompleted = false;
     final Future<void> redemption = container
         .read(authControllerProvider.notifier)
@@ -221,7 +222,7 @@ void main() {
   testWidgets(
       'forgot-password confirmation uses Arabic for known and unknown emails',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..recoveryEmail = 'known@example.com';
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
@@ -256,7 +257,7 @@ void main() {
   testWidgets(
       'system locale changes affect only an unsigned manual-free choice',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
         InMemoryDisplayLanguageStore();
@@ -307,7 +308,7 @@ void main() {
   testWidgets(
       'system locale changes do not replace a signed-in account language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com'
       ..displayLanguage = 'en';
@@ -335,7 +336,7 @@ void main() {
 
   testWidgets('offline session restoration reads only that account cache',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()..meFails = true;
+    final FakeMayosApi fake = FakeMayosApi()..meFails = true;
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     await tokens.save('token-alice');
     await tokens.saveAccountId('account-alice');
@@ -357,7 +358,7 @@ void main() {
   testWidgets(
       'late startup token-store failure cannot replace account language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com'
       ..displayLanguage = 'ar';
@@ -375,7 +376,7 @@ void main() {
     expect(tokens.delayedRead.isCompleted, isFalse);
 
     await _signIn(tester, 'alice');
-    final Finder home = find.text(const MyosCopy('ar').home);
+    final Finder home = find.text(const MayosCopy('ar').home);
     expect(Directionality.of(tester.element(home)), TextDirection.rtl);
     tokens.delayedRead.completeError(StateError('storage unavailable'));
     await tester.pumpAndSettle();
@@ -385,7 +386,7 @@ void main() {
   testWidgets(
       'late successful startup account read cannot replace signed-in language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com'
       ..displayLanguage = 'ar';
@@ -404,7 +405,7 @@ void main() {
     expect(tokens.delayedAccountId.isCompleted, isFalse);
 
     await _signIn(tester, 'alice');
-    final Finder home = find.text(const MyosCopy('ar').home);
+    final Finder home = find.text(const MayosCopy('ar').home);
     expect(Directionality.of(tester.element(home)), TextDirection.rtl);
 
     tokens.delayedAccountId.complete('account-alice');
@@ -417,7 +418,7 @@ void main() {
   testWidgets(
       'rejected startup session restores logged-out language and locale behavior',
       (WidgetTester tester) async {
-    final FakeMyosApi rejectedFake = FakeMyosApi();
+    final FakeMayosApi rejectedFake = FakeMayosApi();
     final Completer<void> allowRejectedMe = Completer<void>();
     rejectedFake.adapter.beforeRespond = (request) async {
       if (request.path.endsWith('/auth/me')) await allowRejectedMe.future;
@@ -468,7 +469,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    final FakeMyosApi noManualFake = FakeMyosApi();
+    final FakeMayosApi noManualFake = FakeMayosApi();
     final Completer<void> allowNoManualMe = Completer<void>();
     noManualFake.adapter.beforeRespond = (request) async {
       if (request.path.endsWith('/auth/me')) await allowNoManualMe.future;
@@ -518,7 +519,7 @@ void main() {
 
   testWidgets('confirmed Settings language survives an older account refresh',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com';
     fake.passwords['alice'] = 'password-123';
@@ -579,7 +580,7 @@ void main() {
   testWidgets(
       'confirmed Settings language remains visible while save is pending',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com';
     fake.passwords['alice'] = 'password-123';
@@ -654,8 +655,9 @@ void main() {
 
   testWidgets('late Settings save after logout preserves logged-out choice',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
+      ..whatsNewSeenRelease = currentFeatureRelease
       ..recoveryEmail = 'player@example.com';
     fake.passwords['alice'] = 'password-123';
     final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -695,6 +697,8 @@ void main() {
       final Finder logout = find.text('Log out');
       await tester.scrollUntilVisible(logout, 250,
           scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(logout);
+      await tester.pump();
       await tester.tap(logout);
       // The save spinner is still active until logout removes Settings, so
       // use bounded frames rather than pumpAndSettle.
@@ -729,7 +733,7 @@ void main() {
 
   testWidgets('password registration sends the selected Arabic language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
         InMemoryDisplayLanguageStore();
@@ -757,7 +761,7 @@ void main() {
 
   testWidgets('Google signup sends the selected Arabic language',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     final InMemoryDisplayLanguageStore languageStore =
         InMemoryDisplayLanguageStore();
@@ -788,7 +792,7 @@ void main() {
   testWidgets(
       'saved account language wins; logout restores local choice and account switch isolates cache',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'player@example.com'
       ..displayLanguage = 'ar';
@@ -808,7 +812,7 @@ void main() {
     expect(find.text('English'), findsOneWidget);
 
     await _signIn(tester, 'alice');
-    final Finder arabicHome = find.text(const MyosCopy('ar').home);
+    final Finder arabicHome = find.text(const MayosCopy('ar').home);
     expect(arabicHome, findsOneWidget);
     expect(Directionality.of(tester.element(arabicHome)), TextDirection.rtl);
     expect(await languageStore.readAccount('account-alice'), 'ar');

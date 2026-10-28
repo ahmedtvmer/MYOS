@@ -4,10 +4,10 @@ class InstallPromptCopy {
   final String languageCode;
   bool get _ar => languageCode.toLowerCase().startsWith('ar');
 
-  String get title => _ar ? 'تثبيت MYOS' : 'Install MYOS';
+  String get title => _ar ? 'تثبيت MAYOS' : 'Install MAYOS';
   String get benefit => _ar
-      ? 'افتح MYOS من شاشتك الرئيسية كتطبيق — دون الحاجة إلى متجر تطبيقات.'
-      : 'Open MYOS from your home screen like an app — no app store needed.';
+      ? 'افتح MAYOS من شاشتك الرئيسية كتطبيق — دون الحاجة إلى متجر تطبيقات.'
+      : 'Open MAYOS from your home screen like an app — no app store needed.';
   String get install => _ar ? 'تثبيت' : 'Install';
   String get gotIt => _ar ? 'حسنًا' : 'Got it';
   String get notNow => _ar ? 'ليس الآن' : 'Not now';

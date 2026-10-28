@@ -1,4 +1,4 @@
-"""Build deterministic Food library rows from USDA sources and MYOS curation."""
+"""Build deterministic Food library rows from USDA sources and MAYOS curation."""
 
 import csv
 import re
@@ -104,7 +104,7 @@ def _curated_food(source, curation, portions):
 
 def _new_recipe(source, key):
     return {
-        "id": f"myos:{key}",
+        "id": f"mayos:{key}",
         "source_name": _text(source.get("display_name")),
         "name": _text(source.get("display_name")),
         "arabic_name": _text(source.get("arabic_name")) or None,

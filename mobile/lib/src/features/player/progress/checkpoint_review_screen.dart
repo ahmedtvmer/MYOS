@@ -7,11 +7,11 @@ import '../../../core/connectivity_message.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
 import '../../../core/models.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_card.dart';
-import '../../../core/ui/myos_section_header.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_card.dart';
+import '../../../core/ui/mayos_section_header.dart';
 import '../../../providers.dart';
 
 class CheckpointReviewScreen extends ConsumerStatefulWidget {
@@ -84,7 +84,7 @@ class _CheckpointReviewScreenState
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(message),
-                const SizedBox(height: MyosSpacing.md),
+                const SizedBox(height: MayosSpacing.md),
                 OutlinedButton(
                     onPressed: _retry,
                     child: Text(displayCopyOf(context).retry)),
@@ -105,8 +105,8 @@ class _ReviewBody extends StatelessWidget {
 
   Widget _heading(
     BuildContext context,
-    MyosCopy copy,
-    MyosThemeExtension theme,
+    MayosCopy copy,
+    MayosThemeExtension theme,
   ) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,16 +114,16 @@ class _ReviewBody extends StatelessWidget {
           Text(
             copy.checkpointReview,
             key: const ValueKey<String>('checkpoint.review.title'),
-            style: MyosTypography.of(context).display.copyWith(
+            style: MayosTypography.of(context).display.copyWith(
               fontSize: 30,
               color: theme.textPrimary,
             ),
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             copy.checkpointAt(review.checkpoint),
             key: const ValueKey<String>('checkpoint.review.checkpoint'),
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .bodySecondary
                 .copyWith(color: theme.textSecondary),
           ),
@@ -132,20 +132,20 @@ class _ReviewBody extends StatelessWidget {
 
   Widget _periodCard(
     BuildContext context,
-    MyosCopy copy,
-    MyosThemeExtension theme,
+    MayosCopy copy,
+    MayosThemeExtension theme,
   ) =>
-      MyosCard(
+      MayosCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            MyosSectionHeader(title: copy.period),
-            const SizedBox(height: MyosSpacing.xs),
+            MayosSectionHeader(title: copy.period),
+            const SizedBox(height: MayosSpacing.xs),
             Text(
               '${review.periodStart} – ${review.periodEnd}',
               key: const ValueKey<String>('checkpoint.review.period'),
               textDirection: TextDirection.ltr,
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .bodySecondary
                   .copyWith(color: theme.textSecondary),
             ),
@@ -153,18 +153,18 @@ class _ReviewBody extends StatelessWidget {
         ),
       );
 
-  Widget _ratingCard(BuildContext context, MyosCopy copy) => MyosCard(
+  Widget _ratingCard(BuildContext context, MayosCopy copy) => MayosCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            MyosSectionHeader(title: copy.rating),
+            MayosSectionHeader(title: copy.rating),
             for (int index = 0; index < review.rating.length; index++)
               _ratingRow(copy, index),
           ],
         ),
       );
 
-  Widget _ratingRow(MyosCopy copy, int index) {
+  Widget _ratingRow(MayosCopy copy, int index) {
     final CheckpointRatingPart rating = review.rating[index];
     return ListTile(
       key: ValueKey<String>('checkpoint.review.rating.$index'),
@@ -176,10 +176,10 @@ class _ReviewBody extends StatelessWidget {
 
   Widget _reviewTextCard(
     BuildContext context,
-    MyosCopy copy,
-    MyosThemeExtension theme,
+    MayosCopy copy,
+    MayosThemeExtension theme,
   ) =>
-      MyosCard(
+      MayosCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: _reviewTextContent(context, copy, theme),
@@ -188,8 +188,8 @@ class _ReviewBody extends StatelessWidget {
 
   List<Widget> _reviewTextContent(
     BuildContext context,
-    MyosCopy copy,
-    MyosThemeExtension theme,
+    MayosCopy copy,
+    MayosThemeExtension theme,
   ) =>
       <Widget>[
         if (review.textLanguage != null &&
@@ -197,16 +197,16 @@ class _ReviewBody extends StatelessWidget {
           Text(
             copy.originalReviewTextLanguage(review.textLanguage!),
             key: const ValueKey<String>('checkpoint.review.original-language'),
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .bodySecondary
                 .copyWith(color: theme.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
         ],
         Text(
           review.text,
           key: const ValueKey<String>('checkpoint.review.text'),
-          style: MyosTypography.of(context)
+          style: MayosTypography.of(context)
               .body
               .copyWith(color: theme.textPrimary),
         ),
@@ -214,17 +214,17 @@ class _ReviewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension theme = MyosTheme.of(context);
-    final MyosCopy copy = displayCopyOf(context);
+    final MayosThemeExtension theme = MayosTheme.of(context);
+    final MayosCopy copy = displayCopyOf(context);
     return ListView(
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
         _heading(context, copy, theme),
-        const SizedBox(height: MyosSpacing.lg),
+        const SizedBox(height: MayosSpacing.lg),
         _periodCard(context, copy, theme),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         _ratingCard(context, copy),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         _reviewTextCard(context, copy, theme),
       ],
     );

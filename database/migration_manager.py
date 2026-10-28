@@ -9,13 +9,13 @@ from pathlib import Path
 from core.injuries import body_area_in_text, is_none_answer
 from agent.prompts import DEFAULT_ASSISTANT_STYLE
 from agent.program_weeks import default_week_name
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.equipment_access import (
     EQUIPMENT_ACCESS_VALUES,
     map_equipment_access,
 )
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
 CURRENT_LEDGER_SCHEMA_VERSION: int = 52
@@ -1395,7 +1395,7 @@ def apply_lazy_migrations(
     if current_version > target_version:
         raise RuntimeError(
             f"User ledger '{username}' has schema version {current_version}, which is "
-            f"newer than the engine's target version {target_version}. Please update Myos."
+            f"newer than the engine's target version {target_version}. Please update Mayos."
         )
 
     # Migration required: current_version < target_version

@@ -374,12 +374,12 @@ def test_redeem_binds_immediately_and_creates_coach_notice(api, monkeypatch):
     [
         (
             "en",
-            "A player accepted your MYOS coaching invite",
+            "A player accepted your MAYOS coaching invite",
             "p1 accepted your coaching invite",
         ),
         (
             "ar",
-            "قبل لاعب دعوتك للتدريب مع مدرب في MYOS",
+            "قبل لاعب دعوتك للتدريب مع مدرب في MAYOS",
             "قبل p1 دعوتك",
         ),
     ],

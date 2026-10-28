@@ -34,7 +34,7 @@ def test_assembled_app_manifest_and_ios_shell_support_installation(tmp_path):
     manifest = json.loads((output / "app" / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["start_url"] == "/app/"
     assert manifest["scope"] == "/app/"
-    assert manifest["name"] == manifest["short_name"] == "MYOS"
+    assert manifest["name"] == manifest["short_name"] == "MAYOS"
     assert manifest["display"] == "standalone"
     assert manifest["theme_color"] == manifest["background_color"] == "#0A1422"
     assert {(icon["sizes"], icon.get("purpose")) for icon in manifest["icons"]} == {
@@ -45,7 +45,7 @@ def test_assembled_app_manifest_and_ios_shell_support_installation(tmp_path):
 
     host = (output / "app" / "index.html").read_text(encoding="utf-8")
     assert '<meta name="apple-mobile-web-app-capable" content="yes">' in host
-    assert '<meta name="apple-mobile-web-app-title" content="MYOS">' in host
+    assert '<meta name="apple-mobile-web-app-title" content="MAYOS">' in host
     assert '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' in host
     assert '<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">' in host
     assert 'name="viewport"' in host

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/display_language/feature_copy_context.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_progress.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_progress.dart';
 
 /// The logger's persistent bottom workout bar (#160): `{ticked}/{total} sets`,
 /// a progress bar and **Finish**, always in reach, plus #125's rest controls
@@ -57,7 +57,7 @@ class LoggerBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     return Container(
       decoration: BoxDecoration(
@@ -75,7 +75,7 @@ class LoggerBottomBar extends StatelessWidget {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: MyosSpacing.lg, vertical: MyosSpacing.xs),
+                  horizontal: MayosSpacing.lg, vertical: MayosSpacing.xs),
               child: Row(
                 children: <Widget>[
                   // The counts, in the label role; `Flexible` so an enormous
@@ -87,22 +87,22 @@ class LoggerBottomBar extends StatelessWidget {
                       textAlign: copy.isArabic ? TextAlign.end : null,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: MyosTypography.of(context).label
+                      style: MayosTypography.of(context).label
                           .copyWith(color: c.textSecondary),
                     ),
                   ),
-                  const SizedBox(width: MyosSpacing.sm),
+                  const SizedBox(width: MayosSpacing.sm),
                   Expanded(
-                    child: MyosProgressIndicator(value: progressValue),
+                    child: MayosProgressIndicator(value: progressValue),
                   ),
                 ],
               ),
             ),
             if (restControls != null) restControls!,
             Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(MyosSpacing.lg,
-                  MyosSpacing.xxs, MyosSpacing.lg, MyosSpacing.sm),
-              child: MyosButton(
+              padding: const EdgeInsetsDirectional.fromSTEB(MayosSpacing.lg,
+                  MayosSpacing.xxs, MayosSpacing.lg, MayosSpacing.sm),
+              child: MayosButton(
                 label: copy.finishWorkout,
                 icon: Icons.check,
                 onPressed: onFinish,

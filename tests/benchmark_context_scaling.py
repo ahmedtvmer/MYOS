@@ -27,7 +27,7 @@ def benchmark_scaling():
         _ = llm.invoke([SystemMessage(content=STATIC_SYSTEM_CORE)] + messages)
         unclamped_time = time.perf_counter() - t0
 
-        # Test B: Myos Clamped Tail (4 messages)
+        # Test B: Mayos Clamped Tail (4 messages)
         state = {"messages": messages, "coach_tone": "Direct", "custom_instructions": "", "telemetry_context": ""}
         clamped_payload = build_prompt_payload(state)
         t0 = time.perf_counter()
@@ -35,7 +35,7 @@ def benchmark_scaling():
         clamped_time = time.perf_counter() - t0
 
         results.append((count, unclamped_time, clamped_time))
-        print(f"Turns: {count:<2} | Unclamped: {unclamped_time:.2f}s | Myos Clamped: {clamped_time:.2f}s")
+        print(f"Turns: {count:<2} | Unclamped: {unclamped_time:.2f}s | Mayos Clamped: {clamped_time:.2f}s")
 
 
 if __name__ == "__main__":

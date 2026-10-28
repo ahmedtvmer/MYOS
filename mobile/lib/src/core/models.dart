@@ -2489,7 +2489,7 @@ class TrainingStatus {
     required this.weekStart,
     required this.weekDone,
     required this.weekTarget,
-    required this.myosWorkouts,
+    required this.mayosWorkouts,
     required this.nextCheckpoint,
     required this.workoutsToNext,
   });
@@ -2504,7 +2504,7 @@ class TrainingStatus {
       weekStart: weekStart,
       weekDone: _requiredInt(json, 'week_done'),
       weekTarget: _requiredInt(json, 'week_target'),
-      myosWorkouts: _requiredInt(json, 'mayos_workouts'),
+      mayosWorkouts: _requiredInt(json, 'mayos_workouts'),
       nextCheckpoint: _requiredInt(json, 'next_checkpoint'),
       workoutsToNext: _requiredInt(json, 'workouts_to_next'),
     );
@@ -2514,7 +2514,7 @@ class TrainingStatus {
   final String weekStart;
   final int weekDone;
   final int weekTarget;
-  final int myosWorkouts;
+  final int mayosWorkouts;
   final int nextCheckpoint;
   final int workoutsToNext;
 
@@ -2523,7 +2523,7 @@ class TrainingStatus {
         'week_start': weekStart,
         'week_done': weekDone,
         'week_target': weekTarget,
-        'mayos_workouts': myosWorkouts,
+        'mayos_workouts': mayosWorkouts,
         'next_checkpoint': nextCheckpoint,
         'workouts_to_next': workoutsToNext,
       };
@@ -3137,7 +3137,7 @@ class ProgramCardio {
     if (distanceM != null) 'distance_m': distanceM,
   };
 
-  String display(MyosCopy copy) {
+  String display(MayosCopy copy) {
     if (!copy.isArabic && legacyText != null) return legacyText!;
     final List<String> parts = <String>[
       copy.cardioMachineName(machine),

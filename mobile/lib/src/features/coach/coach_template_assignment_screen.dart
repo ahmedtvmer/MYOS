@@ -8,11 +8,11 @@ import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
 import 'coach_program_draft_screen.dart';
 import '../../providers.dart';
 
@@ -220,44 +220,44 @@ class _CoachTemplateAssignmentScreenState
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: ListView(
-                  padding: MyosSpacing.screen,
+                  padding: MayosSpacing.screen,
                   children: <Widget>[
                     Text(
                       copy.assignTemplateLead,
-                      style: MyosTypography.of(context).bodySecondary,
+                      style: MayosTypography.of(context).bodySecondary,
                     ),
                     if (_failure != null) ...<Widget>[
-                      const SizedBox(height: MyosSpacing.md),
+                      const SizedBox(height: MayosSpacing.md),
                       Text(
                         displayCopyOf(context).failureMessage(_failure!),
-                        style: MyosTypography.of(context)
+                        style: MayosTypography.of(context)
                             .body
-                            .copyWith(color: MyosTheme.of(context).danger),
+                            .copyWith(color: MayosTheme.of(context).danger),
                       ),
                     ],
-                    const SizedBox(height: MyosSpacing.md),
+                    const SizedBox(height: MayosSpacing.md),
                     if (_players.isEmpty)
                       Text(copy.noPlayersToAssign)
                     else
                       for (final CoachRosterEntry player in _players)
                         _playerCard(player, copy),
                     if (_assignmentResults.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: MyosSpacing.md),
+                      const SizedBox(height: MayosSpacing.md),
                       Text(copy.templateAssignmentResults,
-                          style: MyosTypography.of(context).sectionHeading),
+                          style: MayosTypography.of(context).sectionHeading),
                       for (final Map<String, dynamic> result
                           in _assignmentResults)
                         _resultCard(result, copy, publish: false),
                     ],
                     if (_publishResults.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: MyosSpacing.md),
+                      const SizedBox(height: MayosSpacing.md),
                       Text(copy.templatePublishResults,
-                          style: MyosTypography.of(context).sectionHeading),
+                          style: MayosTypography.of(context).sectionHeading),
                       for (final Map<String, dynamic> result in _publishResults)
                         _resultCard(result, copy, publish: true),
                     ],
-                    const SizedBox(height: MyosSpacing.md),
-                    MyosButton(
+                    const SizedBox(height: MayosSpacing.md),
+                    MayosButton(
                       key: const Key('template_assign_submit'),
                       label: copy.assignSelectedPlayers,
                       icon: Icons.playlist_add_check,
@@ -266,11 +266,11 @@ class _CoachTemplateAssignmentScreenState
                           ? null
                           : _assign,
                     ),
-                    const SizedBox(height: MyosSpacing.sm),
-                    MyosButton(
+                    const SizedBox(height: MayosSpacing.sm),
+                    MayosButton(
                       key: const Key('template_publish_all'),
                       label: copy.publishAll,
-                      variant: MyosButtonVariant.secondary,
+                      variant: MayosButtonVariant.secondary,
                       icon: Icons.publish,
                       loading: _publishing,
                       onPressed: _assignedIds.isEmpty || _publishing || _assigning
@@ -288,8 +288,8 @@ class _CoachTemplateAssignmentScreenState
     final String id = player.assignmentId;
     final bool selected = _selected.contains(id);
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
-      child: MyosCard(
+      padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
+      child: MayosCard(
         key: Key('template_assign_player_$id'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +299,7 @@ class _CoachTemplateAssignmentScreenState
               value: selected,
               title: Text(
                 player.playerUsername,
-                style: MyosTypography.of(context).sectionHeading,
+                style: MayosTypography.of(context).sectionHeading,
               ),
               onChanged: _assigning || _publishing
                   ? null
@@ -380,8 +380,8 @@ class _CoachTemplateAssignmentScreenState
         ),
     ];
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.xs),
-      child: MyosCard(child: Column(
+      padding: const EdgeInsets.only(bottom: MayosSpacing.xs),
+      child: MayosCard(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: details,
       )),

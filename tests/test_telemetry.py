@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage
 from agent.assistant_graph import _record_telemetry_event, stream_assistant_turn
 from scripts.check_engine_health import analyze_logs
 
-LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "myos.log"
+LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "mayos.log"
 
 
 def test_fast_path_telemetry_logging():

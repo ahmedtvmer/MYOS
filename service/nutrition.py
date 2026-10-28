@@ -32,9 +32,9 @@ class PaceProposalDecision:
 MESSAGES = {
     "incomplete": ("Complete your Training profile before setting Nutrition targets.",
                    "أكمل الملف التدريبي قبل إعداد الأهداف الغذائية."),
-    "under_18": ("MYOS does not set automatic Nutrition targets for players under 18.",
+    "under_18": ("MAYOS does not set automatic Nutrition targets for players under 18.",
                  "لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا."),
-    "blocked": ("MYOS will not set calorie targets. Please speak with a registered dietitian.",
+    "blocked": ("MAYOS will not set calorie targets. Please speak with a registered dietitian.",
                 "لن يحدد ميوس أهداف السعرات. يُرجى التحدث إلى اختصاصي تغذية مسجل."),
 }
 

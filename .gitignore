@@ -25,7 +25,7 @@ models/
 tests/eval/reports/
 logs/*.log
 .pytest_cache/
-myos.txt
+mayos.txt
 tests/eval/datasets/_tmp_gen_deb.json
 tests/eval/datasets/_tmp_gen_onb.json
 tests/eval/datasets/_tmp_gen_qa.json

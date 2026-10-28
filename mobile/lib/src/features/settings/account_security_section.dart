@@ -9,15 +9,15 @@ import '../../core/display_language/controller.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/profile_copy.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/first_strong_direction.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
-import '../../core/ui/myos_icon_chip.dart';
-import '../../core/ui/myos_section_header.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
+import '../../core/ui/mayos_icon_chip.dart';
+import '../../core/ui/mayos_section_header.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 import '../player/auth/auth_controller.dart';
 import '../player/auth/auth_widgets.dart'
@@ -50,15 +50,15 @@ class _AccountSecuritySectionState extends ConsumerState<AccountSecuritySection>
     with _AccountSecurityMethods {
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        MyosSectionHeader(title: widget.title, subtitle: widget.subtitle),
-        const SizedBox(height: MyosSpacing.xxs),
+        MayosSectionHeader(title: widget.title, subtitle: widget.subtitle),
+        const SizedBox(height: MayosSpacing.xxs),
         _buildSignInMethods(c),
         _buildSignInNotice(c),
-        const SizedBox(height: MyosSpacing.lg),
+        const SizedBox(height: MayosSpacing.lg),
         _buildAccountDeletionSection(_copy),
       ],
     );
@@ -92,7 +92,7 @@ class _DeleteAccountPasswordFieldState
   }
 
   @override
-  Widget build(BuildContext context) => MyosTextField(
+  Widget build(BuildContext context) => MayosTextField(
         fieldKey: const Key('delete_account_password_field'),
         controller: _controller,
         obscureText: true,
@@ -226,13 +226,13 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
         title: Text(_copy.disconnectGoogleQuestion),
         content: Text(_copy.disconnectGoogleLead),
         actions: <Widget>[
-          MyosButton(
+          MayosButton(
             label: _copy.cancel,
-            variant: MyosButtonVariant.tertiary,
+            variant: MayosButtonVariant.tertiary,
             expand: false,
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          MyosButton(
+          MayosButton(
             key: const Key('disconnect_google_confirm_button'),
             label: _copy.disconnect,
             destructive: true,
@@ -338,47 +338,47 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(intro),
-                const SizedBox(height: MyosSpacing.md),
+                const SizedBox(height: MayosSpacing.md),
                 if (askCurrent) ...<Widget>[
                   AuthPasswordField(
                     controller: _currentPassword,
                     fieldKey: currentKey,
                     label: _copy.currentPassword,
                   ),
-                  const SizedBox(height: MyosSpacing.sm),
+                  const SizedBox(height: MayosSpacing.sm),
                 ],
                 AuthPasswordField(
                   controller: _newPassword,
                   fieldKey: passwordKey,
                   label: _copy.newPassword,
                 ),
-                const SizedBox(height: MyosSpacing.sm),
+                const SizedBox(height: MayosSpacing.sm),
                 AuthPasswordField(
                   controller: _newPasswordConfirm,
                   fieldKey: confirmFieldKey,
                   label: _copy.confirmNewPassword,
                 ),
                 if (error != null || dialogFailure != null) ...<Widget>[
-                  const SizedBox(height: MyosSpacing.sm),
+                  const SizedBox(height: MayosSpacing.sm),
                   Text(
                     error ??
-                        MyosCopy(ref.read(displayLanguageProvider))
+                        MayosCopy(ref.read(displayLanguageProvider))
                             .failureMessage(dialogFailure!),
-                    style: MyosTypography.of(context).bodySecondary
-                        .copyWith(color: MyosTheme.of(context).danger),
+                    style: MayosTypography.of(context).bodySecondary
+                        .copyWith(color: MayosTheme.of(context).danger),
                   ),
                 ],
               ],
             ),
           ),
           actions: <Widget>[
-            MyosButton(
+            MayosButton(
               label: _copy.cancel,
-              variant: MyosButtonVariant.tertiary,
+              variant: MayosButtonVariant.tertiary,
               expand: false,
               onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
             ),
-            MyosButton(
+            MayosButton(
               key: submitKey,
               label: confirmLabel,
               expand: false,
@@ -395,8 +395,8 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
                           validateNewPassword(
                               _newPassword.text, _newPasswordConfirm.text);
                       if (invalid != null) {
-                        final MyosCopy copy =
-                            MyosCopy(ref.read(displayLanguageProvider));
+                        final MayosCopy copy =
+                            MayosCopy(ref.read(displayLanguageProvider));
                         setDialogState(() => error =
                             newPasswordValidationMessage(invalid, copy));
                         return;
@@ -462,7 +462,7 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(_copy.deleteAccountDetails),
-                const SizedBox(height: MyosSpacing.md),
+                const SizedBox(height: MayosSpacing.md),
                 if (googleOnly)
                   Text(_copy.googleOnlyDeleteProof)
                 else ...<Widget>[
@@ -473,13 +473,13 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
                   ),
                 ],
                 if (webGoogle) ...<Widget>[
-                  const SizedBox(height: MyosSpacing.md),
+                  const SizedBox(height: MayosSpacing.md),
                   GoogleWebSignInButton(
                     key: const Key('delete_account_google_web_button'),
                     loading: busy,
                     fixedWidth: (MediaQuery.sizeOf(dialogContext).width -
-                            2 * (MyosSpacing.xxxl + MyosSpacing.xl))
-                        .clamp(0.0, MyosLayout.googleButtonMaxWidth),
+                            2 * (MayosSpacing.xxxl + MayosSpacing.xl))
+                        .clamp(0.0, MayosLayout.googleButtonMaxWidth),
                     onOutcome: (GoogleAuthOutcome outcome) =>
                         _handleGoogleDelete(
                       delete: () => ref
@@ -497,27 +497,27 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
                   ),
                 ],
                 if (error != null || dialogFailure != null) ...<Widget>[
-                  const SizedBox(height: MyosSpacing.sm),
+                  const SizedBox(height: MayosSpacing.sm),
                   Text(
                     error ??
-                        MyosCopy(ref.read(displayLanguageProvider))
+                        MayosCopy(ref.read(displayLanguageProvider))
                             .failureMessage(dialogFailure!),
-                    style: MyosTypography.of(context).bodySecondary
-                        .copyWith(color: MyosTheme.of(context).danger),
+                    style: MayosTypography.of(context).bodySecondary
+                        .copyWith(color: MayosTheme.of(context).danger),
                   ),
                 ],
               ],
             ),
           ),
           actions: <Widget>[
-            MyosButton(
+            MayosButton(
               label: _copy.cancel,
-              variant: MyosButtonVariant.tertiary,
+              variant: MayosButtonVariant.tertiary,
               expand: false,
               onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
             ),
             if (!webGoogle)
-              MyosButton(
+              MayosButton(
                 key: const Key('delete_account_confirm_button'),
                 label: _copy.deleteAccount,
                 destructive: true,
@@ -604,34 +604,34 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
   /// The "Sign-in methods" card, driven entirely by `GET /auth/me` (#116):
   /// Password (set or change) and Google (connect or disconnect), where
   /// disconnecting is only offered while a password exists.
-  Widget _buildSignInMethods(MyosThemeExtension c) {
+  Widget _buildSignInMethods(MayosThemeExtension c) {
     final Account account = _account;
     final GoogleAuthGateway google = ref.watch(googleAuthGatewayProvider);
     final bool hasPassword = account.hasPassword;
     final bool googleLinked = account.hasGoogleLink;
-    return MyosCard(
+    return MayosCard(
       padding: const EdgeInsets.symmetric(
-          horizontal: MyosSpacing.sm, vertical: MyosSpacing.xxs),
+          horizontal: MayosSpacing.sm, vertical: MayosSpacing.xxs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _SignInMethodRow(
-            leading: MyosIconChip(
+            leading: MayosIconChip(
               child: Icon(
                 Icons.lock_outline,
-                size: MyosIconSizes.medium,
+                size: MayosIconSizes.medium,
                 color: c.accent,
               ),
             ),
             title: _copy.passwordTitle,
             status: hasPassword ? _copy.passwordSet : _copy.noPasswordYet,
-            action: MyosButton(
+            action: MayosButton(
               key: Key(hasPassword
                   ? 'change_password_button'
                   : 'set_password_button'),
               label:
                   hasPassword ? _copy.changePassword : _copy.setPasswordAction,
-              variant: MyosButtonVariant.secondary,
+              variant: MayosButtonVariant.secondary,
               onPressed: _methodBusy
                   ? null
                   : hasPassword
@@ -639,20 +639,20 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
                       : _promptSetPassword,
             ),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           const Divider(height: 1),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           _SignInMethodRow(
-            leading: const MyosIconChip(
-                child: GoogleGLogo(size: MyosIconSizes.medium)),
+            leading: const MayosIconChip(
+                child: GoogleGLogo(size: MayosIconSizes.medium)),
             title: _copy.google,
             status: googleLinked ? _copy.connected : _copy.notConnected,
             hint: googleLinked && !hasPassword ? _copy.setPasswordFirst : null,
             action: googleLinked
-                ? MyosButton(
+                ? MayosButton(
                     key: const Key('disconnect_google_button'),
                     label: _copy.disconnectGoogle,
-                    variant: MyosButtonVariant.secondary,
+                    variant: MayosButtonVariant.secondary,
                     onPressed: _methodBusy || !hasPassword
                         ? null
                         : _confirmDisconnectGoogle,
@@ -665,10 +665,10 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
                             loading: _methodBusy,
                             onOutcome: _connectGoogleOutcome,
                           )
-                        : MyosButton(
+                        : MayosButton(
                             key: const Key('connect_google_button'),
                             label: _copy.connectGoogle,
-                            variant: MyosButtonVariant.secondary,
+                            variant: MayosButtonVariant.secondary,
                             loading: _methodBusy,
                             onPressed: _methodBusy ? null : _connectGoogle,
                           ),
@@ -678,20 +678,20 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
     );
   }
 
-  Widget _buildSignInNotice(MyosThemeExtension c) {
+  Widget _buildSignInNotice(MayosThemeExtension c) {
     final String? notice = _methodFailure == null
         ? _methodNotice
         : displayCopyOf(context).failureMessage(_methodFailure!);
     if (notice == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: MyosSpacing.sm),
+      padding: const EdgeInsets.only(top: MayosSpacing.sm),
       child: FirstStrongDirection(
         text: notice,
         child: Text(
           notice,
           style: _methodNoticeIsError
-              ? MyosTypography.of(context).bodySecondary.copyWith(color: c.danger)
-              : MyosTypography.of(context).body,
+              ? MayosTypography.of(context).bodySecondary.copyWith(color: c.danger)
+              : MayosTypography.of(context).body,
         ),
       ),
     );
@@ -701,17 +701,17 @@ mixin _AccountSecurityMethods on ConsumerState<AccountSecuritySection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const Divider(),
-          const SizedBox(height: MyosSpacing.sm),
-          MyosSectionHeader(
+          const SizedBox(height: MayosSpacing.sm),
+          MayosSectionHeader(
             title: copy.dangerZone,
             subtitle: copy.dangerZoneLead,
           ),
-          const SizedBox(height: MyosSpacing.sm),
-          MyosButton(
+          const SizedBox(height: MayosSpacing.sm),
+          MayosButton(
             key: const Key('delete_account_button'),
             label: copy.deleteAccount,
             icon: Icons.delete_forever_outlined,
-            variant: MyosButtonVariant.secondary,
+            variant: MayosButtonVariant.secondary,
             destructive: true,
             expand: false,
             onPressed: _confirmDeleteAccount,
@@ -740,7 +740,7 @@ class _SignInMethodRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final TextTheme text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -749,7 +749,7 @@ class _SignInMethodRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             leading,
-            const SizedBox(width: MyosSpacing.sm),
+            const SizedBox(width: MayosSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -776,7 +776,7 @@ class _SignInMethodRow extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: MyosSpacing.xs),
+        const SizedBox(height: MayosSpacing.xs),
         action,
       ],
     );

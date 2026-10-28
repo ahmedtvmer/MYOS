@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/ui/myos_app_header.dart';
+import '../../../core/ui/mayos_app_header.dart';
 import '../../../core/api_client.dart';
 import '../../../core/app_mode.dart';
 import '../../../core/app_failure.dart';
@@ -14,9 +14,9 @@ import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/copy_context.dart';
 import '../../../core/models.dart';
-import '../../../core/ui/myos_bottom_navigation.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_scaffold.dart';
+import '../../../core/ui/mayos_bottom_navigation.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_scaffold.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
 import '../../shared/mode_switch.dart';
@@ -48,23 +48,23 @@ class PlayerShell extends ConsumerStatefulWidget {
 }
 
 class _PlayerShellState extends ConsumerState<PlayerShell> {
-  List<MyosNavItem> _items(MyosCopy copy) => <MyosNavItem>[
-        MyosNavItem(
+  List<MayosNavItem> _items(MayosCopy copy) => <MayosNavItem>[
+        MayosNavItem(
           label: copy.home,
           icon: Icons.home_outlined,
           selectedIcon: Icons.home,
         ),
-        MyosNavItem(
+        MayosNavItem(
           label: copy.program,
           icon: Icons.article_outlined,
           selectedIcon: Icons.article,
         ),
-        MyosNavItem(
+        MayosNavItem(
           label: copy.nutritionTab,
           icon: Icons.restaurant_menu_outlined,
           selectedIcon: Icons.restaurant_menu,
         ),
-        MyosNavItem(
+        MayosNavItem(
           label: copy.progress,
           icon: Icons.insights_outlined,
           selectedIcon: Icons.insights,
@@ -271,7 +271,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
 
   Future<void> _showWhatsNewSheet(List<FeatureEntry> entries) async {
     final String language = ref.read(displayLanguageProvider);
-    final MyosCopy copy = MyosCopy(language);
+    final MayosCopy copy = MayosCopy(language);
     ref.read(discoverySheetActiveProvider.notifier).state = true;
     String? selectedFeature;
     try {
@@ -412,7 +412,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
         ref.watch(authControllerProvider).session?.account.isCoach ?? false;
     final Account? account =
         ref.watch(authControllerProvider).session?.account;
-    final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
+    final MayosCopy copy = MayosCopy(ref.watch(displayLanguageProvider));
     final String settingsLabel = copy.settings;
     final ActiveWorkoutState workout =
         ref.watch(activeWorkoutControllerProvider);
@@ -437,26 +437,29 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       version: tourVersion,
       programAvailability: programAvailability,
     );
-    return MyosScaffold(
-      header: MyosAppHeader(
-        actions: <Widget>[
-          TourTarget(
-            id: 'assistant',
-            child: IconButton(
-              tooltip: copy.assistant,
-              onPressed: () => context.push(chatPath),
-              icon: const Icon(Icons.chat_bubble_outline),
+    return MayosScaffold(
+      header: TourTarget(
+        id: 'brand_mayos',
+        child: MayosAppHeader(
+          actions: <Widget>[
+            TourTarget(
+              id: 'assistant',
+              child: IconButton(
+                tooltip: copy.assistant,
+                onPressed: () => context.push(chatPath),
+                icon: const Icon(Icons.chat_bubble_outline),
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: settingsLabel,
-            onPressed: () => context.push(settingsPath),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          // A coach account carries the C/P mode badge in Player mode too
-          // (#119); non-coach accounts render nothing here.
-          if (isCoach) const ModeAvatarButton(),
-        ],
+            IconButton(
+              tooltip: settingsLabel,
+              onPressed: () => context.push(settingsPath),
+              icon: const Icon(Icons.settings_outlined),
+            ),
+            // A coach account carries the C/P mode badge in Player mode too
+            // (#119); non-coach accounts render nothing here.
+            if (isCoach) const ModeAvatarButton(),
+          ],
+        ),
       ),
       body: IndexedStack(
             index: index,
@@ -467,7 +470,7 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
               ProgressTab(),
             ],
           ),
-      bottomBar: MyosBottomNavigation(
+      bottomBar: MayosBottomNavigation(
         items: _items(copy),
         index: index,
         onSelected: (int selected) =>
@@ -536,7 +539,7 @@ class _RosterAiDisclosureDialogState
           ],
         ),
         actions: <Widget>[
-          MyosButton(
+          MayosButton(
             label: widget.copy.rosterAiDisclosureOk,
             expand: false,
             loading: _saving,

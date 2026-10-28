@@ -1,19 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/player/auth/auth_controller.dart';
-import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/router.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/player/auth/auth_controller.dart';
+import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/router.dart';
 
 import 'support/auth_harness.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 Future<void> _pumpSignedIn(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   InMemoryAppModeStore? modeStore,
 }) async {
   final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -34,7 +34,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
     await tester.pump(const Duration(milliseconds: 100));
   }
   final ProviderContainer container = ProviderScope.containerOf(
-    tester.element(find.byType(MyosApp)),
+    tester.element(find.byType(MayosApp)),
     listen: false,
   );
   final GoRouter router = container.read(routerProvider);
@@ -47,7 +47,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
 
 GoRouter _router(WidgetTester tester) {
   final ProviderContainer container = ProviderScope.containerOf(
-    tester.element(find.byType(MyosApp)),
+    tester.element(find.byType(MayosApp)),
     listen: false,
   );
   return container.read(routerProvider);
@@ -57,7 +57,7 @@ void main() {
   testWidgets(
       'account without a recovery email reaches Home and can dismiss the reminder',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = null
       ..recoveryEmailVerified = false;
@@ -82,7 +82,7 @@ void main() {
   testWidgets(
       'unverified Coach account lands in Coach mode with Arabic reminder',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..coach = true
       ..displayLanguage = 'ar'
       ..recoveryEmail = null
@@ -107,7 +107,7 @@ void main() {
 
   testWidgets('verified account never sees the launch reminder',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..profileExists = true
       ..recoveryEmail = 'alice@example.com'
       ..recoveryEmailVerified = true;

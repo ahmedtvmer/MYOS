@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
-import '../../core/ui/myos_section_header.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
+import '../../core/ui/mayos_section_header.dart';
 import 'coach_exercise_table.dart';
 import 'coach_program_view.dart';
 
@@ -52,14 +52,14 @@ class CoachProgramCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final CoachCopy copy = coachCopyOf(context);
-    return MyosCard(
-      padding: const EdgeInsets.all(MyosSpacing.md),
+    return MayosCard(
+      padding: const EdgeInsets.all(MayosSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          MyosSectionHeader(
+          MayosSectionHeader(
             title: copy.program,
-            padding: const EdgeInsets.only(bottom: MyosSpacing.xs),
+            padding: const EdgeInsets.only(bottom: MayosSpacing.xs),
           ),
           ..._programContent(context, copy),
         ],
@@ -73,10 +73,10 @@ class CoachProgramCard extends StatelessWidget {
           _pendingProgramDraftBadge(context),
         ..._activeProgramContent(context, copy),
         if (actionError != null) ...<Widget>[
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _actionErrorText(context),
         ],
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         _programActions(context),
       ];
 
@@ -86,9 +86,9 @@ class CoachProgramCard extends StatelessWidget {
       return <Widget>[
         Text(
           copy.noActiveProgram,
-          style: MyosTypography.of(context)
+          style: MayosTypography.of(context)
               .bodySecondary
-              .copyWith(color: MyosTheme.of(context).textSecondary),
+              .copyWith(color: MayosTheme.of(context).textSecondary),
         ),
       ];
     }
@@ -97,9 +97,9 @@ class CoachProgramCard extends StatelessWidget {
 
   Widget _actionErrorText(BuildContext context) => Text(
         actionError!,
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
-            .copyWith(color: MyosTheme.of(context).danger),
+            .copyWith(color: MayosTheme.of(context).danger),
       );
 
   Widget _programActions(BuildContext context) {
@@ -113,15 +113,15 @@ class CoachProgramCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _actionsHeading(context, copy),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Wrap(
-            spacing: MyosSpacing.xs,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.xs,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               ..._desktopActiveActions(copy),
               if (active.program != null)
                 const SizedBox(
-                  height: kMyosMinTapTarget,
+                  height: kMayosMinTapTarget,
                   child: VerticalDivider(width: 1),
                 ),
               ..._desktopDraftActions(copy),
@@ -149,12 +149,12 @@ class CoachProgramCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _actionsHeading(context, copy),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           if (active.program != null) _phoneActiveActions(copy),
           if (active.program != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             const Divider(height: 1),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
           ],
           _phoneDraftActions(context, copy),
         ],
@@ -164,9 +164,9 @@ class CoachProgramCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _approveButton(copy, expand: true, showIcon: false),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           _editButton(copy, expand: true, showIcon: false),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           _saveTemplateButton(copy, expand: true, showIcon: false),
         ],
       );
@@ -179,20 +179,20 @@ class CoachProgramCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 _generateButton(copy, expand: true, showIcon: false),
-                const SizedBox(height: MyosSpacing.xs),
+                const SizedBox(height: MayosSpacing.xs),
                 _writeButton(copy, expand: true, showIcon: false),
-                const SizedBox(height: MyosSpacing.xs),
+                const SizedBox(height: MayosSpacing.xs),
                 _importButton(copy, expand: true, showIcon: false),
-                const SizedBox(height: MyosSpacing.xs),
+                const SizedBox(height: MayosSpacing.xs),
                 _downloadButton(copy, expand: true, showIcon: false),
               ],
             );
           }
           final double buttonWidth =
-              (constraints.maxWidth - MyosSpacing.xs) / 2;
+              (constraints.maxWidth - MayosSpacing.xs) / 2;
           return Wrap(
-            spacing: MyosSpacing.xs,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.xs,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               SizedBox(width: buttonWidth, child: _generateButton(copy)),
               SizedBox(width: buttonWidth, child: _writeButton(copy)),
@@ -209,15 +209,15 @@ class CoachProgramCard extends StatelessWidget {
         children: <Widget>[
           Text(
             copy.programActions,
-            style: MyosTypography.of(context).sectionHeading.copyWith(
-                  color: MyosTheme.of(context).textPrimary,
+            style: MayosTypography.of(context).sectionHeading.copyWith(
+                  color: MayosTheme.of(context).textPrimary,
                 ),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             copy.programActionsSubtitle,
-            style: MyosTypography.of(context).bodySecondary.copyWith(
-                  color: MyosTheme.of(context).textSecondary,
+            style: MayosTypography.of(context).bodySecondary.copyWith(
+                  color: MayosTheme.of(context).textSecondary,
                 ),
           ),
         ],
@@ -231,7 +231,7 @@ class CoachProgramCard extends StatelessWidget {
   Widget _approveButton(CoachCopy copy,
       {bool expand = false, bool showIcon = true}) {
     final bool canApprove = active.program?.version != null;
-    return MyosButton(
+    return MayosButton(
       key: const Key('coach_program_approve_as_is'),
       label: copy.approveProgramAsIs,
       icon: showIcon ? Icons.check : null,
@@ -245,11 +245,11 @@ class CoachProgramCard extends StatelessWidget {
 
   Widget _editButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('coach_program_edit_active'),
         label: copy.editActiveProgram,
         icon: showIcon ? Icons.edit_outlined : null,
-        variant: MyosButtonVariant.secondary,
+        variant: MayosButtonVariant.secondary,
         expand: expand,
         loading: busyState.copyingActiveProgram,
         onPressed:
@@ -258,11 +258,11 @@ class CoachProgramCard extends StatelessWidget {
 
   Widget _saveTemplateButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('coach_program_save_as_template'),
         label: copy.saveAsTemplate,
         icon: showIcon ? Icons.bookmark_add_outlined : null,
-        variant: MyosButtonVariant.secondary,
+        variant: MayosButtonVariant.secondary,
         expand: expand,
         loading: busyState.savingProgramTemplate,
         onPressed: _activeProgramActionBusy || active.program?.version == null
@@ -272,13 +272,13 @@ class CoachProgramCard extends StatelessWidget {
 
   Widget _generateButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('generate_draft_action'),
         label: copy.generateDraft,
         icon: showIcon ? Icons.auto_awesome_outlined : null,
         variant: active.program == null
-            ? MyosButtonVariant.primary
-            : MyosButtonVariant.secondary,
+            ? MayosButtonVariant.primary
+            : MayosButtonVariant.secondary,
         expand: expand,
         loading: busyState.generatingDraft,
         onPressed: busyState.generatingDraft ? null : callbacks.generateDraft,
@@ -286,33 +286,33 @@ class CoachProgramCard extends StatelessWidget {
 
   Widget _writeButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('write_program_action'),
         label: copy.writeProgram,
         icon: showIcon ? Icons.edit_outlined : null,
-        variant: MyosButtonVariant.secondary,
+        variant: MayosButtonVariant.secondary,
         expand: expand,
         onPressed: callbacks.writeProgram,
       );
 
   Widget _importButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('program_import_action'),
         label: copy.importProgramAction,
         icon: showIcon ? Icons.upload_file : null,
-        variant: MyosButtonVariant.secondary,
+        variant: MayosButtonVariant.secondary,
         expand: expand,
         onPressed: callbacks.importProgram,
       );
 
   Widget _downloadButton(CoachCopy copy,
           {bool expand = false, bool showIcon = true}) =>
-      MyosButton(
+      MayosButton(
         key: const Key('program_template_download_action'),
         label: copy.downloadProgramTemplateAction,
         icon: showIcon ? Icons.download_outlined : null,
-        variant: MyosButtonVariant.secondary,
+        variant: MayosButtonVariant.secondary,
         expand: expand,
         loading: busyState.downloadingProgramTemplate,
         onPressed: busyState.downloadingProgramTemplate

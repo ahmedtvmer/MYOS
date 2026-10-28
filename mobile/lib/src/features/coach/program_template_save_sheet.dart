@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/feature_copy_context.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_bottom_sheet_editor.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_bottom_sheet_editor.dart';
 
 /// One free-text value copied from a player's program after Coach review.
 class ProgramTemplateNoteReview {
@@ -146,7 +146,7 @@ Future<ProgramTemplateSaveRequest?> showProgramTemplateSaveSheet(
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
-            padding: MyosSpacing.screen,
+            padding: MayosSpacing.screen,
             child: _ProgramTemplateSaveSheet(
               notes: notes,
               controller: controller,
@@ -157,7 +157,7 @@ Future<ProgramTemplateSaveRequest?> showProgramTemplateSaveSheet(
       ),
     );
   } else {
-    result = showMyosBottomSheetEditor<ProgramTemplateSaveRequest>(
+    result = showMayosBottomSheetEditor<ProgramTemplateSaveRequest>(
       context: context,
       content: _ProgramTemplateSaveSheet(
         notes: notes,
@@ -319,55 +319,55 @@ class _ProgramTemplateSaveSheetState extends State<_ProgramTemplateSaveSheet> {
   @override
   Widget build(BuildContext context) {
     final CoachCopy copy = coachCopyOf(context);
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     return _form(copy, colors);
   }
 
-  Widget _form(CoachCopy copy, MyosThemeExtension colors) => Column(
+  Widget _form(CoachCopy copy, MayosThemeExtension colors) => Column(
         key: const Key('program_template_save_sheet'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           _titleAndNotice(copy, colors),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _reviewSection(copy, colors),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _nameField(copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _descriptionField(copy),
           if (_error != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             _errorMessage(colors),
           ],
           if (widget.includeActions) ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             _ProgramTemplateSaveActions(controller: widget.controller),
           ],
         ],
       );
 
-  Widget _titleAndNotice(CoachCopy copy, MyosThemeExtension colors) => Column(
+  Widget _titleAndNotice(CoachCopy copy, MayosThemeExtension colors) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
             copy.saveAsTemplate,
-            style: MyosTypography.of(context).sectionHeading,
+            style: MayosTypography.of(context).sectionHeading,
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             copy.saveAsTemplateNotesNotice,
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .bodySecondary
                 .copyWith(color: colors.textSecondary),
           ),
         ],
       );
 
-  Widget _reviewSection(CoachCopy copy, MyosThemeExtension colors) {
+  Widget _reviewSection(CoachCopy copy, MayosThemeExtension colors) {
     if (widget.notes.isEmpty) {
       return Text(
         copy.saveAsTemplateNoNotes,
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
             .copyWith(color: colors.textSecondary),
       );
@@ -377,7 +377,7 @@ class _ProgramTemplateSaveSheetState extends State<_ProgramTemplateSaveSheet> {
       children: <Widget>[
         Text(
           copy.saveAsTemplateNotesHeading,
-          style: MyosTypography.of(context).sectionHeading,
+          style: MayosTypography.of(context).sectionHeading,
         ),
         for (int index = 0; index < widget.notes.length; index++)
           _reviewNote(index, copy, colors),
@@ -388,16 +388,16 @@ class _ProgramTemplateSaveSheetState extends State<_ProgramTemplateSaveSheet> {
   Widget _reviewNote(
     int index,
     CoachCopy copy,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) =>
       Padding(
-        padding: const EdgeInsets.only(top: MyosSpacing.sm),
+        padding: const EdgeInsets.only(top: MayosSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
               _reviewLocation(widget.notes[index], copy),
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .bodySecondary
                   .copyWith(color: colors.textSecondary),
             ),
@@ -429,9 +429,9 @@ class _ProgramTemplateSaveSheetState extends State<_ProgramTemplateSaveSheet> {
         decoration: InputDecoration(labelText: copy.templateDescription),
       );
 
-  Widget _errorMessage(MyosThemeExtension colors) => Text(
+  Widget _errorMessage(MayosThemeExtension colors) => Text(
         _error!,
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
             .copyWith(color: colors.danger),
       );
@@ -450,16 +450,16 @@ class _ProgramTemplateSaveActions extends StatelessWidget {
       builder: (BuildContext context, Widget? child) => Row(
         children: <Widget>[
           Expanded(
-            child: MyosButton(
+            child: MayosButton(
               key: const Key('program_template_save_cancel'),
               label: copy.cancel,
-              variant: MyosButtonVariant.secondary,
+              variant: MayosButtonVariant.secondary,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
-          const SizedBox(width: MyosSpacing.xs),
+          const SizedBox(width: MayosSpacing.xs),
           Expanded(
-            child: MyosButton(
+            child: MayosButton(
               key: const Key('program_template_save_confirm'),
               label: copy.saveTemplate,
               onPressed: controller.canSubmit ? controller.submit : null,

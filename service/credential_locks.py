@@ -14,7 +14,7 @@ def _ensure_no_symlink_ancestors(directory: Path) -> None:
 
 
 def _lock_file(account_id: str, catalog_path: str | os.PathLike[str] | None = None) -> int:
-    override = os.getenv("MYOS_CREDENTIAL_LOCK_DIR")
+    override = os.getenv("MAYOS_CREDENTIAL_LOCK_DIR")
     if override:
         lock_directory = Path(override).absolute()
         _ensure_no_symlink_ancestors(lock_directory)
@@ -23,7 +23,7 @@ def _lock_file(account_id: str, catalog_path: str | os.PathLike[str] | None = No
             raise ValueError("catalog_path is required for credential locks")
         catalog_parent = Path(catalog_path).absolute().parent
         _ensure_no_symlink_ancestors(catalog_parent)
-        lock_directory = catalog_parent / ".myos-credential-locks"
+        lock_directory = catalog_parent / ".mayos-credential-locks"
     lock_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     directory_stat = lock_directory.lstat()
     if not lock_directory.is_dir() or lock_directory.is_symlink():

@@ -1,4 +1,4 @@
-import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:mayos_mobile/src/features/player/tour/tour_controller.dart';
 
 class FakeWhatsNewSeenRetryStore implements WhatsNewSeenRetryStore {
   final Map<String, int> pending = <String, int>{};

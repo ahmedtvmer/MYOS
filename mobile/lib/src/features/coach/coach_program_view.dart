@@ -5,14 +5,14 @@ import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/effort.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card_table.dart';
-import '../../core/ui/myos_phone_tap_target.dart';
-import '../../core/ui/myos_table_frame.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card_table.dart';
+import '../../core/ui/mayos_phone_tap_target.dart';
+import '../../core/ui/mayos_table_frame.dart';
 import 'coach_exercise_table.dart';
 
 class CoachProgramView extends StatefulWidget {
@@ -31,7 +31,7 @@ class CoachProgramView extends StatefulWidget {
 
 class _CoachProgramViewState extends State<CoachProgramView> {
   static const int _collapsedExerciseCount = 8;
-  static const MyosTableColumns _columns = MyosTableColumns(
+  static const MayosTableColumns _columns = MayosTableColumns(
     <double>[40, 105, 230, 125, 115, 95, 80, 80],
     1,
   );
@@ -63,9 +63,9 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         _summaryHeader(context, copy),
         if (widget.program.days.isNotEmpty)
           ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             _dayTabs(context, selectedIndex),
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             if (selectedDay != null) _selectedDay(context, copy, selectedDay),
           ],
       ],
@@ -76,24 +76,24 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _programTitle(context, copy),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           _programFacts(context, copy),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _programStats(context, copy),
         ],
       );
 
   Widget _programTitle(BuildContext context, CoachCopy copy) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final TrainingProgram program = widget.program;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: MyosSpacing.xs,
-      runSpacing: MyosSpacing.xs,
+      spacing: MayosSpacing.xs,
+      runSpacing: MayosSpacing.xs,
       children: <Widget>[
         Text(
           program.programName,
-          style: MyosTypography.of(context)
+          style: MayosTypography.of(context)
               .sectionHeading
               .copyWith(color: colors.textPrimary),
         ),
@@ -114,14 +114,14 @@ class _CoachProgramViewState extends State<CoachProgramView> {
   }
 
   Widget _programFacts(BuildContext context, CoachCopy copy) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final String provenance = widget.active.provenance == 'coach'
         ? copy.publishedByYou
         : copy.generatedAutomatically;
     final String? activeDate = widget.active.activeSince?.split('T').first;
     return Wrap(
-      spacing: MyosSpacing.xs,
-      runSpacing: MyosSpacing.xxs,
+      spacing: MayosSpacing.xs,
+      runSpacing: MayosSpacing.xxs,
       children: <Widget>[
         _factText(context, colors, provenance),
         if (widget.active.sourceTemplateName != null)
@@ -140,12 +140,12 @@ class _CoachProgramViewState extends State<CoachProgramView> {
 
   Widget _factText(
     BuildContext context,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
     String factText,
   ) =>
       Text(
         factText,
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
             .copyWith(color: colors.textSecondary),
       );
@@ -192,7 +192,7 @@ class _CoachProgramViewState extends State<CoachProgramView> {
     CoachCopy copy,
     ({String key, int count, String label}) stat,
   ) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     return Semantics(
       key: Key(stat.key),
       label: copy.programStatSemantics(stat.count, stat.label),
@@ -201,14 +201,14 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         children: <Widget>[
           Text(
             '${stat.count}',
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .sectionHeading
                 .copyWith(color: colors.textPrimary),
           ),
           Text(
             stat.label,
             maxLines: 2,
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .caption
                 .copyWith(color: colors.textSecondary),
           ),
@@ -224,8 +224,8 @@ class _CoachProgramViewState extends State<CoachProgramView> {
           children: <Widget>[
             for (int index = 0; index < widget.program.days.length; index++)
               Padding(
-                padding: const EdgeInsetsDirectional.only(end: MyosSpacing.xs),
-                child: myosPhoneTapTarget(context, ChoiceChip(
+                padding: const EdgeInsetsDirectional.only(end: MayosSpacing.xs),
+                child: mayosPhoneTapTarget(context, ChoiceChip(
                   key: Key('coach_program_day_tab_$index'),
                   label: Text(widget.program.days[index].dayName),
                   selected: index == selectedIndex,
@@ -245,13 +245,13 @@ class _CoachProgramViewState extends State<CoachProgramView> {
     ProgramDay day,
   ) {
     return Container(
-      padding: const EdgeInsets.all(MyosSpacing.md),
+      padding: const EdgeInsets.all(MayosSpacing.md),
       decoration: _daySectionDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _dayHeading(context, copy, day),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _dayExerciseRows(context, copy, day),
         ],
       ),
@@ -259,32 +259,32 @@ class _CoachProgramViewState extends State<CoachProgramView> {
   }
 
   BoxDecoration _daySectionDecoration(BuildContext context) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     return BoxDecoration(
       color: colors.surface,
-      borderRadius: MyosRadii.mediumRadius,
+      borderRadius: MayosRadii.mediumRadius,
       border: Border.all(color: colors.border),
     );
   }
 
   Widget _dayHeading(BuildContext context, CoachCopy copy, ProgramDay day) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
           day.dayName,
-          style: MyosTypography.of(context)
+          style: MayosTypography.of(context)
               .sectionHeading
               .copyWith(color: colors.textPrimary),
         ),
-        const SizedBox(height: MyosSpacing.xxs),
+        const SizedBox(height: MayosSpacing.xxs),
         Text(
           copy.programDaySummary(
             day.exercises.length,
             _workingSetCount(day.exercises),
           ),
-          style: MyosTypography.of(context)
+          style: MayosTypography.of(context)
               .bodySecondary
               .copyWith(color: colors.textSecondary),
         ),
@@ -332,7 +332,7 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         columns: _columns,
         child: Column(
           children: <Widget>[
-            MyosTableHeader(
+            MayosTableHeader(
               labels: _tableLabels(copy),
               alignments: <TextAlign>[
                 TextAlign.center,
@@ -380,7 +380,7 @@ class _CoachProgramViewState extends State<CoachProgramView> {
     ProgramExercise exercise,
     int index,
   ) =>
-      MyosTableRow(
+      MayosTableRow(
         cells: <Widget>[
           Text('${index + 1}', textAlign: TextAlign.center),
           CoachExerciseCell(
@@ -450,9 +450,9 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         cellText,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
-            .copyWith(color: MyosTheme.of(context).textPrimary),
+            .copyWith(color: MayosTheme.of(context).textPrimary),
       );
 
   Widget _phoneDayExercises(
@@ -461,11 +461,11 @@ class _CoachProgramViewState extends State<CoachProgramView> {
     ProgramDay day,
     int shownCount,
   ) =>
-      MyosCardTable(
+      MayosCardTable(
         columns: <String>[copy.programExerciseColumn],
-        sections: <MyosCardTableSection>[
-          MyosCardTableSection(
-            rows: <MyosCardTableRow>[
+        sections: <MayosCardTableSection>[
+          MayosCardTableSection(
+            rows: <MayosCardTableRow>[
               for (int index = 0; index < shownCount; index++)
                 _phoneExerciseCardRow(
                   context,
@@ -477,12 +477,12 @@ class _CoachProgramViewState extends State<CoachProgramView> {
         ],
       );
 
-  MyosCardTableRow _phoneExerciseCardRow(
+  MayosCardTableRow _phoneExerciseCardRow(
     BuildContext context,
     CoachCopy copy,
     ProgramExercise exercise,
   ) =>
-      MyosCardTableRow(
+      MayosCardTableRow(
         cells: <Widget?>[
           CoachExerciseCell(
             imagePath: exercise.imagePath,
@@ -558,11 +558,11 @@ class _CoachProgramViewState extends State<CoachProgramView> {
     CoachCopy copy,
     int remaining,
   ) =>
-      MyosButton(
+      MayosButton(
         key: const Key('coach_program_show_remaining'),
         label: copy.showRemainingProgramExercises(remaining),
         icon: Icons.expand_more,
-        variant: MyosButtonVariant.tertiary,
+        variant: MayosButtonVariant.tertiary,
         expand: true,
         onPressed: () => setState(() => _showAllExercises = true),
       );

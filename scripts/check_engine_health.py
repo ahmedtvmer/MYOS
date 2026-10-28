@@ -1,8 +1,8 @@
 ## # View real-time engine telemetry streaming in the background
-# tail -f logs/myos.log | grep "\[TELEMETRY\]"
+# tail -f logs/mayos.log | grep "\[TELEMETRY\]"
 
 # # Filter strictly for CPU degradation warnings or thermal throttling
-# grep "\[PERF DEGRADATION\]" logs/myos.log
+# grep "\[PERF DEGRADATION\]" logs/mayos.log
 
 import re
 import statistics
@@ -12,10 +12,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
-LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "myos.log"
+logger = MayosLogger().get_logger(__name__)
+LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "mayos.log"
 
 
 def analyze_logs():
@@ -38,7 +38,7 @@ def analyze_logs():
         return
 
     logger.info("=" * 50)
-    logger.info("⚡ MYOS INTERNAL ENGINE HEALTH REPORT")
+    logger.info("⚡ MAYOS INTERNAL ENGINE HEALTH REPORT")
     logger.info("=" * 50)
     logger.info(f"Total Evaluated Turns:   {len(tps_values)}")
     logger.info(f"Average TTFT:            {statistics.mean(ttft_values):.1f} ms")

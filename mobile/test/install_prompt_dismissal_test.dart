@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/browser_key_value_store.dart';
-import 'package:myos_mobile/src/core/install_prompt_dismissal.dart';
+import 'package:mayos_mobile/src/core/browser_key_value_store.dart';
+import 'package:mayos_mobile/src/core/install_prompt_dismissal.dart';
 
 class _MemoryBrowserStorage implements BrowserKeyValueStore {
   final Map<String, String> values = <String, String>{};

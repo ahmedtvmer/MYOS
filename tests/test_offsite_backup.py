@@ -524,7 +524,7 @@ def test_r2_deletion_failure_keeps_record_pending_until_replay_succeeds(r2_api, 
     assert db.list_account_deletions()[0]["applied_at"] is None
     assert db.replay_deletions() == 0
     assert any(
-        record.levelno >= logging.WARNING and record.name == "myos.database.account_deletion"
+        record.levelno >= logging.WARNING and record.name == "mayos.database.account_deletion"
         for record in caplog.records
     )
 

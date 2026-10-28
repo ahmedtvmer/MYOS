@@ -26,7 +26,7 @@ def test_owner_food_draft_has_required_arabic_aliases_and_unreviewed_recipes():
         'عيش بلدي', 'فول', 'فول مدمس', 'طعمية', 'جبنة قريش', 'جبنة رومي',
         'بيض', 'رز', 'عدس', 'مكرونة', 'فراخ',
     } <= aliases
-    assert {row['id'].removeprefix('myos:') for row in rows if row['id'].startswith('myos:')} >= {
+    assert {row['id'].removeprefix('mayos:') for row in rows if row['id'].startswith('mayos:')} >= {
         'koshari', 'ful_medames', 'taameya', 'chicken_shawerma', 'chicken_pane',
         'molokhia', 'mahshi', 'fattah', 'basbousa', 'feteer_meshaltet',
         'mesakaa', 'tahini_salad', 'baba_ghanoush', 'lentil_soup', 'rice_vermicelli',

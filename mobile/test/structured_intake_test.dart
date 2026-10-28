@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -14,7 +14,7 @@ FakeMyosApi _signedInFake() {
   return fake;
 }
 
-Future<ApiClient> _client(FakeMyosApi fake) async {
+Future<ApiClient> _client(FakeMayosApi fake) async {
   final InMemoryTokenStore tokens = InMemoryTokenStore();
   await tokens.save('token-alice');
   return ApiClient(
@@ -64,7 +64,7 @@ void main() {
 
   test('intake contract, disclosure, answers, and confirmation round-trip',
       () async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final ApiClient client = await _client(fake);
 
     final OnboardingIntake initial = await client.onboardingIntake();
@@ -137,7 +137,7 @@ void main() {
   });
 
   test('invalid answers surface the server field message', () async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final ApiClient client = await _client(fake);
     await client.acknowledgeIntakeDisclosure();
 
@@ -158,7 +158,7 @@ void main() {
   });
 
   test('required intake keys fail parsing instead of defaulting', () async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.intakeMalformed = true;
     final ApiClient client = await _client(fake);
 
@@ -169,7 +169,7 @@ void main() {
   });
 
   test('answer field name is URL-encoded in the PUT path', () async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final ApiClient client = await _client(fake);
     await client.acknowledgeIntakeDisclosure();
 
@@ -184,7 +184,7 @@ void main() {
   });
 
   test('confirm requires every required answer', () async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final ApiClient client = await _client(fake);
     await client.acknowledgeIntakeDisclosure();
     await client.saveIntakeAnswer('gender', 'female');

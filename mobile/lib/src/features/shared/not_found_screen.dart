@@ -3,11 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../router.dart';
 import '../../core/display_language/copy_context.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_scaffold.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_scaffold.dart';
 
 /// Unknown location (issue #127): a small branded page instead of a blank
 /// screen, with one way out — the account's home. `context.go(homePath)` asks
@@ -18,13 +18,13 @@ class NotFoundScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = displayCopyOf(context);
-    return MyosScaffold(
+    return MayosScaffold(
       showLogo: true,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -32,16 +32,16 @@ class NotFoundScreen extends StatelessWidget {
                 copy.pageNotFound,
                 textAlign: TextAlign.center,
                 style:
-                    MyosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
+                    MayosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
               ),
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               Text(
                 copy.pageMissingLead,
                 textAlign: TextAlign.center,
-                style: MyosTypography.of(context).body.copyWith(color: c.textSecondary),
+                style: MayosTypography.of(context).body.copyWith(color: c.textSecondary),
               ),
-              const SizedBox(height: MyosSpacing.xl),
-              MyosButton(
+              const SizedBox(height: MayosSpacing.xl),
+              MayosButton(
                 label: copy.goToHome,
                 expand: false,
                 onPressed: () => context.go(homePath),

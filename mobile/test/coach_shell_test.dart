@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/install_prompt_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/features/shared/mode_switch.dart';
-import 'package:myos_mobile/src/features/shared/install_prompt.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/install_prompt_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/features/shared/mode_switch.dart';
+import 'package:mayos_mobile/src/features/shared/install_prompt.dart';
 
 import 'support/auth_harness.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/coach_layout_harness.dart';
 
 class _CoachInstallPromptStore implements InstallPromptStore {
@@ -47,7 +47,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
 
 Future<void> _pumpApp(
   WidgetTester tester,
-  FakeMyosApi fake,
+  FakeMayosApi fake,
   InMemoryAppModeStore modeStore, {
   Size logicalSize = const Size(540, 1200),
   List<Override> extraOverrides = const <Override>[],
@@ -75,13 +75,13 @@ Future<void> _pumpApp(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
 }
 
-FakeMyosApi _coachFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _coachFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -164,14 +164,14 @@ void main() {
         ],
       );
       await _pumpUntilFound(tester, find.text('Active assignments'));
-      expect(find.text('Install MYOS'), findsNothing);
+      expect(find.text('Install MAYOS'), findsNothing);
       expect(find.textContaining('Add to Home Screen'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     }
 
     await _pumpApp(tester, _coachFake(), InMemoryAppModeStore());
     await _pumpUntilFound(tester, find.text('Active assignments'));
-    expect(find.text('Install MYOS'), findsNothing);
+    expect(find.text('Install MAYOS'), findsNothing);
     expect(find.textContaining('Add to Home Screen'), findsNothing);
   });
 
@@ -314,8 +314,8 @@ void main() {
       (WidgetTester tester) async {
     await expectCoachPhoneLayout(
       tester,
-      configureFake: (FakeMyosApi fake) {},
-      ready: (String language) => find.byKey(const ValueKey<String>('myos_scaffold_body')),
+      configureFake: (FakeMayosApi fake) {},
+      ready: (String language) => find.byKey(const ValueKey<String>('mayos_scaffold_body')),
       pageScrollable: (String language) => find.byType(Scrollable).first,
       assertions: (WidgetTester tester, String language) async {
         await tester.tap(find.byType(ModeAvatarButton));
@@ -332,7 +332,7 @@ void main() {
   testWidgets(
       'a coach in Player mode without onboarding gets the setup screen with '
       'Start intake and Back to Coach mode', (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     // No profile yet: the player intake has never been completed.
     fake.profileExists = false;
     final InMemoryAppModeStore modeStore =
@@ -364,7 +364,7 @@ void main() {
 
   test('the coach alerts badge resets when the account changes',
       () async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.passwords['alice'] = 'pw-alice';
     fake.passwords['bob'] = 'pw-bob';
     final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -393,7 +393,7 @@ void main() {
   });
 
   testWidgets('a non-coach account sees no mode badge', (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     fake.issuedToken = 'token-alice';
     fake.currentUsername = 'alice';
     fake.tokenValid = true;

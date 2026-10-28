@@ -14,6 +14,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 
 from database.database_manager import DatabaseManager
+from database.registry.accounts import CURRENT_FEATURE_RELEASE
 from service import auth as auth_service
 from service import password_reset as reset_service
 from svc.app import create_app
@@ -368,7 +369,7 @@ def test_current_account_reports_capabilities_from_durable_registry(api):
         "analytics_allowed": True,
         "tour_seen_version": 0,
         "tour_created_version": 1,
-        "whats_new_seen_release": 1,
+        "whats_new_seen_release": CURRENT_FEATURE_RELEASE,
         "capabilities": {"player": True, "coach": False},
         "coach_ai_enabled": False,
         "coach_roster_ai_enabled": False,

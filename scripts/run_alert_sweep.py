@@ -26,9 +26,9 @@ from database.database_manager import (  # noqa: E402
 )
 from database.offsite_backup import configure_database_offsite_backup  # noqa: E402
 from service import alert_sweep as alerts_service  # noqa: E402
-from utils.logger import MyosLogger  # noqa: E402
+from utils.logger import MayosLogger  # noqa: E402
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def main(argv: list[str] | None = None) -> int:

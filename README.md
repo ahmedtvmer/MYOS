@@ -14,7 +14,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <h1 align="center">⚡ MYOS</h1>
+  <h1 align="center">⚡ MAYOS</h1>
   <p align="center">
     <b>Training Ledger & Biomechanics Engine with Hosted Assistant Inference</b>
     <br />
@@ -35,11 +35,11 @@
 
 ## Overview
 
-**Myos** is a privacy-conscious workout ledger and biomechanics engine. Chat uses a hosted OpenAI-compatible model; embeddings for clinical checks and catalog search run locally.
+**Mayos** is a privacy-conscious workout ledger and biomechanics engine. Chat uses a hosted OpenAI-compatible model; embeddings for clinical checks and catalog search run locally.
 
 Commercial fitness trackers rely on rigid linear progressions and binary volume attribution that inflate synergistic muscle tracking. Conversely, naive AI agents route every prompt through an LLM, incurring multi-second inference bottlenecks just to classify basic user intents.
 
-Myos bridges this gap:
+Mayos bridges this gap:
 
 * **Hosted Chat, Local Embeddings**: Player, judge, and coach chat use hosted OpenAI-compatible models. The clinical guard and Exercise library search keep their embedding model local.
 * **Deterministic Fast-Path Router**: Clinical trauma halts, movement swaps, and split mutations are resolved by compiled regex and ledger logic in **0.014–0.075 ms** — up to **375,000× faster** than an LLM classification call — while a Tier-1 semantic guard keeps colloquial injury reports safe.
@@ -91,8 +91,8 @@ flowchart LR
 `docker compose up` **requires** `JWT_SECRET` and `LLM_API_KEY`; the stack fails fast without either. Copy the template, fill in the hosted API key, and export a generated JWT secret:
 
 ```bash
-git clone https://github.com/ahmedtvmer/myos.git
-cd myos
+git clone https://github.com/ahmedtvmer/mayos.git
+cd mayos
 cp .env.example .env
 
 # Generate and export the JWT signing secret (compose reads it from the environment)
@@ -104,8 +104,8 @@ export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 ### 2. Initialize the catalog & semantic index (one time)
 
 ```bash
-docker compose run --rm myos-api python scripts/intialize_db.py
-docker compose run --rm myos-api python scripts/seed_vectors.py
+docker compose run --rm mayos-api python scripts/intialize_db.py
+docker compose run --rm mayos-api python scripts/seed_vectors.py
 ```
 
 ### 3. Launch
@@ -154,7 +154,7 @@ The FastAPI service is available at **`http://localhost:8000`** and its OpenAPI 
 
 ## Accounts & Security
 
-Myos ships a complete self-hosted identity layer — no cloud IdP, no external auth service:
+Mayos ships a complete self-hosted identity layer — no cloud IdP, no external auth service:
 
 * **JWT sessions (HS256)**: `sub` + `jti` + `tv` (session epoch) claims, 2-hour default expiry, per-token revocation on logout.
 * **Optional remember-me sessions**: with explicit consent, the browser stores a sign-in cookie; remembered tokens last 30 days (`JWT_REMEMBER_ME_HOURS`) so refreshes keep you logged in. Password changes and logout still revoke them instantly (ADR 010).
@@ -172,7 +172,7 @@ Full specification, sequence diagrams, and environment reference: [`docs/AUTHENT
 
 ## Biomechanical Engine Overview
 
-Unlike generic trackers, Myos embeds exercise physiology rules into its transaction layer:
+Unlike generic trackers, Mayos embeds exercise physiology rules into its transaction layer:
 
 * **Dynamic RPE Scaling**: Computes effective 1RM using $w \cdot (1 + \text{effective\_reps}/30)$ to determine true velocity reserve without requiring failure sets.
 * **RPE 10 Overshoot Protection**: Drops subsequent session loads by 2.5 kg if an athlete overshoots target intensity.
@@ -186,14 +186,14 @@ Unlike generic trackers, Myos embeds exercise physiology rules into its transact
 
 ## Observability
 
-Inference throughput and latency metrics are tracked silently to `logs/myos.log` without cluttering the user interface. Each coaching turn records router time, TTFT, token count, generation time, and TPS; sustained throughput below 8 TPS raises a `[PERF DEGRADATION]` warning for CPU thermal throttling or thread contention.
+Inference throughput and latency metrics are tracked silently to `logs/mayos.log` without cluttering the user interface. Each coaching turn records router time, TTFT, token count, generation time, and TPS; sustained throughput below 8 TPS raises a `[PERF DEGRADATION]` warning for CPU thermal throttling or thread contention.
 
 ```bash
 # Monitor real-time transaction telemetry
-docker compose exec myos-api tail -f /app/logs/myos.log | grep "\[TELEMETRY\]"
+docker compose exec mayos-api tail -f /app/logs/mayos.log | grep "\[TELEMETRY\]"
 
 # Run an on-demand engine latency & throughput audit
-docker compose exec myos-api python scripts/check_engine_health.py
+docker compose exec mayos-api python scripts/check_engine_health.py
 ```
 
 > Note: `GET /healthz` reports `model: false` whenever eager hosted-model warmup is skipped (`SKIP_LLM_LOAD=true`).
@@ -230,6 +230,6 @@ Distributed under the MIT License. See `LICENSE` for details.
 
 **Ahmed Tamer** — [ahmedhegazy4me@gmail.com](mailto:ahmedtamerhejazi@gmail.com)
 
-Project Repository: [https://github.com/ahmedtvmer/myos](https://github.com/ahmedtvmer/myos)
+Project Repository: [https://github.com/ahmedtvmer/mayos](https://github.com/ahmedtvmer/mayos)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

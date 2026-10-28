@@ -10,12 +10,12 @@ import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_markdown.dart';
-import '../../core/ui/myos_phone_tap_target.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_markdown.dart';
+import '../../core/ui/mayos_phone_tap_target.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 import 'coach_assistant_screen.dart';
 import 'coach_assistant_state.dart';
@@ -102,7 +102,7 @@ class _CoachRosterAssistantPanelState
   @override
   Widget build(BuildContext context) {
     final CoachCopy copy = coachCopyOf(context);
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final CoachRosterAssistantTranscript transcript = ref.watch(
       coachRosterAssistantControllerProvider,
     );
@@ -111,21 +111,21 @@ class _CoachRosterAssistantPanelState
       children: <Widget>[
         Text(
           copy.askAboutRoster,
-          style: MyosTypography.of(context).sectionHeading,
+          style: MayosTypography.of(context).sectionHeading,
         ),
-        const SizedBox(height: MyosSpacing.xs),
+        const SizedBox(height: MayosSpacing.xs),
         Text(
           copy.rosterAssistantLead,
-          style: MyosTypography.of(context).bodySecondary
+          style: MayosTypography.of(context).bodySecondary
               .copyWith(color: colors.textSecondary),
         ),
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         if (!widget.coachPro)
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _notice(copy.rosterAssistantUpgrade, colors),
-              const SizedBox(height: MyosSpacing.md),
+              const SizedBox(height: MayosSpacing.md),
               _rosterUrgencyOrder(copy, colors),
             ],
           )
@@ -133,16 +133,16 @@ class _CoachRosterAssistantPanelState
           _notice(copy.rosterAssistantDisabled, colors)
         else
           _enabledContent(copy, colors, transcript),
-        const SizedBox(height: MyosSpacing.lg),
+        const SizedBox(height: MayosSpacing.lg),
         const Divider(),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
       ],
     );
   }
 
   Widget _rosterUrgencyOrder(
     CoachCopy copy,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) =>
       Column(
         key: const Key('coach_roster_urgency_order'),
@@ -150,17 +150,17 @@ class _CoachRosterAssistantPanelState
         children: <Widget>[
           Text(
             copy.rosterUrgencyOrderHeading,
-            style: MyosTypography.of(context).sectionHeading,
+            style: MayosTypography.of(context).sectionHeading,
           ),
           if (widget.assignments.isEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: MyosSpacing.xs),
+              padding: const EdgeInsets.only(top: MayosSpacing.xs),
               child: Text(copy.noAssignedPlayers),
             )
           else
             for (int index = 0; index < widget.assignments.length; index++)
               Padding(
-                padding: const EdgeInsets.only(top: MyosSpacing.xs),
+                padding: const EdgeInsets.only(top: MayosSpacing.xs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -169,7 +169,7 @@ class _CoachRosterAssistantPanelState
                         index + 1,
                         widget.assignments[index].playerUsername,
                       ),
-                      style: MyosTypography.of(context).bodySecondary,
+                      style: MayosTypography.of(context).bodySecondary,
                     ),
                     Text(
                       copy.rosterUrgencySignals(
@@ -178,7 +178,7 @@ class _CoachRosterAssistantPanelState
                         missedDays: widget.assignments[index].currentMissedStreak,
                         stallSessions: widget.assignments[index].stallLength,
                       ),
-                      style: MyosTypography.of(context).caption
+                      style: MayosTypography.of(context).caption
                           .copyWith(color: colors.textSecondary),
                     ),
                   ],
@@ -189,7 +189,7 @@ class _CoachRosterAssistantPanelState
 
   Widget _enabledContent(
     CoachCopy copy,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
     CoachRosterAssistantTranscript transcript,
   ) =>
       Column(
@@ -198,27 +198,27 @@ class _CoachRosterAssistantPanelState
           _exchangeHistory(copy, colors, transcript),
           if (_sending) _thinking(copy, colors),
           if (_error != null) _errorMessage(colors),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _composer(copy, colors),
         ],
       );
 
   Widget _exchangeHistory(
     CoachCopy copy,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
     CoachRosterAssistantTranscript transcript,
   ) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _privacyNote(copy, colors),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           if (transcript.exchanges.isEmpty && !_sending)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: MyosSpacing.sm),
+              padding: const EdgeInsets.symmetric(vertical: MayosSpacing.sm),
               child: Text(
                 copy.rosterAssistantNoHistory,
-                style: MyosTypography.of(context).bodySecondary
+                style: MayosTypography.of(context).bodySecondary
                     .copyWith(color: colors.textSecondary),
               ),
             )
@@ -229,43 +229,43 @@ class _CoachRosterAssistantPanelState
         ],
       );
 
-  Widget _errorMessage(MyosThemeExtension colors) => Padding(
-    padding: const EdgeInsets.only(top: MyosSpacing.sm),
+  Widget _errorMessage(MayosThemeExtension colors) => Padding(
+    padding: const EdgeInsets.only(top: MayosSpacing.sm),
     child: Text(
       displayCopyOf(context).failureMessage(_error!),
-      style: MyosTypography.of(context).bodySecondary
+      style: MayosTypography.of(context).bodySecondary
           .copyWith(color: colors.danger),
     ),
   );
 
-  Widget _notice(String message, MyosThemeExtension colors) => Container(
-    padding: const EdgeInsets.all(MyosSpacing.sm),
+  Widget _notice(String message, MayosThemeExtension colors) => Container(
+    padding: const EdgeInsets.all(MayosSpacing.sm),
     decoration: BoxDecoration(
       color: colors.surfaceSunken,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
       message,
-      style: MyosTypography.of(context).bodySecondary
+      style: MayosTypography.of(context).bodySecondary
           .copyWith(color: colors.textSecondary),
     ),
   );
 
-  Widget _privacyNote(CoachCopy copy, MyosThemeExtension colors) => Text(
+  Widget _privacyNote(CoachCopy copy, MayosThemeExtension colors) => Text(
     copy.rosterAssistantPrivacyNote,
-    style: MyosTypography.of(context).caption
+    style: MayosTypography.of(context).caption
         .copyWith(color: colors.textMuted),
   );
 
   Widget _exchange(
     CoachRosterAssistantExchange exchange,
     CoachCopy copy,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) {
     final Map<String, CoachRosterEntry> assignmentsById = _assignmentsById();
     final Set<String> mentioned = _mentionedAliases(exchange);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: MyosSpacing.xxs),
+      padding: const EdgeInsets.symmetric(vertical: MayosSpacing.xxs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -275,7 +275,7 @@ class _CoachRosterAssistantPanelState
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.86,
               ),
-              padding: const EdgeInsets.all(MyosSpacing.sm),
+              padding: const EdgeInsets.all(MayosSpacing.sm),
               decoration: BoxDecoration(
                 color: colors.accent,
                 borderRadius: BorderRadius.circular(14),
@@ -290,7 +290,7 @@ class _CoachRosterAssistantPanelState
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
-              padding: const EdgeInsets.all(MyosSpacing.sm),
+              padding: const EdgeInsets.all(MayosSpacing.sm),
               decoration: BoxDecoration(
                 color: colors.surfaceSunken,
                 borderRadius: BorderRadius.circular(14),
@@ -332,11 +332,11 @@ class _CoachRosterAssistantPanelState
 
   Widget _questionBubble(
     String question,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) =>
       Text(
         question,
-        style: MyosTypography.of(context).bodySecondary
+        style: MayosTypography.of(context).bodySecondary
             .copyWith(color: colors.onAccent),
       );
 
@@ -348,19 +348,19 @@ class _CoachRosterAssistantPanelState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           SelectionArea(
-            child: MyosMarkdown(
+            child: MayosMarkdown(
               source: _displayAnswer(exchange, assignmentsById),
-              bodyStyle: MyosTypography.of(context).bodySecondary,
+              bodyStyle: MayosTypography.of(context).bodySecondary,
               selectable: false,
             ),
           ),
           if (exchange.coverageSummary.isNotEmpty) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(
               exchange.coverageSummary,
               key: const Key('coach_roster_coverage_summary'),
-              style: MyosTypography.of(context).caption
-                  .copyWith(color: MyosTheme.of(context).textSecondary),
+              style: MayosTypography.of(context).caption
+                  .copyWith(color: MayosTheme.of(context).textSecondary),
             ),
           ],
         ],
@@ -373,8 +373,8 @@ class _CoachRosterAssistantPanelState
     Map<String, CoachRosterEntry> assignmentsById,
   ) =>
       Wrap(
-        spacing: MyosSpacing.xs,
-        runSpacing: MyosSpacing.xs,
+        spacing: MayosSpacing.xs,
+        runSpacing: MayosSpacing.xs,
         children: <Widget>[
           for (final String alias in mentioned)
             if (assignmentsById[exchange.assignmentByPlayerId[alias]] != null)
@@ -395,7 +395,7 @@ class _CoachRosterAssistantPanelState
     CoachRosterEntry entry,
     String playerDisplayName,
   ) =>
-      myosPhoneTapTarget(context, ActionChip(
+      mayosPhoneTapTarget(context, ActionChip(
         key: Key('coach_roster_player_link_$alias'),
         avatar: const Icon(Icons.open_in_new, size: 16),
         label: Text('${copy.askAboutPlayer}: $playerDisplayName'),
@@ -407,8 +407,8 @@ class _CoachRosterAssistantPanelState
         ),
       ));
 
-  Widget _thinking(CoachCopy copy, MyosThemeExtension colors) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: MyosSpacing.sm),
+  Widget _thinking(CoachCopy copy, MayosThemeExtension colors) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: MayosSpacing.sm),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -417,21 +417,21 @@ class _CoachRosterAssistantPanelState
           width: 14,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        const SizedBox(width: MyosSpacing.sm),
+        const SizedBox(width: MayosSpacing.sm),
         Text(
           copy.assistantThinking,
-          style: MyosTypography.of(context).bodySecondary
+          style: MayosTypography.of(context).bodySecondary
               .copyWith(color: colors.textSecondary),
         ),
       ],
     ),
   );
 
-  Widget _composer(CoachCopy copy, MyosThemeExtension colors) => Row(
+  Widget _composer(CoachCopy copy, MayosThemeExtension colors) => Row(
     crossAxisAlignment: CrossAxisAlignment.end,
     children: <Widget>[
       Expanded(
-        child: MyosTextField(
+        child: MayosTextField(
           fieldKey: const Key('coach_roster_assistant_question'),
           controller: _question,
           enabled: !_sending,
@@ -443,7 +443,7 @@ class _CoachRosterAssistantPanelState
           onSubmitted: (_) => _send(),
         ),
       ),
-      const SizedBox(width: MyosSpacing.xs),
+      const SizedBox(width: MayosSpacing.xs),
       IconButton.filled(
         key: const Key('coach_roster_assistant_send'),
         tooltip: copy.send,

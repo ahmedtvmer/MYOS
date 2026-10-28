@@ -1,6 +1,6 @@
-# Myos: Architectural Benchmarks & System Comparative Analysis
+# Mayos: Architectural Benchmarks & System Comparative Analysis
 
-This document provides a comparative analysis and empirical benchmark evaluation of the Myos engine, detailing performance metrics, context scaling, concurrency thresholds, deterministic triage guarantees, and biomechanical auto-regulation protocols against standard LLM agent frameworks and conventional workout trackers.
+This document provides a comparative analysis and empirical benchmark evaluation of the Mayos engine, detailing performance metrics, context scaling, concurrency thresholds, deterministic triage guarantees, and biomechanical auto-regulation protocols against standard LLM agent frameworks and conventional workout trackers.
 
 ---
 
@@ -8,7 +8,7 @@ This document provides a comparative analysis and empirical benchmark evaluation
 
 Traditional agent frameworks route every user interaction through an LLM classification prompt to determine whether a query requires database operations, routine modification, or clinical intervention. Running classification prompts on consumer CPUs introduces significant latency bottlenecks.
 
-Myos implements a deterministic fast-path router (`agent/assistant_graph.py`) that evaluates incoming turns against compiled regex pattern sets and dynamic ledger reconcilers — pure-regex paths resolve in microseconds, while non-trivial queries add a Tier-1 semantic guard (~30 ms on CPU) — bypassing hosted chat inference on structured operations.
+Mayos implements a deterministic fast-path router (`agent/assistant_graph.py`) that evaluates incoming turns against compiled regex pattern sets and dynamic ledger reconcilers — pure-regex paths resolve in microseconds, while non-trivial queries add a Tier-1 semantic guard (~30 ms on CPU) — bypassing hosted chat inference on structured operations.
 
 ### Recorded Routing Benchmark (2026-09)
 
@@ -49,7 +49,7 @@ The benchmark below records the former six-message tail and compact telemetry pr
 
 ### Recorded Context Scaling Benchmark (2026-09)
 
-| Dialogue History | Unclamped Runtime Latency | Myos Clamped Tail Latency | Clamped vs Unclamped |
+| Dialogue History | Unclamped Runtime Latency | Mayos Clamped Tail Latency | Clamped vs Unclamped |
 | :---: | :---: | :---: | :--- |
 | **1 Turn** | 4.91 s | 3.23 s | Clamped is 1.5× faster |
 | **4 Turns** | 4.28 s | 4.09 s | ~Flat |
@@ -63,7 +63,7 @@ The recorded clamped path held an asymptotic **~4.2 s ceiling** regardless of hi
 
 ## 3. Database Architecture, Concurrency & State Isolation
 
-Myos rejects external vector daemons and monolithic database topologies in favor of an embedded, multi-tenant SQLite architecture.
+Mayos rejects external vector daemons and monolithic database topologies in favor of an embedded, multi-tenant SQLite architecture.
 
             +-----------------------------------------+
             |          DatabaseManager                |
@@ -114,7 +114,7 @@ The movement catalog is indexed using 384-dimensional normalized vectors generat
 
 ## 5. Biomechanical Engine vs. Conventional Workout Trackers
 
-| Functional Domain | Conventional Trackers (Strong, Hevy, 5x5) | Myos Biomechanics Engine |
+| Functional Domain | Conventional Trackers (Strong, Hevy, 5x5) | Mayos Biomechanics Engine |
 | :--- | :--- | :--- |
 | **Progression Algorithm** | Static linear progression (e.g., add 2.5 kg next week regardless of velocity or actual exertion). | **Dynamic RPE Scaling**: Computes effective 1RM via: $$\text{e1RM} = w \cdot \left(1 + \frac{\text{effective\_reps}}{30}\right)$$ where $\text{effective\_reps} = r + (10 - \text{RPE})$. Dynamically upscales on reserve velocity or flags bracket graduation. |
 | **Failure Protection** | None. Prescribes heavier loads following failed sets or near-injury overshoots. | **RPE 10 Step-Down**: Detects overshoots (RPE 10 @ target $\le$ 8.5) and drops load by 2.5 kg to protect joint and connective tissue integrity. |

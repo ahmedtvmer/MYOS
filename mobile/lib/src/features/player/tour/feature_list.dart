@@ -6,7 +6,7 @@ import 'tour_targets.dart';
 
 /// The shared Feature list used by the Tour and later discovery surfaces.
 const int tourCurrentVersion = 1;
-const int currentFeatureRelease = 1;
+const int currentFeatureRelease = 2;
 
 bool isTourEligible(Account account, {int currentVersion = tourCurrentVersion}) =>
     account.tourSeenVersion < currentVersion &&
@@ -137,6 +137,17 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     target: 'feature_guide',
     location: TourRouteLocation(profilePath),
     release: 0,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'brand-mayos',
+    titleEn: 'MYOS is now MAYOS',
+    sentenceEn: "Same app, same training — we're now called MAYOS.",
+    titleAr: 'MYOS أصبح MAYOS',
+    sentenceAr: 'نفس التطبيق ونفس التدريب، أصبح اسمنا الآن MAYOS.',
+    target: 'brand_mayos',
+    location: TourShellTabLocation(tabIndex: 0),
+    release: 2,
     audience: 'lifter',
   ),
   FeatureEntry(

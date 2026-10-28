@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/shared/mode_switch.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/shared/mode_switch.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/fake_api_adapter.dart';
 
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
@@ -70,14 +70,14 @@ Future<void> _pumpApp(
   bool coachCapability = true,
   bool playerCapability = true,
   String displayLanguage = 'en',
-  FakeMyosApi? fakeApi,
+  FakeMayosApi? fakeApi,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  final FakeMyosApi fake = fakeApi ?? FakeMyosApi();
+  final FakeMayosApi fake = fakeApi ?? FakeMayosApi();
   fake
     ..issuedToken = 'token-alice'
     ..currentUsername = 'alice'
@@ -106,7 +106,7 @@ Future<void> _pumpApp(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(
@@ -121,7 +121,7 @@ Future<void> _pumpApp(
 void main() {
   testWidgets('Settings shows linked Google email and product opt-in in English',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..googleEmail = 'lifter@gmail.com';
     await _pumpApp(
       tester,
@@ -144,7 +144,7 @@ void main() {
 
   testWidgets('Settings reconciles consent from server and shows save errors',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..productEmailsResponseOverride = false;
     await _pumpApp(tester,
         mode: AppMode.player, size: const Size(390, 844), fakeApi: fake);
@@ -163,7 +163,7 @@ void main() {
 
   testWidgets('Settings disables consent toggle while saving',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     final Completer<void> requestStarted = Completer<void>();
     final Completer<void> allowResponse = Completer<void>();
     fake.adapter.beforeRespond = (FakeRequest request) async {
@@ -191,7 +191,7 @@ void main() {
 
   testWidgets('Settings shows linked Google email and product opt-in in Arabic',
       (WidgetTester tester) async {
-    final FakeMyosApi arabic = FakeMyosApi()
+    final FakeMayosApi arabic = FakeMayosApi()
       ..googleEmail = 'lifter@gmail.com'
       ..displayLanguage = 'ar';
     await _pumpApp(
@@ -211,7 +211,7 @@ void main() {
 
   testWidgets('Assistant preference Settings edit and delete saved items',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..issuedToken = 'token-alice'
       ..currentUsername = 'alice'
       ..assistantPreferenceWriteFailuresRemaining = 1
@@ -259,7 +259,7 @@ void main() {
 
   testWidgets('Assistant preference write completion after disposal is safe',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..issuedToken = 'token-alice'
       ..currentUsername = 'alice'
       ..assistantPreferences.add(<String, dynamic>{
@@ -309,7 +309,7 @@ void main() {
 
   testWidgets('Arabic Assistant preference Settings displays saved items',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..assistantPreferences.add(<String, dynamic>{
         'id': 'pref-ar',
         'text': 'بتمرن الصبح',
@@ -447,7 +447,7 @@ void main() {
 
   testWidgets('Player Settings opens the Player notifications surface',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..playerNotices.add(<String, dynamic>{
         'notice_id': 'notice-1',
         'assignment_id': 'assignment-1',
@@ -522,7 +522,7 @@ void main() {
 
   testWidgets('Player notifications use Arabic glossary copy',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = FakeMyosApi()
+    final FakeMayosApi fake = FakeMayosApi()
       ..playerNotices.add(<String, dynamic>{
         'notice_id': 'arabic-notice',
         'assignment_id': 'assignment-1',

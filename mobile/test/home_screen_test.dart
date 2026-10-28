@@ -4,29 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/core/install_prompt_store.dart';
-import 'package:myos_mobile/src/features/shared/install_prompt.dart';
-import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
-import 'package:myos_mobile/src/features/player/auth/auth_controller.dart';
-import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
-import 'package:myos_mobile/src/features/player/tour/spotlight_overlay.dart';
-import 'package:myos_mobile/src/features/player/tour/whats_new_screen.dart';
-import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
-import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
-import 'package:myos_mobile/src/router.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_app_header.dart';
+import 'package:mayos_mobile/src/core/install_prompt_store.dart';
+import 'package:mayos_mobile/src/features/shared/install_prompt.dart';
+import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:mayos_mobile/src/features/player/auth/auth_controller.dart';
+import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:mayos_mobile/src/features/player/tour/spotlight_overlay.dart';
+import 'package:mayos_mobile/src/features/player/tour/whats_new_screen.dart';
+import 'package:mayos_mobile/src/features/player/tour/tour_targets.dart';
+import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
+import 'package:mayos_mobile/src/router.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_tour_seen_retry_store.dart';
@@ -130,7 +131,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
 
 Future<void> _pumpHome(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   ThemeModeStore? themeStore,
   DraftStore? draftStore,
   String languageCode = 'en',
@@ -181,7 +182,7 @@ Future<void> _pumpHome(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   if (waitForHome) {
@@ -190,19 +191,20 @@ Future<void> _pumpHome(
   }
 }
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
   fake.profileExists = true;
   fake.recoveryEmail = 'alice@example.com';
+  fake.whatsNewSeenRelease = currentFeatureRelease;
   return fake;
 }
 
 void main() {
   testWidgets('What’s new shows only unseen supported entries and Got it remembers the release', (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     final FakeWhatsNewSeenRetryStore retryStore = FakeWhatsNewSeenRetryStore();
     final FeatureEntry unsupported = FeatureEntry(
@@ -242,7 +244,7 @@ void main() {
   });
 
   testWidgets("offline What's new dismissal is queued and retried after app restart", (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..whatsNewSeenRelease = 0
       ..whatsNewSeenWriteFailures = 1;
     final FakeWhatsNewSeenRetryStore retryStore = FakeWhatsNewSeenRetryStore();
@@ -253,7 +255,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(retryStore.pending['account-alice'], currentFeatureRelease);
-    final ProviderContainer firstContainer = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final ProviderContainer firstContainer = ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     expect(firstContainer.read(authControllerProvider).session?.account.whatsNewSeenRelease, currentFeatureRelease);
     expect(fake.whatsNewSeenRelease, 0);
 
@@ -268,7 +270,7 @@ void main() {
   });
 
   testWidgets("What's new close marks the release seen", (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text("What's new"));
     await tester.tap(find.byIcon(Icons.close));
@@ -279,12 +281,12 @@ void main() {
 
   testWidgets("Profile What's new list is grouped and localized", (tester) async {
     for (final String language in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       final FakeAnalyticsClient analytics = FakeAnalyticsClient();
       await _pumpHome(tester, fake, languageCode: language, size: const Size(390, 844), extraOverrides: <Override>[
         analyticsClientProvider.overrideWithValue(analytics),
       ]);
-      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
       for (int attempt = 0; attempt < 40 && !container.read(activeWorkoutControllerProvider).ready; attempt++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
@@ -314,7 +316,7 @@ void main() {
   });
 
   testWidgets("What's new analytics respects the opt-out", (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..analyticsAllowed = false
       ..whatsNewSeenRelease = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
@@ -333,10 +335,10 @@ void main() {
   });
 
   testWidgets("What's new waits for an open workout to close", (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
     final _BlockingWhatsNewRetryStore retryStore = _BlockingWhatsNewRetryStore();
     await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore);
-    final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final ActiveWorkout workout = ActiveWorkout.fromJson(<String, dynamic>{
       'id': 'whats-new-workout',
       'account_id': 'account-alice',
@@ -360,7 +362,7 @@ void main() {
   });
 
   testWidgets("What's new waits until the app session after the Tour", (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..tourSeenVersion = 0
       ..whatsNewSeenRelease = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
@@ -370,7 +372,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text("What's new"), findsNothing);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(routerProvider).go(workoutsPath);
     await tester.pumpAndSettle();
     container.read(routerProvider).go(homePath);
@@ -383,7 +385,7 @@ void main() {
   });
 
   testWidgets('Add exercises is omitted when a coach controls program edits', (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..coachControlsProgram = true
       ..whatsNewSeenRelease = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
@@ -393,7 +395,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(routerProvider).go(featureGuidePath);
     await tester.pumpAndSettle();
     expect(find.text('Add exercises in the Program tab'), findsNothing);
@@ -401,7 +403,7 @@ void main() {
   });
 
   testWidgets("What's new follows Player mode for a Coach-capable account", (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..coach = true
       ..tourSeenVersion = 1
       ..whatsNewSeenRelease = 0;
@@ -418,7 +420,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text("What's new"), findsNothing);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     await container.read(appModeControllerProvider.notifier).setMode(
           AppMode.player,
           accountId: 'account-alice',
@@ -429,7 +431,7 @@ void main() {
   });
 
   testWidgets("What's new retry does not write Account A under Account B", (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 1;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = currentFeatureRelease - 1;
     fake.passwords['bob'] = 'password123';
     final _PendingWriteWhatsNewStore retryStore = _PendingWriteWhatsNewStore();
     await _pumpHome(
@@ -439,8 +441,8 @@ void main() {
       whatsNewRetryStore: retryStore,
     );
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
-    unawaited(container.read(tourControllerProvider.notifier).markWhatsNewSeen(1));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
+    unawaited(container.read(tourControllerProvider.notifier).markWhatsNewSeen(currentFeatureRelease));
     await retryStore.writeStarted.future;
     unawaited(container.read(authControllerProvider.notifier).login(
           username: 'bob',
@@ -466,7 +468,7 @@ void main() {
   });
 
   testWidgets('chat Show me waits through a delayed successful history load', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final Completer<void> historyGate = Completer<void>();
     fake.adapter.beforeRespond = (request) async {
       if (request.path == '/chat/history' && request.method == 'GET') {
@@ -476,7 +478,7 @@ void main() {
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text('Home'));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(routerProvider).go(chatPath);
     await tester.pump();
     expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
@@ -490,7 +492,7 @@ void main() {
   });
 
   testWidgets("What's new Show me is not blocked by a stalled seen request", (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
     final Completer<void> seenRequest = Completer<void>();
     fake.adapter.beforeRespond = (request) async {
       if (request.path == '/auth/whats-new-seen') await seenRequest.future;
@@ -574,7 +576,7 @@ void main() {
   });
 
   testWidgets('Home shows install variants and reports shown analytics', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     final _FakeInstallPromptStore store = _FakeInstallPromptStore(
       const InstallPromptEnvironment(
@@ -595,7 +597,7 @@ void main() {
   });
 
   testWidgets('install prompt waits until Tour is dismissed', (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     final _FakeInstallPromptStore store = _FakeInstallPromptStore(
       const InstallPromptEnvironment(
         isIosShareBrowser: false,
@@ -625,7 +627,7 @@ void main() {
 
   testWidgets('install prompt waits until What’s new is dismissed',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
     final _FakeInstallPromptStore store = _FakeInstallPromptStore(
       const InstallPromptEnvironment(
         isIosShareBrowser: false,
@@ -738,7 +740,7 @@ void main() {
   });
 
   testWidgets('install events respect the analytics opt-out gate', (tester) async {
-    final FakeMyosApi fake = _signedInFake()..analyticsAllowed = false;
+    final FakeMayosApi fake = _signedInFake()..analyticsAllowed = false;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     final _FakeInstallPromptStore store = _FakeInstallPromptStore(
       const InstallPromptEnvironment(
@@ -801,13 +803,13 @@ void main() {
           as Map<String, Object>)['variant'],
       'none',
     );
-    expect(find.text('Install MYOS'), findsNothing);
+    expect(find.text('Install MAYOS'), findsNothing);
   });
 
   testWidgets(
       'Arabic Home labels use RTL while server program names stay as sent',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpHome(tester, fake, languageCode: 'ar');
     await _pumpUntilFound(tester, find.textContaining('محسوبة لكل عضلة'));
 
@@ -828,7 +830,7 @@ void main() {
 
   testWidgets('Arabic Home translates the pending workout draft banner',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryDraftStore drafts = InMemoryDraftStore();
     await drafts.write('account-alice', <WorkoutDraft>[
       const WorkoutDraft(
@@ -863,7 +865,7 @@ void main() {
 
   testWidgets('home maps the active program, volume, and records',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, fake);
 
@@ -881,7 +883,7 @@ void main() {
 
   testWidgets('Tour walks all seven stops then marks completion seen',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     final Completer<void> profileRequestsStarted = Completer<void>();
     final Completer<void> releaseProfileRequests = Completer<void>();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
@@ -898,7 +900,7 @@ void main() {
     };
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
     expect(container.read(authControllerProvider).session?.account.tourSeenVersion, 0);
     expect(container.read(activeWorkoutControllerProvider).ready, isTrue);
@@ -985,14 +987,14 @@ void main() {
 
   testWidgets('Arabic Tour follows all seven stops across real tabs and routes',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpHome(tester, fake, languageCode: 'ar');
     const List<String> titles = <String>[
       'الرئيسية', 'البرنامج التدريبي', 'المساعد', 'التغذية', 'التقدم',
       'الملف الشخصي', 'دليل الميزات',
     ];
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final router = container.read(routerProvider);
     for (int index = 0; index < titles.length; index++) {
       await _pumpUntilFound(tester, find.text(titles[index]));
@@ -1014,13 +1016,13 @@ void main() {
 
   testWidgets('Replay tour leaves seen state untouched and marks replay analytics',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 1;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 1;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
     ]);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final int writesBefore = fake.tourSeenWriteCount;
     final Future<void> replay = container
         .read(tourControllerProvider.notifier)
@@ -1041,10 +1043,10 @@ void main() {
 
   testWidgets('Tour session is cancelled when the authenticated account changes',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpHome(tester, fake);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final AuthController auth =
         container.read(authControllerProvider.notifier);
     final TourController tour =
@@ -1087,7 +1089,7 @@ void main() {
 
   testWidgets('Tour controller does nothing after switching to Coach mode',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..coach = true
       ..tourSeenVersion = 1;
     await _pumpHome(
@@ -1098,7 +1100,7 @@ void main() {
       }),
     );
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final Account account =
         container.read(authControllerProvider).session!.account;
     final TourController tour =
@@ -1122,11 +1124,11 @@ void main() {
   });
 
   testWidgets('Tour target registry follows real Profile widget disposal', (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
 
     for (int step = 2; step <= 3; step++) {
       await tester.tap(find.text('Next'));
@@ -1145,7 +1147,7 @@ void main() {
 
   testWidgets('Tour Skip records seen state and Arabic mirrors Skip',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, languageCode: 'ar', extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
@@ -1164,7 +1166,7 @@ void main() {
 
   testWidgets('Tour waits for a streaming reply and resumes on Home',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
@@ -1172,7 +1174,7 @@ void main() {
     ]);
     expect(find.text('1 OF 7'), findsNothing);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(playerChatStreamingProvider.notifier).state = false;
     await _pumpUntilFound(tester, find.text('1 OF 7'));
     expect(find.text('1 OF 7'), findsOneWidget);
@@ -1180,14 +1182,14 @@ void main() {
 
   testWidgets('Tour pauses for a newly open workout and streaming reply until Home reopens',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
     ]);
     await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_skip')));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
 
     final ActiveWorkout workout = ActiveWorkout.fromJson(<String, dynamic>{
       'id': 'tour-workout',
@@ -1248,7 +1250,7 @@ void main() {
 
   testWidgets('Tour events stay suppressed when analytics is opted out',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..tourSeenVersion = 0
       ..analyticsAllowed = false;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
@@ -1264,10 +1266,10 @@ void main() {
 
   testWidgets('showMe Program from Profile opens its shell tab target',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpHome(tester, fake);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final router = container.read(routerProvider);
     router.go(profilePath);
     await tester.pumpAndSettle();
@@ -1285,10 +1287,10 @@ void main() {
 
   testWidgets('showMe Profile from Home targets its route and unregisters on pop',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpHome(tester, fake);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final router = container.read(routerProvider);
 
     final Future<void> spotlight =
@@ -1309,10 +1311,10 @@ void main() {
 
   testWidgets('Show me waits for Profile API responses before spotlighting',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpHome(tester, fake);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final Completer<void> profileRequestsStarted = Completer<void>();
     final Completer<void> releaseProfileRequests = Completer<void>();
     fake.adapter.beforeRespond = (FakeRequest request) async {
@@ -1361,10 +1363,10 @@ void main() {
 
   testWidgets('Profile Guides rows open the Feature guide and replay the Tour',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 1;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 1;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
     router.push(profilePath);
     await _pumpUntilFound(tester, find.text('Injuries'));
@@ -1404,7 +1406,7 @@ void main() {
   });
 
   testWidgets("What's new Show me lands and spotlights each release entry", (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     final List<FeatureEntry> entries = featureList
         .where((FeatureEntry entry) => entry.release == currentFeatureRelease)
@@ -1431,11 +1433,17 @@ void main() {
       await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
       await tester.pumpAndSettle();
 
-      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
       final GoRouter router = container.read(routerProvider);
       expect(entry.location.matches(router.routerDelegate.state.uri.path, container.read(playerShellTabProvider)), isTrue, reason: entry.id);
       expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.titleEn)), findsOneWidget, reason: entry.id);
       expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.sentenceEn)), findsOneWidget, reason: entry.id);
+      if (entry.id == 'brand-mayos') {
+        final Finder logo = find.byKey(MayosAppHeader.brandKey);
+        expect(logo, findsOneWidget);
+        final Rect cutout = tester.getRect(find.byKey(const ValueKey<String>('tour_spotlight_cutout')));
+        expect(cutout.contains(tester.getRect(logo).center), isTrue);
+      }
       if (entry.release == currentFeatureRelease) {
         final Finder realControl = switch (entry.id) {
           'weak_points' => find.byKey(const Key('profile_weak_points_section')),
@@ -1443,6 +1451,7 @@ void main() {
           'add_exercises' => find.byKey(const Key('program_edit_day_1')),
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
+          'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
@@ -1463,7 +1472,7 @@ void main() {
 
   testWidgets('Feature guide Show me lands and spotlights every lifter feature',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     const FeatureEntry unsupported = FeatureEntry(
       id: 'future_feature',
@@ -1482,7 +1491,7 @@ void main() {
       featureEntriesProvider.overrideWithValue(<FeatureEntry>[...featureList, unsupported]),
     ]);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
     router.go(featureGuidePath);
     await tester.pumpAndSettle();
@@ -1518,6 +1527,12 @@ void main() {
 
       expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.titleEn)), findsOneWidget, reason: entry.id);
       expect(find.descendant(of: find.byType(SpotlightOverlay), matching: find.text(entry.sentenceEn)), findsOneWidget, reason: entry.id);
+      if (entry.id == 'brand-mayos') {
+        final Finder logo = find.byKey(MayosAppHeader.brandKey);
+        expect(logo, findsOneWidget);
+        final Rect cutout = tester.getRect(find.byKey(const ValueKey<String>('tour_spotlight_cutout')));
+        expect(cutout.contains(tester.getRect(logo).center), isTrue);
+      }
       if (entry.release == currentFeatureRelease) {
         final Finder realControl = switch (entry.id) {
           'weak_points' => find.byKey(const Key('profile_weak_points_section')),
@@ -1525,6 +1540,7 @@ void main() {
           'add_exercises' => find.byKey(const Key('program_edit_day_1')),
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
+          'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
@@ -1549,10 +1565,10 @@ void main() {
 
   testWidgets('Show me to Profile preserves the guide as the Back destination',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpHome(tester, fake, size: const Size(390, 844));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
     router.go(featureGuidePath);
     await tester.pumpAndSettle();
@@ -1577,10 +1593,10 @@ void main() {
 
   testWidgets('Show me leaves tour seen version unchanged and is blocked by workout',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 1;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 1;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
     router.go(featureGuidePath);
     await tester.pumpAndSettle();
@@ -1640,14 +1656,14 @@ void main() {
 
   testWidgets('Feature guide Show me analytics honors the account opt-out',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..analyticsAllowed = false;
+    final FakeMayosApi fake = _signedInFake()..analyticsAllowed = false;
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await _pumpHome(tester, fake, size: const Size(390, 844),
         extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
     ]);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(routerProvider).go(featureGuidePath);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show me').first);
@@ -1660,7 +1676,7 @@ void main() {
 
   testWidgets('Tour version 2 only reaches accounts created at version 2',
       (tester) async {
-    final FakeMyosApi oldAccount = _signedInFake()
+    final FakeMayosApi oldAccount = _signedInFake()
       ..tourSeenVersion = 1
       ..tourCreatedVersion = 0;
     await _pumpHome(tester, oldAccount, extraOverrides: <Override>[
@@ -1670,7 +1686,7 @@ void main() {
     expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
-    final FakeMyosApi newAccount = _signedInFake()
+    final FakeMayosApi newAccount = _signedInFake()
       ..tourSeenVersion = 1
       ..tourCreatedVersion = 2;
     await _pumpHome(tester, newAccount, extraOverrides: <Override>[
@@ -1682,7 +1698,7 @@ void main() {
 
   testWidgets('Skip dismisses offline and retries the seen write on next Home open',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..tourSeenVersion = 0
       ..whatsNewSeenRelease = 0
       ..tourSeenWriteFailures = 5;
@@ -1701,7 +1717,7 @@ void main() {
     expect(retryStore.pending.values, contains(1));
 
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     container.read(playerShellTabProvider.notifier).state = 1;
     await tester.pumpAndSettle();
     container.read(routerProvider).go(workoutsPath);
@@ -1721,7 +1737,7 @@ void main() {
 
   testWidgets('Tour tooltip controls remain visible and tappable on a phone',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+    final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
     await _pumpHome(tester, fake, size: const Size(390, 844));
     await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
 
@@ -1742,7 +1758,7 @@ void main() {
   testWidgets('Arabic Tour tooltip actions fit 320 and 390 dp widths',
       (tester) async {
     for (final double width in <double>[320, 390]) {
-      final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 0;
+      final FakeMayosApi fake = _signedInFake()..tourSeenVersion = 0;
       await _pumpHome(
         tester,
         fake,
@@ -1771,7 +1787,7 @@ void main() {
   });
 
   testWidgets('home shows honest empty states without data', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.noActiveProgram = true;
     fake.scheduleEmpty = true;
     fake.volumeEmpty = true;
@@ -1794,7 +1810,7 @@ void main() {
   testWidgets('the Personal records shelf localizes most reps and its value',
       (tester) async {
     for (final String language in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _signedInFake()
+      final FakeMayosApi fake = _signedInFake()
         ..personalRecordsBody = <Map<String, dynamic>>[
           <String, dynamic>{
             'exercise_id': 'push_up',
@@ -1822,7 +1838,7 @@ void main() {
 
   testWidgets('the no-program action reaches the assistant from Program',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.noActiveProgram = true;
     fake.scheduleEmpty = true;
     fake.volumeEmpty = true;
@@ -1841,7 +1857,7 @@ void main() {
 
   testWidgets('home reads the latest committed session from the ledger',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.latestSessionBody = <String, dynamic>{
       'session_id': 'sess-1',
       'session_date': '2026-09-20',
@@ -1861,7 +1877,7 @@ void main() {
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..checkpointReviewRows = <Map<String, dynamic>>[
         <String, dynamic>{
           'checkpoint': 10,
@@ -1882,12 +1898,12 @@ void main() {
           <String, dynamic>{'part': 'Consistency', 'label': 'Strong'},
         ],
         'text':
-            'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+            'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
         'text_is_template': true,
       };
     await _pumpHome(tester, fake);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     final GoRouter router = container.read(routerProvider);
 
     expect(find.byKey(const ValueKey<String>('dashboard.checkpoint-review')),
@@ -1903,7 +1919,7 @@ void main() {
     expect(find.text('Strong'), findsOneWidget);
     expect(
       find.text(
-        'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+        'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
       ),
       findsOneWidget,
     );
@@ -1917,7 +1933,7 @@ void main() {
 
   testWidgets('Arabic Checkpoint title keeps its ordinal and date range LTR',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..checkpointReviewRows = <Map<String, dynamic>>[
         <String, dynamic>{
           'checkpoint': 10,
@@ -1938,7 +1954,7 @@ void main() {
           <String, dynamic>{'part': 'Consistency', 'label': 'Strong'},
         ],
         'text':
-            'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+            'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
         'text_is_template': true,
       };
     await _pumpHome(tester, fake, languageCode: 'ar');
@@ -1968,7 +1984,7 @@ void main() {
   for (final ThemeMode mode in <ThemeMode>[ThemeMode.light, ThemeMode.dark]) {
     testWidgets('home renders in ${mode.name} theme without overflow',
         (tester) async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       await _pumpHome(
         tester,
         fake,

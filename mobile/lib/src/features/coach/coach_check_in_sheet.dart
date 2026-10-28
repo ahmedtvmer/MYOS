@@ -7,13 +7,13 @@ import '../../core/connectivity_message.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_bottom_sheet_editor.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_phone_tap_target.dart';
+import '../../core/ui/mayos_bottom_sheet_editor.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_phone_tap_target.dart';
 import '../../providers.dart';
 
 /// The four channels the log-check-in sheet offers (#120): a call, a message,
@@ -54,7 +54,7 @@ Future<void> showLogCheckInSheet(
         builder: (BuildContext context) => sheet,
       );
     } else {
-      await showMyosBottomSheetEditor<void>(
+      await showMayosBottomSheetEditor<void>(
         context: context,
         content: sheet,
         actions: _CheckInSubmitAction(controller: controller),
@@ -168,13 +168,13 @@ class _LogCheckInSheetState extends ConsumerState<LogCheckInSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
     final String today = isoDateOf(DateTime.now());
     final double phoneInset = widget.showSaveAction
-        ? MyosSpacing.lg + MediaQuery.viewInsetsOf(context).bottom
+        ? MayosSpacing.lg + MediaQuery.viewInsetsOf(context).bottom
         : 0;
-    final double horizontalInset = widget.showSaveAction ? MyosSpacing.lg : 0;
+    final double horizontalInset = widget.showSaveAction ? MayosSpacing.lg : 0;
     return Padding(
       padding: EdgeInsetsDirectional.fromSTEB(
         horizontalInset,
@@ -189,20 +189,20 @@ class _LogCheckInSheetState extends ConsumerState<LogCheckInSheet> {
           Text(
             copy.checkInWithPlayer(widget.playerUsername),
             style:
-                MyosTypography.of(context).sectionHeading.copyWith(color: c.textPrimary),
+                MayosTypography.of(context).sectionHeading.copyWith(color: c.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             copy.datedToday(today),
-            style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           Wrap(
-            spacing: MyosSpacing.sm,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.sm,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               for (final String channel in kLogCheckInChannels)
-                myosPhoneTapTarget(context, ChoiceChip(
+                mayosPhoneTapTarget(context, ChoiceChip(
                   key: Key('check_in_channel_$channel'),
                   label: Text(copy.checkInChannel(channel)),
                   selected: _channel == channel,
@@ -212,7 +212,7 @@ class _LogCheckInSheetState extends ConsumerState<LogCheckInSheet> {
                 )),
             ],
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           TextField(
             key: const Key('check_in_note_field'),
             controller: _note,
@@ -223,24 +223,24 @@ class _LogCheckInSheetState extends ConsumerState<LogCheckInSheet> {
             ),
           ),
           if (_error != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               _error!,
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
             ),
           ],
           if (_failure != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               displayCopyOf(context).failureMessage(_failure!),
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
             ),
           ],
           if (widget.showSaveAction) ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             AnimatedBuilder(
               animation: widget.controller,
-              builder: (BuildContext context, Widget? child) => MyosButton(
+              builder: (BuildContext context, Widget? child) => MayosButton(
                 key: const Key('check_in_submit_button'),
                 label: copy.saveCheckIn,
                 loading: widget.controller.isSaving,
@@ -263,7 +263,7 @@ class _CheckInSubmitAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: controller,
-        builder: (BuildContext context, Widget? child) => MyosButton(
+        builder: (BuildContext context, Widget? child) => MayosButton(
           key: const Key('check_in_submit_button'),
           label: coachCopyOf(context).saveCheckIn,
           loading: controller.isSaving,

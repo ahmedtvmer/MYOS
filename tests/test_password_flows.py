@@ -39,7 +39,7 @@ def api(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
     monkeypatch.setenv("RESET_TOKEN_TTL_MINUTES", "30")
     monkeypatch.setenv("EMAIL_VERIFICATION_CODE_TTL_MINUTES", "10")
-    monkeypatch.setenv("MYOS_CREDENTIAL_LOCK_DIR", str(tmp_path / "credential-locks"))
+    monkeypatch.setenv("MAYOS_CREDENTIAL_LOCK_DIR", str(tmp_path / "credential-locks"))
     from svc.rate_limit import limiter
 
     limiter._storage.reset()
@@ -253,30 +253,30 @@ def test_forgot_password_is_generic_and_reset_roundtrip(api, monkeypatch, verify
         (
             "en",
             "ar",
-            "Myos Engine password reset",
+            "Mayos Engine password reset",
             "A password reset was requested",
-            "لا يوجد حساب في MYOS يستخدم هذا البريد الإلكتروني",
+            "لا يوجد حساب في MAYOS يستخدم هذا البريد الإلكتروني",
         ),
         (
             "ar",
             "en",
-            "إعادة تعيين كلمة مرور MYOS",
+            "إعادة تعيين كلمة مرور MAYOS",
             "تم طلب إعادة تعيين كلمة المرور",
-            "No MYOS account uses this email",
+            "No MAYOS account uses this email",
         ),
         (
             "ar",
             "fr",
-            "إعادة تعيين كلمة مرور MYOS",
+            "إعادة تعيين كلمة مرور MAYOS",
             "تم طلب إعادة تعيين كلمة المرور",
-            "No MYOS account uses this email",
+            "No MAYOS account uses this email",
         ),
         (
             "en",
             None,
-            "Myos Engine password reset",
+            "Mayos Engine password reset",
             "A password reset was requested",
-            "No MYOS account uses this email",
+            "No MAYOS account uses this email",
         ),
     ],
 )
@@ -972,7 +972,7 @@ def test_recovery_code_email_uses_display_language(api, monkeypatch):
     sent = client.post("/auth/email/verification-code", headers=_authed(token))
 
     assert sent.status_code == 200, sent.text
-    assert deliveries[0][1] == "رمز تأكيد البريد الإلكتروني للاسترداد في MYOS"
+    assert deliveries[0][1] == "رمز تأكيد البريد الإلكتروني للاسترداد في MAYOS"
     assert "استخدم الرمز التالي" in deliveries[0][2]
 
 
@@ -1007,7 +1007,7 @@ def _set_and_verify_recovery_email(client, token, deliveries, email="old@example
 @pytest.mark.parametrize(
     ("display_language", "notice_copy"),
     [
-        ("en", "The recovery email for your MYOS account was changed."),
+        ("en", "The recovery email for your MAYOS account was changed."),
         ("ar", "تم تغيير البريد الإلكتروني للاسترداد"),
     ],
 )

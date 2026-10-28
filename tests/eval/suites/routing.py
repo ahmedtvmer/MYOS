@@ -535,9 +535,9 @@ def _observe_ledger_writes(ledger: Any, executed_actions: list[dict[str, Any]]) 
 def _observe_case(
     case: dict[str, Any], root: Path, scripted_classification: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    from utils.logger import MyosLogger
+    from utils.logger import MayosLogger
 
-    MyosLogger(log_file=str(root / "logs" / "routing.log"))
+    MayosLogger(log_file=str(root / "logs" / "routing.log"))
     from agent import assistant_graph as graph
     from database.database_manager import DEFAULT_CATALOG_PATH, DatabaseManager
     from langchain_core.messages import HumanMessage
@@ -591,7 +591,7 @@ def _observe_case(
 
 def _run_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     observations = []
-    with tempfile.TemporaryDirectory(prefix="myos-routing-") as directory:
+    with tempfile.TemporaryDirectory(prefix="mayos-routing-") as directory:
         root = Path(directory)
         for case in cases:
             try:
@@ -688,7 +688,7 @@ class RoutingSuite:
     def run_hermetic(self, _context: Any) -> dict[str, Any]:
         cases = _load_routing_cases()
         observations = []
-        with tempfile.TemporaryDirectory(prefix="myos-routing-hermetic-") as directory:
+        with tempfile.TemporaryDirectory(prefix="mayos-routing-hermetic-") as directory:
             root = Path(directory)
             for case in cases:
                 expected_action = case.get("expected_action") or {}

@@ -8,10 +8,10 @@ import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
 import '../../core/connectivity_message.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/ui/myos_button.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/ui/mayos_button.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 import 'coach_program_draft_screen.dart';
 import 'program_import_files.dart';
@@ -156,15 +156,15 @@ class _CoachProgramImportScreenState
       body: SafeArea(
         child: ListView(
           padding: EdgeInsetsDirectional.fromSTEB(
-            MyosSpacing.md,
-            MyosSpacing.md,
-            MyosSpacing.md,
+            MayosSpacing.md,
+            MayosSpacing.md,
+            MayosSpacing.md,
             // Keep the final row clear of the pinned action and shell tabs.
-            isDesktopLayout(context) ? MyosSpacing.md : MyosSpacing.xxl,
+            isDesktopLayout(context) ? MayosSpacing.md : MayosSpacing.xxl,
           ),
           children: <Widget>[
             Text(copy.importPrivacyNote),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             if (widget.initialText != null &&
                 _textCapabilityLoaded &&
                 !_textAvailable)
@@ -188,22 +188,22 @@ class _CoachProgramImportScreenState
                     : (Set<_ProgramImportInputMode> selection) =>
                         _selectInputMode(selection.first),
               ),
-              const SizedBox(height: MyosSpacing.md),
+              const SizedBox(height: MayosSpacing.md),
             ],
             if (_inputMode == _ProgramImportInputMode.file || !_textAvailable)
-              MyosButton(
+              MayosButton(
                 key: const Key('program_import_pick_file'),
                 label: _file?.name ??
                     (_textAvailable
                         ? copy.chooseProgramFileWithText
                         : copy.chooseSpreadsheet),
                 icon: Icons.upload_file,
-                variant: MyosButtonVariant.secondary,
+                variant: MayosButtonVariant.secondary,
                 loading: _busy && _result == null,
                 onPressed: _busy ? null : _pickFile,
               ),
             if (_inputMode == _ProgramImportInputMode.paste && _textAvailable) ...<Widget>[
-              MyosTextField(
+              MayosTextField(
                 key: const Key('program_import_paste_field'),
                 fieldKey: const Key('program_import_paste_input'),
                 controller: _pasteController,
@@ -214,7 +214,7 @@ class _CoachProgramImportScreenState
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
               ),
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(copy.programImportCharacterCount(
                 _normalizedPasteLength,
                 _textImportLimit,
@@ -224,9 +224,9 @@ class _CoachProgramImportScreenState
                   copy.programImportOverLimit(_textImportLimit),
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               if (_result == null && isDesktopLayout(context))
-                MyosButton(
+                MayosButton(
                   key: const Key('program_import_submit_paste'),
                   label: copy.reviewImport,
                   icon: Icons.rate_review,
@@ -235,7 +235,7 @@ class _CoachProgramImportScreenState
                 ),
             ],
             if (_result?['requires_tab_choice'] == true) ...<Widget>[
-              const SizedBox(height: MyosSpacing.md),
+              const SizedBox(height: MayosSpacing.md),
               DropdownButtonFormField<String>(
                 key: const Key('program_import_tab_picker'),
                 initialValue: _selectedTab,
@@ -251,8 +251,8 @@ class _CoachProgramImportScreenState
                 onChanged: (String? value) =>
                     setState(() => _selectedTab = value),
               ),
-              const SizedBox(height: MyosSpacing.sm),
-              MyosButton(
+              const SizedBox(height: MayosSpacing.sm),
+              MayosButton(
                 key: const Key('program_import_read_sheet'),
                 label: copy.reviewImport,
                 loading: _busy,
@@ -262,7 +262,7 @@ class _CoachProgramImportScreenState
               ),
             ],
             if (_result != null) ...<Widget>[
-              const SizedBox(height: MyosSpacing.md),
+              const SizedBox(height: MayosSpacing.md),
               if (_result?['confirm_layout'] == true)
                 _layoutConfirmation(context),
               if (!_layoutRejected &&
@@ -271,7 +271,7 @@ class _CoachProgramImportScreenState
                 _importReview(context),
             ],
             if (_error != null) ...<Widget>[
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
           ],
@@ -313,15 +313,15 @@ class _CoachProgramImportScreenState
           Text(copy.weeksNotImported(_weeksNotImported, _selectedWeek)),
         Text(copy.importRowsSummary(_rows.length, _confirmedRows.length)),
         if (_confirmedRows.isEmpty) ...<Widget>[
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(copy.importNoValidRows),
         ],
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         for (final Map<String, dynamic> row in _rows)
           _importRow(context, row),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         if (isDesktopLayout(context))
-          MyosButton(
+          MayosButton(
             key: const Key('program_import_create_draft'),
             label: copy.createImportedDraft,
             icon: Icons.edit_note,
@@ -338,7 +338,7 @@ class _CoachProgramImportScreenState
     if (_inputMode == _ProgramImportInputMode.paste &&
         _result == null &&
         _textAvailable) {
-      action = MyosButton(
+      action = MayosButton(
         key: const Key('program_import_submit_paste'),
         label: copy.reviewImport,
         icon: Icons.rate_review,
@@ -357,7 +357,7 @@ class _CoachProgramImportScreenState
             onPressed: () => setState(() => _layoutRejected = true),
             child: Text(copy.layoutNotRight),
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           FilledButton(
             key: const Key('program_import_layout_confirm'),
             onPressed: () => setState(() => _layoutConfirmed = true),
@@ -366,7 +366,7 @@ class _CoachProgramImportScreenState
         ],
       );
     } else if (_result != null && _layoutCanContinue && !_layoutRejected) {
-      action = MyosButton(
+      action = MayosButton(
         key: const Key('program_import_create_draft'),
         label: copy.createImportedDraft,
         icon: Icons.edit_note,
@@ -379,7 +379,7 @@ class _CoachProgramImportScreenState
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.md),
+        padding: const EdgeInsets.all(MayosSpacing.md),
         child: action,
       ),
     );
@@ -409,18 +409,18 @@ class _CoachProgramImportScreenState
     return Card(
       key: const Key('program_import_layout_confirmation'),
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.md),
+        padding: const EdgeInsets.all(MayosSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(copy.importLayoutConfirmTitle,
                 style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(copy.importLayoutNeedsConfirmation),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(copy.importLayoutSummary(days, _detectedWeeks, rowsByWeek, unassigned)),
             if (_layoutRejected) ...<Widget>[
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(copy.layoutNotRightGuidance),
               if ((_result?['detected_tabs'] as List<dynamic>? ??
                       const <dynamic>[])
@@ -440,7 +440,7 @@ class _CoachProgramImportScreenState
                   ],
                   onChanged: (String? tab) => setState(() => _selectedTab = tab),
                 ),
-                MyosButton(
+                MayosButton(
                   key: const Key('program_import_read_another_sheet'),
                   label: copy.readAnotherSheet,
                   loading: _busy,
@@ -450,9 +450,9 @@ class _CoachProgramImportScreenState
                 ),
               ],
             ] else if (!_layoutConfirmed && isDesktopLayout(context)) ...<Widget>[
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               Wrap(
-                spacing: MyosSpacing.sm,
+                spacing: MayosSpacing.sm,
                 children: <Widget>[
                   OutlinedButton(
                     key: const Key('program_import_layout_not_right'),
@@ -508,7 +508,7 @@ class _CoachProgramImportScreenState
     return Card(
       key: Key('program_import_row_${row['source_row']}'),
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.sm),
+        padding: const EdgeInsets.all(MayosSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[

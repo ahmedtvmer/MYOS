@@ -6,12 +6,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myos_mobile/src/core/app_update_store.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/display_language/store.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/ui/app_update_toast.dart';
-import 'package:myos_mobile/src/router.dart' show logWorkoutPath;
+import 'package:mayos_mobile/src/core/app_update_store.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/display_language/store.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/ui/app_update_toast.dart';
+import 'package:mayos_mobile/src/router.dart' show logWorkoutPath;
 
 class _FakeUpdateStore implements AppUpdateStore {
   final StreamController<bool> events = StreamController<bool>.broadcast();
@@ -58,7 +58,7 @@ void main() {
       ],
       child: MaterialApp.router(
         routerConfig: router,
-        theme: MyosTheme.lightForLanguage(language),
+        theme: MayosTheme.lightForLanguage(language),
         locale: Locale(language),
         supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,

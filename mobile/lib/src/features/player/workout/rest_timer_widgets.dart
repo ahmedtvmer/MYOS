@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/active_workout.dart';
 import '../../../core/display_language/feature_copy_context.dart';
 import '../../../core/rest_length.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
 import '../../../providers.dart';
 
 /// The rest picker (#125): Off, then 1:00–5:00 in 15-second steps. Returns
@@ -34,8 +34,8 @@ Future<int?> showRestLengthPicker(
                 onTap: () => Navigator.of(context).pop(seconds),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: MyosSpacing.lg,
-                    vertical: MyosSpacing.sm,
+                    horizontal: MayosSpacing.lg,
+                    vertical: MayosSpacing.sm,
                   ),
                   child: Row(
                     children: <Widget>[
@@ -47,17 +47,17 @@ Future<int?> showRestLengthPicker(
                           textDirection:
                               seconds <= 0 ? null : TextDirection.ltr,
                           style: selected
-                              ? MyosTypography.of(context).bodySecondary.copyWith(
-                                  color: MyosTheme.of(context).accent,
+                              ? MayosTypography.of(context).bodySecondary.copyWith(
+                                  color: MayosTheme.of(context).accent,
                                 )
-                              : MyosTypography.of(context).bodySecondary,
+                              : MayosTypography.of(context).bodySecondary,
                         ),
                       ),
                       if (selected)
                         Icon(
                           Icons.check,
-                          size: MyosIconSizes.medium,
-                          color: MyosTheme.of(context).accent,
+                          size: MayosIconSizes.medium,
+                          color: MayosTheme.of(context).accent,
                         ),
                     ],
                   ),
@@ -149,26 +149,26 @@ class _RestTimerControlsState extends ConsumerState<RestTimerControls> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     // A full 48dp target for every action (#45): the label sits centred in
     // the minimum target rather than sizing the target from the text.
     Widget action(String label, VoidCallback onTap, {Key? key}) => InkWell(
           key: key,
           onTap: onTap,
-          borderRadius: MyosRadii.smallRadius,
+          borderRadius: MayosRadii.smallRadius,
           child: SizedBox(
-            height: kMyosMinTapTarget,
+            height: kMayosMinTapTarget,
             child: Center(
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: MyosSpacing.sm),
+                    const EdgeInsets.symmetric(horizontal: MayosSpacing.sm),
                 child: Text(
                   label,
                   textDirection: label == '−15' || label == '+15'
                       ? TextDirection.ltr
                       : null,
-                  style: MyosTypography.of(context).label.copyWith(color: c.accent),
+                  style: MayosTypography.of(context).label.copyWith(color: c.accent),
                 ),
               ),
             ),
@@ -194,8 +194,8 @@ class _RestTimerControlsState extends ConsumerState<RestTimerControls> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: MyosSpacing.xs,
-              vertical: MyosSpacing.xxs,
+              horizontal: MayosSpacing.xs,
+              vertical: MayosSpacing.xxs,
             ),
             child: Row(
               children: <Widget>[
@@ -211,7 +211,7 @@ class _RestTimerControlsState extends ConsumerState<RestTimerControls> {
                       Text(
                         restMmSs(_remainingSeconds),
                         textDirection: TextDirection.ltr,
-                        style: MyosTypography.of(context).numericMedium.copyWith(
+                        style: MayosTypography.of(context).numericMedium.copyWith(
                           color: c.textPrimary,
                         ),
                       ),
@@ -219,7 +219,7 @@ class _RestTimerControlsState extends ConsumerState<RestTimerControls> {
                         copy.restForExercise(widget.rest.exerciseName),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: MyosTypography.of(context).caption.copyWith(
+                        style: MayosTypography.of(context).caption.copyWith(
                           color: c.textMuted,
                         ),
                       ),

@@ -33,7 +33,7 @@ class _ProgramDraftWarmupMovementCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final CoachCopy copy = coachCopyOf(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+      padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -125,7 +125,7 @@ class _ProgramDraftWarmupMovementCard extends StatelessWidget {
                   onChanged: (_) => onChanged('sets'),
                 ),
               ),
-              const SizedBox(width: MyosSpacing.xs),
+              const SizedBox(width: MayosSpacing.xs),
               Expanded(
                 child: _editorNumberField(
                   key: Key('program_draft_warmup_reps_${dayIndex}_$movementIndex'),
@@ -136,7 +136,7 @@ class _ProgramDraftWarmupMovementCard extends StatelessWidget {
                   onChanged: (_) => onChanged('reps'),
                 ),
               ),
-              const SizedBox(width: MyosSpacing.xs),
+              const SizedBox(width: MayosSpacing.xs),
               Expanded(
                 child: _editorNumberField(
                   key: Key('program_draft_warmup_rest_${dayIndex}_$movementIndex'),
@@ -149,7 +149,7 @@ class _ProgramDraftWarmupMovementCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           TextField(
                   key: Key('program_draft_warmup_notes_${dayIndex}_$movementIndex'),
             controller: movement.notes,

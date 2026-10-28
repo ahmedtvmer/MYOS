@@ -1,5 +1,5 @@
 import 'arabic_count.dart';
-import 'catalog.dart' show MyosCopy, exerciseNameOrFallback;
+import 'catalog.dart' show MayosCopy, exerciseNameOrFallback;
 import 'message_copy.dart';
 import 'message_resolution.dart';
 import '../personal_records.dart';
@@ -80,8 +80,8 @@ class CoachCopy {
       ? 'تعذّر تحميل قائمة اللاعبين. حاول مرة أخرى.'
       : 'Players could not be loaded. Please try again.';
   String get sharedProgramSignInRequired => isArabic
-      ? 'سجّل الدخول إلى MYOS لمتابعة مشاركة البرنامج.'
-      : 'Sign in to MYOS to continue sharing this program.';
+      ? 'سجّل الدخول إلى MAYOS لمتابعة مشاركة البرنامج.'
+      : 'Sign in to MAYOS to continue sharing this program.';
   String get choosePlayerForSharedProgram => isArabic
       ? 'اختر اللاعب الذي سيُستورد له البرنامج.'
       : 'Choose the Player to import this program for.';
@@ -334,10 +334,10 @@ class CoachCopy {
 
   String get becomeCoach => isArabic ? 'كن مدربًا' : 'Become a coach';
   String get enterCoachCode =>
-      isArabic ? 'أدخل رمز مدرب MYOS' : 'Enter your MYOS coach code';
+      isArabic ? 'أدخل رمز مدرب MAYOS' : 'Enter your MAYOS coach code';
   String get coachCodeLead => isArabic
-      ? 'هذا الرمز من MYOS ويفعّل وضع المدرب في حسابك. يُستخدم مرة واحدة وتنتهي صلاحيته. إدخاله لا ينشئ علاقة تدريب مع مدرب.'
-      : 'This code comes from MYOS and enables Coach mode on your own account. It is single-use and expires. Entering it does not assign you to a coach.';
+      ? 'هذا الرمز من MAYOS ويفعّل وضع المدرب في حسابك. يُستخدم مرة واحدة وتنتهي صلاحيته. إدخاله لا ينشئ علاقة تدريب مع مدرب.'
+      : 'This code comes from MAYOS and enables Coach mode on your own account. It is single-use and expires. Entering it does not assign you to a coach.';
   String get coachEnabled =>
       isArabic ? 'تم تفعيل دور المدرب.' : 'Coach capability enabled.';
 
@@ -831,17 +831,17 @@ class CoachCopy {
       : 'Notes must be at most ${ProgramDraftPrescription.maxProgramNotesLength} characters.';
   String get cardioNote =>
       isArabic ? 'ملاحظة اللياقة (اختيارية)' : 'Cardio note (optional)';
-  String get cardioMachine => MyosCopy(languageCode).cardioMachineLabel;
-  String get cardioNone => MyosCopy(languageCode).cardioNone;
-  String get cardioMinutesLabel => MyosCopy(languageCode).cardioMinutesLabel;
-  String get cardioMinutesMaxLabel => MyosCopy(languageCode).cardioMinutesMaxLabel;
-  String get cardioSpeed => MyosCopy(languageCode).cardioSpeedLabel;
-  String get cardioIncline => MyosCopy(languageCode).cardioInclineLabel;
-  String get cardioLevel => MyosCopy(languageCode).cardioLevelLabel;
-  String get cardioWatts => MyosCopy(languageCode).cardioWattsLabel;
-  String get cardioDistance => MyosCopy(languageCode).cardioDistanceLabel;
+  String get cardioMachine => MayosCopy(languageCode).cardioMachineLabel;
+  String get cardioNone => MayosCopy(languageCode).cardioNone;
+  String get cardioMinutesLabel => MayosCopy(languageCode).cardioMinutesLabel;
+  String get cardioMinutesMaxLabel => MayosCopy(languageCode).cardioMinutesMaxLabel;
+  String get cardioSpeed => MayosCopy(languageCode).cardioSpeedLabel;
+  String get cardioIncline => MayosCopy(languageCode).cardioInclineLabel;
+  String get cardioLevel => MayosCopy(languageCode).cardioLevelLabel;
+  String get cardioWatts => MayosCopy(languageCode).cardioWattsLabel;
+  String get cardioDistance => MayosCopy(languageCode).cardioDistanceLabel;
   String cardioMachineName(String machine) =>
-      MyosCopy(languageCode).cardioMachineName(machine);
+      MayosCopy(languageCode).cardioMachineName(machine);
   String get noTrainingDays => isArabic
       ? 'أضف يوم تدريب لبدء البرنامج.'
       : 'Add a training day to start the program.';
@@ -1060,7 +1060,7 @@ class CoachCopy {
       ? 'حركات الإحماء: ${_count(count, ArabicCountNoun.warmupMovement)}'
       : 'Warm-up: $count movements';
   String cardioMinutes(int? minutes) =>
-      MyosCopy(languageCode).cardioSessionDuration(minutes);
+      MayosCopy(languageCode).cardioSessionDuration(minutes);
 
   String readiness(int score) =>
       isArabic ? 'الاستعداد ${_ltr('$score/5')}' : 'Readiness $score/5';
@@ -1079,7 +1079,7 @@ class CoachCopy {
   String get noCheckpoints =>
       isArabic ? 'لا توجد محطات تقدم بعد.' : 'No Checkpoints yet.';
   String checkpointNumber(int number) =>
-      MyosCopy(languageCode).checkpointAt(number);
+      MayosCopy(languageCode).checkpointAt(number);
   String checkpointPeriod(String start, String end) =>
       isArabic ? '${_ltr(start)} – ${_ltr(end)}' : '$start – $end';
   String recordHistory(String type, String value, int reps, String date) {

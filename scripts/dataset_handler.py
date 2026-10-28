@@ -5,16 +5,16 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-# Resolve the absolute path to the project root (/mnt/work/MYOS)
+# Resolve the absolute path to the project root (/mnt/work/MAYOS)
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CSV_PATH = BASE_DIR / "data" / "exercises.csv"
 DEFAULT_JSON_PATH = BASE_DIR / "data" / "exercises.json"
 DEFAULT_PROCESSED_PATH = BASE_DIR / "data" / "processed_exercises.csv"
 
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 ## loading json file
 try:

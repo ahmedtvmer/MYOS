@@ -34,9 +34,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: myos-embeddings-${{ runner.os }}-bge-small-en-v1.5
+          key: mayos-embeddings-${{ runner.os }}-bge-small-en-v1.5
           restore-keys: |
-            myos-embeddings-${{ runner.os }}-
+            mayos-embeddings-${{ runner.os }}-
 
       - name: Install CPU PyTorch for Local Embeddings
         run: uv pip install --system --index-url https://download.pytorch.org/whl/cpu "torch>=2.0"
@@ -95,4 +95,4 @@ jobs:
         with:
           context: .
           push: false
-          tags: myos-engine:latest
+          tags: mayos-engine:latest

@@ -3,20 +3,20 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/baseline_service.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/personal_records.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/baseline_service.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/personal_records.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_api_adapter.dart';
 import 'support/fake_rest_alerts.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 const String _account = 'account-alice';
 
@@ -125,8 +125,8 @@ Map<String, dynamic> _baselineRow() => <String, dynamic>{
       },
     };
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -141,14 +141,14 @@ Future<InMemoryTokenStore> _tokens() async {
   return tokens;
 }
 
-ApiClient _api(FakeMyosApi fake, TokenStore tokens) => ApiClient(
+ApiClient _api(FakeMayosApi fake, TokenStore tokens) => ApiClient(
       tokens: tokens,
       baseUrl: 'http://test.local',
       adapter: fake.adapter,
     );
 
 ProviderContainer _container({
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
   required TokenStore tokens,
   required InMemoryActiveWorkoutStore store,
   required InMemoryBaselineCacheStore cache,
@@ -344,7 +344,7 @@ void main() {
       ];
 
       for (final scenario in scenarios) {
-        final FakeMyosApi fake = _signedInFake()
+        final FakeMayosApi fake = _signedInFake()
           ..baselinesBody = <Map<String, dynamic>>[scenario.baseline];
         final ProviderContainer container = _container(
           fake: fake,
@@ -402,7 +402,7 @@ void main() {
 
     test('Warm-up movements and Cardio survive an app restart',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       final InMemoryTokenStore tokens = await _tokens();
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
@@ -462,7 +462,7 @@ void main() {
     });
 
     test('restored exercise outside the current program gets its own restriction annotation', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       final InMemoryTokenStore tokens = await _tokens();
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
@@ -491,7 +491,7 @@ void main() {
     });
 
     test('restriction refresh cannot resurrect a workout discarded during its fetch', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final Completer<void> annotationStarted = Completer<void>();
       final Completer<void> releaseAnnotation = Completer<void>();
@@ -525,7 +525,7 @@ void main() {
     });
 
     test('null slotless annotation keeps the slot-aware prescription warning', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       fake.prescriptionMovementRestrictions['bench_press'] = 'Deep hip flexion';
       final ProviderContainer container = _container(
@@ -546,7 +546,7 @@ void main() {
     });
 
     test('successful unrestricted refresh clears an old restriction warning', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       fake.prescriptionMovementRestrictions['bench_press'] = 'Deep hip flexion';
       final ProviderContainer container = _container(
@@ -564,7 +564,7 @@ void main() {
     });
 
     test('duplicate exercise rows use their own slot annotation over prescription fallback', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       fake.programDaysOverride = <Map<String, dynamic>>[_duplicateSlotDay.toJson()];
       fake.prescriptionMovementRestrictions['43'] = 'Deep hip flexion';
@@ -584,7 +584,7 @@ void main() {
     });
 
     test('restriction annotations follow stable workout rows when exercises reorder during fetch', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       fake.programDaysOverride = <Map<String, dynamic>>[_historicalCurlAndCalfDay.toJson()];
       fake.movementAnnotationResponsesByRow[0] = 'Knee flexion';
@@ -618,7 +618,7 @@ void main() {
 
     test('is created, persisted after changes, and restored on restart',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryTokenStore tokens = await _tokens();
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
@@ -684,7 +684,7 @@ void main() {
 
     test('refuses a second start until the current workout is discarded',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryTokenStore tokens = await _tokens();
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
@@ -727,7 +727,7 @@ void main() {
 
     test('a target RPE cap is shown as its equivalent minimum RIR (#111)',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.prescriptionTargetRpe['bench_press'] = 7.0;
       final InMemoryTokenStore tokens = await _tokens();
       final ProviderContainer container = _container(
@@ -750,7 +750,7 @@ void main() {
 
     test('seeds planned rows like the logger and applies the set operations',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       final InMemoryTokenStore tokens = await _tokens();
       final ProviderContainer container = _container(
         fake: fake,
@@ -846,7 +846,7 @@ void main() {
           <String, dynamic>{'sets': 3, 'reps_min': 8, 'reps_max': 10, 'target_rir': 2},
         ],
       };
-      final FakeMyosApi fake = _signedInFake()
+      final FakeMayosApi fake = _signedInFake()
         ..programDaysOverride = <Map<String, dynamic>>[
           <String, dynamic>{
             'day_name': 'Upper', 'day_order': 1,
@@ -880,7 +880,7 @@ void main() {
     });
 
     test('offline grouped plan seeds all sets and an unloaded back-off stays unloaded', () async {
-      final FakeMyosApi fake = _signedInFake()
+      final FakeMayosApi fake = _signedInFake()
         ..prescriptionOffline = true
         ..baselinesBody = <Map<String, dynamic>>[
           <String, dynamic>{..._baselineRow(), 'best_e1rm_kg': 120.0},
@@ -922,7 +922,7 @@ void main() {
 
   group('Replace exercise (#162)', () {
     /// Starts the workout from [_day] over [fake] and returns the controller.
-    Future<ActiveWorkoutController> start(FakeMyosApi fake) async {
+    Future<ActiveWorkoutController> start(FakeMayosApi fake) async {
       final InMemoryTokenStore tokens = await _tokens();
       final ProviderContainer container = _container(
         fake: fake,
@@ -939,8 +939,8 @@ void main() {
       return controller;
     }
 
-    FakeMyosApi fakeWithBaselines() {
-      final FakeMyosApi fake = _signedInFake();
+    FakeMayosApi fakeWithBaselines() {
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[
         _baselineRow(),
         <String, dynamic>{
@@ -1105,7 +1105,7 @@ void main() {
 
     test('never touches the program, and the replacement reads its own '
         'frozen baseline', () async {
-      final FakeMyosApi fake = fakeWithBaselines();
+      final FakeMayosApi fake = fakeWithBaselines();
       final ActiveWorkoutController controller = await start(fake);
       final Map<String, BaselineExercise> frozen =
           Map<String, BaselineExercise>.of(controller.workout!.baselines);
@@ -1706,7 +1706,7 @@ void main() {
 
   group('store writes are serialized (#123 item 5)', () {
     test('writes land in state order and the latest state wins', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final _LatencyStore store = _LatencyStore(<Duration>[
         const Duration(milliseconds: 40),
@@ -1747,7 +1747,7 @@ void main() {
     });
 
     test('discard waits for the pending write and then deletes', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final _LatencyStore store =
           _LatencyStore(<Duration>[const Duration(milliseconds: 60)]);
@@ -1784,7 +1784,7 @@ void main() {
     });
 
     test('discard only clears the workout it belongs to', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
       final ProviderContainer container = _container(
@@ -1816,7 +1816,7 @@ void main() {
     });
 
     test('a start that spans a sign-out aborts and persists nothing', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryActiveWorkoutStore store = InMemoryActiveWorkoutStore();
       final ProviderContainer container = _container(
@@ -1859,7 +1859,7 @@ void main() {
 
   group('baseline resolution (fresh → cache → empty)', () {
     test('uses the fresh fetch first and caches it', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
       final BaselinesService service = BaselinesService(
@@ -1877,7 +1877,7 @@ void main() {
     });
 
     test('falls back to the cache when the fetch fails', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
       final BaselinesService service = BaselinesService(
@@ -1902,7 +1902,7 @@ void main() {
     });
 
     test('falls back to empty when there is neither fetch nor cache', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.failOffline('GET', '/workouts/baselines');
       final BaselinesService service = BaselinesService(
         api: _api(fake, await _tokens()),
@@ -1917,7 +1917,7 @@ void main() {
 
     test('a fresh fetch that never answers falls back within the timeout',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
       await cache.write(
@@ -1954,7 +1954,7 @@ void main() {
     });
 
     test('folds the player unsynced drafts into the frozen baseline', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryDraftStore drafts = InMemoryDraftStore();
       await drafts.write(_account, <WorkoutDraft>[
@@ -2002,7 +2002,7 @@ void main() {
     });
 
     test('malformed responses throw like every other call', () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesMalformed = true;
       final ApiClient api = _api(fake, await _tokens());
       await expectLater(
@@ -2014,7 +2014,7 @@ void main() {
 
     test('the Home prefetch caches a success and never throws on failure',
         () async {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       fake.baselinesBody = <Map<String, dynamic>>[_baselineRow()];
       final InMemoryBaselineCacheStore cache = InMemoryBaselineCacheStore();
       final BaselinesService service = BaselinesService(

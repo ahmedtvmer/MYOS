@@ -14,12 +14,12 @@ import '../../../core/display_language/copy_context.dart';
 import '../../../core/display_language/feature_copy_context.dart';
 import '../../../core/external_url_launcher.dart';
 import '../../../core/models.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
 import '../../../core/ui/first_strong_direction.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_card.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_card.dart';
 import '../../../core/workout_storage.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
@@ -388,7 +388,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
         decision: deload,
         onOpenAssistant: () => context.push(chatPath),
       ),
-      const SizedBox(height: MyosSpacing.md),
+      const SizedBox(height: MayosSpacing.md),
     ];
   }
 
@@ -617,13 +617,13 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
   ) async {
     if (program == null || route == ProgramAuthorityRoute.unavailable) {
       _showAuthorityMessage(
-          MyosCopy(ref.read(displayLanguageProvider)).programNeedsRefresh);
+          MayosCopy(ref.read(displayLanguageProvider)).programNeedsRefresh);
       return;
     }
     if (route == ProgramAuthorityRoute.inconsistent ||
         route == ProgramAuthorityRoute.unchanged) {
       _showAuthorityMessage(
-          MyosCopy(ref.read(displayLanguageProvider)).programAuthorityChanged);
+          MayosCopy(ref.read(displayLanguageProvider)).programAuthorityChanged);
       return;
     }
     await _continueWithRefreshedProgram(program, recovery);
@@ -636,7 +636,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     final (ProgramDay, ProgramExercise)? target =
         _findRefreshedSubstitutionTarget(program, recovery);
     if (target == null) {
-      _showAuthorityMessage(MyosCopy(ref.read(displayLanguageProvider))
+      _showAuthorityMessage(MayosCopy(ref.read(displayLanguageProvider))
           .programChangedChooseAgain);
       return;
     }
@@ -676,12 +676,12 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
         day,
         exercise,
         replacement,
-        authorityNotice: MyosCopy(ref.read(displayLanguageProvider))
+        authorityNotice: MayosCopy(ref.read(displayLanguageProvider))
             .authorityChangedDirectSwap,
       );
       return;
     }
-    _showAuthorityMessage(MyosCopy(ref.read(displayLanguageProvider))
+    _showAuthorityMessage(MayosCopy(ref.read(displayLanguageProvider))
         .authorityChangedRequestCoach);
     await _requestSubstitution(day, exercise, replacement);
   }
@@ -768,7 +768,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            MyosCopy(ref.read(displayLanguageProvider))
+            MayosCopy(ref.read(displayLanguageProvider))
                 .substitutionRequestSent(
                     exercise.exerciseName, replacement.name),
           ),
@@ -830,13 +830,13 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
             ),
           ),
           actions: <Widget>[
-            MyosButton(
+            MayosButton(
               label: displayCopyOf(context).cancel,
-              variant: MyosButtonVariant.tertiary,
+              variant: MayosButtonVariant.tertiary,
               expand: false,
               onPressed: () => Navigator.of(context).pop(),
             ),
-            MyosButton(
+            MayosButton(
               label: displayCopyOf(context).substitute,
               expand: false,
               onPressed: () => Navigator.of(context).pop(allOccurrences),
@@ -930,7 +930,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
         content: Text(
           <String>[
             if (swap.authorityNotice != null) swap.authorityNotice!,
-            MyosCopy(ref.read(displayLanguageProvider))
+            MayosCopy(ref.read(displayLanguageProvider))
                 .substitutionApplied(swap.sourceName, swap.replacement.name),
           ].join(' '),
         ),
@@ -995,7 +995,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     );
     if (!mounted) return;
     if (warnings.isNotEmpty) {
-      final MyosCopy copy = displayCopyOf(context);
+      final MayosCopy copy = displayCopyOf(context);
       final bool saveAnyway = await showDialog<bool>(
             context: context,
             builder: (BuildContext context) => AlertDialog(
@@ -1140,9 +1140,9 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  MyosSpacing.lg,
-                  MyosSpacing.md,
-                  MyosSpacing.lg,
+                  MayosSpacing.lg,
+                  MayosSpacing.md,
+                  MayosSpacing.lg,
                   0,
                 ),
                 child: _preparingProgramBanner(),
@@ -1174,7 +1174,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
         isFinalWeek && program.finalWeekCompleted && program.playerControlsProgram;
     final bool showWaitingForCoach =
         isFinalWeek && program.finalWeekCompleted && !program.playerControlsProgram;
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final ({
       String message,
       String actionLabel,
@@ -1199,8 +1199,8 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(MyosSpacing.lg, MyosSpacing.md,
-            MyosSpacing.lg, MyosSpacing.xxl),
+        padding: const EdgeInsets.fromLTRB(MayosSpacing.lg, MayosSpacing.md,
+            MayosSpacing.lg, MayosSpacing.xxl),
         children: <Widget>[
           for (final VolumeReview review in _volumeReviews)
             _VolumeReviewCard(
@@ -1210,45 +1210,45 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
               onDismiss: () => _decideVolumeReview(review, false),
             ),
           if (_volumeReviews.isNotEmpty)
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
           if (_showPreparingProgram) ...<Widget>[
             _preparingProgramBanner(),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
           ],
           if (fromCache) ...<Widget>[
             const _OfflineBanner(),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
           ],
           if (program.offerDesignRegeneration &&
               program.playerControlsProgram &&
               !_programDesignOfferDismissed &&
               !fromCache) ...<Widget>[
-            MyosCard(
+            MayosCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     displayCopyOf(context).regenerateProgramOfferTitle,
                     key: const ValueKey<String>('program.design_offer'),
-                    style: MyosTypography.of(context)
+                    style: MayosTypography.of(context)
                         .sectionHeading
                         .copyWith(color: c.textPrimary),
                   ),
-                  const SizedBox(height: MyosSpacing.xs),
+                  const SizedBox(height: MayosSpacing.xs),
                   Text(
                     program.regenerationOfferReason == 'focus_muscles_changed'
                         ? displayCopyOf(context).focusMusclesRegenerateOfferBody
                         : displayCopyOf(context).designV3RegenerateOfferBody,
-                    style: MyosTypography.of(context)
+                    style: MayosTypography.of(context)
                         .bodySecondary
                         .copyWith(color: c.textSecondary),
                   ),
-                  const SizedBox(height: MyosSpacing.sm),
+                  const SizedBox(height: MayosSpacing.sm),
                   Wrap(
-                    spacing: MyosSpacing.sm,
-                    runSpacing: MyosSpacing.xs,
+                    spacing: MayosSpacing.sm,
+                    runSpacing: MayosSpacing.xs,
                     children: <Widget>[
-                      MyosButton(
+                      MayosButton(
                         label: displayCopyOf(context)
                             .regenerateProgramOfferAccept,
                         loading: _programActionBusy,
@@ -1257,10 +1257,10 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                             ? null
                             : () => unawaited(_acceptProgramDesignOffer()),
                       ),
-                      MyosButton(
+                      MayosButton(
                         label: displayCopyOf(context)
                             .regenerateProgramOfferDismiss,
-                        variant: MyosButtonVariant.tertiary,
+                        variant: MayosButtonVariant.tertiary,
                         expand: false,
                         loading: _dismissingProgramDesignOffer,
                         onPressed: _programActionBusy ||
@@ -1273,94 +1273,94 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                 ],
               ),
             ),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
           ],
           if (_programChangeNotice?.programChangeSummary != null) ...<Widget>[
             ProgramChangeSummaryCard(
               summary: _programChangeNotice!.programChangeSummary!,
               onDismiss: _dismissingProgramChange ? null : _dismissProgramChange,
             ),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
           ],
           Text(
             program.programName,
-            style: MyosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
+            style: MayosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             '${program.splitType} · ${displayCopyOf(context).programFrequency(program.weeklyFrequency)}',
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           ),
           if (program.sourceTemplateName != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(
               displayCopyOf(context)
                   .programFromTemplate(program.sourceTemplateName!),
               key: const Key('player_program_source_template'),
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .bodySecondary
                   .copyWith(color: c.textSecondary),
             ),
           ],
           if (program.weekCount > 1) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(
               displayCopyOf(context)
                   .programWeekLabel(program.currentWeek, program.weekCount),
               key: const ValueKey<String>('program.current_week'),
-              style: MyosTypography.of(context).bodySecondary
+              style: MayosTypography.of(context).bodySecondary
                   .copyWith(color: c.textSecondary),
             ),
           ],
           if (showFinalWeekMessage) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Text(
               displayCopyOf(context).programFinalWeek,
               key: const ValueKey<String>('program.final_week_message'),
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .bodySecondary
                   .copyWith(color: c.textSecondary),
             ),
           ],
           if (program.isCoachPublished) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             _ProvenanceLabel(
               former: _assignmentKnown && _assignment == null,
             ),
           ],
           if (_actionError != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               displayCopyOf(context).failureMessage(_actionError!),
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
             ),
           ],
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           if (showWaitingForCoach)
-            MyosCard(
+            MayosCard(
               child: Text(
                 displayCopyOf(context).waitingForCoachNextBlock,
                 key: const ValueKey<String>('program.waiting_for_coach'),
-                style: MyosTypography.of(context)
+                style: MayosTypography.of(context)
                     .bodySecondary
                     .copyWith(color: c.textSecondary),
               ),
             )
           else if (showFinalWeekChoices)
-            MyosCard(
+            MayosCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     displayCopyOf(context).programBlockCompleteChooseNext,
                     key: const ValueKey<String>('program.final_week_choices'),
-                    style: MyosTypography.of(context)
+                    style: MayosTypography.of(context)
                         .bodySecondary
                         .copyWith(color: c.textSecondary),
                   ),
-                  const SizedBox(height: MyosSpacing.sm),
-                  MyosButton(
+                  const SizedBox(height: MayosSpacing.sm),
+                  MayosButton(
                     label: displayCopyOf(context).repeatFromWeekOne,
                     loading: _programActionBusy,
                     expand: false,
@@ -1368,10 +1368,10 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                         ? null
                         : () => unawaited(_repeatProgramFromWeekOne(program)),
                   ),
-                  const SizedBox(height: MyosSpacing.xs),
-                  MyosButton(
+                  const SizedBox(height: MayosSpacing.xs),
+                  MayosButton(
                     label: displayCopyOf(context).generateNewProgram,
-                    variant: MyosButtonVariant.tertiary,
+                    variant: MayosButtonVariant.tertiary,
                     loading: _programActionBusy,
                     expand: false,
                     onPressed: _programActionBusy || fromCache
@@ -1382,17 +1382,17 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
               ),
             )
           else
-            MyosCard(
+            MayosCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     authorityAction.message,
-                    style: MyosTypography.of(context).bodySecondary
+                    style: MayosTypography.of(context).bodySecondary
                         .copyWith(color: c.textSecondary),
                   ),
-                  const SizedBox(height: MyosSpacing.sm),
-                  MyosButton(
+                  const SizedBox(height: MayosSpacing.sm),
+                  MayosButton(
                     label: authorityAction.actionLabel,
                     icon: authorityAction.icon,
                     loading: _requestingProgramChange,
@@ -1404,29 +1404,29 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                 ],
               ),
             ),
-          const SizedBox(height: MyosSpacing.lg),
+          const SizedBox(height: MayosSpacing.lg),
           for (final ProgramDay day in program.days) ...<Widget>[
             if (program.weekCount > 1 && day.dayOrder == 1) ...<Widget>[
               Padding(
-                padding: const EdgeInsets.only(bottom: MyosSpacing.xs),
+                padding: const EdgeInsets.only(bottom: MayosSpacing.xs),
                 child: Text(
                   program.weeks
                       .firstWhere((ProgramWeek week) =>
                           week.weekOrder == day.weekOrder)
                       .weekName,
-                  style: MyosTypography.of(context).sectionHeading
+                  style: MayosTypography.of(context).sectionHeading
                       .copyWith(color: c.textPrimary),
                 ),
               ),
             ],
             Padding(
-              padding: const EdgeInsets.only(bottom: MyosSpacing.md),
+              padding: const EdgeInsets.only(bottom: MayosSpacing.md),
               child: TourTarget(
                 id: day.weekOrder == program.days.first.weekOrder &&
                         day.dayOrder == program.days.first.dayOrder
                     ? 'program'
                     : 'program_day_${day.weekOrder}_${day.dayOrder}',
-                child: MyosCard(
+                child: MayosCard(
                 padding: EdgeInsets.zero,
                 child: ExpansionTile(
                   key: ValueKey<String>(
@@ -1437,9 +1437,9 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                           nextWorkoutDay?.dayOrder == day.dayOrder
                       : day.dayOrder == 1,
                   tilePadding:
-                      const EdgeInsets.symmetric(horizontal: MyosSpacing.md),
+                      const EdgeInsets.symmetric(horizontal: MayosSpacing.md),
                   childrenPadding: const EdgeInsets.fromLTRB(
-                      MyosSpacing.md, 0, MyosSpacing.md, MyosSpacing.md),
+                      MayosSpacing.md, 0, MayosSpacing.md, MayosSpacing.md),
                   shape: const Border(),
                   collapsedShape: const Border(),
                   title: Row(
@@ -1448,7 +1448,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                         child: Text(
                           displayCopyOf(context)
                               .dayHeading(day.dayOrder, day.dayName),
-                          style: MyosTypography.of(context).sectionHeading
+                          style: MayosTypography.of(context).sectionHeading
                               .copyWith(color: c.textPrimary),
                         ),
                       ),
@@ -1481,7 +1481,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                   ),
                   children: <Widget>[
                     ..._deloadBannerFor(day),
-                    MyosButton(
+                    MayosButton(
                       label: displayCopyOf(context).logWorkout,
                       icon: Icons.edit_note,
                       onPressed: () {
@@ -1496,7 +1496,7 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                         );
                       },
                     ),
-                    const SizedBox(height: MyosSpacing.md),
+                    const SizedBox(height: MayosSpacing.md),
                     if (day.hasWarmup) ...<Widget>[
                       _SectionLabel(workoutCopyOf(context).warmup),
                       for (final WarmupExercise warmup in day.warmupExercises)
@@ -1556,11 +1556,11 @@ class _DesignOfferWeakPointsDialogState
 
   @override
   Widget build(BuildContext context) {
-    final MyosCopy copy = MyosCopy(Localizations.localeOf(context).languageCode);
+    final MayosCopy copy = MayosCopy(Localizations.localeOf(context).languageCode);
     return AlertDialog(
       title: Text(displayCopyOf(context).weakPointStepTitle),
       content: SingleChildScrollView(
-        child: Wrap(spacing: MyosSpacing.xs, runSpacing: MyosSpacing.xs,
+        child: Wrap(spacing: MayosSpacing.xs, runSpacing: MayosSpacing.xs,
           children: <Widget>[
             for (final String muscle in _muscles)
               FilterChip(
@@ -1619,21 +1619,21 @@ class _CenteredMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.xl),
+        padding: const EdgeInsets.all(MayosSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
               message,
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
             if (actionLabel != null) ...<Widget>[
-              const SizedBox(height: MyosSpacing.lg),
-              MyosButton(
+              const SizedBox(height: MayosSpacing.lg),
+              MayosButton(
                 label: actionLabel!,
                 expand: false,
                 onPressed: onAction,
@@ -1653,7 +1653,7 @@ class _ProvenanceLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Row(
       children: <Widget>[
         Icon(
@@ -1661,12 +1661,12 @@ class _ProvenanceLabel extends StatelessWidget {
           size: 16,
           color: former ? c.textMuted : c.textSecondary,
         ),
-        const SizedBox(width: MyosSpacing.xxs),
+        const SizedBox(width: MayosSpacing.xxs),
         Text(
           former
               ? displayCopyOf(context).formerCoach
               : displayCopyOf(context).publishedByCoach,
-          style: MyosTypography.of(context).caption.copyWith(
+          style: MayosTypography.of(context).caption.copyWith(
             color: former ? c.textMuted : c.textSecondary,
           ),
         ),
@@ -1694,12 +1694,12 @@ class _ExerciseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return InkWell(
       onTap: exercise.isCoachExercise ? null : onTap,
-      borderRadius: MyosRadii.smallRadius,
+      borderRadius: MayosRadii.smallRadius,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: MyosSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: MayosSpacing.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -1709,7 +1709,7 @@ class _ExerciseRow extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     exercise.exerciseName,
-                    style: MyosTypography.of(context).exerciseTitle.copyWith(
+                    style: MayosTypography.of(context).exerciseTitle.copyWith(
                       color: c.textPrimary,
                     ),
                   ),
@@ -1731,7 +1731,7 @@ class _ExerciseRow extends StatelessWidget {
                                 exercise.load!.suggestedWeightKg(bestE1rmKg),
                           ),
                       ].join(' · '),
-                      style: MyosTypography.of(context).bodySecondary.copyWith(
+                      style: MayosTypography.of(context).bodySecondary.copyWith(
                         color: c.textSecondary,
                       ),
                     ),
@@ -1744,7 +1744,7 @@ class _ExerciseRow extends StatelessWidget {
                           .map((SuggestedSubstitute item) => item.exerciseName)
                           .join(', ')),
                       style:
-                          MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+                          MayosTypography.of(context).caption.copyWith(color: c.textMuted),
                     ),
                   ],
                   const SizedBox(height: 2),
@@ -1756,26 +1756,26 @@ class _ExerciseRow extends StatelessWidget {
                       displayCopyOf(context)
                           .restTime(exercise.restSecondsOrDefault),
                     ].join(' · '),
-                    style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+                    style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
                   ),
                   if (exercise.tempo != null && exercise.tempo!.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 2),
                     Text(
                       workoutCopyOf(context).tempoCue(exercise.tempo!),
-                      style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+                      style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
                     ),
                   ],
                   if (showCoachNotes && exercise.hasNotes) ...<Widget>[
                     const SizedBox(height: 2),
                     Text(
                       exercise.notes!,
-                      style: MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                      style: MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
                     ),
                   ],
                 ],
               ),
             ),
-            const SizedBox(width: MyosSpacing.xs),
+            const SizedBox(width: MayosSpacing.xs),
             if (!exercise.isCoachExercise)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -1791,7 +1791,7 @@ class _ExerciseRow extends StatelessWidget {
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                 PopupMenuItem<String>(
                   value: 'substitute',
-                  height: kMyosMinTapTarget,
+                  height: kMayosMinTapTarget,
                   child: Text(displayCopyOf(context).substituteExercise),
                 ),
               ],
@@ -1815,11 +1815,11 @@ class _CoachExerciseDetails extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           if (exercise.note?.trim().isNotEmpty == true) ...<Widget>[
-            const SizedBox(height: MyosSpacing.xxs),
+            const SizedBox(height: MayosSpacing.xxs),
             Text(
               exercise.note!,
-              style: MyosTypography.of(context).bodySecondary.copyWith(
-                color: MyosTheme.of(context).textSecondary,
+              style: MayosTypography.of(context).bodySecondary.copyWith(
+                color: MayosTheme.of(context).textSecondary,
               ),
             ),
           ],
@@ -1867,20 +1867,20 @@ class _WarmupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     // ExpansionTile centres its children, so a shrink-wrapping row must be
     // explicitly aligned to the leading edge and sit flush with the section label and the
     // working-set rows.
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: MyosSpacing.xs),
+        padding: const EdgeInsets.symmetric(vertical: MayosSpacing.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
               warmup.exerciseName,
-              style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
             const SizedBox(height: 2),
             Text(
@@ -1889,13 +1889,13 @@ class _WarmupRow extends StatelessWidget {
                 warmup.reps,
                 warmup.restSeconds,
               ),
-              style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+              style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
             ),
             if (warmup.hasNotes) ...<Widget>[
               const SizedBox(height: 2),
               Text(
                 warmup.notes!,
-                style: MyosTypography.of(context).bodySecondary
+                style: MayosTypography.of(context).bodySecondary
                     .copyWith(color: c.textSecondary),
               ),
             ],
@@ -1913,20 +1913,20 @@ class _CardioRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: MyosSpacing.xs),
+      padding: const EdgeInsets.symmetric(vertical: MayosSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(Icons.directions_run, size: 16, color: c.textMuted),
-          const SizedBox(width: MyosSpacing.xs),
+          const SizedBox(width: MayosSpacing.xs),
           Expanded(
             child: FirstStrongDirection(
               text: cardio.display(displayCopyOf(context)),
               child: Text(
                 cardio.display(displayCopyOf(context)),
-                style: MyosTypography.of(context).bodySecondary
+                style: MayosTypography.of(context).bodySecondary
                     .copyWith(color: c.textSecondary),
               ),
             ),
@@ -1953,32 +1953,32 @@ class _VolumeReviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final copy = displayCopyOf(context);
-    return MyosCard(
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(copy.volumeReview,
-              style: MyosTypography.of(context).sectionHeading),
+              style: MayosTypography.of(context).sectionHeading),
           for (final VolumeReviewMuscle item in review.muscles) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(item.setDelta == 0
                 ? copy.primaryMuscleLabel(item.muscle)
                 : '${copy.primaryMuscleLabel(item.muscle)} · ${copy.volumeReviewChange(item.setDelta)}',
-                style: MyosTypography.of(context).exerciseTitle),
-            const SizedBox(height: MyosSpacing.xxs),
+                style: MayosTypography.of(context).exerciseTitle),
+            const SizedBox(height: MayosSpacing.xxs),
             FirstStrongDirection(
               text: copy.volumeReviewReason(
                   item.verdict, copy.primaryMuscleLabel(item.muscle)),
               child: Text(
                   copy.volumeReviewReason(
                       item.verdict, copy.primaryMuscleLabel(item.muscle)),
-                  style: MyosTypography.of(context).bodySecondary),
+                  style: MayosTypography.of(context).bodySecondary),
             ),
           ],
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           Wrap(
-            spacing: MyosSpacing.sm,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.sm,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               if (review.status == 'pending')
                 TextButton(onPressed: busy ? null : onAccept, child: Text(copy.acceptVolumeReview)),
@@ -1996,23 +1996,23 @@ class _OfflineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: MyosSpacing.md, vertical: MyosSpacing.sm),
+          horizontal: MayosSpacing.md, vertical: MayosSpacing.sm),
       decoration: BoxDecoration(
         color: c.secondarySurface,
-        borderRadius: MyosRadii.mediumRadius,
+        borderRadius: MayosRadii.mediumRadius,
         border: Border.all(color: c.border),
       ),
       child: Row(
         children: <Widget>[
           Icon(Icons.cloud_off, size: 18, color: c.textSecondary),
-          const SizedBox(width: MyosSpacing.xs),
+          const SizedBox(width: MayosSpacing.xs),
           Expanded(
             child: Text(
               displayCopyOf(context).offlineProgramBanner,
-              style: MyosTypography.of(context).bodySecondary.copyWith(
+              style: MayosTypography.of(context).bodySecondary.copyWith(
                 color: c.textSecondary,
               ),
             ),
@@ -2030,15 +2030,15 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Padding(
       padding:
-          const EdgeInsets.only(top: MyosSpacing.md, bottom: MyosSpacing.xxs),
+          const EdgeInsets.only(top: MayosSpacing.md, bottom: MayosSpacing.xxs),
       child: Align(
         alignment: AlignmentDirectional.centerStart,
         child: Text(
           text,
-          style: MyosTypography.of(context).caption.copyWith(
+          style: MayosTypography.of(context).caption.copyWith(
             color: c.textMuted,
             letterSpacing: 0.6,
           ),

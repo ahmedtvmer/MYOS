@@ -5,40 +5,40 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/analytics_client.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/device_timezone.dart';
-import 'package:myos_mobile/src/core/display_language/workout_copy.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/performed_date_window.dart';
-import 'package:myos_mobile/src/core/personal_records.dart';
-import 'package:myos_mobile/src/core/theme/myos_spacing.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/theme/myos_typography.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/ui/myos_settings_tile.dart';
-import 'package:myos_mobile/src/core/ui/myos_stat.dart';
-import 'package:myos_mobile/src/core/ui/myos_player_column.dart';
-import 'package:myos_mobile/src/core/ui/myos_progress.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
-import 'package:myos_mobile/src/features/player/exercise/exercise_detail_screen.dart';
-import 'package:myos_mobile/src/features/player/workout/logger_top_bar.dart';
-import 'package:myos_mobile/src/features/player/workout/logger_card_widgets.dart';
-import 'package:myos_mobile/src/features/player/workout/personal_record_badge.dart';
-import 'package:myos_mobile/src/features/player/workout/workout_logger_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/analytics_client.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/device_timezone.dart';
+import 'package:mayos_mobile/src/core/display_language/workout_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/performed_date_window.dart';
+import 'package:mayos_mobile/src/core/personal_records.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_spacing.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_typography.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_settings_tile.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_stat.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_player_column.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_progress.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
+import 'package:mayos_mobile/src/features/player/exercise/exercise_detail_screen.dart';
+import 'package:mayos_mobile/src/features/player/workout/logger_top_bar.dart';
+import 'package:mayos_mobile/src/features/player/workout/logger_card_widgets.dart';
+import 'package:mayos_mobile/src/features/player/workout/personal_record_badge.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 const String _account = 'account-alice';
 
@@ -310,8 +310,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-FakeMyosApi _signedInFake({List<Map<String, dynamic>>? baselines}) {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake({List<Map<String, dynamic>>? baselines}) {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -325,7 +325,7 @@ FakeMyosApi _signedInFake({List<Map<String, dynamic>>? baselines}) {
 /// the baseline freeze, and the persistence are the app's own, so the rows the
 /// table renders are the rows a player would start with (#123 item 2).
 Future<InMemoryActiveWorkoutStore> _seedThroughController({
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
   required String startedAt,
   ProgramDay day = _day,
   int programWeekCount = 1,
@@ -379,7 +379,7 @@ Future<InMemoryActiveWorkoutStore> _seedThroughController({
   return store;
 }
 
-ApiClient _api(FakeMyosApi fake, TokenStore tokens) => ApiClient(
+ApiClient _api(FakeMayosApi fake, TokenStore tokens) => ApiClient(
       tokens: tokens,
       baseUrl: 'http://test.local',
       adapter: fake.adapter,
@@ -397,7 +397,7 @@ void _usePhoneView(WidgetTester tester) {
 /// store is exactly what an app restart rebuilds from (#159), so a test can
 /// tear the tree down and open it again against the same storage.
 List<Override> _appOverrides({
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
   required InMemoryTokenStore tokens,
   required InMemoryActiveWorkoutStore store,
   InMemoryDraftStore? drafts,
@@ -445,7 +445,7 @@ Future<void> _pumpApp(WidgetTester tester,
     {required List<Override> overrides}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: overrides,
-    child: const MyosApp(),
+    child: const MayosApp(),
   ));
 }
 
@@ -480,7 +480,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
   ProgramDay day = _day,
   int programWeekCount = 1,
   _WorkoutSeedVariant workoutSeedVariant = _WorkoutSeedVariant.standard,
-  FakeMyosApi? fakeApi,
+  FakeMayosApi? fakeApi,
   bool webDirectCommit = false,
   String? languageCode,
   bool roundTripStoredWorkout = false,
@@ -488,7 +488,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
 }) async {
   _usePhoneView(tester);
 
-  final FakeMyosApi fake = fakeApi ?? _signedInFake(baselines: baselines);
+  final FakeMayosApi fake = fakeApi ?? _signedInFake(baselines: baselines);
   final String effectiveLanguage = languageCode ?? fake.displayLanguage;
   if (languageCode != null) fake.displayLanguage = languageCode;
   final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -562,7 +562,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
 
 Future<void> _reloadLogger(
   WidgetTester tester, {
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
   required InMemoryActiveWorkoutStore store,
   String? languageCode,
 }) async {
@@ -711,14 +711,14 @@ Future<void> _assertNoOverflowAt360(
     tester
         .getSize(find.byKey(const ValueKey<String>('logger.setlabel.0.0')))
         .height,
-    kMyosMinTapTarget,
+    kMayosMinTapTarget,
   );
   expect(tester.getSize(_tick(0, 0)).width, greaterThanOrEqualTo(48));
-  expect(tester.getSize(_tick(0, 0)).height, kMyosMinTapTarget);
+  expect(tester.getSize(_tick(0, 0)).height, kMayosMinTapTarget);
 
   // The value cells stay 48dp tall wherever their share lands.
-  expect(tester.getSize(_cell(0, 0, 'kg')).height, kMyosMinTapTarget);
-  expect(tester.getSize(_cell(0, 0, 'rir')).height, kMyosMinTapTarget);
+  expect(tester.getSize(_cell(0, 0, 'kg')).height, kMayosMinTapTarget);
+  expect(tester.getSize(_cell(0, 0, 'rir')).height, kMayosMinTapTarget);
 
   // The row spans the card rather than a fixed cramped width.
   expect(tester.getSize(_row(0, 0)).width, greaterThan(250));
@@ -789,14 +789,14 @@ void main() {
 
   testWidgets('open workout flags prescribed exercise conflicting with restriction',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()..prescriptionMovementRestrictions['bench_press'] = 'Pressing / fly (shoulder horizontal adduction under load)';
+    final FakeMayosApi fake = _signedInFake()..prescriptionMovementRestrictions['bench_press'] = 'Pressing / fly (shoulder horizontal adduction under load)';
     await _openLogger(tester, fakeApi: fake);
     expect(find.byKey(const Key('logger_movement_restriction_warning')), findsOneWidget);
     expect(find.textContaining('conflicts with your'), findsOneWidget);
   });
 
   testWidgets('restriction refresh flags an already-open workout without replacing rows', (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _openLogger(tester, fakeApi: fake);
     expect(find.byKey(const Key('logger_movement_restriction_warning')), findsNothing);
     final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(WorkoutLoggerScreen)));
@@ -812,7 +812,7 @@ void main() {
 
   testWidgets('workout logger shows the applied deload and opens the assistant',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()..prescriptionOffline = true;
+    final FakeMayosApi fake = _signedInFake()..prescriptionOffline = true;
     final InMemoryWorkoutCacheStore cache = InMemoryWorkoutCacheStore();
     await cache.writePrescription(
       _account,
@@ -1116,7 +1116,7 @@ void main() {
 
   testWidgets('saved bike calories appear in the finished Player summary',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.cardioCaloriesKcalOnCommit = 200;
     fake.programVersion = 3;
     await _openLogger(
@@ -1340,7 +1340,7 @@ void main() {
 
   testWidgets('clearing a warm-up weight commits null',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _openLogger(tester, day: _warmupDay, fakeApi: fake);
 
     final Finder weight =
@@ -1380,7 +1380,7 @@ void main() {
       'the table is SET · KG · REPS · RIR · ✓ and the baseline rides on the '
       'card as the Last: line (#158)', (WidgetTester tester) async {
     await _openLogger(tester);
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
 
     expect(find.byType(WorkoutLoggerScreen), findsOneWidget);
 
@@ -1472,7 +1472,7 @@ void main() {
       'the exercise card names the movement in primary colour and '
       'adds a full-width + Add set (#158)', (WidgetTester tester) async {
     await _openLogger(tester);
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
 
     // Blue is reserved for what the player must act on (#157).
     expect(tester.widget<Text>(find.text('Bench Press')).style!.color,
@@ -1490,7 +1490,7 @@ void main() {
       'a warm-up row has no previous to borrow and is never filled from one',
       (WidgetTester tester) async {
     await _openLogger(tester);
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
 
     // Set 2 becomes a warm-up: the baseline's second working set is no longer
     // its "previous" — warm-ups count for nothing in the match (#123 item 1).
@@ -1536,7 +1536,7 @@ void main() {
       (WidgetTester tester) async {
     await _openLogger(tester);
 
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
     // Before the tick the cells are empty hints (muted): the previous value
     // where there is one…
     expect(_textColor(tester, _cell(0, 0, 'kg')), c.textDisabled);
@@ -1574,7 +1574,7 @@ void main() {
     );
     // The row was not ticked.
     expect(_textColor(tester, _cell(0, 2, 'kg')),
-        MyosThemeExtension.light.textDisabled);
+        MayosThemeExtension.light.textDisabled);
 
     await tester.tap(find.byKey(const ValueKey<String>('logger.key.hide')));
     await tester.pump(const Duration(milliseconds: 100));
@@ -1770,7 +1770,7 @@ void main() {
   testWidgets(
       'a previous 0 kg band set autofills and displays the localized Band label',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..displayLanguage = 'ar'
       ..baselinesBody = <Map<String, dynamic>>[
         <String, dynamic>{
@@ -1815,7 +1815,7 @@ void main() {
 
   testWidgets('web commits a body-weight set at 0 kg',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _openLogger(
       tester,
       day: _bodyweightDay,
@@ -1891,7 +1891,7 @@ void main() {
       findsOneWidget,
     );
     expect(_textColor(tester, _cell(0, 0, 'rir')),
-        MyosThemeExtension.light.textPrimary);
+        MayosThemeExtension.light.textPrimary);
     // The chip sets the value AND walks on to the next set's kg (#123 item 10).
     expect(find.text('Bench Press · set 2 · Weight (kg)'), findsOneWidget);
 
@@ -1906,7 +1906,7 @@ void main() {
       findsOneWidget,
     );
     expect(_textColor(tester, _cell(0, 0, 'rir')),
-        MyosThemeExtension.light.textDisabled);
+        MayosThemeExtension.light.textDisabled);
     expect(find.text('Bench Press · set 2 · Weight (kg)'), findsOneWidget);
 
     // The top choice is 5+ — RIR 5, the service's RPE 5 floor — and effort is
@@ -1923,7 +1923,7 @@ void main() {
       findsOneWidget,
     );
     expect(_textColor(tester, _cell(0, 0, 'rir')),
-        MyosThemeExtension.light.textPrimary);
+        MayosThemeExtension.light.textPrimary);
   });
 
   testWidgets('tapping the SET number cycles N ↔ W and mutes the row',
@@ -1932,24 +1932,24 @@ void main() {
 
     final Finder label =
         find.byKey(const ValueKey<String>('logger.setlabel.0.0'));
-    expect(_textColor(tester, label), MyosThemeExtension.light.textPrimary);
+    expect(_textColor(tester, label), MayosThemeExtension.light.textPrimary);
 
     await tester.tap(label);
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('W'), findsOneWidget);
-    expect(_textColor(tester, label), MyosThemeExtension.light.textMuted);
+    expect(_textColor(tester, label), MayosThemeExtension.light.textMuted);
 
     await tester.tap(label);
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('W'), findsNothing);
-    expect(_textColor(tester, label), MyosThemeExtension.light.textPrimary);
+    expect(_textColor(tester, label), MayosThemeExtension.light.textPrimary);
   });
 
   testWidgets(
       'the Current set is the first unticked working set and moves across '
       'exercises, skipping warm-ups (#158)', (WidgetTester tester) async {
     await _openLogger(tester);
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
 
     // A fresh workout: bench's first working set is next, everyone else
     // neutral.
@@ -1997,7 +1997,7 @@ void main() {
       'row states: a pending check is outlined, a ticked row is '
       'filled, tinted and still editable (#158)', (WidgetTester tester) async {
     await _openLogger(tester);
-    final MyosThemeExtension c = MyosThemeExtension.light;
+    final MayosThemeExtension c = MayosThemeExtension.light;
 
     BoxDecoration tickDecoration(WidgetTester tester) => tester
         .widget<DecoratedBox>(find.descendant(
@@ -2068,12 +2068,12 @@ void main() {
     await _assertNoOverflowAt360(tester, mode: ThemeMode.dark);
     // The sweep really is dark: the card's title reads the dark token.
     expect(tester.widget<Text>(find.text('Bench Press')).style!.color,
-        MyosThemeExtension.dark.textPrimary);
+        MayosThemeExtension.dark.textPrimary);
   });
 
   testWidgets('swiping a set deletes it and keeps the last set',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryActiveWorkoutStore store =
         await _openLogger(tester, fakeApi: fake);
 
@@ -2112,7 +2112,7 @@ void main() {
 
   testWidgets('Undo restores the same set, fields, position, and saved state',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryActiveWorkoutStore store =
         await _openLogger(tester, fakeApi: fake);
 
@@ -2141,7 +2141,7 @@ void main() {
     expect(find.text('0/2 exercises · 2/4 sets'), findsOneWidget);
     expect(
       _rowColor(tester, _row(0, 2)),
-      MyosThemeExtension.light.accentSubtle,
+      MayosThemeExtension.light.accentSubtle,
     );
 
     await tester.tap(find.byKey(const ValueKey<String>('logger.key.hide')));
@@ -2161,7 +2161,7 @@ void main() {
     expect(find.text('0/2 exercises · 1/3 sets'), findsOneWidget);
     expect(
       _rowColor(tester, _row(0, 1)),
-      MyosThemeExtension.light.accentSubtle,
+      MayosThemeExtension.light.accentSubtle,
     );
     expect(find.text('PR kg'), findsNothing);
     expect(find.text('PR e1RM'), findsNothing);
@@ -2175,7 +2175,7 @@ void main() {
     expect(find.text('0/2 exercises · 2/4 sets'), findsOneWidget);
     expect(
       _rowColor(tester, _row(0, 2)),
-      MyosThemeExtension.light.accentSubtle,
+      MayosThemeExtension.light.accentSubtle,
     );
     expect(_badge(0, 1, PrRecordKind.weight), findsOneWidget);
     expect(_badge(0, 1, PrRecordKind.e1rm), findsOneWidget);
@@ -2187,7 +2187,7 @@ void main() {
     expect(find.byKey(const ValueKey<String>('logger.row.0.2')), findsOneWidget);
     expect(
       _rowColor(tester, _row(0, 2)),
-      MyosThemeExtension.light.accentSubtle,
+      MayosThemeExtension.light.accentSubtle,
     );
     expect(_badge(0, 1, PrRecordKind.weight), findsOneWidget);
     expect(_badge(0, 1, PrRecordKind.e1rm), findsOneWidget);
@@ -2508,7 +2508,7 @@ void main() {
     final PerformedDateWindow window = performedDateWindow();
     expect(
       find.descendant(
-        of: find.widgetWithText(MyosSettingsTile, 'Performed date'),
+        of: find.widgetWithText(MayosSettingsTile, 'Performed date'),
         matching: find.text(formatPerformedDate(window.first)),
       ),
       findsOneWidget,
@@ -2538,7 +2538,7 @@ void main() {
     expect(tester.widget<PersonalRecordBadge>(weight).beaten, isFalse);
     expect(tester.widget<PersonalRecordBadge>(e1rm).beaten, isFalse);
     expect(_badgeDecoration(tester, weight), isNull);
-    expect(_textColor(tester, weight), MyosThemeExtension.light.onWarning);
+    expect(_textColor(tester, weight), MayosThemeExtension.light.onWarning);
     expect(find.text('PR kg'), findsOneWidget);
     expect(find.text('PR e1RM'), findsOneWidget);
 
@@ -2556,7 +2556,7 @@ void main() {
     );
     expect(tester.widget<PersonalRecordBadge>(weight).beaten, isTrue);
     expect(_badgeDecoration(tester, weight), TextDecoration.lineThrough);
-    expect(_textColor(tester, weight), MyosThemeExtension.light.textMuted);
+    expect(_textColor(tester, weight), MayosThemeExtension.light.textMuted);
     expect(_badgeDecoration(tester, e1rm), TextDecoration.lineThrough);
     // One solid and one struck badge of each kind are on screen.
     expect(find.text('PR kg'), findsNWidgets(2));
@@ -2611,9 +2611,9 @@ void main() {
     expect(find.textContaining('PR 105 kg'), findsNothing);
 
     // Exercises done, ticked working sets, total volume (105×5 + 110×6).
-    expect(find.widgetWithText(MyosStat, '1'), findsOneWidget);
-    expect(find.widgetWithText(MyosStat, '2'), findsOneWidget);
-    expect(find.widgetWithText(MyosStat, '1185'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '1'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '2'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '1185'), findsOneWidget);
     expect(find.text('Exercises done'), findsOneWidget);
     expect(find.text('Ticked working sets'), findsOneWidget);
     expect(find.text('Total volume'), findsOneWidget);
@@ -2628,7 +2628,7 @@ void main() {
   testWidgets(
       'the online summary freezes projected Weekly streak and Checkpoint',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..trainingStatusBody = <String, dynamic>{
         'weekly_streak': 2,
         'week_start': '2026-09-26',
@@ -2686,7 +2686,7 @@ void main() {
         weekStart: '2026-09-26',
         weekDone: 1,
         weekTarget: 3,
-        myosWorkouts: 7,
+        mayosWorkouts: 7,
         nextCheckpoint: 10,
         workoutsToNext: 3,
       ),
@@ -2696,7 +2696,7 @@ void main() {
       _summaryDraft('pending-this-week', '2026-09-29'),
       _summaryDraft('pending-last-week', '2026-09-20'),
     ]);
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..trainingStatusFails = true
       ..commitFails = true;
     await _openLogger(
@@ -2723,7 +2723,7 @@ void main() {
 
   testWidgets('a committed Checkpoint shows its review and computed ratings',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..trainingStatusBody = <String, dynamic>{
         'weekly_streak': 0,
         'week_start': '2026-09-26',
@@ -2755,7 +2755,7 @@ void main() {
           <String, dynamic>{'part': 'Consistency', 'label': 'Strong'},
         ],
         'text':
-            'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+            'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
         'text_is_template': true,
       };
     await _openLogger(
@@ -2789,12 +2789,12 @@ void main() {
         weekStart: '2026-09-19',
         weekDone: 3,
         weekTarget: 3,
-        myosWorkouts: 9,
+        mayosWorkouts: 9,
         nextCheckpoint: 10,
         workoutsToNext: 1,
       ),
     );
-    final FakeMyosApi fake = _signedInFake()..trainingStatusFails = true;
+    final FakeMayosApi fake = _signedInFake()..trainingStatusFails = true;
     await _openLogger(
       tester,
       fakeApi: fake,
@@ -2833,10 +2833,10 @@ void main() {
       expect(_badge(0, 0, PrRecordKind.weight), findsOneWidget);
       expect(_badge(0, 0, PrRecordKind.e1rm), findsOneWidget);
       final Rect? playerColumn = size.width >= 1024
-          ? tester.getRect(find.byKey(MyosPlayerColumn.contentKey))
+          ? tester.getRect(find.byKey(MayosPlayerColumn.contentKey))
           : null;
       if (playerColumn != null) {
-        expect(playerColumn.width, MyosLayout.playerColumnMaxWidth);
+        expect(playerColumn.width, MayosLayout.playerColumnMaxWidth);
         expect(playerColumn.center.dx, size.width / 2);
         _expectWithinColumn(
           tester.getRect(_badge(0, 0, PrRecordKind.weight)),
@@ -2918,8 +2918,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    final MyosSettingsTile dateTile =
-        tester.widget<MyosSettingsTile>(find.byType(MyosSettingsTile).first);
+    final MayosSettingsTile dateTile =
+        tester.widget<MayosSettingsTile>(find.byType(MayosSettingsTile).first);
     expect(dateTile.subtitle, matches(RegExp(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')));
     expect(dateTile.subtitleTextDirection, TextDirection.ltr);
     expect(
@@ -2956,10 +2956,10 @@ void main() {
     expect(find.textContaining('· PR '), findsNothing);
     // The stats are still there: one exercise done, one working set, 500 kg,
     // and the duration the summary snapshot holds (#159).
-    expect(find.byType(MyosStat), findsNWidgets(4));
+    expect(find.byType(MayosStat), findsNWidgets(4));
     expect(find.text('Exercises done'), findsOneWidget);
     expect(find.text('Ticked working sets'), findsOneWidget);
-    expect(find.widgetWithText(MyosStat, '500'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '500'), findsOneWidget);
   });
 
   testWidgets(
@@ -3059,7 +3059,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bench Press · PR 110 kg'), findsOneWidget);
-    expect(find.widgetWithText(MyosStat, '1185'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '1185'), findsOneWidget);
 
     // Rows change under the open summary: a heavier record and more volume
     // land in the Active workout (and reach the store, like any sync would).
@@ -3074,9 +3074,9 @@ void main() {
 
     // The summary is still the snapshot taken at Finish.
     expect(find.text('Bench Press · PR 110 kg'), findsOneWidget);
-    expect(find.widgetWithText(MyosStat, '1185'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, '1185'), findsOneWidget);
     expect(find.textContaining('PR 200 kg'), findsNothing);
-    expect(find.widgetWithText(MyosStat, '2185'), findsNothing);
+    expect(find.widgetWithText(MayosStat, '2185'), findsNothing);
   });
 
   testWidgets(
@@ -3094,7 +3094,7 @@ void main() {
     expect(label, findsOneWidget);
     // Sans: the serif display role belongs to the day heading alone (#157).
     expect(
-        tester.widget<Text>(label).style!.fontFamily, MyosTypography.forLanguage('en').interfaceFamily);
+        tester.widget<Text>(label).style!.fontFamily, MayosTypography.forLanguage('en').interfaceFamily);
 
     // The bar redraws once a second off the clock — derived, never counted,
     // so nothing pauses and nothing has to be stored.
@@ -3126,7 +3126,7 @@ void main() {
       (WidgetTester tester) async {
     _usePhoneView(tester);
     DateTime now = DateTime.parse('2026-09-28T08:01:30.000Z');
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     await tokens.save('token-alice');
     // Seeding runs outside the test's fake-async zone, like every open.
@@ -3227,13 +3227,13 @@ void main() {
     // The training day's name carries the screen's only serif heading.
     expect(
       tester.widget<Text>(find.text('Upper A')).style!.fontFamily,
-      MyosTypography.displayFamily,
+      MayosTypography.displayFamily,
     );
 
     final Finder progress =
         find.byKey(const ValueKey<String>('logger.progress'));
     final Text line = tester.widget<Text>(progress);
-    expect(line.style!.fontFamily, MyosTypography.forLanguage('en').interfaceFamily);
+    expect(line.style!.fontFamily, MayosTypography.forLanguage('en').interfaceFamily);
     // Two exercises, four working rows, nothing ticked yet.
     expect(line.data, '0/2 exercises · 0/4 sets');
 
@@ -3292,7 +3292,7 @@ void main() {
         find.byKey(const ValueKey<String>('logger.summary.duration'));
     expect(find.descendant(of: duration, matching: find.text('32:10')),
         findsOneWidget);
-    expect(find.widgetWithText(MyosStat, 'Duration'), findsOneWidget);
+    expect(find.widgetWithText(MayosStat, 'Duration'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     // The top bar freezes on the snapshot while the summary is open: the
@@ -3341,9 +3341,9 @@ void main() {
     expect(finish, findsOneWidget);
     expect(
       tester
-          .widget<MyosProgressIndicator>(
+          .widget<MayosProgressIndicator>(
             find.descendant(
-                of: bar, matching: find.byType(MyosProgressIndicator)),
+                of: bar, matching: find.byType(MayosProgressIndicator)),
           )
           .value,
       moreOrLessEquals(0),
@@ -3363,9 +3363,9 @@ void main() {
     expect(find.text('1/4 sets'), findsOneWidget);
     expect(
       tester
-          .widget<MyosProgressIndicator>(
+          .widget<MayosProgressIndicator>(
             find.descendant(
-                of: bar, matching: find.byType(MyosProgressIndicator)),
+                of: bar, matching: find.byType(MayosProgressIndicator)),
           )
           .value,
       moreOrLessEquals(0.25),

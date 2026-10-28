@@ -82,10 +82,10 @@ from agent.ProgramState import (
     WarmupExerciseSchema,
 )
 from utils.equipment_access import BODYWEIGHT_ONLY, COMMERCIAL_GYM, map_equipment_access
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
 load_dotenv()
-logger = MyosLogger().get_logger("program_generator")
+logger = MayosLogger().get_logger("program_generator")
 
 PROGRAM_DESIGN_VERSION = 3
 

@@ -35,8 +35,8 @@ def test_builder_applies_defaults_overrides_aliases_and_recipe_yield(tmp_path):
     assert rows[0]['hidden'] is False
     assert rows[0]['fiber_g'] is None and rows[0]['sodium_mg'] is None
     assert rows[2]['aliases_ar'] == ['رز', 'أرز أبيض']
-    recipe = next(row for row in rows if row['id'] == 'myos:koshari')
-    assert recipe['id'] == 'myos:koshari'
+    recipe = next(row for row in rows if row['id'] == 'mayos:koshari')
+    assert recipe['id'] == 'mayos:koshari'
     assert recipe['energy_kcal'] == 150
     assert recipe['portion_grams'] is None
 
@@ -79,11 +79,11 @@ def test_catalog_seeding_path_persists_built_food_library(tmp_path, monkeypatch)
                                food_curation_path=curation, recipe_path=recipes)
         row = db.catalog_conn.execute('SELECT id, name, arabic_name, hidden FROM foods').fetchone()
         assert tuple(row) == ('123', 'Rice', 'أرز', 0)
-        assert db.catalog_conn.execute("SELECT reviewed FROM foods WHERE id='myos:koshari'").fetchone()[0] == 1
+        assert db.catalog_conn.execute("SELECT reviewed FROM foods WHERE id='mayos:koshari'").fetchone()[0] == 1
         _csv(recipes, ['id','display_name','arabic_name','ingredient_fdc_id','grams','cooked_yield_g','reviewed'], [])
         db.initialize_and_seed(exercise_csv, exercise_curation, food_path=foods, portion_path=portions,
                                food_curation_path=curation, recipe_path=recipes)
-        assert db.catalog_conn.execute("SELECT 1 FROM foods WHERE id='myos:koshari'").fetchone() is None
+        assert db.catalog_conn.execute("SELECT 1 FROM foods WHERE id='mayos:koshari'").fetchone() is None
     finally:
         db.catalog_conn.close()
 
@@ -172,8 +172,8 @@ def test_recipe_reviewed_flag_defaults_false_and_accepts_true(tmp_path):
         dict(id='approved',display_name='Approved',arabic_name='معتمد',ingredient_fdc_id='1',grams='100',cooked_yield_g='',reviewed='true'),
     ])
     rows = {row['id']: row for row in build_food_library(foods, portions, curation, recipes)}
-    assert rows['myos:estimate']['reviewed'] is False
-    assert rows['myos:approved']['reviewed'] is True
+    assert rows['mayos:estimate']['reviewed'] is False
+    assert rows['mayos:approved']['reviewed'] is True
 
 
 @pytest.mark.parametrize(('grams', 'yield_grams', 'message'), [

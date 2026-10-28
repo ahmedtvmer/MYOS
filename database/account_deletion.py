@@ -13,9 +13,9 @@ from database.backup import remove_ledger_from_daily_backups
 from database.sqlite_connection import connect_api_sqlite
 from database.program_drafts import discard_assignment_program_draft
 from database.registry.assignments import EndedAssignmentSnapshot
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 class AccountDeletionMixin:

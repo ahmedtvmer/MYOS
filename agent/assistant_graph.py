@@ -100,14 +100,14 @@ from service import programs as programs_service
 from service.program_requests import MAX_REASON_CHARS
 from service.program_substitution import ProgramSubstitution, substitute_program_exercise
 from agent.program_weeks import find_program_day
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.equipment_access import COMMERCIAL_GYM, equipment_access_allows, map_equipment_access
 from utils.model_downloader import llm, structured_output_model
 from utils import player_output_budgets
 from utils.text_scrubber import CoachOutputScrubber, EMPTY_RESPONSE_FALLBACK, PIPELINE_ERROR_RESPONSE, finalize_coach_output
 
 load_dotenv()
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 OUTPUT_LIMIT_RESPONSE = "I reached the response limit. Ask me to continue if you'd like more."
 # Target the first visible prefix at a word boundary near 40 characters.
@@ -5321,7 +5321,7 @@ assistant_graph = builder.compile()
 # Telemetry Logging & Stream Interface
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "myos.log"
+LOG_FILE = LOG_DIR / "mayos.log"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

@@ -38,7 +38,7 @@ def graph(monkeypatch):
             "llm",
             "structured_output_model",
         ],
-        "utils.logger": ["MyosLogger"],
+        "utils.logger": ["MayosLogger"],
     }.items():
         module = _StubModule(name)
         for attr in attrs:

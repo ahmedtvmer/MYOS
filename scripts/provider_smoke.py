@@ -385,10 +385,10 @@ class SmokeUsageStore:
 
 
 def _register_operator_metering(store: SmokeUsageStore) -> None:
-    from utils.logger import MyosLogger
+    from utils.logger import MayosLogger
 
     # Service imports initialize the app logger, whose default path is outside the worktree.
-    MyosLogger(log_file=str(Path(tempfile.gettempdir()) / f"provider-smoke-{uuid.uuid4().hex}.log"))
+    MayosLogger(log_file=str(Path(tempfile.gettempdir()) / f"provider-smoke-{uuid.uuid4().hex}.log"))
     from service.model_metering import record_model_usage
 
     set_recorder(record_model_usage)

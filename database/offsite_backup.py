@@ -22,11 +22,11 @@ from typing import Any, Iterator
 
 from database.backup import OffsiteBackupStore, clamp_backup_retention_days
 from database.litestream import LEDGER_ID_RE, litestream_ledger_replica_path, litestream_replica_path
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.r2 import R2_ENV_NAMES as _R2_ENV_NAMES
 from utils.r2 import create_r2_client_from_environment as _create_r2_client_from_environment
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 DAILY_PREFIX = "daily/"
 COMPLETE_MARKER = "_COMPLETE.json"

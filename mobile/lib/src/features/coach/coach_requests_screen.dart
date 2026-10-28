@@ -8,13 +8,13 @@ import '../../core/connectivity_message.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
 import '../../core/ui/is_desktop_layout.dart';
-import '../../core/ui/myos_card.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_section_header.dart';
+import '../../core/ui/mayos_card.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_section_header.dart';
 import '../../core/ui/first_strong_direction.dart';
 import '../../providers.dart';
 import '../../router.dart';
@@ -152,11 +152,11 @@ class _CoachRequestsScreenState extends ConsumerState<CoachRequestsScreen> {
       return const SizedBox.shrink();
     }
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+      padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
       child: Text(
         displayCopyOf(context).failureMessage(_error!),
-        style: MyosTypography.of(context).bodySecondary
-            .copyWith(color: MyosTheme.of(context).danger),
+        style: MayosTypography.of(context).bodySecondary
+            .copyWith(color: MayosTheme.of(context).danger),
       ),
     );
   }
@@ -169,14 +169,14 @@ class _CoachRequestsScreenState extends ConsumerState<CoachRequestsScreen> {
         .where((ProgramRequest request) => !request.isPending)
         .toList(growable: false);
     return ListView(
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
         _errorBanner(context),
         if (_requests.isEmpty)
           _emptyRequests(context)
         else ...<Widget>[
           _pendingSection(context, pending, widget.selectedRequestId),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _answeredSection(context, answered, widget.selectedRequestId),
         ],
       ],
@@ -185,21 +185,21 @@ class _CoachRequestsScreenState extends ConsumerState<CoachRequestsScreen> {
 
   Widget _emptyRequests(BuildContext context) => Text(
         coachCopyOf(context).noProgramRequests,
-        style: MyosTypography.of(context).bodySecondary
-            .copyWith(color: MyosTheme.of(context).textSecondary),
+        style: MayosTypography.of(context).bodySecondary
+            .copyWith(color: MayosTheme.of(context).textSecondary),
       );
 
   Widget _pendingSection(
       BuildContext context, List<ProgramRequest> pending, String? selectedId) {
     final copy = coachCopyOf(context);
-    final Color secondary = MyosTheme.of(context).textSecondary;
+    final Color secondary = MayosTheme.of(context).textSecondary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        MyosSectionHeader(title: copy.pending),
+        MayosSectionHeader(title: copy.pending),
         if (pending.isEmpty)
           Text(copy.noPendingRequests,
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: secondary))
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: secondary))
         else
           for (final ProgramRequest request in pending)
             CoachRequestCard(
@@ -223,14 +223,14 @@ class _CoachRequestsScreenState extends ConsumerState<CoachRequestsScreen> {
   Widget _answeredSection(
       BuildContext context, List<ProgramRequest> answered, String? selectedId) {
     final copy = coachCopyOf(context);
-    final Color secondary = MyosTheme.of(context).textSecondary;
+    final Color secondary = MayosTheme.of(context).textSecondary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        MyosSectionHeader(title: copy.answered),
+        MayosSectionHeader(title: copy.answered),
         if (answered.isEmpty)
           Text(copy.nothingAnswered,
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: secondary))
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: secondary))
         else
           for (final ProgramRequest request in answered)
             CoachRequestCard(
@@ -340,41 +340,41 @@ class _CoachRequestDetailPaneState extends State<CoachRequestDetailPane> {
   Widget build(BuildContext context) {
     final ProgramRequest request = widget.request;
     final copy = coachCopyOf(context);
-    final MyosThemeExtension theme = MyosTheme.of(context);
+    final MayosThemeExtension theme = MayosTheme.of(context);
     return ListView(
       key: const Key('coach_request_detail_pane'),
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
         if (widget.error != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+            padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
             child: Text(
               displayCopyOf(context).failureMessage(widget.error!),
               style:
-                  MyosTypography.of(context).bodySecondary.copyWith(color: theme.danger),
+                  MayosTypography.of(context).bodySecondary.copyWith(color: theme.danger),
             ),
           ),
-        MyosSectionHeader(title: copy.requestDetail),
-        MyosCard(
+        MayosSectionHeader(title: copy.requestDetail),
+        MayosCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(request.playerUsername ?? copy.player),
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(
                 coachRequestTitle(context, request),
-                style: MyosTypography.of(context).exerciseTitle
+                style: MayosTypography.of(context).exerciseTitle
                     .copyWith(color: theme.textPrimary),
               ),
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               FirstStrongDirection(
                 text: request.reason,
                 child: Text('“${request.reason}”'),
               ),
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               coachRequestStatusChip(context, request),
               if (request.hasResponse) ...<Widget>[
-                const SizedBox(height: MyosSpacing.xs),
+                const SizedBox(height: MayosSpacing.xs),
                 FirstStrongDirection(
                   text: copy.youReplied(request.response!),
                   child: Text(copy.youReplied(request.response!)),
@@ -384,15 +384,15 @@ class _CoachRequestDetailPaneState extends State<CoachRequestDetailPane> {
           ),
         ),
         if (request.isPending && widget.isPhone) ...<Widget>[
-          const SizedBox(height: MyosSpacing.md),
-          MyosButton(
+          const SizedBox(height: MayosSpacing.md),
+          MayosButton(
             key: const Key('request_resolve_button'),
             label: copy.reviewRequest,
             icon: Icons.rate_review_outlined,
             onPressed: widget.onPhoneResolve,
           ),
         ] else if (request.isPending) ...<Widget>[
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           CoachRequestDecisionControls(
             request: request,
             replyController: _reply,
@@ -402,7 +402,7 @@ class _CoachRequestDetailPaneState extends State<CoachRequestDetailPane> {
         ] else
           Text(
             copy.requestAnswered,
-            style: MyosTypography.of(context).bodySecondary
+            style: MayosTypography.of(context).bodySecondary
                 .copyWith(color: theme.textSecondary),
           ),
       ],

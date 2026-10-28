@@ -328,11 +328,11 @@ def test_gate_preserves_all_checkpoint_report_reasons(api, monkeypatch, tmp_path
     [
         (
             "en",
-            "Checkpoint 10: 10 workouts since you started logging in MYOS.",
+            "Checkpoint 10: 10 workouts since you started logging in MAYOS.",
         ),
         (
             "ar",
-            "محطة تقدم 10: أكملت 10 حصص تدريبية منذ بدء تسجيلك في MYOS.",
+            "محطة تقدم 10: أكملت 10 حصص تدريبية منذ بدء تسجيلك في MAYOS.",
         ),
     ],
 )

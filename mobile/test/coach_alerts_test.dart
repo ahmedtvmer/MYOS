@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
-import 'package:myos_mobile/src/core/display_language/message_copy.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:mayos_mobile/src/core/display_language/message_copy.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/fake_api_adapter.dart';
 import 'support/coach_layout_harness.dart';
 
@@ -27,7 +27,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake,
+Future<void> _pumpApp(WidgetTester tester, FakeMayosApi fake,
     {Size logicalSize = const Size(540, 1200)}) async {
   tester.view.physicalSize = Size(logicalSize.width * 2, logicalSize.height * 2);
   tester.view.devicePixelRatio = 2.0;
@@ -51,15 +51,15 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake,
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(
       tester, find.text(fake.coach ? 'Roster' : 'Home'));
 }
 
-FakeMyosApi _coachFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _coachFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -249,7 +249,7 @@ void main() {
 
   testWidgets('all alert kinds fit a 360 dp phone and actions work in both languages',
       (WidgetTester tester) async {
-    late FakeMyosApi fake;
+    late FakeMayosApi fake;
     final List<Map<String, dynamic>> alerts = <Map<String, dynamic>>[
       _alert(),
       _followUpAlert(),
@@ -316,7 +316,7 @@ void main() {
     ];
     await expectCoachPhoneLayout(
       tester,
-      configureFake: (FakeMyosApi configured) {
+      configureFake: (FakeMayosApi configured) {
         fake = configured;
         fake.assignments.add(<String, dynamic>{
           'assignment_id': 'assignment-1',
@@ -381,7 +381,7 @@ void main() {
 
   testWidgets('cached alert descriptions re-render when Display language changes',
       (tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachAlerts.addAll(<Map<String, dynamic>>[
         _alert(),
         _followUpAlert(),
@@ -442,7 +442,7 @@ void main() {
 
   testWidgets('Arabic alert actions preserve meaning and roster order',
       (tester) async {
-    final FakeMyosApi fake = _coachFake()..assignments.clear();
+    final FakeMayosApi fake = _coachFake()..assignments.clear();
     fake.assignments.addAll(<Map<String, dynamic>>[
       <String, dynamic>{
         'assignment_id': 'assignment-dev',
@@ -511,7 +511,7 @@ void main() {
 
   testWidgets('unknown and malformed alert metadata stays safe in widgets',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.addAll(<Map<String, dynamic>>[
       <String, dynamic>{
         ..._alert(),
@@ -545,7 +545,7 @@ void main() {
 
   testWidgets('roster row carries the new-alert chip and no acknowledged '
       'chip', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
     await _openRoster(tester);
 
@@ -565,7 +565,7 @@ void main() {
         .subtract(const Duration(days: 1))
         .toIso8601String()
         .substring(0, 10);
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..assignments[0]['next_follow_up_on'] = yesterday
       ..assignments.add(<String, dynamic>{
         'assignment_id': 'assignment-today',
@@ -585,7 +585,7 @@ void main() {
   });
 
   testWidgets('coach acknowledges then resolves an alert', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.add(_alert());
     await _pumpApp(tester, fake);
     await _openAlertCenter(tester);
@@ -611,7 +611,7 @@ void main() {
 
   testWidgets('coach alert list renders profile changes as before and after',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.add(_profileChangeAlert());
     await _pumpApp(tester, fake);
     await _openAlertCenter(tester);
@@ -622,7 +622,7 @@ void main() {
 
   testWidgets('deload alert renders its reason and can be resolved',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.add(_deloadAlert());
     await _pumpApp(tester, fake);
     await _openAlertCenter(tester);
@@ -642,7 +642,7 @@ void main() {
 
   testWidgets('stall alert has its own label and can be acknowledged',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.add(_stallAlert());
     await _pumpApp(tester, fake);
     await _openAlertCenter(tester);
@@ -658,7 +658,7 @@ void main() {
 
   testWidgets('performance regression alert renders exercise and e1RM delta',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachAlerts.add(_regressionAlert());
     await _pumpApp(tester, fake);
     await _openAlertCenter(tester);

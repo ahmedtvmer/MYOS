@@ -1,6 +1,6 @@
-# MYOS Coaching Context
+# MAYOS Coaching Context
 
-MYOS supports personal training and a consented coaching relationship. A person can train, coach others, or do both through one account.
+MAYOS supports personal training and a consented coaching relationship. A person can train, coach others, or do both through one account.
 
 ## Language
 
@@ -18,8 +18,8 @@ person wrote. They use the glossary term when naming something in the app
 (Training program, Exercise library, Checkpoint) and everyday Egyptian gym
 words otherwise, such as **سيتات** for sets and **عدّات** for reps.
 
-**MYOS**:
-From Greek μυός, meaning “muscle”; pronounced /ˈmeɪ.os/. The Latin wordmark stays “MYOS” in both languages.
+**MAYOS**:
+From Greek μυός, meaning “muscle”; pronounced /ˈmeɪ.os/. The Latin wordmark stays “MAYOS” in both languages.
 _Arabic_: ميوس
 _Avoid_: مايوس (reads as مأيوس, “hopeless”)
 
@@ -40,10 +40,10 @@ The web app after a person adds it to their phone's or computer's home screen, s
 _Avoid_: PWA (in product copy), native app
 
 **Account**:
-The identity a person uses to access MYOS. An account can have player and coach capabilities at the same time.
+The identity a person uses to access MAYOS. An account can have player and coach capabilities at the same time.
 
 **Recovery email**:
-The email address used for password recovery. It lives in the shared catalog with the account, separately from training data. An account can use MYOS before the address is verified, but password recovery requires a verified address.
+The email address used for password recovery. It lives in the shared catalog with the account, separately from training data. An account can use MAYOS before the address is verified, but password recovery requires a verified address.
 _Arabic_: البريد الإلكتروني للاسترداد
 
 **Product emails**:
@@ -52,7 +52,7 @@ opted in. Consent starts off and can be withdrawn in Settings.
 _Arabic_: رسائل المنتجات
 
 **Player**:
-An account holder using MYOS for their own training. A player may also be a coach.
+An account holder using MAYOS for their own training. A player may also be a coach.
 _Arabic_: لاعب
 _Avoid_: Trainee (legacy code and API term), client
 
@@ -128,7 +128,7 @@ _Arabic_: دعوة للتدريب مع مدرب
 _Avoid_: Invite code (ambiguous with Coach invite)
 
 **Coach invite**:
-A single-use invitation issued by MYOS that grants an account the coach capability. It can be bound to an existing Account or hold a username for a future Account. It is how a person becomes a Coach, and it never creates an Assignment; an Assignment invite is a separate code issued by a Coach to invite a Player into a coaching relationship.
+A single-use invitation issued by MAYOS that grants an account the coach capability. It can be bound to an existing Account or hold a username for a future Account. It is how a person becomes a Coach, and it never creates an Assignment; an Assignment invite is a separate code issued by a Coach to invite a Player into a coaching relationship.
 _Arabic_: دعوة لتفعيل دور المدرب
 _Avoid_: Invite code, redeem coach invite
 
@@ -176,7 +176,7 @@ _Avoid_: Custom exercise
 Every Exercise library row has a name shown to the Player. A reviewed row uses its gym-standard name, such as "Lat Pulldown"; an unreviewed row shows its Exercise source name in Title Case. The source name, id and media stay unchanged.
 
 **Exercise source name**:
-The name supplied by ExerciseDB or by a MYOS-authored Exercise library definition. It stays on the source row with its id and media; curation never rewrites it.
+The name supplied by ExerciseDB or by a MAYOS-authored Exercise library definition. It stays on the source row with its id and media; curation never rewrites it.
 
 **Exercise alias**:
 An alternative name a player may search by that resolves to one exercise in the Exercise library, such as "frontal lat pulldown" or "lat pull-down".
@@ -185,7 +185,7 @@ An alternative name a player may search by that resolves to one exercise in the 
 An Exercise library row excluded from Player and Coach search, Replace browse, program generation, and substitution suggestions. Its stable id remains readable in existing Training programs and workout history; when marked as a duplicate, those reads show the kept Exercise's display name.
 
 **Exercise curation file**:
-The MYOS-owned `data/exercise_curation.csv`, keyed by Exercise library id. It holds reviewed Exercise display names and aliases, with curated fields such as Primary muscle kept beside the source row.
+The MAYOS-owned `data/exercise_curation.csv`, keyed by Exercise library id. It holds reviewed Exercise display names and aliases, with curated fields such as Primary muscle kept beside the source row.
 
 **Equipment category**:
 The derived category for an Exercise library row, computed from its Equipment value: Free weight, Machine, Cable, Bodyweight, Band, or Other. It describes the kind of equipment and is separate from Equipment access.
@@ -256,7 +256,7 @@ _Avoid_: Inject exercise
 _Arabic_: تبديل تمرين في مسودة البرنامج
 
 **Program import**:
-Turning a program a Coach brings, as a spreadsheet (XLSX or CSV) or as plain text (a `.txt` file or pasted text), into the Program draft of a Player on an active Assignment. A sheet in the MYOS template is read directly; a sheet in the Coach's own layout, and any plain text, is first translated into the same rows. Either way the result is only a Program draft: an import never publishes. A multi-week free-form sheet or text contributes one chosen week; the MYOS template's `week` column imports all numbered weeks in order, with blank values defaulting to Week 1.
+Turning a program a Coach brings, as a spreadsheet (XLSX or CSV) or as plain text (a `.txt` file or pasted text), into the Program draft of a Player on an active Assignment. A sheet in the MAYOS template is read directly; a sheet in the Coach's own layout, and any plain text, is first translated into the same rows. Either way the result is only a Program draft: an import never publishes. A multi-week free-form sheet or text contributes one chosen week; the MAYOS template's `week` column imports all numbered weeks in order, with blank values defaulting to Week 1.
 _Avoid_: Program migration, program upload
 
 **Training profile**:
@@ -321,7 +321,7 @@ The two app surfaces of one account: training for oneself, or coaching assigned 
 _Avoid_: Lifter UI, coach account
 
 **Display language**:
-An account's chosen English or Arabic language for the app and MYOS messages, initially taken from the system or a manual choice and restored on sign-in without later system changes overriding it. The assistant replies in the language of the player's latest message and falls back to Display language only when that message has no clear language.
+An account's chosen English or Arabic language for the app and MAYOS messages, initially taken from the system or a manual choice and restored on sign-in without later system changes overriding it. The assistant replies in the language of the player's latest message and falls back to Display language only when that message has no clear language.
 _Avoid_: Locale (implementation term), app language
 
 **Franco-Arabic**:
@@ -329,7 +329,7 @@ Arabic written in Latin letters and digits, such as "3ayez a8ayar el bench". The
 _Avoid_: Arabizi, Franco
 
 **Linked sign-in**:
-An external identity, such as a Google account, attached to exactly one MYOS account and usable to sign in to it. Sign-in and connection match only by provider and subject; accounts are never linked or merged by email. A linked Google sign-in stores its normalized email and verification state as account data. Google's verified email may be kept as the recovery email when a new account is created and no live account already uses it. On an existing account, it can verify the current unverified recovery email only when the addresses match; it never replaces a different address. It never replaces the account's username. An account always keeps at least one way to sign in, so a Linked sign-in can be removed only while the account has a password.
+An external identity, such as a Google account, attached to exactly one MAYOS account and usable to sign in to it. Sign-in and connection match only by provider and subject; accounts are never linked or merged by email. A linked Google sign-in stores its normalized email and verification state as account data. Google's verified email may be kept as the recovery email when a new account is created and no live account already uses it. On an existing account, it can verify the current unverified recovery email only when the addresses match; it never replaces a different address. It never replaces the account's username. An account always keeps at least one way to sign in, so a Linked sign-in can be removed only while the account has a password.
 
 **Workout**:
 A single training session recorded by a player, distinct from an individual exercise within it.
@@ -389,7 +389,7 @@ A player's working sets per muscle group over the last 7 days, each set counting
 _Arabic_: الحجم الأسبوعي
 
 **Checkpoint**:
-A workout-count landmark in a player's training: the 10th, 25th, 50th and 100th workout, then every 100th. Only workouts completed in MYOS count; imported history does not.
+A workout-count landmark in a player's training: the 10th, 25th, 50th and 100th workout, then every 100th. Only workouts completed in MAYOS count; imported history does not.
 _Arabic_: محطة تقدم
 _Avoid_: Milestone, achievement
 
@@ -409,7 +409,7 @@ _Arabic_: تخفيف التدريب
 A run of consecutive committing sessions over which a progression signal (a recommended deload, or a regression on one exercise) keeps firing. It opens when the signal first fires and closes on the first later commit where it does not, producing one durable coach alert per episode rather than one per session.
 
 **Check-in**:
-A contact recorded by the coach and visible to both coach and player, including contact outside MYOS. It starts the interval until the next follow-up is due.
+A contact recorded by the coach and visible to both coach and player, including contact outside MAYOS. It starts the interval until the next follow-up is due.
 _Arabic_: تواصل; recording a Check-in is تسجيل تواصل.
 
 **Follow-up due**:
@@ -451,7 +451,7 @@ _Arabic_: الالتزام الغذائي
 _Avoid_: Check-in (a Coach-recorded contact), food log
 
 **Food library**:
-The shared reference set of foods with their nutrients per 100 g and portions, drawn from USDA FoodData Central rows plus MYOS-authored rows, including Egyptian dishes built from a recipe of library ingredients. It is the same for every account and holds no personal data; Hidden rows (baby foods, brands, fast food, pork, alcohol) never appear in search.
+The shared reference set of foods with their nutrients per 100 g and portions, drawn from USDA FoodData Central rows plus MAYOS-authored rows, including Egyptian dishes built from a recipe of library ingredients. It is the same for every account and holds no personal data; Hidden rows (baby foods, brands, fast food, pork, alcohol) never appear in search.
 _Arabic_: مكتبة الأطعمة
 _Avoid_: Food database, food catalog
 
@@ -470,11 +470,11 @@ A named place in a Player's eating day, such as Breakfast, Lunch, Dinner or Snac
 _Arabic_: وجبة
 
 **Staple food**:
-A food MYOS curates as a default choice for a meal role, such as eggs or ful for a breakfast protein. Each role has an ordered list; the first one the Player's Food restrictions allow is suggested and the next ones are its swaps. It is the food counterpart of a Staple exercise.
+A food MAYOS curates as a default choice for a meal role, such as eggs or ful for a breakfast protein. Each role has an ordered list; the first one the Player's Food restrictions allow is suggested and the next ones are its swaps. It is the food counterpart of a Staple exercise.
 _Arabic_: طعام أساسي
 
 **Food restriction**:
-A food a Player must not be suggested: an allergy, a dislike, or a vegetarian diet. Allergies and vegetarian are strict; a dislike only removes the food from suggestions. Every Food library row shown in MYOS is halal by default.
+A food a Player must not be suggested: an allergy, a dislike, or a vegetarian diet. Allergies and vegetarian are strict; a dislike only removes the food from suggestions. Every Food library row shown in MAYOS is halal by default.
 _Arabic_: قيود غذائية
 
 **Food swap**:

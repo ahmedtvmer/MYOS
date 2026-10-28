@@ -7,11 +7,11 @@ import '../../core/connectivity_message.dart';
 import '../../core/display_language/coach_copy.dart';
 import '../../core/display_language/copy_context.dart';
 import '../../core/display_language/feature_copy_context.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
 import '../../providers.dart';
 import 'coach_program_draft_screen.dart';
 import 'coach_template_assignment_screen.dart';
@@ -184,35 +184,35 @@ class _CoachProgramTemplatesScreenState
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: ListView(
-                  padding: MyosSpacing.screen,
+                  padding: MayosSpacing.screen,
                   children: <Widget>[
                     Text(
                       copy.programTemplatesLead,
-                      style: MyosTypography.of(context).bodySecondary,
+                      style: MayosTypography.of(context).bodySecondary,
                     ),
-                    const SizedBox(height: MyosSpacing.md),
-                    MyosButton(
+                    const SizedBox(height: MayosSpacing.md),
+                    MayosButton(
                       key: const Key('program_templates_new'),
                       label: copy.newProgramTemplate,
                       icon: Icons.add,
                       onPressed: _createTemplate,
                     ),
                     if (_failure != null) ...<Widget>[
-                      const SizedBox(height: MyosSpacing.md),
+                      const SizedBox(height: MayosSpacing.md),
                       Text(
                         displayCopyOf(context).failureMessage(_failure!),
-                        style: MyosTypography.of(context)
+                        style: MayosTypography.of(context)
                             .body
-                            .copyWith(color: MyosTheme.of(context).danger),
+                            .copyWith(color: MayosTheme.of(context).danger),
                       ),
                     ],
-                    const SizedBox(height: MyosSpacing.md),
+                    const SizedBox(height: MayosSpacing.md),
                     if (_templates.isEmpty)
                       Text(copy.noProgramTemplates)
                     else
                       for (final Map<String, dynamic> template in _templates)
                         _templateCard(template, archived: false),
-                    const SizedBox(height: MyosSpacing.sm),
+                    const SizedBox(height: MayosSpacing.sm),
                     TextButton(
                       key: const Key('program_templates_show_archived'),
                       onPressed: () =>
@@ -226,9 +226,9 @@ class _CoachProgramTemplatesScreenState
                     if (_showArchived) ...<Widget>[
                       Text(
                         copy.archivedTemplates,
-                        style: MyosTypography.of(context).sectionHeading,
+                        style: MayosTypography.of(context).sectionHeading,
                       ),
-                      const SizedBox(height: MyosSpacing.sm),
+                      const SizedBox(height: MayosSpacing.sm),
                       if (_archived.isEmpty)
                         Text(copy.noProgramTemplates)
                       else
@@ -252,59 +252,59 @@ class _CoachProgramTemplatesScreenState
     final String? description = template['description'] as String?;
     final bool busy = _busyTemplateId == id;
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
-      child: MyosCard(
+      padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
+      child: MayosCard(
         key: Key('program_template_row_$id'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(name, style: MyosTypography.of(context).sectionHeading),
+            Text(name, style: MayosTypography.of(context).sectionHeading),
             if (description != null && description.isNotEmpty) ...<Widget>[
-              const SizedBox(height: MyosSpacing.xs),
+              const SizedBox(height: MayosSpacing.xs),
               Text(
                 description,
-                style: MyosTypography.of(context).bodySecondary,
+                style: MayosTypography.of(context).bodySecondary,
               ),
             ],
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Wrap(
-              spacing: MyosSpacing.xs,
+              spacing: MayosSpacing.xs,
               children: <Widget>[
                 if (!archived) ...<Widget>[
-                  MyosButton(
+                  MayosButton(
                     key: Key('program_template_edit_$id'),
                     label: copy.editProgramTemplate,
-                    variant: MyosButtonVariant.secondary,
+                    variant: MayosButtonVariant.secondary,
                     expand: false,
                     onPressed: busy ? null : () => _openTemplate(template),
                   ),
-                  MyosButton(
+                  MayosButton(
                     key: Key('program_template_duplicate_$id'),
                     label: copy.duplicateTemplate,
-                    variant: MyosButtonVariant.secondary,
+                    variant: MayosButtonVariant.secondary,
                     expand: false,
                     loading: busy,
                     onPressed: busy ? null : () => _duplicateTemplate(template),
                   ),
-                  MyosButton(
+                  MayosButton(
                     key: Key('program_template_assign_$id'),
                     label: copy.assignTemplate,
-                    variant: MyosButtonVariant.secondary,
+                    variant: MayosButtonVariant.secondary,
                     expand: false,
                     onPressed: busy ? null : () => _assignTemplate(template),
                   ),
-                  MyosButton(
+                  MayosButton(
                     key: Key('program_template_archive_$id'),
                     label: copy.archiveTemplate,
-                    variant: MyosButtonVariant.tertiary,
+                    variant: MayosButtonVariant.tertiary,
                     expand: false,
                     onPressed: busy ? null : () => _setArchived(template, true),
                   ),
                 ] else
-                  MyosButton(
+                  MayosButton(
                     key: Key('program_template_unarchive_$id'),
                     label: copy.unarchiveTemplate,
-                    variant: MyosButtonVariant.secondary,
+                    variant: MayosButtonVariant.secondary,
                     expand: false,
                     loading: busy,
                     onPressed: busy ? null : () => _setArchived(template, false),

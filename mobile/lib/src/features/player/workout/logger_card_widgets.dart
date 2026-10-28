@@ -12,11 +12,11 @@ import '../../../core/external_url_launcher.dart';
 import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
 import '../../../core/rest_length.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_card.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_card.dart';
 import '../../../core/workout_equipment.dart';
 import 'logger_keypad.dart';
 import 'personal_record_badge.dart';
@@ -33,7 +33,7 @@ import 'personal_record_badge.dart';
 /// tick — hold a **fixed 48dp** each, so both stay full-size tap targets
 /// whatever the screen is (#158 review): at the 360dp minimum the row has
 /// about 286dp, and a flex share would have squeezed them under 48.
-const double kLoggerFixedColumnWidth = kMyosMinTapTarget;
+const double kLoggerFixedColumnWidth = kMayosMinTapTarget;
 
 /// The value columns KG · REPS · RIR share whatever width the two fixed
 /// columns leave, in the plan's priority order (weight, reps, effort).
@@ -146,7 +146,7 @@ class PreviousPerformanceSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     final String modelLabel = lastSessionLabel(
       sets,
@@ -159,7 +159,7 @@ class PreviousPerformanceSummary extends StatelessWidget {
     return Text(
       copy.previousPerformance(values),
       textAlign: copy.isArabic ? TextAlign.end : null,
-      style: MyosTypography.of(context).caption.copyWith(color: c.textSecondary),
+      style: MayosTypography.of(context).caption.copyWith(color: c.textSecondary),
     );
   }
 }
@@ -178,10 +178,10 @@ class LoggerTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     return Padding(
-      padding: const EdgeInsets.only(top: MyosSpacing.xs),
+      padding: const EdgeInsets.only(top: MayosSpacing.xs),
       child: Row(
         children: <Widget>[
           SizedBox(
@@ -189,7 +189,7 @@ class LoggerTableHeader extends StatelessWidget {
             child: Text(
               copy.setShort,
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
+              style: MayosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
             ),
           ),
           for (int i = 1; i < labels.length - 1; i++)
@@ -203,7 +203,7 @@ class LoggerTableHeader extends StatelessWidget {
                 },
                 textAlign: TextAlign.center,
                 style:
-                    MyosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
+                    MayosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
               ),
             ),
           SizedBox(
@@ -211,7 +211,7 @@ class LoggerTableHeader extends StatelessWidget {
             child: Text(
               labels[labels.length - 1],
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
+              style: MayosTypography.of(context).captionStrong.copyWith(color: c.textMuted),
             ),
           ),
         ],
@@ -234,25 +234,25 @@ class LoggerTableHeader extends StatelessWidget {
 /// rebuild paints from memory instead of refetching, and `gaplessPlayback`
 /// keeps the last frame across rebuilds.
 ///
-/// The build-time media flag gates it (#53): when [myosExerciseMediaEnabled]
+/// The build-time media flag gates it (#53): when [mayosExerciseMediaEnabled]
 /// is off (`--dart-define=MAYOS_EXERCISE_MEDIA=false`) the box shows the
 /// missing-picture fallback and no request is ever made.
 class ExerciseCatalogThumbnail extends StatelessWidget {
   const ExerciseCatalogThumbnail({
     super.key,
     required this.imagePath,
-    this.enabled = myosExerciseMediaEnabled,
+    this.enabled = mayosExerciseMediaEnabled,
   });
 
   /// Fixed 48dp: a full-size tap-adjacent block that still leaves the title,
   /// the Unplanned pill and the rest chip their room at 360dp (#161).
-  static const double size = kMyosMinTapTarget;
+  static const double size = kMayosMinTapTarget;
 
   /// The catalog's relative image path (`images/0001-2gPfomN.jpg`), null
   /// when the exercise has no picture.
   final String? imagePath;
 
-  /// The media flag this card renders under (#53): with [myosExerciseMediaEnabled]
+  /// The media flag this card renders under (#53): with [mayosExerciseMediaEnabled]
   /// as its default the widget follows the build-time kill switch, while a
   /// test can pin either state.
   final bool enabled;
@@ -264,10 +264,10 @@ class ExerciseCatalogThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final String? url = _url;
     return ClipRRect(
-      borderRadius: MyosRadii.mediumRadius,
+      borderRadius: MayosRadii.mediumRadius,
       child: SizedBox(
         width: size,
         height: size,
@@ -299,12 +299,12 @@ class ExerciseCatalogThumbnail extends StatelessWidget {
 
   /// The loading state (#161): a static glyph, never a spinner, so a picture
   /// that takes a moment cannot keep the screen animating.
-  Widget _placeholder(MyosThemeExtension c) => ColoredBox(
+  Widget _placeholder(MayosThemeExtension c) => ColoredBox(
         color: c.surfaceSunken,
         child: Center(
           child: Icon(
             Icons.image_outlined,
-            size: MyosIconSizes.medium,
+            size: MayosIconSizes.medium,
             color: c.textDisabled,
           ),
         ),
@@ -313,14 +313,14 @@ class ExerciseCatalogThumbnail extends StatelessWidget {
   /// The missing- and failed-picture states: an exercise glyph on a surface
   /// tint, in the same fixed box (#161). Both look alike on purpose — only
   /// the semantic label tells a screen reader which one it is.
-  Widget _fallback(BuildContext context, MyosThemeExtension c,
+  Widget _fallback(BuildContext context, MayosThemeExtension c,
           {required bool failed}) =>
       ColoredBox(
         color: c.secondarySurface,
         child: Center(
           child: Icon(
             Icons.fitness_center,
-            size: MyosIconSizes.medium,
+            size: MayosIconSizes.medium,
             color: c.textMuted,
             semanticLabel: failed
                 ? workoutCopyOf(context).pictureUnavailable
@@ -363,7 +363,7 @@ class LoggerExerciseName extends StatelessWidget {
           // The title row already holds a 48dp menu button, so the taller
           // hit area doesn't change the card's height.
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: kMyosMinTapTarget),
+            constraints: const BoxConstraints(minHeight: kMayosMinTapTarget),
             child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 widthFactor: 1,
@@ -454,23 +454,23 @@ class ExerciseLoggingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.md),
-      child: MyosCard(
-        padding: const EdgeInsetsDirectional.fromSTEB(MyosSpacing.md,
-            MyosSpacing.xxs, MyosSpacing.md, MyosSpacing.xxs),
+      padding: const EdgeInsets.only(bottom: MayosSpacing.md),
+      child: MayosCard(
+        padding: const EdgeInsetsDirectional.fromSTEB(MayosSpacing.md,
+            MayosSpacing.xxs, MayosSpacing.md, MayosSpacing.xxs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (exercise.exercise['movement_restriction'] is String)
               Padding(
-                padding: const EdgeInsets.only(bottom: MyosSpacing.xs),
+                padding: const EdgeInsets.only(bottom: MayosSpacing.xs),
                 child: Text(
                   copy.movementRestrictionWarning(exercise.exercise['movement_restriction'] as String),
                   key: const Key('logger_movement_restriction_warning'),
-                  style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+                  style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
                 ),
               ),
             Row(
@@ -481,7 +481,7 @@ class ExerciseLoggingCard extends StatelessWidget {
                   child: LoggerExerciseName(
                     name: exercise.exerciseName,
                     onTap: onOpenDetail,
-                    style: MyosTypography.of(context).exerciseTitle
+                    style: MayosTypography.of(context).exerciseTitle
                         .copyWith(color: c.textPrimary),
                   ),
                 ),
@@ -512,7 +512,7 @@ class ExerciseLoggingCard extends StatelessWidget {
                       value: 'reorder',
                       child: Text(
                         copy.reorderExercises,
-                        style: MyosTypography.of(context).body,
+                        style: MayosTypography.of(context).body,
                       ),
                     ),
                     PopupMenuItem<String>(
@@ -520,13 +520,13 @@ class ExerciseLoggingCard extends StatelessWidget {
                       value: 'replace',
                       child: Text(
                         copy.replaceExercise,
-                        style: MyosTypography.of(context).body,
+                        style: MayosTypography.of(context).body,
                       ),
                     ),
                     PopupMenuItem<String>(
                       key: restKey,
                       value: 'rest',
-                      child: Text(copy.restTime, style: MyosTypography.of(context).body),
+                      child: Text(copy.restTime, style: MayosTypography.of(context).body),
                     ),
                     // Exactly one of the two: a replacement is undone (which
                     // brings its planned exercise back), any other unplanned
@@ -537,7 +537,7 @@ class ExerciseLoggingCard extends StatelessWidget {
                         value: 'undo',
                         child: Text(
                           copy.undoReplace,
-                          style: MyosTypography.of(context).body,
+                          style: MayosTypography.of(context).body,
                         ),
                       )
                     else if (onRemove != null)
@@ -546,7 +546,7 @@ class ExerciseLoggingCard extends StatelessWidget {
                         value: 'remove',
                         child: Text(
                           copy.removeExercise,
-                          style: MyosTypography.of(context).body,
+                          style: MayosTypography.of(context).body,
                         ),
                       ),
                   ],
@@ -560,21 +560,21 @@ class ExerciseLoggingCard extends StatelessWidget {
             // text scale, and the caption text wraps into the room the fixed
             // thumbnail leaves.
             Padding(
-              padding: const EdgeInsets.only(top: MyosSpacing.xxs),
+              padding: const EdgeInsets.only(top: MayosSpacing.xxs),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   // A fixed box, so a card with, without, or waiting for a
                   // picture is laid out the same way and never shifts.
                   ExerciseCatalogThumbnail(imagePath: exercise.imagePath),
-                  const SizedBox(width: MyosSpacing.xs),
+                  const SizedBox(width: MayosSpacing.xs),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         Text(
                           _prescriptionLine(copy),
-                          style: MyosTypography.of(context).caption
+                          style: MayosTypography.of(context).caption
                               .copyWith(color: c.textMuted),
                           textAlign: copy.isArabic ? TextAlign.end : null,
                         ),
@@ -582,11 +582,11 @@ class ExerciseLoggingCard extends StatelessWidget {
                             when tempo.isNotEmpty)
                           Padding(
                             padding:
-                                const EdgeInsets.only(top: MyosSpacing.xxs),
+                                const EdgeInsets.only(top: MayosSpacing.xxs),
                             child: Text(
                               copy.tempoCue(tempo),
                               textAlign: copy.isArabic ? TextAlign.end : null,
-                              style: MyosTypography.of(context).caption
+                              style: MayosTypography.of(context).caption
                                   .copyWith(color: c.textMuted),
                             ),
                           ),
@@ -594,18 +594,18 @@ class ExerciseLoggingCard extends StatelessWidget {
                             when notes.isNotEmpty)
                           Padding(
                             padding:
-                                const EdgeInsets.only(top: MyosSpacing.xxs),
+                                const EdgeInsets.only(top: MayosSpacing.xxs),
                             child: Text(
                               '${copy.exerciseNotes}: $notes',
                               textAlign: copy.isArabic ? TextAlign.end : null,
-                              style: MyosTypography.of(context).caption
+                              style: MayosTypography.of(context).caption
                                   .copyWith(color: c.textSecondary),
                             ),
                           ),
                         if (lastSession.isNotEmpty)
                           Padding(
                             padding:
-                                const EdgeInsets.only(top: MyosSpacing.xxs),
+                                const EdgeInsets.only(top: MayosSpacing.xxs),
                             child:
                                 PreviousPerformanceSummary(
                                   sets: lastSession,
@@ -620,10 +620,10 @@ class ExerciseLoggingCard extends StatelessWidget {
             ),
             const LoggerTableHeader(),
             ...rows,
-            MyosButton(
+            MayosButton(
               key: addSetKey,
               label: copy.addSet,
-              variant: MyosButtonVariant.secondary,
+              variant: MayosButtonVariant.secondary,
               onPressed: onAddSet,
             ),
           ],
@@ -704,11 +704,11 @@ class _CoachExerciseLoggerDetails extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (note?.trim().isNotEmpty == true) ...<Widget>[
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             note!,
-            style: MyosTypography.of(context).bodySecondary.copyWith(
-              color: MyosTheme.of(context).textSecondary,
+            style: MayosTypography.of(context).bodySecondary.copyWith(
+              color: MayosTheme.of(context).textSecondary,
             ),
           ),
         ],
@@ -766,9 +766,9 @@ class WarmupMovementLoggingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.md),
-      child: MyosCard(
-        padding: const EdgeInsets.all(MyosSpacing.md),
+      padding: const EdgeInsets.only(bottom: MayosSpacing.md),
+      child: MayosCard(
+        padding: const EdgeInsets.all(MayosSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -780,18 +780,18 @@ class WarmupMovementLoggingCard extends StatelessWidget {
                     (movement.sets.isEmpty ? 10 : movement.sets.first.reps),
                 movement.restSeconds ?? 45,
               ),
-              style: MyosTypography.of(context).caption.copyWith(
-                color: MyosTheme.of(context).textMuted,
+              style: MayosTypography.of(context).caption.copyWith(
+                color: MayosTheme.of(context).textMuted,
               ),
             ),
             if (movement.notes != null && movement.notes!.isNotEmpty)
               Text(
                 '${workoutCopyOf(context).exerciseNotes}: ${movement.notes}',
-                style: MyosTypography.of(context).caption.copyWith(
-                  color: MyosTheme.of(context).textSecondary,
+                style: MayosTypography.of(context).caption.copyWith(
+                  color: MayosTheme.of(context).textSecondary,
                 ),
               ),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             _columnHeadings(context),
             for (int setIndex = 0; setIndex < movement.sets.length; setIndex++)
               _warmupSetRow(context, setIndex, movement.sets[setIndex]),
@@ -806,7 +806,7 @@ class WarmupMovementLoggingCard extends StatelessWidget {
     int setIndex,
     ActiveWarmupSet set,
   ) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Row(
       children: <Widget>[
         SizedBox(
@@ -815,7 +815,7 @@ class WarmupMovementLoggingCard extends StatelessWidget {
               textAlign: TextAlign.center, textDirection: TextDirection.ltr),
         ),
         _weightField(context, setIndex, set),
-        const SizedBox(width: MyosSpacing.xs),
+        const SizedBox(width: MayosSpacing.xs),
         _repsField(setIndex, set),
         _tickButton(context, setIndex, set, c),
       ],
@@ -823,14 +823,14 @@ class WarmupMovementLoggingCard extends StatelessWidget {
   }
 
   Widget _heading(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Row(
       children: <Widget>[
         Expanded(
           child: LoggerExerciseName(
             name: movement.exerciseName,
             onTap: onOpenDetail,
-            style: MyosTypography.of(context).exerciseTitle.copyWith(color: c.textPrimary),
+            style: MayosTypography.of(context).exerciseTitle.copyWith(color: c.textPrimary),
           ),
         ),
         const _WarmupTag(),
@@ -889,7 +889,7 @@ class WarmupMovementLoggingCard extends StatelessWidget {
       );
 
   Widget _tickButton(BuildContext context, int setIndex, ActiveWarmupSet set,
-          MyosThemeExtension c) =>
+          MayosThemeExtension c) =>
       SizedBox(
         width: kLoggerFixedColumnWidth,
         child: IconButton(
@@ -1012,23 +1012,23 @@ class CardioLoggingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: MyosSpacing.md),
-      child: MyosCard(
-        padding: const EdgeInsets.all(MyosSpacing.md),
+      padding: const EdgeInsets.only(bottom: MayosSpacing.md),
+      child: MayosCard(
+        padding: const EdgeInsets.all(MayosSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
               copy.cardio,
-              style: MyosTypography.of(context).exerciseTitle.copyWith(
+              style: MayosTypography.of(context).exerciseTitle.copyWith(
                 color: colors.textPrimary,
               ),
             ),
             for (int i = 0; i < cardio.length; i++) ...<Widget>[
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               _entry(context, colors, i, cardio[i]),
             ],
             TextButton.icon(
@@ -1043,7 +1043,7 @@ class CardioLoggingCard extends StatelessWidget {
     );
   }
 
-  Widget _entry(BuildContext context, MyosThemeExtension colors, int index,
+  Widget _entry(BuildContext context, MayosThemeExtension colors, int index,
       WorkoutCardio entry) {
     final WorkoutCopy copy = workoutCopyOf(context);
     final List<String> machines = <String>[
@@ -1064,7 +1064,7 @@ class CardioLoggingCard extends StatelessWidget {
           if (value != null) onChanged(index, entry.copyWith(machine: value));
         },
       ),
-      const SizedBox(height: MyosSpacing.xs),
+      const SizedBox(height: MayosSpacing.xs),
       Row(children: <Widget>[
         Expanded(child: _minutesField(context, index, entry, copy)),
         IconButton(
@@ -1166,18 +1166,18 @@ class _WarmupTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: MyosSpacing.xs,
-        vertical: MyosSpacing.xxs,
+        horizontal: MayosSpacing.xs,
+        vertical: MayosSpacing.xxs,
       ),
       decoration: BoxDecoration(
         color: c.secondarySurface,
-        borderRadius: MyosRadii.pillRadius,
+        borderRadius: MayosRadii.pillRadius,
       ),
       child: Text(workoutCopyOf(context).warmupMovementTag,
-          style: MyosTypography.of(context).caption),
+          style: MayosTypography.of(context).caption),
     );
   }
 }
@@ -1188,16 +1188,16 @@ class _UnplannedTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: MyosSpacing.xs, vertical: MyosSpacing.xxs),
+          horizontal: MayosSpacing.xs, vertical: MayosSpacing.xxs),
       decoration: BoxDecoration(
         color: c.secondarySurface,
-        borderRadius: MyosRadii.pillRadius,
+        borderRadius: MayosRadii.pillRadius,
       ),
       child: Text(workoutCopyOf(context).unplanned,
-          style: MyosTypography.of(context).caption),
+          style: MayosTypography.of(context).caption),
     );
   }
 }
@@ -1265,7 +1265,7 @@ class SetLoggingRow extends StatelessWidget {
 
   /// The cell's surface: focused wins, then the row's own tint shows through
   /// (a ticked or Current row), else the sunken input well.
-  Color _surface(MyosThemeExtension c, LoggerField field) {
+  Color _surface(MayosThemeExtension c, LoggerField field) {
     if (_focused(field)) {
       return c.selectedSurface;
     }
@@ -1277,20 +1277,20 @@ class SetLoggingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     final bool muted = set.isWarmup;
 
     Widget row = Container(
       key: ValueKey<String>('logger.row.$exerciseIndex.$setIndex'),
-      margin: const EdgeInsets.symmetric(vertical: MyosSpacing.xxs),
+      margin: const EdgeInsets.symmetric(vertical: MayosSpacing.xxs),
       decoration: BoxDecoration(
         color: isCurrent
             ? c.accentSubtle
             : set.ticked
                 ? c.successTint
                 : null,
-        borderRadius: MyosRadii.smallRadius,
+        borderRadius: MayosRadii.smallRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1298,13 +1298,13 @@ class SetLoggingRow extends StatelessWidget {
           if (groupPrescription != null)
             Padding(
               padding: const EdgeInsetsDirectional.only(
-                start: MyosSpacing.xs,
-                end: MyosSpacing.xs,
-                top: MyosSpacing.xxs,
+                start: MayosSpacing.xs,
+                end: MayosSpacing.xs,
+                top: MayosSpacing.xxs,
               ),
               child: Text(
                 groupPrescription!,
-                style: MyosTypography.of(context).caption.copyWith(
+                style: MayosTypography.of(context).caption.copyWith(
                   color: c.textMuted,
                 ),
                 textAlign: copy.isArabic ? TextAlign.end : null,
@@ -1317,15 +1317,15 @@ class SetLoggingRow extends StatelessWidget {
                 child: InkWell(
                   key: ValueKey<String>(
                       'logger.setlabel.$exerciseIndex.$setIndex'),
-                  borderRadius: MyosRadii.smallRadius,
+                  borderRadius: MayosRadii.smallRadius,
                   onTap: onToggleWarmup,
                   child: SizedBox(
-                    height: kMyosMinTapTarget,
+                    height: kMayosMinTapTarget,
                     child: Center(
                       child: Text(
                         set.isWarmup ? 'W' : '${setIndex + 1}',
                         textDirection: TextDirection.ltr,
-                        style: MyosTypography.of(context).numericSmall.copyWith(
+                        style: MayosTypography.of(context).numericSmall.copyWith(
                           color: muted ? c.textMuted : c.textPrimary,
                         ),
                       ),
@@ -1352,10 +1352,10 @@ class SetLoggingRow extends StatelessWidget {
                 // Fixed 48dp for the tick too (#158 review): the tap target
                 // never shrinks with a flex share at any screen width.
                 width: kLoggerFixedColumnWidth,
-                height: kMyosMinTapTarget,
+                height: kMayosMinTapTarget,
                 child: InkWell(
                   key: ValueKey<String>('logger.tick.$exerciseIndex.$setIndex'),
-                  borderRadius: MyosRadii.smallRadius,
+                  borderRadius: MayosRadii.smallRadius,
                   onTap: onToggleTick,
                   child: Center(
                     child: SizedBox(
@@ -1367,11 +1367,11 @@ class SetLoggingRow extends StatelessWidget {
                           border: set.ticked
                               ? null
                               : Border.all(color: c.borderStrong),
-                          borderRadius: MyosRadii.smallRadius,
+                          borderRadius: MayosRadii.smallRadius,
                         ),
                         child: Icon(
                           Icons.check,
-                          size: MyosIconSizes.medium,
+                          size: MayosIconSizes.medium,
                           color: set.ticked ? c.onAccent : c.textMuted,
                         ),
                       ),
@@ -1397,7 +1397,7 @@ class SetLoggingRow extends StatelessWidget {
         background: Container(
           color: c.danger,
           alignment: AlignmentDirectional.centerEnd,
-          padding: const EdgeInsetsDirectional.only(end: MyosSpacing.md),
+          padding: const EdgeInsetsDirectional.only(end: MayosSpacing.md),
           child: Icon(Icons.delete, color: c.onDanger),
         ),
         child: row,
@@ -1408,7 +1408,7 @@ class SetLoggingRow extends StatelessWidget {
 
   /// KG and REPS: the typed value or the faded hint, one tap to edit.
   Widget _cell(BuildContext context, LoggerField field, int flex) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     final ({String? value, String? hint}) texts = _texts(field, copy);
     final Color color =
@@ -1416,26 +1416,26 @@ class SetLoggingRow extends StatelessWidget {
     return Expanded(
       flex: flex,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: MyosSpacing.xxs),
+        padding: const EdgeInsets.symmetric(horizontal: MayosSpacing.xxs),
         child: Material(
           color: _surface(c, field),
           shape: RoundedRectangleBorder(
-            borderRadius: MyosRadii.smallRadius,
+            borderRadius: MayosRadii.smallRadius,
             side: BorderSide(
                 color: _focused(field) ? c.selectedBorder : Colors.transparent),
           ),
           child: InkWell(
             key: ValueKey<String>(
                 'logger.cell.$exerciseIndex.$setIndex.${field.name}'),
-            borderRadius: MyosRadii.smallRadius,
+            borderRadius: MayosRadii.smallRadius,
             onTap: () => onSelectCell(field),
             child: SizedBox(
-              height: kMyosMinTapTarget,
+              height: kMayosMinTapTarget,
               child: Center(
                 child: Text(
                   texts.value ?? texts.hint ?? '–',
                   textDirection: TextDirection.ltr,
-                  style: MyosTypography.of(context).numericSmall.copyWith(color: color),
+                  style: MayosTypography.of(context).numericSmall.copyWith(color: color),
                 ),
               ),
             ),
@@ -1449,10 +1449,10 @@ class SetLoggingRow extends StatelessWidget {
   /// then the ones a later set took over — struck through and muted (#107
   /// resolution, #124).
   Widget _badges(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: MyosSpacing.xxs),
+        padding: const EdgeInsets.only(bottom: MayosSpacing.xxs),
         child: Wrap(
-          spacing: MyosSpacing.xs,
-          runSpacing: MyosSpacing.xxs,
+          spacing: MayosSpacing.xs,
+          runSpacing: MayosSpacing.xxs,
           alignment: WrapAlignment.center,
           children: <Widget>[
             for (final PrRecordKind kind in badges.current)
@@ -1506,23 +1506,23 @@ class RirSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final Color color = value == null || muted ? c.textDisabled : c.textPrimary;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: MyosSpacing.xxs),
+      padding: const EdgeInsets.symmetric(horizontal: MayosSpacing.xxs),
       child: Material(
         color: surface,
         shape: RoundedRectangleBorder(
-          borderRadius: MyosRadii.smallRadius,
+          borderRadius: MayosRadii.smallRadius,
           side: BorderSide(
               color: focused ? c.selectedBorder : Colors.transparent),
         ),
         child: InkWell(
           key: cellKey,
-          borderRadius: MyosRadii.smallRadius,
+          borderRadius: MayosRadii.smallRadius,
           onTap: onTap,
           child: SizedBox(
-            height: kMyosMinTapTarget,
+            height: kMayosMinTapTarget,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -1533,12 +1533,12 @@ class RirSelector extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: MyosTypography.of(context).numericSmall.copyWith(color: color),
+                    style: MayosTypography.of(context).numericSmall.copyWith(color: color),
                   ),
                 ),
                 Icon(
                   Icons.expand_more,
-                  size: MyosIconSizes.small,
+                  size: MayosIconSizes.small,
                   color: c.textMuted,
                 ),
               ],

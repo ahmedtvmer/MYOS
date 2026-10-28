@@ -23,11 +23,11 @@ from agent.assistant_graph import (
     router_node,
     stream_assistant_turn,
 )
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from tests.fakes.chat_model import ScriptedChatModel
 from utils.model_downloader import CLOUD_MODEL_REGISTRY
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def _hydrate_history_context(query, telemetry, session_log, *, exercise_id="bss-1"):

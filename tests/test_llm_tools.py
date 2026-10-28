@@ -14,10 +14,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from core.embeddings import get_embedding_model
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 # The seeded Exercise library and local embedding model stay available to the tool.
 db: Any = None

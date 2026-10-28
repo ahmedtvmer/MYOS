@@ -9,9 +9,9 @@ import '../../../core/connectivity_message.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
 import '../../../core/privacy_policy.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_text_field.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_text_field.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
 import 'auth_widgets.dart';
@@ -50,7 +50,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final NewPasswordValidation? passwordError =
         validateNewPassword(_password.text, _confirm.text);
     if (passwordError != null) {
-      final MyosCopy copy = MyosCopy(ref.read(displayLanguageProvider));
+      final MayosCopy copy = MayosCopy(ref.read(displayLanguageProvider));
       setState(() => _apiFailure = null);
       setState(
           () => _error = newPasswordValidationMessage(passwordError, copy));
@@ -86,7 +86,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   @override
   Widget build(BuildContext context) {
-    final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
+    final MayosCopy copy = MayosCopy(ref.watch(displayLanguageProvider));
     return AuthScaffold(
       title: copy.createAccount,
       lead: copy.registerLead,
@@ -96,7 +96,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           : (_apiFailure != null
               ? AuthInlineNotice(message: copy.failureMessage(_apiFailure!))
               : (_error == null ? null : AuthInlineNotice(message: _error!))),
-      primary: MyosButton(
+      primary: MayosButton(
         key: const Key('register_submit'),
         label: copy.createAccount,
         loading: _busy,
@@ -129,7 +129,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           onPressed: googleBusy ? null : continueWithGoogle,
           onWebOutcome: continueWithGoogleOutcome,
         ),
-        MyosTextField(
+        MayosTextField(
           fieldKey: const Key('register_username'),
           controller: _username,
           label: copy.username,
@@ -139,8 +139,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           autofillHints: const <String>[AutofillHints.newUsername],
         ),
         if (_showCoachInviteCode) ...<Widget>[
-          const SizedBox(height: MyosSpacing.md),
-          MyosTextField(
+          const SizedBox(height: MayosSpacing.md),
+          MayosTextField(
             fieldKey: const Key('register_coach_invite_code'),
             controller: _coachInviteCode,
             label: copy.coachInviteCode,
@@ -150,7 +150,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             autofillHints: const <String>[],
           ),
         ],
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         AuthPasswordField(
           fieldKey: const Key('register_password'),
           toggleKey: const Key('register_password_toggle'),
@@ -160,7 +160,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           textInputAction: TextInputAction.next,
           autofillHints: const <String>[AutofillHints.newPassword],
         ),
-        const SizedBox(height: MyosSpacing.md),
+        const SizedBox(height: MayosSpacing.md),
         AuthPasswordField(
           fieldKey: const Key('register_confirm'),
           toggleKey: const Key('register_confirm_toggle'),
@@ -178,7 +178,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         ),
         // The policy link sits with the consent control, not in the action bar,
         // so the disclosure is read where the account is created (#43).
-        const SizedBox(height: MyosSpacing.xs),
+        const SizedBox(height: MayosSpacing.xs),
         AuthLink(
           key: const Key('register_privacy_policy'),
           label: copy.privacyPolicy,

@@ -225,7 +225,7 @@ def assemble(flutter_build: Path, landing: Path, output: Path) -> None:
     landing_html.write_text(landing_source, encoding="utf-8")
     runtime_config = {"posthogKey": config["posthogKey"]}
     (output / "landing-config.js").write_text(
-        "window.MYOS_LANDING = " + json.dumps(runtime_config, ensure_ascii=True) + ";\n",
+        "window.MAYOS_LANDING = " + json.dumps(runtime_config, ensure_ascii=True) + ";\n",
         encoding="utf-8",
     )
     shutil.copytree(

@@ -97,7 +97,7 @@ REPORT_VERSION = 2
 #: evidence (ADR 049). Kept in production so the gate never imports test code.
 EVAL_RUBRIC_VERSION = "4"
 
-SYSTEM_PROMPT = """You are {coach_name}'s coaching assistant in MYOS.
+SYSTEM_PROMPT = """You are {coach_name}'s coaching assistant in MAYOS.
 You are talking to {coach_name} about their player {player_name}, whose data follows.
 
 Rules:
@@ -144,7 +144,7 @@ Rules:
   Do not recommend which exercises to do or avoid, or whether to continue, stop,
   or modify training around pain or injury. When a question needs a clinician,
   say so plainly and defer to them.
-- Never discuss the player's private chat with the MYOS assistant; it is not
+- Never discuss the player's private chat with the MAYOS assistant; it is not
   supplied and must not be inferred.
 - Answer questions about why the player's Training program looks the way it does
   only from the Program rationale supplied below. If a reason is unavailable,

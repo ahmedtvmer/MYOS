@@ -22,9 +22,9 @@ from agent.program_weeks import (
 from database.exercise_resolution import EXERCISE_DISPLAY_EQUIPMENT_SQL
 from database.exercise_resolution import exercise_display_join, exercise_display_name_sql
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 class _KeepSourceTemplate:

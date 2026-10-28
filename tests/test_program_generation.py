@@ -6,9 +6,9 @@ sys.path.append(str(BASE_DIR))
 
 from agent.program_generator import generate_program_pipeline
 from database.database_manager import DatabaseManager
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def run_test():

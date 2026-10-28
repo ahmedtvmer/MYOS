@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/safe_area_media_query.dart';
-import 'package:myos_mobile/src/core/safe_area_insets.dart';
+import 'package:mayos_mobile/src/core/safe_area_media_query.dart';
+import 'package:mayos_mobile/src/core/safe_area_insets.dart';
 
 void main() {
   testWidgets('web insets protect scaffold top and bottom controls',

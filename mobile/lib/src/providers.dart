@@ -212,7 +212,7 @@ final StateNotifierProvider<AppModeController, AppModeState>
 /// so nothing survives app close. The auth listener below clears it on logout,
 /// session teardown, loss of the coach capability, and loss of the feature flag
 /// (a resumed app re-reads `GET /auth/me`); `CoachAssistantController` clears it
-/// on player switch and on a revoked/ended assignment; `MyosApp` clears it on
+/// on player switch and on a revoked/ended assignment; `MayosApp` clears it on
 /// `AppLifecycleState.detached`.
 final StateNotifierProvider<CoachAssistantController, CoachAssistantTranscript?>
     coachAssistantControllerProvider =
@@ -596,7 +596,7 @@ final Provider<BaselinesService> baselinesServiceProvider =
 /// The root scaffold messenger, so a one-line explanation raised outside any
 /// screen's own messenger — the rest-alarm permission ask (#125) — still has
 /// somewhere to appear.
-final GlobalKey<ScaffoldMessengerState> myosMessengerKey =
+final GlobalKey<ScaffoldMessengerState> mayosMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 /// The one seam to the platform's rest-alert machinery (notification, alarm,
@@ -606,7 +606,7 @@ final Provider<RestAlerts> restAlertsProvider = Provider<RestAlerts>((ref) {
   return platformRestAlerts(
     now: ref.watch(clockProvider),
     displayLanguage: () => ref.read(displayLanguageProvider),
-    explain: (String line) => myosMessengerKey.currentState?.showSnackBar(
+    explain: (String line) => mayosMessengerKey.currentState?.showSnackBar(
       SnackBar(content: Text(line)),
     ),
   );

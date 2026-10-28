@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/connectivity.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/ui/myos_table_frame.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/coach/coach_exercise_table.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/connectivity.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_table_frame.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/coach/coach_exercise_table.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_media_http.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 /// Pumps finite frames until [finder] matches, then a few more so transitions
 /// settle without depending on `pumpAndSettle` (indeterminate spinners never settle).
@@ -33,7 +33,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
 
 Future<void> _pumpApp(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   double logicalWidth = 540,
   double logicalHeight = 1200,
   List<Override> extraOverrides = const <Override>[],
@@ -61,14 +61,14 @@ Future<void> _pumpApp(
         }),
         ...extraOverrides,
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text(fake.coach ? 'Roster' : 'Home'));
 }
 
-FakeMyosApi _coachFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _coachFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -118,7 +118,7 @@ Future<void> _expectCoachExerciseDetail(WidgetTester tester) async {
 void main() {
   testWidgets('Coach Nutrition segment saves targets and confirms authority once',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachPlayerNutrition['targets'] = <String, dynamic>{
       'calories': 2130, 'protein_g': 100, 'carbs_g': 282, 'fat_g': 67,
     };
@@ -180,7 +180,7 @@ void main() {
 
   testWidgets('Personal record exercise opens Coach-safe exercise details',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
     tester.view.physicalSize = const Size(720, 4800);
     tester.view.devicePixelRatio = 2;
@@ -197,7 +197,7 @@ void main() {
 
   testWidgets('recent session exercise opens Coach-safe exercise details',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final Map<String, dynamic> latest =
         fake.coachPlayerSummary['latest_session'] as Map<String, dynamic>;
     (latest['exercises'] as List<Map<String, dynamic>>).first['exercise_id'] =
@@ -213,7 +213,7 @@ void main() {
 
   testWidgets('expanded Exercise section action opens Coach-safe details',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
     tester.view.physicalSize = const Size(720, 4800);
     tester.view.devicePixelRatio = 2;
@@ -245,7 +245,7 @@ void main() {
 
   testWidgets('Coach exercise Personal record does not open details',
       (tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerRecords.first['exercise_id'] =
           'coach:00000000-0000-0000-0000-000000000001';
     await _pumpApp(tester, fake);
@@ -261,7 +261,7 @@ void main() {
 
   testWidgets('Coach exercise recent-session row does not open details',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final Map<String, dynamic> latest =
         fake.coachPlayerSummary['latest_session'] as Map<String, dynamic>;
     (latest['exercises'] as List<Map<String, dynamic>>).first['exercise_id'] =
@@ -278,7 +278,7 @@ void main() {
 
   testWidgets('Coach exercise entry has no View exercise details action',
       (tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerExercises.first['id'] =
           'coach:00000000-0000-0000-0000-000000000001';
     await _pumpApp(tester, fake);
@@ -301,7 +301,7 @@ void main() {
   testWidgets(
       'the active assigned player\'s Cardio appears in latest and recent history',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final Map<String, dynamic> cardioEntry = <String, dynamic>{
       'machine': 'bike',
       'minutes': 25,
@@ -335,7 +335,7 @@ void main() {
 
   testWidgets('player segments separate Program from History and keep alerts',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachAlerts.add(<String, dynamic>{
         'alert_id': 'alert-player-page',
         'assignment_id': 'assignment-1',
@@ -392,7 +392,7 @@ void main() {
 
   testWidgets('history groups start collapsed with counts and expand on tap',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
 
     await _openRosterEntry(tester);
@@ -437,7 +437,7 @@ void main() {
 
   testWidgets('history header stats match the displayed volume and records',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerRecords = <Map<String, dynamic>>[
         for (int index = 0; index < 3; index++)
           <String, dynamic>{
@@ -475,7 +475,7 @@ void main() {
     final FakeMediaCatalog media = FakeMediaCatalog()..install();
     media.serve('images/front_squat.jpg');
     try {
-      final FakeMyosApi fake = _coachFake()
+      final FakeMayosApi fake = _coachFake()
         ..coachPlayerRecords = <Map<String, dynamic>>[
           <String, dynamic>{
             'exercise_id': 'front_squat',
@@ -528,7 +528,7 @@ void main() {
     final FakeMediaCatalog media = FakeMediaCatalog()..install();
     media.serve('images/bench_press.jpg');
     try {
-      final FakeMyosApi fake = _coachFake()
+      final FakeMayosApi fake = _coachFake()
         ..coachPlayerExercises = <Map<String, dynamic>>[
           <String, dynamic>{
             'id': 'bench_press',
@@ -607,7 +607,7 @@ void main() {
       final Finder historyFrame = find.byType(CoachExerciseTableFrame).last;
       final Finder historyHeader = find.descendant(
         of: historyFrame,
-        matching: find.byType(MyosTableHeader),
+        matching: find.byType(MayosTableHeader),
       );
       double columnWidth(String label) => tester.getSize(
             find.descendant(of: historyHeader, matching: find.text(label)),
@@ -630,7 +630,7 @@ void main() {
 
   testWidgets('history omits the last-session stat when there are no sessions',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerSummary['latest_session'] = null
       ..coachPlayerSummary['volume'] = <String, dynamic>{};
     await _pumpApp(tester, fake);
@@ -646,7 +646,7 @@ void main() {
 
   testWidgets('history header and volume values round float noise once',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerSummary['volume'] = <String, dynamic>{
         'Chest': 1.1,
         'Back': 2.2,
@@ -665,7 +665,7 @@ void main() {
 
   testWidgets('History renders without overflow at 360dp in dark theme',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerRecords = <Map<String, dynamic>>[
         <String, dynamic>{
           'exercise_id': 'bench_press',
@@ -718,7 +718,7 @@ void main() {
 
   testWidgets('roster tap opens the assigned player history drill-down',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     // Chat data present on the wire must never render in a coach response.
     fake.coachPlayerSummary['chat'] = 'ASSISTANT-CHAT-SECRET';
     fake.coachPlayerRecords.first['chat'] = 'ASSISTANT-CHAT-SECRET';
@@ -758,7 +758,7 @@ void main() {
 
   testWidgets('coach history labels zero-load resistance band sets',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerExercises = <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'band_pull_apart',
@@ -814,7 +814,7 @@ void main() {
 
   testWidgets('coach history keeps caption and hides RIR for unrated sets',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..coachPlayerExercises = <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'weighted_bodyweight',
@@ -890,7 +890,7 @@ void main() {
 
   testWidgets('coach history lists and opens Checkpoints for the assignment',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake()
+    final FakeMayosApi fake = _coachFake()
       ..checkpointReviewRows = <Map<String, dynamic>>[
         <String, dynamic>{
           'checkpoint': 10,
@@ -910,7 +910,7 @@ void main() {
         'rating': <Map<String, dynamic>>[
           <String, dynamic>{'part': 'Consistency', 'label': 'Strong'},
         ],
-        'text': 'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+        'text': 'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
         'text_is_template': true,
       };
     await _pumpApp(tester, fake);
@@ -937,7 +937,7 @@ void main() {
     expect(find.text('Strong'), findsOneWidget);
     expect(
       find.text(
-        'Checkpoint 10: 10 workouts since you started logging in MYOS.',
+        'Checkpoint 10: 10 workouts since you started logging in MAYOS.',
       ),
       findsOneWidget,
     );
@@ -945,7 +945,7 @@ void main() {
 
   testWidgets('the player history offline banner sits below its app bar',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final StreamController<bool> browserEvents =
         StreamController<bool>.broadcast();
     addTearDown(browserEvents.close);
@@ -979,7 +979,7 @@ void main() {
 
   testWidgets('the drill-down shows skipped and unplanned divergences',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
 
     await _openRosterEntry(tester);
@@ -1002,7 +1002,7 @@ void main() {
 
   testWidgets('sessions without divergences render no divergence rows',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final Map<String, dynamic> summary = fake.coachPlayerSummary;
     (summary['latest_session'] as Map<String, dynamic>)['divergences'] =
         <Map<String, dynamic>>[];
@@ -1021,7 +1021,7 @@ void main() {
 
   testWidgets('the drill-down shows a performed-date correction note',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final Map<String, dynamic> correction = <String, dynamic>{
       'previous_date': '2026-09-26',
       'corrected_date': '2026-09-25',
@@ -1049,7 +1049,7 @@ void main() {
 
   testWidgets('the drill-down shows the expected weekdays, timezone, and pause',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
 
     await _openRosterEntry(tester);
@@ -1062,7 +1062,7 @@ void main() {
 
   testWidgets('History shows Schedule for either source and omits both empty',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpApp(tester, fake);
 
     final List<({bool schedule, bool pauses, bool shown})> scenarios =
@@ -1113,7 +1113,7 @@ void main() {
 
   testWidgets('a denied assignment shows the error state with no training data',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     fake.coachHistoryDenied = true;
     await _pumpApp(tester, fake);
 
@@ -1128,7 +1128,7 @@ void main() {
 
   test('malformed coach history payloads fail closed with ApiException',
       () async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     await tokens.save('token-alice');
     final ApiClient client = ApiClient(

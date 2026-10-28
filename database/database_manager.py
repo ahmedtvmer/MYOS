@@ -23,7 +23,7 @@ DEFAULT_LEDGERS_DIR = _DATA_ROOT / "users"
 DEFAULT_BACKUPS_DIR = _DATA_ROOT / "backups"
 
 from database.migration_manager import apply_lazy_migrations, prune_ledger_backups
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
 from database.schema.definitions import EMBEDDING_DIM as CATALOG_EMBEDDING_DIM
 from database.schema.definitions import SchemaMixin
@@ -47,7 +47,7 @@ from database.exercise_library.similarity import ExerciseSimilarityMixin
 from database.exercise_library.seeding import ExerciseSeedingMixin
 from database.ledger.handle import TrainingLedger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 # Re-exported so existing importers keep working after the module split (#78).
 from database.shared import LedgerDeletedError

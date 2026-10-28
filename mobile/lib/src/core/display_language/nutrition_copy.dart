@@ -89,8 +89,8 @@ class NutritionCopy {
   String get dismiss => isArabic ? 'لاحقًا' : 'Later';
   String get continueLabel => isArabic ? 'متابعة' : 'Continue';
   String stop(String goalValue, String pace) => '${goal(goalValue)} · ${isArabic ? <String, String>{'light': 'خفيف', 'moderate': 'متوسط', 'aggressive': 'قوي'}[pace] : pace[0].toUpperCase() + pace.substring(1)}';
-  String get dietitian => isArabic ? 'لن يحدد ميوس أهدافًا غذائية. يُرجى التحدث إلى اختصاصي تغذية مسجل.' : 'MYOS will not set calorie targets. Please speak with a registered dietitian.';
-  String get under18 => isArabic ? 'لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا.' : 'MYOS does not set automatic Nutrition targets for players under 18.';
+  String get dietitian => isArabic ? 'لن يحدد ميوس أهدافًا غذائية. يُرجى التحدث إلى اختصاصي تغذية مسجل.' : 'MAYOS will not set calorie targets. Please speak with a registered dietitian.';
+  String get under18 => isArabic ? 'لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا.' : 'MAYOS does not set automatic Nutrition targets for players under 18.';
   String get incomplete => isArabic ? 'أكمل الملف التدريبي قبل إعداد الأهداف الغذائية.' : 'Complete your Training profile before setting Nutrition targets.';
   String get coachSetByPlayer => isArabic ? 'حدده اللاعب' : 'Set by player';
   String get coachSetByYou => isArabic ? 'حددته أنت' : 'Set by you';

@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/exercise/exercise_detail_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/exercise/exercise_detail_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     {int attempts = 40}) async {
@@ -29,8 +29,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -41,7 +41,7 @@ FakeMyosApi _signedInFake() {
 
 Future<void> _pumpDetail(
   WidgetTester tester,
-  FakeMyosApi fake,
+  FakeMayosApi fake,
   String exerciseId, {
   ThemeMode mode = ThemeMode.light,
   int? dayOrder = 1,
@@ -80,8 +80,8 @@ Future<void> _pumpDetail(
         }),
       ],
       child: MaterialApp(
-        theme: MyosTheme.light,
-        darkTheme: MyosTheme.dark,
+        theme: MayosTheme.light,
+        darkTheme: MayosTheme.dark,
         themeMode: mode,
         locale: Locale(languageCode),
         supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
@@ -100,7 +100,7 @@ Future<void> _pumpDetail(
       tester, find.text(languageCode == 'ar' ? 'نظرة عامة' : 'Overview'));
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
+Future<void> _pumpApp(WidgetTester tester, FakeMayosApi fake) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -128,7 +128,7 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text('Home'));
@@ -137,7 +137,7 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
 void main() {
   testWidgets('coach detail omits account prescription and history',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(
       tester,
       fake,
@@ -157,7 +157,7 @@ void main() {
   testWidgets(
       'Arabic exercise tabs and prescription labels preserve exercise names',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'bench_press', languageCode: 'ar');
     expect(find.text('نظرة عامة'), findsOneWidget);
     expect(find.text('الأسلوب'), findsOneWidget);
@@ -175,7 +175,7 @@ void main() {
 
   testWidgets('exercise detail renders Equipment category and Load type in English',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'machine_row', dayOrder: null);
 
     expect(find.text('Equipment category'), findsOneWidget);
@@ -186,7 +186,7 @@ void main() {
 
   testWidgets('exercise detail localizes Equipment category and Load type in Arabic',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(
       tester,
       fake,
@@ -203,7 +203,7 @@ void main() {
 
   testWidgets('Program exercise opens detail with prescription stats',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpApp(tester, fake);
 
     await tester.tap(find.text('Program'));
@@ -225,7 +225,7 @@ void main() {
 
   testWidgets('detail without a day keeps the Progress-tab prescription',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(
       tester,
       fake,
@@ -241,7 +241,7 @@ void main() {
 
   testWidgets('technique tab renders instructions with an empty state fallback',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'bench_press');
     await tester.tap(find.text('Technique'));
     await tester.pump(const Duration(milliseconds: 200));
@@ -250,7 +250,7 @@ void main() {
 
   testWidgets('technique tab shows an honest empty state without instructions',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'machine_row', dayOrder: null);
     await tester.tap(find.text('Technique'));
     await tester.pump(const Duration(milliseconds: 200));
@@ -261,7 +261,7 @@ void main() {
   });
 
   testWidgets('history tab shows real points', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'bench_press');
     await tester.tap(find.text('History'));
     await tester.pump(const Duration(milliseconds: 200));
@@ -269,7 +269,7 @@ void main() {
   });
 
   testWidgets('band zero-load history is labeled Band', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     fake.dashboardExerciseHistories['band_pull_apart'] =
         <String, dynamic>{
       'history': <Map<String, dynamic>>[
@@ -299,7 +299,7 @@ void main() {
   });
 
   testWidgets('history tab shows an honest empty state', (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'overhead_press', dayOrder: null);
     await tester.tap(find.text('History'));
     await tester.pump(const Duration(milliseconds: 200));
@@ -313,7 +313,7 @@ void main() {
   testWidgets(
       'catalog media: the GIF through /media, capped at 180dp, credited (#53)',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'bench_press');
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -342,7 +342,7 @@ void main() {
   testWidgets('exercise detail renders in both themes without overflow',
       (tester) async {
     for (final ThemeMode mode in <ThemeMode>[ThemeMode.light, ThemeMode.dark]) {
-      final FakeMyosApi fake = _signedInFake();
+      final FakeMayosApi fake = _signedInFake();
       await _pumpDetail(tester, fake, 'bench_press', mode: mode);
 
       tester.platformDispatcher.textScaleFactorTestValue = 2.0;
@@ -360,7 +360,7 @@ void main() {
 
   testWidgets('exercise detail has no overflow at 360x640 and text scale 2.0',
       (tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpDetail(tester, fake, 'bench_press', size: const Size(360, 640));
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

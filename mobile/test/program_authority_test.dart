@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/connectivity_message.dart';
-import 'package:myos_mobile/src/core/device_timezone.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/rest_alert_permission_access.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/player/onboarding/onboarding_screen.dart';
-import 'package:myos_mobile/src/features/player/profile/profile_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/connectivity_message.dart';
+import 'package:mayos_mobile/src/core/device_timezone.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/rest_alert_permission_access.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/player/onboarding/onboarding_screen.dart';
+import 'package:mayos_mobile/src/features/player/profile/profile_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 const String _coachMessage =
     'Your assigned coach controls your program. Ask your coach for changes.';
@@ -34,7 +34,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-Override _apiOverride(FakeMyosApi fake) =>
+Override _apiOverride(FakeMayosApi fake) =>
     apiClientProvider.overrideWith((ref) {
       final ApiClient client = ApiClient(
         tokens: ref.watch(tokenStoreProvider),
@@ -45,8 +45,8 @@ Override _apiOverride(FakeMyosApi fake) =>
       return client;
     });
 
-FakeMyosApi _playerFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _playerFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -55,7 +55,7 @@ FakeMyosApi _playerFake() {
   return fake;
 }
 
-Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
+Future<void> _pumpApp(WidgetTester tester, FakeMayosApi fake) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -72,7 +72,7 @@ Future<void> _pumpApp(WidgetTester tester, FakeMyosApi fake) async {
         deviceTimezoneProvider
             .overrideWithValue(Future<String>.value('America/New_York')),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text('Home'));
@@ -129,7 +129,7 @@ Future<void> _openSettings(WidgetTester tester) async {
 
 void main() {
   testWidgets('female profile Weak points default is removable and editable', (tester) async {
-    final FakeMyosApi fake = _playerFake()..gender = 'female';
+    final FakeMayosApi fake = _playerFake()..gender = 'female';
     await _pumpApp(tester, fake);
     await _changeTrainingDays(tester);
     final Finder scrollable = find.descendant(
@@ -164,7 +164,7 @@ void main() {
 
   testWidgets('blocked profile update shows the coach message, not a rebuild',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.profileBlocked = true;
     fake.coachControlsProgram = true;
     await _pumpApp(tester, fake);
@@ -183,7 +183,7 @@ void main() {
 
   testWidgets('accepting a goal Weak point saves it from the profile prompt',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()
+    final FakeMayosApi fake = _playerFake()
       ..profileSuggestedWeakPoints = <String>['glutes'];
     await _pumpApp(tester, fake);
     await _changeTrainingDays(tester);
@@ -218,7 +218,7 @@ void main() {
 
   testWidgets('dismissing a goal Weak point prompt leaves Weak points unchanged',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()
+    final FakeMayosApi fake = _playerFake()
       ..profileSuggestedWeakPoints = <String>['glutes'];
     await _pumpApp(tester, fake);
     await _changeTrainingDays(tester);
@@ -236,7 +236,7 @@ void main() {
   });
 
   testWidgets('normal profile update announces the rebuild', (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
 
     await _changeTrainingDays(tester);
@@ -251,7 +251,7 @@ void main() {
   });
 
   testWidgets('Profile adds a structured injury record', (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -276,7 +276,7 @@ void main() {
 
   testWidgets('Profile lists, edits and deletes an exercise clearance in English',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-clearance-en',
       'body_area': 'knee',
@@ -326,7 +326,7 @@ void main() {
 
   testWidgets('Profile edits and deletes an exercise clearance in Arabic',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..displayLanguage = 'ar';
+    final FakeMayosApi fake = _playerFake()..displayLanguage = 'ar';
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-clearance-ar',
       'body_area': 'knee',
@@ -393,7 +393,7 @@ void main() {
 
   testWidgets('Profile requires confirmation before resolving an injury',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-existing',
       'body_area': 'knee',
@@ -457,7 +457,7 @@ void main() {
 
   testWidgets('Profile direct resolve and delete actions confirm and cancel',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-direct', 'body_area': 'knee',
       'catalog_body_parts': <String>['upper legs', 'lower legs'],
@@ -501,7 +501,7 @@ void main() {
 
   testWidgets('Arabic Profile shows direct injury actions and delete confirmation',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..displayLanguage = 'ar';
+    final FakeMayosApi fake = _playerFake()..displayLanguage = 'ar';
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-ar-actions', 'body_area': 'knee',
       'catalog_body_parts': <String>['upper legs', 'lower legs'],
@@ -524,7 +524,7 @@ void main() {
 
   testWidgets('Arabic Profile shows Arabic injury resolution confirmation',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..displayLanguage = 'ar';
+    final FakeMayosApi fake = _playerFake()..displayLanguage = 'ar';
     fake.injuries.add(<String, dynamic>{
       'id': 'injury-arabic-confirm',
       'body_area': 'knee',
@@ -581,7 +581,7 @@ void main() {
 
   for (final String language in <String>['en', 'ar']) {
     testWidgets('Movement restriction picker confirms suggestions and saves ($language)', (tester) async {
-      final FakeMyosApi fake = _playerFake()
+      final FakeMayosApi fake = _playerFake()
         ..displayLanguage = language
         ..injuriesOrLimitations = 'FAI syndrome'
         ..profileSuggestedMovementRestrictions = <String>['Deep hip flexion'];
@@ -622,7 +622,7 @@ void main() {
 
   testWidgets('Training profile pre-fills editable values and saves goal/weight without rebuild',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.currentGoal = 'Build muscle';
     fake.injuries.add(<String, dynamic>{
       'id': 'legacy-injury',
@@ -657,7 +657,7 @@ void main() {
 
   testWidgets('player can log a weight entry from the Training profile',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..weightKg = 82.5;
+    final FakeMayosApi fake = _playerFake()..weightKg = 82.5;
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -673,7 +673,7 @@ void main() {
 
   testWidgets('Training profile can set and clear a target weight',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -695,7 +695,7 @@ void main() {
 
   testWidgets('older intake contract shows a service update error instead of hanging',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()
+    final FakeMayosApi fake = _playerFake()
       ..legacyEquipmentIntakeContract = true;
     await _pumpApp(tester, fake);
     await _openSettings(tester);
@@ -779,7 +779,7 @@ void main() {
       in invalidContracts) {
     testWidgets('invalid Training profile contract: $description',
         (tester) async {
-      final FakeMyosApi fake = _playerFake();
+      final FakeMayosApi fake = _playerFake();
       if (override == null) {
         fake.omittedIntakeFields.add(field);
       } else {
@@ -801,7 +801,7 @@ void main() {
 
   testWidgets('saving another fact preserves saved multi-decimal weight',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..weightKg = 82.55;
+    final FakeMayosApi fake = _playerFake()..weightKg = 82.55;
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -818,7 +818,7 @@ void main() {
   });
 
   testWidgets('offline Training profile save changes nothing', (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
     await tester.enterText(
@@ -835,7 +835,7 @@ void main() {
 
   testWidgets('offline save after rebuild confirmation changes nothing',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _changeTrainingDays(tester);
     await tester.tap(find.text('Save profile'));
@@ -851,7 +851,7 @@ void main() {
 
   testWidgets('empty saved goal is omitted while saving another profile fact',
       (tester) async {
-    final FakeMyosApi fake = _playerFake()..currentGoal = '';
+    final FakeMayosApi fake = _playerFake()..currentGoal = '';
     await _pumpApp(tester, fake);
     await _openProfile(tester);
     await tester.enterText(find.byKey(const Key('weight_kg_field')), '80');
@@ -867,7 +867,7 @@ void main() {
 
   testWidgets('invalid weight is rejected before rebuild confirmation',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
     await tester.enterText(find.byKey(const Key('weight_kg_field')), '251');
@@ -883,7 +883,7 @@ void main() {
 
   testWidgets('saving the schedule leaves the training-days setting untouched',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -926,7 +926,7 @@ void main() {
   testWidgets(
       'the timezone field is prefilled from the device when no schedule exists',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     fake.scheduleVersions = <Map<String, dynamic>>[];
     fake.scheduleEmpty = true;
     await _pumpApp(tester, fake);
@@ -953,7 +953,7 @@ void main() {
   });
 
   testWidgets('a non-IANA timezone is refused before submit', (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
 
@@ -975,7 +975,7 @@ void main() {
 
   testWidgets('a prospective pause can be scheduled and is listed',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
     await _pumpUntilFound(tester, find.text('Training pause'));
@@ -1002,7 +1002,7 @@ void main() {
 
   testWidgets('a pause starting before today is refused inline',
       (tester) async {
-    final FakeMyosApi fake = _playerFake();
+    final FakeMayosApi fake = _playerFake();
     await _pumpApp(tester, fake);
     await _openProfile(tester);
     await _pumpUntilFound(tester, find.text('Training pause'));
@@ -1031,7 +1031,7 @@ void main() {
   testWidgets(
       'null-program confirmation lands home without a fabricated program',
       (tester) async {
-    final FakeMyosApi fake = FakeMyosApi();
+    final FakeMayosApi fake = FakeMayosApi();
     fake.issuedToken = 'token-alice';
     fake.currentUsername = 'alice';
     fake.tokenValid = true;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/myos_spacing.dart';
+import '../theme/mayos_spacing.dart';
 
 bool isDesktopLayout(BuildContext context) =>
-    MediaQuery.sizeOf(context).width >= MyosLayout.desktopNavigationBreakpoint;
+    MediaQuery.sizeOf(context).width >= MayosLayout.desktopNavigationBreakpoint;

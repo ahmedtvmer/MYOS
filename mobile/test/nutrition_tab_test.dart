@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/player/nutrition/nutrition_tab.dart';
-import 'package:myos_mobile/src/features/coach/coach_nutrition_segment.dart';
-import 'package:myos_mobile/src/features/coach/coach_charts_segment.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/player/nutrition/nutrition_tab.dart';
+import 'package:mayos_mobile/src/features/coach/coach_nutrition_segment.dart';
+import 'package:mayos_mobile/src/features/coach/coach_charts_segment.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/fake_api_adapter.dart';
 
 void main() {
   testWidgets('setup saves activity and shows plate targets', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'not_started', 'targets': null,
         'adherence_days': List<Map<String, dynamic>>.generate(7, (int index) => <String, dynamic>{
           'date': '2026-10-${24 - index}', 'value': index == 0 ? 'roughly' : null}),
@@ -46,7 +46,7 @@ void main() {
   });
 
   testWidgets('positive screening shows referral and no targets', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake();
+    final FakeMayosApi fake = _fake();
     await tester.pumpWidget(_app(fake, 'en', ThemeData.dark()));
     await tester.pumpAndSettle();
     expect(find.text('I confirm'), findsNothing);
@@ -61,7 +61,7 @@ void main() {
   });
 
   testWidgets('under-18 state displays no targets', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'under_18', 'targets': null};
     await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
@@ -78,7 +78,7 @@ void main() {
   });
 
   testWidgets('saved plate renders in dark theme and Arabic', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{
       'state': 'ready', 'goal': 'lose', 'goal_reason': <String, dynamic>{'code': 'current_goal', 'goal_text': 'fat loss'},
         'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140,
@@ -96,7 +96,7 @@ void main() {
   });
 
   testWidgets('nutrition load error offers retry without referral', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..nutritionLoadFails = true;
+    final FakeMayosApi fake = _fake()..nutritionLoadFails = true;
     await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
     await tester.pumpAndSettle();
     expect(find.text('Retry'), findsOneWidget);
@@ -108,7 +108,7 @@ void main() {
   });
 
   testWidgets('incomplete state shows server message without setup form', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'incomplete', 'targets': null,
         'message': 'Complete your Training profile before setting Nutrition targets.'};
     await tester.pumpWidget(_app(fake, 'en', ThemeData.light()));
@@ -118,7 +118,7 @@ void main() {
   });
 
   testWidgets('ready targets let the Player change Daily activity', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
@@ -138,7 +138,7 @@ void main() {
 
   testWidgets('Coach-held targets show a badge and make Daily activity read-only',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'authority': 'coach', 'coach_sees_adherence': true,
@@ -153,7 +153,7 @@ void main() {
   });
 
   testWidgets('Player can see and decide a pending pace proposal', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..nutritionState = <String, dynamic>{
       'state': 'ready', 'goal': 'lose', 'goal_reason': <String, dynamic>{'code': 'default'},
       'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
       'pace_proposal': <String, dynamic>{'id': 3, 'status': 'pending', 'stale': false,
@@ -177,7 +177,7 @@ void main() {
   });
 
   testWidgets('stale pace proposal still offers Keep without Apply', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..nutritionState = <String, dynamic>{
       'state': 'ready', 'goal': 'lose', 'authority': 'player',
       'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
       'pace_proposal': <String, dynamic>{'id': 3, 'status': 'pending', 'stale': true,
@@ -193,7 +193,7 @@ void main() {
   });
 
   testWidgets('Coach authority shows Apply and Keep while read-only Coach sees decision only', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..coachPlayerNutrition = <String, dynamic>{
         'authority': 'coach', 'goal': 'lose',
         'targets': <String, dynamic>{'calories': 1800, 'protein_g': 140, 'carbs_g': 170, 'fat_g': 60},
@@ -232,7 +232,7 @@ void main() {
   });
 
   testWidgets('Arabic pace proposal uses signed compact rates and calories', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..nutritionState = <String, dynamic>{
       'state': 'ready', 'goal': 'gain', 'goal_reason': <String, dynamic>{'code': 'default'},
       'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
       'pace_proposal': <String, dynamic>{'id': 7, 'status': 'pending', 'stale': false,
@@ -246,7 +246,7 @@ void main() {
   });
 
   testWidgets('Coach Nutrition content fits inside the Player page scroll view', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
       'authority': 'player', 'goal': 'maintain',
       'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
     };
@@ -261,7 +261,7 @@ void main() {
 
   testWidgets('Coach Nutrition shows defaults, saves overrides, and reports limits',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
       'authority': 'coach', 'goal': 'maintain', 'daily_activity': 'mostly_sitting',
       'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250,
         'fat_g': 67, 'fiber_g': 32, 'water_ml': 2500},
@@ -290,7 +290,7 @@ void main() {
   });
 
   testWidgets('Arabic Coach Nutrition fields use Arabic units', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
       'authority': 'coach', 'goal': 'maintain',
       'targets': <String, dynamic>{'calories': 2000, 'protein_g': 100, 'carbs_g': 250,
         'fat_g': 67, 'fiber_g': 32, 'water_ml': 3000},
@@ -305,7 +305,7 @@ void main() {
   });
 
   testWidgets('Player water log adds and undoes a glass in Arabic RTL', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
       'state': 'ready', 'goal': 'maintain', 'targets': <String, dynamic>{
         'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70,
         'fiber_g': 28, 'water_ml': 2500}, 'today_water_glasses': 1,
@@ -327,7 +327,7 @@ void main() {
   });
 
   testWidgets('Player water requests cannot overlap', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..waterGlasses = 1..nutritionState = <String, dynamic>{
       'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
         'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
       'today_water_glasses': 1,
@@ -353,7 +353,7 @@ void main() {
   });
 
   testWidgets('Player water increment is disabled at thirty without hiding targets', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..waterGlasses = 30..nutritionState = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..waterGlasses = 30..nutritionState = <String, dynamic>{
       'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
         'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
       'today_water_glasses': 30,
@@ -369,7 +369,7 @@ void main() {
   });
 
   testWidgets('Water API conflict keeps Nutrition targets visible', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..waterGlasses = 29..waterChangeFails = true
+    final FakeMayosApi fake = _fake()..waterGlasses = 29..waterChangeFails = true
       ..nutritionState = <String, dynamic>{
         'state': 'ready', 'targets': <String, dynamic>{'calories': 2000, 'protein_g': 120,
           'carbs_g': 220, 'fat_g': 70, 'fiber_g': 28, 'water_ml': 2500},
@@ -387,7 +387,7 @@ void main() {
   });
 
   testWidgets('Coach Nutrition shows today water and the fourteen day strip', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
+    final FakeMayosApi fake = _fake()..coachPlayerNutrition = <String, dynamic>{
       'authority': 'player', 'targets': <String, dynamic>{'fiber_g': 28, 'water_ml': 2500},
       'today_water_glasses': 3,
       'water_days': List<Map<String, dynamic>>.generate(14, (int index) => <String, dynamic>{
@@ -409,7 +409,7 @@ void main() {
 
   for (final ThemeData theme in <ThemeData>[ThemeData.light(), ThemeData.dark()]) {
     testWidgets('adherence control and seven-day strip render in both themes', (WidgetTester tester) async {
-      final FakeMyosApi fake = _fake()
+      final FakeMayosApi fake = _fake()
         ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
           'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
           'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
@@ -463,7 +463,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     for (final String language in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _fake()..nutritionState = <String, dynamic>{
+      final FakeMayosApi fake = _fake()..nutritionState = <String, dynamic>{
         'state': 'ready', 'goal': 'maintain',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220,
           'fat_g': 70, 'fiber_g': 32, 'water_ml': 3000},
@@ -483,7 +483,7 @@ void main() {
   });
 
   testWidgets('Arabic adherence uses glossary copy and RTL', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'goal_reason': <String, dynamic>{'code': 'default'},
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70},
@@ -510,7 +510,7 @@ void main() {
   });
 
   testWidgets('pace dial previews seven stops and shows floor and gain warnings', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain', 'intensity': null,
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
@@ -538,7 +538,7 @@ void main() {
   });
 
   testWidgets('Player Nutrition shows the Cardio adjustment in English and Arabic', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'daily_activity': 'mostly_sitting', 'cardio_burned_kcal': 301,
         'cardio_adjustment_kcal': 150,
@@ -559,7 +559,7 @@ void main() {
   });
 
   testWidgets('prescribed-only Cardio keeps the Player target unchanged', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'daily_activity': 'mostly_sitting', 'cardio_burned_kcal': 203,
         'cardio_adjustment_kcal': 0,
@@ -573,7 +573,7 @@ void main() {
   });
 
   testWidgets('goal offer accepts through dial and persists dismissal', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain', 'intensity': 'moderate',
         'pending_goal': 'lose', 'goal_reason': <String, dynamic>{'code': 'default'},
         'daily_activity': 'mostly_sitting', 'targets': <String, dynamic>{'calories': 2000,
@@ -595,7 +595,7 @@ void main() {
     expect(fake.lastNutritionGoal?['intensity'], 'moderate');
     expect(find.text('Your goal changed. Update your Nutrition goal?'), findsNothing);
 
-    final FakeMyosApi dismissFake = _fake()
+    final FakeMayosApi dismissFake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain', 'intensity': 'moderate',
         'pending_goal': 'gain', 'goal_reason': <String, dynamic>{'code': 'default'},
         'daily_activity': 'mostly_sitting', 'targets': <String, dynamic>{'calories': 2000,
@@ -614,7 +614,7 @@ void main() {
   });
 
   testWidgets('Coach-held targets have no Adjust action', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach',
         'authority': 'coach', 'pending_goal': 'lose',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
@@ -624,7 +624,7 @@ void main() {
     expect(find.text('حدّدها مدربك'), findsOneWidget);
     expect(find.text('تعديل'), findsNothing);
     expect(find.textContaining('تغير هدفك'), findsNothing);
-    final FakeMyosApi englishFake = _fake()
+    final FakeMayosApi englishFake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'gain', 'author': 'Coach', 'authority': 'coach',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
@@ -635,7 +635,7 @@ void main() {
   });
 
   testWidgets('Arabic pace dial uses right-to-left layout', (WidgetTester tester) async {
-    final FakeMyosApi fake = _fake()
+    final FakeMayosApi fake = _fake()
       ..nutritionState = <String, dynamic>{'state': 'ready', 'goal': 'maintain',
         'goal_reason': <String, dynamic>{'code': 'default'}, 'daily_activity': 'mostly_sitting',
         'targets': <String, dynamic>{'calories': 2000, 'protein_g': 140, 'carbs_g': 220, 'fat_g': 70}};
@@ -657,14 +657,14 @@ void main() {
 Finder _coachField(WidgetTester tester, String label) => find.byWidgetPredicate(
     (Widget widget) => widget is TextField && widget.decoration?.labelText == label);
 
-FakeMyosApi _fake() => FakeMyosApi()
+FakeMayosApi _fake() => FakeMayosApi()
   ..issuedToken = 'nutrition-token'
   ..currentUsername = 'nutrition-player'
   ..tokenValid = true
   ..gender = 'female'
   ..profileExists = true;
 
-Widget _app(FakeMyosApi fake, String language, ThemeData theme, {Widget? home}) => ProviderScope(
+Widget _app(FakeMayosApi fake, String language, ThemeData theme, {Widget? home}) => ProviderScope(
       overrides: <Override>[
         apiClientProvider.overrideWith((ref) {
           final InMemoryTokenStore tokens = InMemoryTokenStore();

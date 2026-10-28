@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/ui/myos_icon_chip.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/ui/mayos_icon_chip.dart';
 import '../../../providers.dart';
-import '../../../core/ui/myos_scaffold.dart';
+import '../../../core/ui/mayos_scaffold.dart';
 import 'feature_list.dart';
 import 'tour_controller.dart';
 
@@ -20,7 +20,7 @@ class WhatsNewFeatureRow extends StatelessWidget {
   });
 
   final FeatureEntry entry;
-  final MyosCopy copy;
+  final MayosCopy copy;
   final VoidCallback onShowMe;
 
   IconData get _icon => switch (entry.id) {
@@ -34,17 +34,17 @@ class WhatsNewFeatureRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.sm),
+        padding: const EdgeInsets.all(MayosSpacing.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            MyosIconChip(
+            MayosIconChip(
               child: Icon(_icon, color: colors.accent),
             ),
-            const SizedBox(width: MyosSpacing.sm),
+            const SizedBox(width: MayosSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +53,7 @@ class WhatsNewFeatureRow extends StatelessWidget {
                     copy.isArabic ? entry.titleAr : entry.titleEn,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  const SizedBox(height: MyosSpacing.xxs),
+                  const SizedBox(height: MayosSpacing.xxs),
                   Text(copy.isArabic ? entry.sentenceAr : entry.sentenceEn),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
@@ -105,7 +105,7 @@ class _WhatsNewScreenState extends ConsumerState<WhatsNewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
+    final MayosCopy copy = MayosCopy(ref.watch(displayLanguageProvider));
     final List<FeatureEntry> entries = ref.watch(featureEntriesProvider);
     final String? accountId =
         ref.watch(authControllerProvider).session?.account.accountId;
@@ -120,15 +120,15 @@ class _WhatsNewScreenState extends ConsumerState<WhatsNewScreen> {
         .toSet()
         .toList()
       ..sort((int first, int second) => second.compareTo(first));
-    return MyosScaffold(
+    return MayosScaffold(
       title: copy.whatsNewTitle,
       showBack: true,
       body: ListView(
-        padding: const EdgeInsets.all(MyosSpacing.md),
+        padding: const EdgeInsets.all(MayosSpacing.md),
         children: <Widget>[
           for (final int release in releases) ...<Widget>[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: MyosSpacing.sm),
+              padding: const EdgeInsets.symmetric(vertical: MayosSpacing.sm),
               child: Text(
                 copy.whatsNewRelease(release),
                 style: Theme.of(context).textTheme.titleMedium,

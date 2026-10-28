@@ -29,9 +29,9 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from database.migration_manager import restore_atomic_backup
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 DAILY_BACKUPS_DIRNAME = "daily"
 LEDGERS_SUBDIR = "ledgers"

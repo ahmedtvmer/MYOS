@@ -7,32 +7,32 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show MaxLengthEnforcement;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/account_data_eraser.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/chat_models.dart';
-import 'package:myos_mobile/src/core/chat_message_limit.dart';
-import 'package:myos_mobile/src/core/display_language/catalog.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/connectivity_message.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/workout_start_notice_store.dart';
-import 'package:myos_mobile/src/core/device_timezone.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/sse.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/ui/myos_markdown.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/auth/auth_repository.dart';
-import 'package:myos_mobile/src/providers.dart';
-import 'package:myos_mobile/src/router.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/account_data_eraser.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/chat_models.dart';
+import 'package:mayos_mobile/src/core/chat_message_limit.dart';
+import 'package:mayos_mobile/src/core/display_language/catalog.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/connectivity_message.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/workout_start_notice_store.dart';
+import 'package:mayos_mobile/src/core/device_timezone.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/sse.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_markdown.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/auth/auth_repository.dart';
+import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/router.dart';
 
 import 'support/fake_api_adapter.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 /// Pumps finite frames until [finder] matches, then a few more so transitions
 /// settle without relying on `pumpAndSettle` (indeterminate spinners never settle).
@@ -49,7 +49,7 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-Override _apiOverride(FakeMyosApi fake) =>
+Override _apiOverride(FakeMayosApi fake) =>
     apiClientProvider.overrideWith((ref) {
       final ApiClient client = ApiClient(
         tokens: ref.watch(tokenStoreProvider),
@@ -60,8 +60,8 @@ Override _apiOverride(FakeMyosApi fake) =>
       return client;
     });
 
-FakeMyosApi _fakePlayer(String username) {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _fakePlayer(String username) {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-$username';
   fake.currentUsername = username;
   fake.tokenValid = true;
@@ -89,7 +89,7 @@ Map<String, dynamic> _lifterAllowance({
 
 Future<void> _pumpChat(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   required InMemoryChatCacheStore store,
   InMemoryWorkoutCacheStore? workoutCache,
   ActiveWorkoutStore? activeWorkout,
@@ -119,7 +119,7 @@ Future<void> _pumpChat(
 /// Pumps the app to the player home screen.
 Future<void> _pumpHome(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   InMemoryChatCacheStore? chatCache,
   InMemoryWorkoutCacheStore? workoutCache,
   ActiveWorkoutStore? activeWorkout,
@@ -161,7 +161,7 @@ Future<void> _pumpHome(
         deviceTimezoneOrNullProvider
             .overrideWithValue(Future<String?>.value('America/New_York')),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(
@@ -180,7 +180,7 @@ TextField _composer(WidgetTester tester) =>
     tester.widget<TextField>(find.byKey(const Key('chat_composer')));
 
 Finder _chatMarkdown(String source) => find.byWidgetPredicate(
-      (Widget widget) => widget is MyosMarkdown && widget.source == source,
+      (Widget widget) => widget is MayosMarkdown && widget.source == source,
     );
 
 Finder _renderedMarkdownText(String text) =>
@@ -194,8 +194,8 @@ Future<void> _openSettings(WidgetTester tester) async {
 void main() {
   test('chat message limit and localized counter copy match the service', () {
     expect(chatMessageMaxChars, 400);
-    const MyosCopy english = MyosCopy('en');
-    const MyosCopy arabic = MyosCopy('ar');
+    const MayosCopy english = MayosCopy('en');
+    const MayosCopy arabic = MayosCopy('ar');
     expect(english.chatCharactersLeft(80), '80 characters left');
     expect(english.chatCharactersLeft(1), '1 character left');
     expect(
@@ -232,7 +232,7 @@ void main() {
   testWidgets('chat composer localizes its counter and caps input at 400',
       (tester) async {
     for (final String languageCode in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _fakePlayer('alice');
+      final FakeMayosApi fake = _fakePlayer('alice');
       await _pumpChat(
         tester,
         fake,
@@ -254,22 +254,22 @@ void main() {
       await tester.enterText(composer, character * 319);
       await tester.pump();
       expect(
-        find.text(MyosCopy('en').chatCharactersLeft(81)),
+        find.text(MayosCopy('en').chatCharactersLeft(81)),
         findsNothing,
       );
       expect(
-        find.text(MyosCopy('ar').chatCharactersLeft(81)),
+        find.text(MayosCopy('ar').chatCharactersLeft(81)),
         findsNothing,
       );
 
       await tester.enterText(composer, character * 320);
       await tester.pump();
       expect(
-        find.text(const MyosCopy('en').chatCharactersLeft(80)),
+        find.text(const MayosCopy('en').chatCharactersLeft(80)),
         languageCode == 'en' ? findsOneWidget : findsNothing,
       );
       expect(
-        find.text(const MyosCopy('ar').chatCharactersLeft(80)),
+        find.text(const MayosCopy('ar').chatCharactersLeft(80)),
         languageCode == 'ar' ? findsOneWidget : findsNothing,
       );
 
@@ -279,11 +279,11 @@ void main() {
       await tester.pump();
       expect(_composer(tester).controller!.text.runes.length, 400);
       expect(
-        find.text(const MyosCopy('en').chatCharactersLeft(0)),
+        find.text(const MayosCopy('en').chatCharactersLeft(0)),
         languageCode == 'en' ? findsOneWidget : findsNothing,
       );
       expect(
-        find.text(const MyosCopy('ar').chatCharactersLeft(0)),
+        find.text(const MayosCopy('ar').chatCharactersLeft(0)),
         languageCode == 'ar' ? findsOneWidget : findsNothing,
       );
 
@@ -362,7 +362,7 @@ void main() {
 
   testWidgets('Arabic chat chrome preserves assistant text from the API',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('alice');
+    final FakeMayosApi fake = _fakePlayer('alice');
     fake.chatHistory.add(<String, dynamic>{
       'id': 'server-reply-1',
       'role': 'assistant',
@@ -375,7 +375,7 @@ void main() {
     expect(find.text('قبل أن تبدأ'), findsOneWidget);
     expect(
       find.text(
-        const MyosCopy('ar').hostedChatDisclosure,
+        const MayosCopy('ar').hostedChatDisclosure,
       ),
       findsOneWidget,
     );
@@ -388,7 +388,7 @@ void main() {
 
   testWidgets('chat displays the transient tool status then clears it at reply start',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('tool-status-player');
+    final FakeMayosApi fake = _fakePlayer('tool-status-player');
     fake.chatStatuses = <String>['Checking your profile…'];
     await _pumpChat(tester, fake, store: InMemoryChatCacheStore());
     await _acceptDisclosure(tester);
@@ -405,12 +405,12 @@ void main() {
 
   testWidgets('leaving chat during a streamed reply clears the Tour gate safely',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('stream-exit-player')
+    final FakeMayosApi fake = _fakePlayer('stream-exit-player')
       ..chatReplyChunks = <String>['A long reply', ' that is still streaming.'];
     await _pumpChat(tester, fake, store: InMemoryChatCacheStore());
     await _acceptDisclosure(tester);
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
 
     await tester.enterText(find.byKey(const Key('chat_composer')), 'Explain');
     await tester.tap(find.byKey(const Key('chat_send')));
@@ -425,7 +425,7 @@ void main() {
 
   testWidgets('preferred name captured in chat appears in Settings',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('alice');
+    final FakeMayosApi fake = _fakePlayer('alice');
     await _pumpChat(tester, fake, store: InMemoryChatCacheStore());
     await _acceptDisclosure(tester);
 
@@ -458,7 +458,7 @@ void main() {
   testWidgets('disclosure gates the composer and persists per account',
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-    final FakeMyosApi alice = _fakePlayer('alice');
+    final FakeMayosApi alice = _fakePlayer('alice');
     await _pumpChat(tester, alice, store: store, scopeKey: UniqueKey());
 
     expect(find.byKey(const Key('chat_disclosure')), findsOneWidget);
@@ -475,7 +475,7 @@ void main() {
     expect(_composer(tester).enabled, isTrue);
 
     // A different account on the same device sees it again.
-    final FakeMyosApi bob = _fakePlayer('bob');
+    final FakeMayosApi bob = _fakePlayer('bob');
     await tester.pumpWidget(const SizedBox());
     await _pumpChat(tester, bob, store: store, scopeKey: UniqueKey());
     expect(find.byKey(const Key('chat_disclosure')), findsOneWidget);
@@ -490,7 +490,7 @@ void main() {
   ]) {
     testWidgets('Lifter resource threshold: ${item.label}', (tester) async {
       for (final String language in <String>['en', 'ar']) {
-        final FakeMyosApi fake = _fakePlayer('allowance-$language-${item.used}');
+        final FakeMayosApi fake = _fakePlayer('allowance-$language-${item.used}');
         fake.lifterAiAllowance = _lifterAllowance(
           status: item.status,
           resourceUsed: item.used,
@@ -520,7 +520,7 @@ void main() {
   testWidgets('resource cutoff state stays visible in English and Arabic',
       (tester) async {
     for (final String language in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _fakePlayer('allowance-cutoff-$language');
+      final FakeMayosApi fake = _fakePlayer('allowance-cutoff-$language');
       fake.lifterAiAllowance = _lifterAllowance(
         status: 'resource_cutoff',
         resourceUsed: 100,
@@ -547,7 +547,7 @@ void main() {
   testWidgets('pre-stream resource cutoff errors show remaining and reset in both languages',
       (tester) async {
     for (final String language in <String>['en', 'ar']) {
-      final FakeMyosApi fake = _fakePlayer('resource-refusal-$language');
+      final FakeMayosApi fake = _fakePlayer('resource-refusal-$language');
       fake.chatRefusal = <String, dynamic>{
         'detail': 'The daily Lifter resource limit has been reached. '
             '3 requests remain. The allowance resets at 2026-10-18 00:00 UTC.',
@@ -588,7 +588,7 @@ void main() {
 
   testWidgets('a completed turn refreshes the persistent allowance warning',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('allowance-after-turn');
+    final FakeMayosApi fake = _fakePlayer('allowance-after-turn');
     fake.lifterAiAllowance = _lifterAllowance(
       status: 'available',
       resourceUsed: 10,
@@ -614,7 +614,7 @@ void main() {
 
   testWidgets('refreshing after the UTC reset clears the old warning',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('allowance-reset-refresh');
+    final FakeMayosApi fake = _fakePlayer('allowance-reset-refresh');
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
     fake.lifterAiAllowance = _lifterAllowance(
       status: 'warning',
@@ -650,7 +650,7 @@ void main() {
         find.byKey(const Key('chat_composer')), 'Cue my bench?');
     await tester.tap(find.byKey(const Key('chat_send')));
     final ProviderContainer container =
-        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
     expect(container.read(playerChatStreamingProvider), isTrue);
 
     // Subscription starts within the first frame; no chunk has arrived yet.
@@ -678,7 +678,7 @@ void main() {
 
   testWidgets('movement restriction offer has explicit confirmation actions',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('alice')
+    final FakeMayosApi fake = _fakePlayer('alice')
       ..chatReplyChunks = <String>[
         'Should I keep these out of your program? Knee flexion, Hip adduction. Reply yes or no.',
       ];
@@ -695,7 +695,7 @@ void main() {
       (tester) async {
     const String question = 'swap bench press for dumbbell press';
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-    final FakeMyosApi fake = _fakePlayer('alice')
+    final FakeMayosApi fake = _fakePlayer('alice')
       ..coachControlsProgram = true
       ..activeAssignmentId = 'assignment-1'
       ..programVersion = 1
@@ -788,7 +788,7 @@ void main() {
   });
 
   testWidgets('refusal action uses Arabic copy', (tester) async {
-    final FakeMyosApi fake = _fakePlayer('alice')
+    final FakeMayosApi fake = _fakePlayer('alice')
       ..displayLanguage = 'ar'
       ..coachControlsProgram = true
       ..activeAssignmentId = 'assignment-1'
@@ -852,7 +852,7 @@ void main() {
       (tester) async {
     for (final ThemeMode mode in <ThemeMode>[ThemeMode.light, ThemeMode.dark]) {
       final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-      final FakeMyosApi fake = _fakePlayer('alice')
+      final FakeMayosApi fake = _fakePlayer('alice')
         ..chatReplyChunks = <String>['**Strong', '** and *steady*.'];
       await _pumpChat(
         tester,
@@ -870,8 +870,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       await tester.pump(const Duration(milliseconds: 120));
 
-      final MyosMarkdown partial = tester
-          .widgetList<MyosMarkdown>(
+      final MayosMarkdown partial = tester
+          .widgetList<MayosMarkdown>(
             _chatMarkdown('**Strong'),
           )
           .first;
@@ -896,7 +896,7 @@ void main() {
       const String reply = '**Strong** and *steady*.';
       expect(find.byKey(identityKey), findsOneWidget);
       expect(
-          tester.widget<MyosMarkdown>(find.byKey(identityKey)).source, reply);
+          tester.widget<MayosMarkdown>(find.byKey(identityKey)).source, reply);
       expect(_renderedMarkdownText('Strong and steady.'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
@@ -921,7 +921,7 @@ void main() {
   testWidgets('error event shows an error state and never persists a partial',
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-    final FakeMyosApi fake = _fakePlayer('alice')..chatSendError = true;
+    final FakeMayosApi fake = _fakePlayer('alice')..chatSendError = true;
     await _pumpChat(tester, fake, store: store, scopeKey: UniqueKey());
     await _acceptDisclosure(tester);
 
@@ -959,7 +959,7 @@ void main() {
   testWidgets('Arabic mid-stream errors leave no assistant reply in chat state',
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-    final FakeMyosApi fake = _fakePlayer('alice')..chatSendError = true;
+    final FakeMayosApi fake = _fakePlayer('alice')..chatSendError = true;
     await _pumpChat(
       tester,
       fake,
@@ -1006,7 +1006,7 @@ void main() {
         kind: 'debrief',
       ),
     ]);
-    final FakeMyosApi fake = _fakePlayer('alice')..chatOffline = true;
+    final FakeMayosApi fake = _fakePlayer('alice')..chatOffline = true;
     await _pumpChat(tester, fake, store: store, scopeKey: UniqueKey());
 
     expect(find.byKey(const Key('chat_offline_banner')), findsOneWidget);
@@ -1031,7 +1031,7 @@ void main() {
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
     final InMemoryWorkoutCacheStore workoutCache = InMemoryWorkoutCacheStore();
-    final FakeMyosApi fake = _fakePlayer('alice')
+    final FakeMayosApi fake = _fakePlayer('alice')
       ..chatProgramUpdated = true
       ..prescriptionDeload = <String, dynamic>{
         'state': 'applied',
@@ -1085,7 +1085,7 @@ void main() {
     // logger must reflect that prescription on its Deload banner.
     fake.prescriptionOffline = true;
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
     );
     container.read(routerProvider).go('$logWorkoutPath/1');
     await _pumpUntilFound(
@@ -1100,7 +1100,7 @@ void main() {
 
   testWidgets('chat Program edit preview renders optional toggle and confirms',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('program-edit-card')
+    final FakeMayosApi fake = _fakePlayer('program-edit-card')
       ..chatProgramEditPreview = <String, dynamic>{
         'id': 'preview-1',
         'days': <Map<String, dynamic>>[
@@ -1148,7 +1148,7 @@ void main() {
 
   testWidgets('chat Program edit preview uses Arabic Confirm and Cancel labels',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('program-edit-ar')
+    final FakeMayosApi fake = _fakePlayer('program-edit-ar')
       ..chatProgramEditPreview = <String, dynamic>{
         'id': 'preview-ar',
         'days': <Map<String, dynamic>>[
@@ -1174,7 +1174,7 @@ void main() {
   });
 
   testWidgets('reopened chat restores a pending Program edit card', (tester) async {
-    final FakeMyosApi fake = _fakePlayer('program-edit-history')
+    final FakeMayosApi fake = _fakePlayer('program-edit-history')
       ..chatHistory.add(<String, dynamic>{
         'id': 'offer-history',
         'role': 'assistant',
@@ -1203,7 +1203,7 @@ void main() {
   testWidgets('clearing history requires confirmation and clears the service',
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
-    final FakeMyosApi fake = _fakePlayer('alice');
+    final FakeMayosApi fake = _fakePlayer('alice');
     await _pumpChat(tester, fake, store: store, scopeKey: UniqueKey());
     await _acceptDisclosure(tester);
     await tester.enterText(
@@ -1222,7 +1222,7 @@ void main() {
   });
 
   test('logging out clears the account cached chat history', () async {
-    final FakeMyosApi fake = _fakePlayer('alice');
+    final FakeMayosApi fake = _fakePlayer('alice');
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
     await store.writeDisclosureAccepted('account-alice');
     store.seedHistory('account-alice', <ChatMessage>[
@@ -1257,7 +1257,7 @@ void main() {
       (tester) async {
     final InMemoryChatCacheStore store = InMemoryChatCacheStore();
     await store.writeDisclosureAccepted('account-alice');
-    final FakeMyosApi fake = _fakePlayer('alice')..chatOffline = true;
+    final FakeMayosApi fake = _fakePlayer('alice')..chatOffline = true;
     await _pumpChat(tester, fake, store: store, scopeKey: UniqueKey());
     expect(find.byKey(const Key('chat_offline_banner')), findsOneWidget);
 
@@ -1271,7 +1271,7 @@ void main() {
   testWidgets(
       'saving the schedule offline shows the shared needs-connection message',
       (tester) async {
-    final FakeMyosApi fake = _fakePlayer('alice');
+    final FakeMayosApi fake = _fakePlayer('alice');
     fake.failOffline('PUT', '/profile/schedule');
     await _pumpHome(tester, fake);
 

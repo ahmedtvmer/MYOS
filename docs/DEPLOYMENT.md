@@ -1,6 +1,6 @@
-# Myos: Production Deployment, Containerization & Operational Runbook
+# Mayos: Production Deployment, Containerization & Operational Runbook
 
-This document details production deployment procedures, container orchestration, database provisioning, and disaster recovery for the MYOS service.
+This document details production deployment procedures, container orchestration, database provisioning, and disaster recovery for the MAYOS service.
 
 > **Android closed trial (Fly.io, FastAPI only):** use the [§10 Fly.io
 > runbook](#10-flyio-closed-trial-api-deployment-fastapi-only) for its
@@ -15,7 +15,7 @@ This document details production deployment procedures, container orchestration,
 
 ## 1. Host Runtime Prerequisites
 
-MYOS runs its chat, judge, and coach roles through a hosted OpenAI-compatible API. The service loads BGE embeddings through ONNX Runtime for clinical triage and Exercise library search. The image includes the model graph, tokenizer and pooling configuration; chat model weights are not stored or downloaded by the service.
+MAYOS runs its chat, judge, and coach roles through a hosted OpenAI-compatible API. The service loads BGE embeddings through ONNX Runtime for clinical triage and Exercise library search. The image includes the model graph, tokenizer and pooling configuration; chat model weights are not stored or downloaded by the service.
 
 **Host system dependencies (non-Docker native runs):**
 
@@ -32,7 +32,7 @@ The deployment is one FastAPI service plus an optional tunnel. Hosted chat reque
 | HOST SYSTEM                                                           |
 |   Persistent volumes: ./db -> /app/db; ./logs -> /app/logs            |
 |   +-----------------------------+                                     |
-|   | Container: myos_api         |       +--------------------------+  |
+|   | Container: mayos_api         |       +--------------------------+  |
 |   | FastAPI + LangGraph         |------>| Hosted chat API          |  |
 |   | Local BGE embeddings        |       | OpenAI-compatible        |  |
 |   | DatabaseManager             |       +--------------------------+  |
@@ -63,8 +63,8 @@ export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 | `GOOGLE_WEB_CLIENT_ID` | unset (⇒ `/auth/google*` returns 503) | **Secret-ish config**: the OAuth web client ID Google ID tokens are verified against (issue #113). Use the *Web* client ID from the Google Cloud console; Android requests its ID token with this value as `serverClientId`, so it is the only audience the API needs. Unset disables Google sign-in only — password auth is unaffected |
 | `POSTHOG_API_KEY` | unset | PostHog project key for server events; unset or `TESTING=1` disables analytics |
 | `POSTHOG_HOST` | `https://eu.i.posthog.com` | PostHog event-ingestion host |
-| `POSTHOG_PERSONAL_API_KEY` | unset | Private API key restricted to the MYOS project with only the `person:write` scope; set only in server secrets |
-| `POSTHOG_PROJECT_ID` | unset | MYOS PostHog project id used by the private persons API |
+| `POSTHOG_PERSONAL_API_KEY` | unset | Private API key restricted to the MAYOS project with only the `person:write` scope; set only in server secrets |
+| `POSTHOG_PROJECT_ID` | unset | MAYOS PostHog project id used by the private persons API |
 | `POSTHOG_API_HOST` | `https://eu.posthog.com` | Private PostHog API host; change only for a different PostHog deployment |
 | `UI_BASE_URL` | `http://localhost:7357` | CORS origins: one, or several comma-separated (web app host + local Flutter web dev). Not used for reset links |
 | `RESET_LINK_BASE_URL` | `http://localhost:8000` | Reset-link / App Link base; production is `https://api.mayos.online` |
@@ -77,7 +77,7 @@ export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 | `RESET_TOKEN_TTL_MINUTES` | `30` | Reset-link lifetime (clamped 5–120) |
 | `EMAIL_VERIFICATION_CODE_TTL_MINUTES` | `10` | Recovery-email code lifetime (clamped 5–60) |
 | `SMTP_HOST` | unset | **Unset ⇒ console-dev backend** (reset links and verification codes logged, not sent). Configure for real deployments |
-| `SMTP_PORT` / `SMTP_USE_TLS` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | `587` / `true` / — / — / `no-reply@myos.local` | SMTP transport |
+| `SMTP_PORT` / `SMTP_USE_TLS` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | `587` / `true` / — / — / `no-reply@mayos.local` | SMTP transport |
 | `RATE_LIMIT_LOGIN` / `_REGISTER` / `_PASSWORD` / `_RESET` / `_CHAT` / `_ONBOARDING` | `5/min` / `5/min` / `10/min` / `3/hour` / `30/min` / `30/min` | Per-route limits |
 | `RATE_LIMIT_USERNAME_CHECK` | `30/min` | `GET /auth/username-available`, the as-you-type username picker (#113) |
 | `RATE_LIMIT_PROGRAM_MUTATE` | `30/minute` | Player program mutations, including exercise substitutions and Undo |
@@ -441,9 +441,9 @@ uses `deploy/compose.server.yaml` as described in §14.
 
 ```yaml
 services:
-  myos-api:
+  mayos-api:
     build: { context: ., dockerfile: Dockerfile }
-    container_name: myos_api
+    container_name: mayos_api
     restart: unless-stopped
     stop_grace_period: 60s
     command: ["uvicorn", "svc.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
@@ -468,10 +468,10 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: myos_tunnel
+    container_name: mayos_tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://myos-api:8000
-    depends_on: [myos-api]
+    command: tunnel --no-autoupdate --url http://mayos-api:8000
+    depends_on: [mayos-api]
 ```
 
 ### Cloudflare Tunnel Operations
@@ -490,10 +490,10 @@ Before the first launch, initialize the catalog and compute the semantic index. 
 
 ```bash
 # Step 1: schema + relational exercise data from CSV
-docker compose run --rm myos-api python scripts/intialize_db.py
+docker compose run --rm mayos-api python scripts/intialize_db.py
 
 # Step 2: 384-d normalized embeddings + vec_exercises index
-docker compose run --rm myos-api python scripts/seed_vectors.py
+docker compose run --rm mayos-api python scripts/seed_vectors.py
 ```
 
 The account-recovery tables (`trainee_emails`, `password_reset_tokens`) and per-user schema are provisioned automatically on boot; no manual step is required.
@@ -501,7 +501,7 @@ The account-recovery tables (`trainee_emails`, `password_reset_tokens`) and per-
 ### Verification
 
 ```bash
-docker compose run --rm myos-api sqlite3 /app/db/catalog.db \
+docker compose run --rm mayos-api sqlite3 /app/db/catalog.db \
   "SELECT COUNT(*) FROM exercises; SELECT COUNT(*) FROM exercise_secondary_muscles;"
 ```
 
@@ -521,31 +521,31 @@ The Arabic graph loads lazily on the first Arabic clinical query that reaches se
 
 ### Telemetry
 
-Turn latencies, Time-to-First-Token (TTFT), token counts, and generation throughput (TPS) stream out-of-band to `logs/myos.log`:
+Turn latencies, Time-to-First-Token (TTFT), token counts, and generation throughput (TPS) stream out-of-band to `logs/mayos.log`:
 
 ```bash
 # Real-time transaction telemetry
-docker compose exec myos-api tail -f /app/logs/myos.log | grep "\[TELEMETRY\]"
+docker compose exec mayos-api tail -f /app/logs/mayos.log | grep "\[TELEMETRY\]"
 
 # CPU thermal throttling / thread-contention alerts (fires below 8 TPS)
-docker compose exec myos-api grep "\[PERF DEGRADATION\]" /app/logs/myos.log
+docker compose exec mayos-api grep "\[PERF DEGRADATION\]" /app/logs/mayos.log
 
 # On-demand latency & throughput audit
-docker compose exec myos-api python scripts/check_engine_health.py
+docker compose exec mayos-api python scripts/check_engine_health.py
 ```
 
 ### Password & Account Recovery Operations
 
 ```bash
 # Operator reset (revokes ALL sessions for that ledger; no email required)
-docker compose exec myos-api python scripts/reset_password.py <trainee_id>
+docker compose exec mayos-api python scripts/reset_password.py <trainee_id>
 
 # Custom storage locations (native runs)
 python scripts/reset_password.py <trainee_id> \
   --catalog db/catalog.db --users-dir db/users --backups-dir db/backups
 ```
 
-Reset emails are sent via SMTP when configured; with `SMTP_HOST` unset, links are logged to `logs/myos.log` (console-dev mode — never leave this unset on a shared host). The full auth specification is in [`AUTHENTICATION.md`](AUTHENTICATION.md).
+Reset emails are sent via SMTP when configured; with `SMTP_HOST` unset, links are logged to `logs/mayos.log` (console-dev mode — never leave this unset on a shared host). The full auth specification is in [`AUTHENTICATION.md`](AUTHENTICATION.md).
 
 ### Health Endpoints
 
@@ -586,7 +586,7 @@ Cloudflare R2 bucket through its S3-compatible API. In the Cloudflare dashboard,
 create the bucket and leave public access disabled, then create an R2 API token
 with **Object Read & Write** permission scoped to that bucket only. Use the S3
 endpoint shown by Cloudflare for the account (or the jurisdiction-specific
-endpoint for a jurisdictional bucket). MYOS configures the S3 client with
+endpoint for a jurisdictional bucket). MAYOS configures the S3 client with
 region `auto`.
 
 Set these four Fly secrets; the API key and secret are the R2 token's Access Key
@@ -1094,7 +1094,7 @@ returns 404 instead of silently falling back to a local copy.
   carries "© Gym visual — https://gymvisual.com/" and the media is never shown
   larger than its native 180×180 (the exercise-detail hero caps its box at
   180 dp; Settings → About → Credits holds the full notice). The provenance
-  record and the 2026-09-29 decision to display it pending MYOS's own licence
+  record and the 2026-09-29 decision to display it pending MAYOS's own licence
   are in `docs/design-review/53/MEDIA-PROVENANCE.md`. The app's kill switch is
   `--dart-define=MAYOS_EXERCISE_MEDIA=false`.
 - **Only `data/processed_exercises.csv` remains in the build context.** The
@@ -1155,7 +1155,7 @@ from `fly.toml`; the first two are configuration and may live in `[env]`):
 | `SMTP_PORT` | `587` | |
 | `SMTP_USE_TLS` | `true` | `false` uses implicit TLS |
 | `SMTP_USER` / `SMTP_PASSWORD` | relay credentials | Optional for an unauthenticated relay |
-| `SMTP_FROM` | from address | Defaults to `no-reply@myos.local` |
+| `SMTP_FROM` | from address | Defaults to `no-reply@mayos.local` |
 
 ```bash
 # Reset-link base (must equal the -PappLinkHost used for the Android build).
@@ -1221,7 +1221,7 @@ both player and coach capabilities; the same app/login serves both):
 
 1. From the app, choose **Forgot password?**, enter the account's recovery email,
    and submit. The same confirmation appears for any address (anti-enumeration).
-2. Confirm the email arrives. The body must say the link opens the MYOS app if
+2. Confirm the email arrives. The body must say the link opens the MAYOS app if
    installed, otherwise a secure web page, is single-use, and expires in the
    configured `RESET_TOKEN_TTL_MINUTES`; the link is
    `https://api.mayos.online/reset-password?token=…`.
@@ -1349,7 +1349,7 @@ everywhere until these keys are set, so this can be done at any time.
 ANALYTICS.md whenever what is sent changes. The served page updates with the
 next `fly deploy`.
 
-**1. PostHog project settings** (EU Cloud, project MYOS):
+**1. PostHog project settings** (EU Cloud, project MAYOS):
 - Project settings → **Discard client IP data: ON**.
 - Session replay, autocapture, heatmaps and surveys: off (the app also turns
   them off in code).
@@ -1357,8 +1357,8 @@ next `fly deploy`.
   **Project ID**.
 
 **2. Personal API key** for person deletion (#95): avatar → Settings →
-Personal API keys → Create — label `MYOS server – person deletion`,
-organization/project access **MYOS only**, scopes **Person: Write** only
+Personal API keys → Create — label `MAYOS server – person deletion`,
+organization/project access **MAYOS only**, scopes **Person: Write** only
 (`person:write`). It is a secret (`phx_…`): Fly only, never a client build,
 never `.env`.
 
@@ -1383,13 +1383,13 @@ dart-define, never read from Fly:
 Debug and profile builds never initialize PostHog.
 
 **5. Local development** — leave `POSTHOG_API_KEY` blank in `.env` (or use a
-separate "MYOS dev" project's key) so local runs never send into trial data;
+separate "MAYOS dev" project's key) so local runs never send into trial data;
 `MAYOS_ENV=development`.
 
 | Variable | Where | Value |
 | :--- | :--- | :--- |
 | `POSTHOG_API_KEY` | Fly secret | Project API key `phc_…` |
-| `POSTHOG_PERSONAL_API_KEY` | Fly secret | Personal key `phx_…`, `person:write`, MYOS only |
+| `POSTHOG_PERSONAL_API_KEY` | Fly secret | Personal key `phx_…`, `person:write`, MAYOS only |
 | `POSTHOG_PROJECT_ID` | Fly secret | Numeric project id |
 | `MAYOS_ENV` | `fly.toml` `[env]` | `production` |
 | `MAYOS_RELEASE_PHASE` | env | `closed_trial` now, `public` at launch |

@@ -1,33 +1,33 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/account_data_eraser.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/first_touch.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_start_notice_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/auth/auth_repository.dart';
+import 'package:mayos_mobile/src/core/account_data_eraser.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/first_touch.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_start_notice_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/auth/auth_repository.dart';
 
 import 'support/fake_api_adapter.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 void main() {
   test('same-host landing referrers are not acquisition sources', () {
     expect(
       externalReferrerHost(
-        'https://myos.example/app/',
-        'https://myos.example/login',
+        'https://mayos.example/app/',
+        'https://mayos.example/login',
       ),
       isNull,
     );
     expect(
       externalReferrerHost(
         'https://campaign.example/path',
-        'https://myos.example/app/login',
+        'https://mayos.example/app/login',
       ),
       'campaign.example',
     );
@@ -114,7 +114,7 @@ void main() {
   });
 
   test('AuthRepository.register sends the captured first-touch snapshot', () async {
-    final FakeMyosApi fake = _signedOutFake();
+    final FakeMayosApi fake = _signedOutFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     var clears = 0;
     final AuthRepository repository = _repository(
@@ -142,7 +142,7 @@ void main() {
   });
 
   test('AuthRepository.completeGoogleSignup sends the captured snapshot', () async {
-    final FakeMyosApi fake = _signedOutFake();
+    final FakeMayosApi fake = _signedOutFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     var clears = 0;
     final AuthRepository repository = _repository(
@@ -174,7 +174,7 @@ void main() {
   });
 
   test('AuthRepository registration succeeds when acquisition reader throws', () async {
-    final FakeMyosApi fake = _signedOutFake();
+    final FakeMayosApi fake = _signedOutFake();
     final AuthRepository repository = _repository(
       fake,
       InMemoryTokenStore(),
@@ -190,14 +190,14 @@ void main() {
   });
 }
 
-FakeMyosApi _signedOutFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedOutFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.recoveryEmail = 'player@example.com';
   return fake;
 }
 
 AuthRepository _repository(
-  FakeMyosApi fake,
+  FakeMayosApi fake,
   InMemoryTokenStore tokens, {
   Future<FirstTouch?> Function()? readFirstTouch,
   Future<void> Function()? clearFirstTouch,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
-import 'package:myos_mobile/src/features/player/tour/feature_guide_screen.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:mayos_mobile/src/features/player/tour/feature_guide_screen.dart';
 
 void main() {
   testWidgets('Feature guide lists every lifter entry in English and Arabic',

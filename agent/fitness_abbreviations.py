@@ -5,11 +5,11 @@ from typing import Optional
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.model_downloader import llm, structured_output_model
 from utils import player_output_budgets
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 # Canonical mapping of fitness abbreviations and gym acronyms to catalog exercise stems
 FITNESS_ABBREVIATIONS: dict[str, str] = {

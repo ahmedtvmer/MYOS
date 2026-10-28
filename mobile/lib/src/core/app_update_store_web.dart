@@ -10,7 +10,7 @@ AppUpdateStore createAppUpdateStore() => _WebAppUpdateStore();
 
 class _WebAppUpdateStore implements AppUpdateStore {
   _WebAppUpdateStore() {
-    web.window.addEventListener('myos-update-waiting', ((web.Event _) {
+    web.window.addEventListener('mayos-update-waiting', ((web.Event _) {
       _events.add(_waiting);
     }).toJS);
   }
@@ -19,7 +19,7 @@ class _WebAppUpdateStore implements AppUpdateStore {
 
   bool get _waiting =>
       ((web.window as JSObject).getProperty<JSBoolean?>(
-        'MYOS_UPDATE_WAITING'.toJS,
+        'MAYOS_UPDATE_WAITING'.toJS,
       )?.toDart ?? false);
 
   @override
@@ -33,7 +33,7 @@ class _WebAppUpdateStore implements AppUpdateStore {
   @override
   Future<void> applyUpdate() async {
     final JSFunction? apply = (web.window as JSObject)
-        .getProperty<JSFunction?>('MYOS_APPLY_UPDATE'.toJS);
+        .getProperty<JSFunction?>('MAYOS_APPLY_UPDATE'.toJS);
     apply?.callAsFunction();
   }
 }

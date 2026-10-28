@@ -77,7 +77,7 @@ def test_assembled_page_has_working_destinations(tmp_path):
 
     assert by_id["login"]["href"] == "/app/login"
     assert by_id["start-free"]["href"] == "/app/register"
-    assert by_id["coach-contact-en"]["href"] == "mailto:ahmedtamerhejazi@gmail.com?subject=MYOS%20coach%20request"
+    assert by_id["coach-contact-en"]["href"] == "mailto:ahmedtamerhejazi@gmail.com?subject=MAYOS%20coach%20request"
     assert by_id["coach-contact-ar"]["href"] == (
         "mailto:ahmedtamerhejazi@gmail.com?subject=%D8%B7%D9%84%D8%A8%20"
         "%D8%A7%D9%86%D8%B6%D9%85%D8%A7%D9%85%20%D9%85%D8%AF%D8%B1%D8%A8%20%D8%A5%D9%84%D9%89%20%D9%85%D9%8A%D9%88%D8%B3"
@@ -97,7 +97,7 @@ def test_assembled_page_has_expected_copy_in_both_languages(tmp_path):
         "nav_lifters": "For lifters", "nav_coaches": "For coaches",
         "login": "Log in", "language_toggle": "العربية", "eyebrow": "AI-built training programs",
         "hero_title_1": "Your training.", "hero_title_2": "Engineered.",
-        "hero_line": "MYOS uses AI to build your training program around your goal, schedule and equipment. Log every set and watch your strength grow. Free to start on the web.",
+        "hero_line": "MAYOS uses AI to build your training program around your goal, schedule and equipment. Log every set and watch your strength grow. Free to start on the web.",
         "start_free": "Start free",
         "benefit_1_title": "AI-built plans", "benefit_1": "Sets, reps and rest planned for your goal.",
         "benefit_2_title": "Log every set", "benefit_2": "Weight, reps and reps in reserve, as you train.",
@@ -210,7 +210,7 @@ def _run_landing_js(output, scenario):
         });
         global.matchMedia = () => ({matches: false});
         global.requestAnimationFrame = () => {};
-        global.window = {MYOS_LANDING: {}};
+        global.window = {MAYOS_LANDING: {}};
         (0, eval)(fs.readFileSync(configPath, 'utf8'));
         (0, eval)(fs.readFileSync(landingPath, 'utf8'));
         process.stdout.write(JSON.stringify({storage, replaced: scenario.replaced || null}));
@@ -294,7 +294,7 @@ def test_assembly_injects_deploy_time_values_without_a_posthog_key(tmp_path, mon
 
     config = json.loads(
         (output / "landing-config.js").read_text(encoding="utf-8")
-        .removeprefix("window.MYOS_LANDING = ").removesuffix(";\n")
+        .removeprefix("window.MAYOS_LANDING = ").removesuffix(";\n")
     )
     assert config == {"posthogKey": ""}
     html, parser = _parse(output)

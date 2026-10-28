@@ -24,10 +24,10 @@ from agent.program_rules import (
     valid_splits_for,
 )
 from tests.fakes.chat_model import ScriptedChatModel, StructuredValue
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.player_output_budgets import DYNAMIC_SPLIT_PLAN_MAX_OUTPUT_TOKENS
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def _split_generation_profile():

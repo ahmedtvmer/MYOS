@@ -69,11 +69,11 @@ List<TrainingStatusSummaryLine> projectTrainingStatusSummary({
   final List<WorkoutDraft> unsynced = drafts
       .where((WorkoutDraft draft) => draft.isUnsynced)
       .toList(growable: false);
-  final int myosWorkouts = status.myosWorkouts + unsynced.length + 1;
+  final int mayosWorkouts = status.mayosWorkouts + unsynced.length + 1;
   return List<
       TrainingStatusSummaryLine>.unmodifiable(<TrainingStatusSummaryLine>[
     ..._weeklyLines(status, unsynced, now),
-    _checkpointLine(myosWorkouts),
+    _checkpointLine(mayosWorkouts),
   ]);
 }
 
@@ -82,7 +82,7 @@ int? projectedCheckpointNumber({
   required List<WorkoutDraft> drafts,
 }) {
   if (status == null) return null;
-  final int count = status.myosWorkouts +
+  final int count = status.mayosWorkouts +
       drafts.where((WorkoutDraft draft) => draft.isUnsynced).length +
       1;
   return _isCheckpoint(count) ? count : null;
@@ -120,13 +120,13 @@ int _projectedStreak(TrainingStatus status, int projectedDone) {
   return status.weeklyStreak + 1;
 }
 
-TrainingStatusSummaryLine _checkpointLine(int myosWorkouts) {
-  if (_isCheckpoint(myosWorkouts)) {
-    return CheckpointReachedSummaryLine(myosWorkouts);
+TrainingStatusSummaryLine _checkpointLine(int mayosWorkouts) {
+  if (_isCheckpoint(mayosWorkouts)) {
+    return CheckpointReachedSummaryLine(mayosWorkouts);
   }
-  final int checkpoint = _nextCheckpoint(myosWorkouts);
+  final int checkpoint = _nextCheckpoint(mayosWorkouts);
   return CheckpointProgressSummaryLine(
-    remaining: checkpoint - myosWorkouts,
+    remaining: checkpoint - mayosWorkouts,
     checkpoint: checkpoint,
   );
 }

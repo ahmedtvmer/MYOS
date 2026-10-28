@@ -28,9 +28,9 @@ from database.database_manager import (  # noqa: E402
     DatabaseManager,
 )
 from service import password_reset as password_reset_service  # noqa: E402
-from utils.logger import MyosLogger  # noqa: E402
+from utils.logger import MayosLogger  # noqa: E402
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def reset_password(db: DatabaseManager, ledger_id: str, new_password: str) -> tuple[str, int, bool]:

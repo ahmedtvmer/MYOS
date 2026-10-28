@@ -14,9 +14,9 @@ from database.exercise_library.schema import EXERCISE_COLUMNS
 from database.schema.definitions import EMBEDDING_DIM
 
 # pyrefly: ignore [missing-import]
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def seed_exercise_embeddings():

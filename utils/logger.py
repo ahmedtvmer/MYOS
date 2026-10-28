@@ -3,10 +3,10 @@ import os
 import sys
 
 
-class MyosLogger:
+class MayosLogger:
     _instance = None
 
-    def __new__(cls, log_file="../logs/myos.log"):
+    def __new__(cls, log_file="../logs/mayos.log"):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialize_logger(log_file)
@@ -14,7 +14,7 @@ class MyosLogger:
 
     def _initialize_logger(self, log_file):
         # Create the root logger for the application
-        self.root_logger = logging.getLogger("myos")
+        self.root_logger = logging.getLogger("mayos")
         self.root_logger.setLevel(logging.INFO)
 
         # Prevent duplicate handlers if instantiated multiple times
@@ -37,4 +37,4 @@ class MyosLogger:
         Returns a child logger.
         Pass __name__ from the calling file to track where the log came from.
         """
-        return logging.getLogger(f"myos.{module_name}")
+        return logging.getLogger(f"mayos.{module_name}")

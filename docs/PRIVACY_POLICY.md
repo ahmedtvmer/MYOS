@@ -1,10 +1,10 @@
-# MYOS Privacy Policy
+# MAYOS Privacy Policy
 
 Effective date: {{POLICY_EFFECTIVE_DATE}} — Policy version {{POLICY_VERSION}}
 
-## Who operates MYOS
+## Who operates MAYOS
 
-MYOS (the "service", "we", "us") is operated by the MYOS project, an
+MAYOS (the "service", "we", "us") is operated by the MAYOS project, an
 independent personal-training service. It is offered as a free,
 invitation-only closed trial; nothing is sold during the trial.
 
@@ -33,10 +33,10 @@ served over https from the address of this page.
   use the app, it lives in the shared account store (not in your training
   data). We use it for password-reset links, password-recovery support, and
   owner support. If you explicitly opt in to product emails, it is the
-  preferred contact address when verified. If you sign up with Google, MYOS may keep a
+  preferred contact address when verified. If you sign up with Google, MAYOS may keep a
   verified Google email as your recovery email when it is not already used as
   another account's recovery email; that address is marked verified at signup.
-  If the address already belongs to a live account, MYOS shows a reminder but
+  If the address already belongs to a live account, MAYOS shows a reminder but
   does not use Google's address as the recovery email if you create a separate
   account, and you must add and verify a recovery email with a code. The
   normalized Google email and verification state are still stored on that
@@ -70,7 +70,7 @@ Your training record is stored privately for your account and includes:
   readiness, personal records, and any notes you log.
 - **Imported history (existing records only)**: these records may include the source file name, a
   snapshot fingerprint, per-table row counts, the opt-in reference, and the
-  import time. MYOS does not accept new history imports. These records are
+  import time. MAYOS does not accept new history imports. These records are
   deleted with your account; a restricted whole-catalog recovery snapshot may
   retain deleted rows for up to 30 days.
 - Your **training schedule** and any schedule pauses.
@@ -83,7 +83,7 @@ Your training record is stored privately for your account and includes:
   ended, and why it ended.
 - **Check-ins** recorded by your coach, including the date, channel, and any
   note. Only coaches can create them. A check-in may record contact arranged
-  outside MYOS (for example a phone number or a link you both agreed to).
+  outside MAYOS (for example a phone number or a link you both agreed to).
 - **Coach alerts** derived from your training (for example a missed-day streak
   or a due follow-up) and their acknowledgement/resolution state.
 - **Program requests** you send to your coach and their responses.
@@ -109,7 +109,7 @@ recipient address and message content to deliver it.
 
 ### Product analytics
 
-MYOS uses **PostHog (EU Cloud)** as a product-analytics processor to measure
+MAYOS uses **PostHog (EU Cloud)** as a product-analytics processor to measure
 how the service is used — onboarding, workouts, coaching, programs, and AI.
 The service, and release builds of the Android and web app, send
 **pseudonymous events** tied to your immutable internal account id, never to
@@ -129,7 +129,7 @@ your username or email.
   (never the full address), the Android install referrer's campaign labels, and
   the coach whose invite you first redeemed. This record is never changed
   afterwards.
-- **You can turn product analytics off** in Settings. When it is off, MYOS
+- **You can turn product analytics off** in Settings. When it is off, MAYOS
   stops sending events about your account from both the service and the app;
   the choice is stored with your account and applies on every device you sign
   in on. A coach's own events (for example, that their roster grew) are subject
@@ -160,7 +160,7 @@ as they are useful for operating and securing the service.
 
 ### Children
 
-MYOS is a training tool for adults and older teenagers; it is **not directed
+MAYOS is a training tool for adults and older teenagers; it is **not directed
 at children under 16**, and we do not knowingly collect personal data from
 them. If you believe a child under 16 has provided us with data, contact us and
 we will delete it.
@@ -189,7 +189,7 @@ While the assignment is **active**, your coach sees:
   alerts, current streak, next follow-up date);
 - **program requests** you send, with their state.
 - Your **assistant chat is private**. A coach never sees your conversation with
-  the MYOS assistant, and no coach-facing feature sends it anywhere.
+  the MAYOS assistant, and no coach-facing feature sends it anywhere.
 - **Ending the assignment** — by you or by your coach — cuts off access
   immediately, including to the history you accumulated before it ended.
 - Records that are part of *your* history stay with you: the check-ins your
@@ -199,7 +199,7 @@ While the assignment is **active**, your coach sees:
 
 ## AI features and hosted model providers
 
-MYOS can run its AI features on the operator's own hardware or through a
+MAYOS can run its AI features on the operator's own hardware or through a
 hosted, OpenAI-compatible model provider (the closed-trial deployment uses
 DeepInfra by default, configured by the operator). When a hosted provider is
 configured, the following is sent to it:
@@ -287,7 +287,7 @@ not as instructions. Your coach's bio is capped at 500 characters before it is s
 notes are free text and may contain identifying details; their length is
 capped and their use in hosted processing is disclosed here and in the coach
 console. The model does **not** receive any account id, your recovery email,
-your conversation with the MYOS assistant, your Assistant style or custom
+your conversation with the MAYOS assistant, your Assistant style or custom
 instructions, the reason or response on a program request, or other
 program-request free text. Every number (volume, e1RM and bodyweight trends,
 adherence, and streaks) is calculated by the service before the call; the model
@@ -343,7 +343,7 @@ above.
   id, for cost reconciliation.
 - **Product analytics**: deleting your account removes your registration-source
   record and your analytics choice, and asks PostHog to delete your analytics
-  person and its events. If PostHog cannot be reached, MYOS keeps retrying
+  person and its events. If PostHog cannot be reached, MAYOS keeps retrying
   automatically until the request succeeds.
 - **Other people's history**: check-ins you wrote as a coach and programs you
   published stay in the players' own accounts (you appear as "Former coach"),

@@ -16,12 +16,12 @@ import 'core/models.dart';
 import 'core/safe_area_insets.dart';
 import 'core/safe_area_media_query.dart';
 import 'core/shared_program_text.dart';
-import 'core/theme/myos_spacing.dart';
-import 'core/theme/myos_theme.dart';
+import 'core/theme/mayos_spacing.dart';
+import 'core/theme/mayos_theme.dart';
 import 'core/token_subject.dart';
 import 'core/ui/app_update_toast.dart';
 import 'core/ui/is_desktop_layout.dart';
-import 'core/ui/myos_app_mode_scope.dart';
+import 'core/ui/mayos_app_mode_scope.dart';
 import 'features/player/auth/auth_controller.dart';
 import 'features/player/tour/tour_overlay_host.dart';
 import 'providers.dart';
@@ -30,14 +30,14 @@ import 'router.dart';
 final Provider<String?> appDisplayModeProvider =
     Provider<String?>((ref) => currentAppDisplayMode());
 
-class MyosApp extends ConsumerStatefulWidget {
-  const MyosApp({super.key});
+class MayosApp extends ConsumerStatefulWidget {
+  const MayosApp({super.key});
 
   @override
-  ConsumerState<MyosApp> createState() => _MyosAppState();
+  ConsumerState<MayosApp> createState() => _MayosAppState();
 }
 
-class _MyosAppState extends ConsumerState<MyosApp>
+class _MayosAppState extends ConsumerState<MayosApp>
     with WidgetsBindingObserver {
   late final SafeAreaInsetsSource _safeAreaInsetsSource =
       createSafeAreaInsetsSource();
@@ -211,20 +211,20 @@ class _MyosAppState extends ConsumerState<MyosApp>
     final ThemeMode themeMode = ref.watch(themeModeControllerProvider);
     final String selectedLanguage = ref.watch(displayLanguageProvider);
     return MaterialApp.router(
-      title: 'MYOS',
+      title: 'MAYOS',
       debugShowCheckedModeBanner: false,
-      theme: MyosTheme.lightForLanguage(selectedLanguage),
-      darkTheme: MyosTheme.darkForLanguage(selectedLanguage),
+      theme: MayosTheme.lightForLanguage(selectedLanguage),
+      darkTheme: MayosTheme.darkForLanguage(selectedLanguage),
       themeMode: themeMode,
       locale: Locale(selectedLanguage),
       supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: router,
       builder: (BuildContext context, Widget? child) {
-        final MyosThemeExtension c = _effective(context, themeMode);
+        final MayosThemeExtension c = _effective(context, themeMode);
         return SafeAreaMediaQuery(
           source: _safeAreaInsetsSource,
-          child: MyosAppModeScope(
+          child: MayosAppModeScope(
             mode: appMode,
             child: Theme(
               data: _responsiveOverlayTheme(
@@ -237,9 +237,9 @@ class _MyosAppState extends ConsumerState<MyosApp>
                 // Own the app's screen snackbars under the responsive theme.
                 // The same messenger also receives permission prompts via its
                 // global key.
-                key: myosMessengerKey,
+                key: mayosMessengerKey,
                 child: AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: MyosTheme.overlayStyle(c),
+                  value: MayosTheme.overlayStyle(c),
                   child: TourOverlayHost(
                     child: AppUpdateToast(
                       router: router,
@@ -307,17 +307,17 @@ class _MyosAppState extends ConsumerState<MyosApp>
     if (!desktop) {
       overlayMaxWidth = MediaQuery.sizeOf(context).width;
     } else if (mode == AppMode.player) {
-      overlayMaxWidth = MyosLayout.playerColumnMaxWidth;
+      overlayMaxWidth = MayosLayout.playerColumnMaxWidth;
     } else {
-      overlayMaxWidth = MyosLayout.coachOverlayMaxWidth;
+      overlayMaxWidth = MayosLayout.coachOverlayMaxWidth;
     }
     final ThemeData theme = switch (themeMode) {
-      ThemeMode.light => MyosTheme.lightForLanguage(language),
-      ThemeMode.dark => MyosTheme.darkForLanguage(language),
+      ThemeMode.light => MayosTheme.lightForLanguage(language),
+      ThemeMode.dark => MayosTheme.darkForLanguage(language),
       ThemeMode.system =>
         MediaQuery.platformBrightnessOf(context) == Brightness.dark
-            ? MyosTheme.darkForLanguage(language)
-            : MyosTheme.lightForLanguage(language),
+            ? MayosTheme.darkForLanguage(language)
+            : MayosTheme.lightForLanguage(language),
     };
     return theme.copyWith(
       bottomSheetTheme: theme.bottomSheetTheme.copyWith(
@@ -329,17 +329,17 @@ class _MyosAppState extends ConsumerState<MyosApp>
     );
   }
 
-  MyosThemeExtension _effective(BuildContext context, ThemeMode mode) {
+  MayosThemeExtension _effective(BuildContext context, ThemeMode mode) {
     switch (mode) {
       case ThemeMode.light:
-        return MyosThemeExtension.light;
+        return MayosThemeExtension.light;
       case ThemeMode.dark:
-        return MyosThemeExtension.dark;
+        return MayosThemeExtension.dark;
       case ThemeMode.system:
         final Brightness brightness = MediaQuery.platformBrightnessOf(context);
         return brightness == Brightness.dark
-            ? MyosThemeExtension.dark
-            : MyosThemeExtension.light;
+            ? MayosThemeExtension.dark
+            : MayosThemeExtension.light;
     }
   }
 }

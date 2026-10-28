@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/display_language/catalog.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
 
 /// One plotted point: an ISO `YYYY-MM-DD` session date and its metric value.
 class ProgressChartPoint {
@@ -19,7 +19,7 @@ class ProgressChartPoint {
 /// The brand-blue principal series (theme `chartPrimary`), restrained
 /// horizontal gridlines, dated x-axis and unit-formatted y-axis. A single
 /// point renders as one marker. A subtle draw-in animation runs once
-/// ([MyosMotion.slow], 320 ms) and never blocks readability. Selecting a point
+/// ([MayosMotion.slow], 320 ms) and never blocks readability. Selecting a point
 /// highlights it; the caller owns the callout with the session's real values.
 class ProgressLineChart extends StatefulWidget {
   const ProgressLineChart({
@@ -33,7 +33,7 @@ class ProgressLineChart extends StatefulWidget {
     this.referenceValue,
     this.referenceLabel,
     this.height = 208,
-    this.copy = const MyosCopy('en'),
+    this.copy = const MayosCopy('en'),
   });
 
   final List<ProgressChartPoint> points;
@@ -49,7 +49,7 @@ class ProgressLineChart extends StatefulWidget {
   final double? referenceValue;
   final String? referenceLabel;
   final double height;
-  final MyosCopy copy;
+  final MayosCopy copy;
 
   /// The accessibility summary read in place of the painted chart.
   String get semanticsSummary {
@@ -107,7 +107,7 @@ class _ProgressLineChartState extends State<ProgressLineChart> {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final TextScaler scaler = MediaQuery.textScalerOf(context);
     final TextDirection direction =
         Directionality.maybeOf(context) ?? TextDirection.ltr;
@@ -148,7 +148,7 @@ class _ProgressLineChartState extends State<ProgressLineChart> {
                     textScaler: scaler,
                     textDirection: direction,
                     isArabic: widget.copy.isArabic,
-                    labelStyle: MyosTypography.of(context).caption,
+                    labelStyle: MayosTypography.of(context).caption,
                   ),
                 );
               },
@@ -409,7 +409,7 @@ String shortDate(String iso, {bool isArabic = false}) {
   if (parsed == null) {
     return iso;
   }
-  return MyosCopy(isArabic ? 'ar' : 'en').shortDate(parsed);
+  return MayosCopy(isArabic ? 'ar' : 'en').shortDate(parsed);
 }
 
 String _formatValue(double value) {

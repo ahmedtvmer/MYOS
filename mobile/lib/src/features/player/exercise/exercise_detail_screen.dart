@@ -11,12 +11,12 @@ import '../../../core/connectivity_message.dart';
 import '../../../core/effort.dart';
 import '../../../core/config.dart';
 import '../../../core/models.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_app_header.dart';
-import '../../../core/ui/myos_scaffold.dart';
-import '../../../core/ui/myos_segmented_control.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_app_header.dart';
+import '../../../core/ui/mayos_scaffold.dart';
+import '../../../core/ui/mayos_segmented_control.dart';
 import '../../../core/workout_equipment.dart';
 import '../../../providers.dart';
 
@@ -25,7 +25,7 @@ import '../../../providers.dart';
 /// Technique / History tabs backed by real catalog and dashboard data.
 ///
 /// The hero stays fully useful without media; exercise media is gated behind
-/// [myosExerciseMediaEnabled] and a loadable URL, neither of which exist yet.
+/// [mayosExerciseMediaEnabled] and a loadable URL, neither of which exist yet.
 class ExerciseDetailScreen extends ConsumerStatefulWidget {
   const ExerciseDetailScreen({
     super.key,
@@ -141,8 +141,8 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MyosScaffold(
-      header: const MyosAppHeader(showBack: true),
+    return MayosScaffold(
+      header: const MayosAppHeader(showBack: true),
       body: FutureBuilder<_DetailData>(
         future: _future,
         builder: (BuildContext context, AsyncSnapshot<_DetailData> snapshot) {
@@ -197,34 +197,34 @@ class _DetailBody extends StatelessWidget {
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
-          MyosSpacing.lg, MyosSpacing.sm, MyosSpacing.lg, MyosSpacing.xxl),
+          MayosSpacing.lg, MayosSpacing.sm, MayosSpacing.lg, MayosSpacing.xxl),
       children: <Widget>[
         _Hero(name: name, catalog: catalog),
         if (exercise != null) ...<Widget>[
-          const SizedBox(height: MyosSpacing.xl),
+          const SizedBox(height: MayosSpacing.xl),
           _PrescriptionTrio(exercise: exercise),
         ],
         if (data.partialError != null) ...<Widget>[
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _InlineNotice(
             message: displayCopyOf(context).failureMessage(data.partialError!),
           ),
         ],
-        const SizedBox(height: MyosSpacing.xl),
-        MyosSegmentedControl<String>(
-          segments: <MyosSegment<String>>[
-            MyosSegment<String>(
+        const SizedBox(height: MayosSpacing.xl),
+        MayosSegmentedControl<String>(
+          segments: <MayosSegment<String>>[
+            MayosSegment<String>(
                 value: 'overview', label: displayCopyOf(context).overview),
-            MyosSegment<String>(
+            MayosSegment<String>(
                 value: 'technique', label: displayCopyOf(context).technique),
             if (showHistory)
-              MyosSegment<String>(
+              MayosSegment<String>(
                   value: 'history', label: displayCopyOf(context).history),
           ],
           selected: tab,
           onChanged: onTab,
         ),
-        const SizedBox(height: MyosSpacing.xl),
+        const SizedBox(height: MayosSpacing.xl),
         switch (tab) {
           'technique' => _TechniqueTab(catalog: catalog),
           'history' => _HistoryTab(
@@ -247,12 +247,12 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ExerciseCatalogDetail? detail = catalog;
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
 
     // Media is gated behind the build flag (#53: off is the kill switch) and
     // a path `/media` can serve; with neither, today's typographic header is
     // the whole hero.
-    if (myosExerciseMediaEnabled &&
+    if (mayosExerciseMediaEnabled &&
         detail != null &&
         detail.hasLoadableMedia) {
       return Column(
@@ -264,13 +264,13 @@ class _Hero extends StatelessWidget {
             alignment: Alignment.center,
             child: _CatalogMedia(detail: detail),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             gymVisualCreditShort,
             textAlign: TextAlign.center,
-            style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+            style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _typographicHeader(context, name, detail),
         ],
       );
@@ -281,8 +281,8 @@ class _Hero extends StatelessWidget {
 
   Widget _typographicHeader(
       BuildContext context, String name, ExerciseCatalogDetail? detail) {
-    final MyosThemeExtension c = MyosTheme.of(context);
-    final MyosCopy copy = displayCopyOf(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
+    final MayosCopy copy = displayCopyOf(context);
     final List<String> primary = <String>[
       if (detail?.primaryMuscle != null) detail!.primaryMuscle!,
       for (final String muscle in detail?.primaryMuscles ?? const <String>[])
@@ -317,16 +317,16 @@ class _Hero extends StatelessWidget {
       children: <Widget>[
         Text(
           name,
-          style: MyosTypography.of(context).display.copyWith(
+          style: MayosTypography.of(context).display.copyWith(
             fontSize: 34,
             color: c.textPrimary,
           ),
         ),
         if (hasChips) ...<Widget>[
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           Wrap(
-            spacing: MyosSpacing.xs,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.xs,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               for (final String muscle in primary)
                 _TagChip(
@@ -349,10 +349,10 @@ class _Hero extends StatelessWidget {
           ),
         ],
         if (primaryAction != null || secondaryActions.isNotEmpty) ...<Widget>[
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           Wrap(
-            spacing: MyosSpacing.xs,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.xs,
+            runSpacing: MayosSpacing.xs,
             children: <Widget>[
               if (primaryAction != null) ...<Widget>[
                 Text(copy.primaryAction),
@@ -393,9 +393,9 @@ class _CatalogMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return ClipRRect(
-      borderRadius: MyosRadii.mediumRadius,
+      borderRadius: MayosRadii.mediumRadius,
       child: SizedBox(
         width: size,
         height: size,
@@ -409,7 +409,7 @@ class _CatalogMedia extends StatelessWidget {
 
   /// The GIF animates as any multi-frame network image does; a failed or
   /// absent GIF falls back to the still picture in the same box.
-  Widget _gif(BuildContext context, MyosThemeExtension c) {
+  Widget _gif(BuildContext context, MayosThemeExtension c) {
     final String? url = detail.gifUrl;
     if (url == null) {
       return _still(context, c);
@@ -426,7 +426,7 @@ class _CatalogMedia extends StatelessWidget {
     );
   }
 
-  Widget _still(BuildContext context, MyosThemeExtension c) {
+  Widget _still(BuildContext context, MayosThemeExtension c) {
     final String? url = detail.imageUrl;
     if (url == null) {
       return _fallback(context, c);
@@ -445,23 +445,23 @@ class _CatalogMedia extends StatelessWidget {
 
   /// A static glyph while the bytes arrive — never a spinner, so the screen
   /// keeps no animation running (#161).
-  Widget _placeholder(MyosThemeExtension c) => ColoredBox(
+  Widget _placeholder(MayosThemeExtension c) => ColoredBox(
         color: c.surfaceSunken,
         child: Center(
           child: Icon(
             Icons.image_outlined,
-            size: MyosIconSizes.medium,
+            size: MayosIconSizes.medium,
             color: c.textDisabled,
           ),
         ),
       );
 
-  Widget _fallback(BuildContext context, MyosThemeExtension c) => ColoredBox(
+  Widget _fallback(BuildContext context, MayosThemeExtension c) => ColoredBox(
         color: c.secondarySurface,
         child: Center(
           child: Icon(
             Icons.fitness_center,
-            size: MyosIconSizes.large,
+            size: MayosIconSizes.large,
             color: c.textMuted,
             semanticLabel: displayCopyOf(context).exerciseMediaUnavailable,
           ),
@@ -486,16 +486,16 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final bool highlighted = tone == _ChipTone.primary;
     final Color background = highlighted ? c.accentSubtle : c.secondarySurface;
     final Color foreground = highlighted ? c.accent : c.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: MyosSpacing.sm, vertical: MyosSpacing.xxs),
+          horizontal: MayosSpacing.sm, vertical: MayosSpacing.xxs),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(MyosRadii.pill),
+        borderRadius: BorderRadius.circular(MayosRadii.pill),
         border: Border.all(color: highlighted ? Colors.transparent : c.border),
       ),
       child: Row(
@@ -508,7 +508,7 @@ class _TagChip extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .caption
                   .copyWith(color: foreground),
             ),
@@ -567,7 +567,7 @@ class _PrescriptionStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -580,14 +580,14 @@ class _PrescriptionStat extends StatelessWidget {
               value,
               maxLines: 1,
               style:
-                  MyosTypography.of(context).numericSmall.copyWith(color: c.textPrimary),
+                  MayosTypography.of(context).numericSmall.copyWith(color: c.textPrimary),
             ),
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+          style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
         ),
       ],
     );
@@ -602,7 +602,7 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final ExerciseCatalogDetail? detail = catalog;
     final ProgramExercise? ex = exercise;
     final String category = detail?.category ?? '';
@@ -660,9 +660,9 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: MyosSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: MayosSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -670,13 +670,13 @@ class _DetailRow extends StatelessWidget {
             width: 108,
             child: Text(
               label,
-              style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+              style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
           ),
         ],
@@ -692,7 +692,7 @@ class _TechniqueTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final String? instructions = catalog?.instructions;
     if (instructions == null || instructions.trim().isEmpty) {
       return _EmptyTab(
@@ -710,7 +710,7 @@ class _TechniqueTab extends StatelessWidget {
       children: <Widget>[
         for (int i = 0; i < steps.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+            padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -718,7 +718,7 @@ class _TechniqueTab extends StatelessWidget {
                   width: 28,
                   child: Text(
                     '${i + 1}',
-                    style: MyosTypography.of(context).numericSmall.copyWith(
+                    style: MayosTypography.of(context).numericSmall.copyWith(
                       color: c.accent,
                       fontSize: 15,
                     ),
@@ -727,7 +727,7 @@ class _TechniqueTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     steps[i],
-                    style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+                    style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
                   ),
                 ),
               ],
@@ -746,7 +746,7 @@ class _HistoryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     final List<ExerciseHistoryPoint> points =
         history?.history ?? const <ExerciseHistoryPoint>[];
@@ -767,13 +767,13 @@ class _HistoryTab extends StatelessWidget {
           Text(
             history!.caption!.replaceAll('**', ''),
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
         ],
         for (final ExerciseHistoryPoint point in points.reversed)
           Padding(
-            padding: const EdgeInsets.only(bottom: MyosSpacing.sm),
+            padding: const EdgeInsets.only(bottom: MayosSpacing.sm),
             child: Row(
               children: <Widget>[
                 SizedBox(
@@ -781,7 +781,7 @@ class _HistoryTab extends StatelessWidget {
                   child: Text(
                     point.date,
                     textDirection: TextDirection.ltr,
-                    style: MyosTypography.of(context).caption.copyWith(color: c.textMuted),
+                    style: MayosTypography.of(context).caption.copyWith(color: c.textMuted),
                   ),
                 ),
                 Expanded(
@@ -797,7 +797,7 @@ class _HistoryTab extends StatelessWidget {
                       '× ${point.reps} @ RIR '
                       '${rirLabel(point.rpe)}',
                       style:
-                          MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+                          MayosTypography.of(context).body.copyWith(color: c.textPrimary),
                     ),
                   ),
                 ),
@@ -806,7 +806,7 @@ class _HistoryTab extends StatelessWidget {
                     textDirection: TextDirection.ltr,
                     child: Text(
                       'e1RM ${_trim(point.e1rm)}',
-                      style: MyosTypography.of(context).caption
+                      style: MayosTypography.of(context).caption
                           .copyWith(color: c.textSecondary),
                     ),
                   ),
@@ -825,12 +825,12 @@ class _EmptyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: MyosSpacing.md),
+      padding: const EdgeInsets.symmetric(vertical: MayosSpacing.md),
       child: Text(
         message,
-        style: MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+        style: MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
       ),
     );
   }
@@ -843,17 +843,17 @@ class _InlineNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Icon(Icons.info_outline, size: 16, color: c.textSecondary),
-        const SizedBox(width: MyosSpacing.xs),
+        const SizedBox(width: MayosSpacing.xs),
         Expanded(
           child: Text(
             message,
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           ),
         ),
       ],
@@ -869,19 +869,19 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(MyosSpacing.xl),
+        padding: const EdgeInsets.all(MayosSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
               message,
               textAlign: TextAlign.center,
-              style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             FilledButton(
                 onPressed: onRetry, child: Text(displayCopyOf(context).retry)),
           ],

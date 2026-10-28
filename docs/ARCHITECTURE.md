@@ -1,6 +1,6 @@
-# Myos: System Architecture, LangGraph Workflows & Execution Topologies
+# Mayos: System Architecture, LangGraph Workflows & Execution Topologies
 
-This document provides a comprehensive architectural specification of the Myos engine, detailing state graphs, LangChain/LangGraph execution pipelines, sub-millisecond fast-path routing, data flow topologies, and runtime data contracts.
+This document provides a comprehensive architectural specification of the Mayos engine, detailing state graphs, LangChain/LangGraph execution pipelines, sub-millisecond fast-path routing, data flow topologies, and runtime data contracts.
 
 ---
 
@@ -194,7 +194,7 @@ flowchart TD
 
 ## 4. Dual-Database Topology & Thread-Local Connection Model
 
-Myos combines a shared exercise catalog (`catalog.db` — seeded exercises, the `sqlite-vec` index, and the account-recovery identity tables) with dynamic, isolated per-user transaction ledgers (`db/users/<user_id>.db`). The Flutter client never touches these directly: it calls the FastAPI service, and each API worker thread binds the ledger for the verified account through `DatabaseManager`'s `threading.local` routing. Cross-tenant leakage is physically impossible, and SQLite Write-Ahead Logging (`WAL`) prevents write contention:
+Mayos combines a shared exercise catalog (`catalog.db` — seeded exercises, the `sqlite-vec` index, and the account-recovery identity tables) with dynamic, isolated per-user transaction ledgers (`db/users/<user_id>.db`). The Flutter client never touches these directly: it calls the FastAPI service, and each API worker thread binds the ledger for the verified account through `DatabaseManager`'s `threading.local` routing. Cross-tenant leakage is physically impossible, and SQLite Write-Ahead Logging (`WAL`) prevents write contention:
 
 ```mermaid
 sequenceDiagram

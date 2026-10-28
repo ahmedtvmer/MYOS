@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/theme/myos_colors.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/ui/myos_card_table.dart';
-import 'package:myos_mobile/src/core/ui/myos_table_frame.dart';
-import 'package:myos_mobile/src/features/coach/coach_exercise_table.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_colors.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_card_table.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_table_frame.dart';
+import 'package:mayos_mobile/src/features/coach/coach_exercise_table.dart';
 
 const Key _frameKey = Key('table-frame');
 const Key _headerKey = Key('table-header');
-const MyosTableColumns _columns =
-    MyosTableColumns(<double>[40, 300, 150], 1);
+const MayosTableColumns _columns =
+    MayosTableColumns(<double>[40, 300, 150], 1);
 
 void main() {
   testWidgets('card table desktop uses shared header and configured widths',
@@ -20,13 +20,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyosTheme.light,
+        theme: MayosTheme.light,
         home: Scaffold(
-          body: MyosCardTable(
+          body: MayosCardTable(
             columns: const <String>['Player', 'Follow-up', 'Actions'],
-            tableColumns: const MyosTableColumns(<double>[120, 220, 100], 1),
-            rows: const <MyosCardTableRow>[
-              MyosCardTableRow(
+            tableColumns: const MayosTableColumns(<double>[120, 220, 100], 1),
+            rows: const <MayosCardTableRow>[
+              MayosCardTableRow(
                 cells: <Widget?>[
                   Text('Bob'),
                   Text('Follow-up overdue'),
@@ -45,7 +45,7 @@ void main() {
     expect(find.text('Bob'), findsOneWidget);
     expect(find.text('Follow-up overdue'), findsOneWidget);
     expect(find.text('Revoke'), findsOneWidget);
-    final List<double> widths = MyosTableLayout.widthsOf(
+    final List<double> widths = MayosTableLayout.widthsOf(
       tester.element(find.text('Player')),
     );
     expect(widths, <double>[120, 1202, 100]);
@@ -58,7 +58,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await _pumpTable(tester, width: 360, theme: MyosTheme.light);
+    await _pumpTable(tester, width: 360, theme: MayosTheme.light);
 
     final Finder scrollableFinder = find.descendant(
       of: find.byKey(_frameKey),
@@ -83,14 +83,14 @@ void main() {
     final List<({ThemeData theme, Color header, Color muted})> appearances =
         <({ThemeData theme, Color header, Color muted})>[
       (
-        theme: MyosTheme.light,
-        header: MyosPalette.lightSecondarySurface,
-        muted: MyosPalette.lightTextMuted,
+        theme: MayosTheme.light,
+        header: MayosPalette.lightSecondarySurface,
+        muted: MayosPalette.lightTextMuted,
       ),
       (
-        theme: MyosTheme.dark,
-        header: MyosPalette.darkSurfaceElevated,
-        muted: MyosPalette.darkTextMuted,
+        theme: MayosTheme.dark,
+        header: MayosPalette.darkSurfaceElevated,
+        muted: MayosPalette.darkTextMuted,
       ),
     ];
     for (final ({ThemeData theme, Color header, Color muted}) appearance
@@ -121,7 +121,7 @@ void main() {
     await _pumpTable(
       tester,
       width: 900,
-      theme: MyosTheme.light,
+      theme: MayosTheme.light,
       onTap: () => tapCount++,
     );
 
@@ -157,7 +157,7 @@ Future<void> _pumpTable(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  MyosTableHeader(
+                  MayosTableHeader(
                     key: _headerKey,
                     labels: const <String>['#', 'Exercise', 'Sets'],
                     alignments: const <TextAlign>[
@@ -166,7 +166,7 @@ Future<void> _pumpTable(
                       TextAlign.end,
                     ],
                   ),
-                  MyosTableRow(
+                  MayosTableRow(
                     cells: <Widget>[
                       const Text('1'),
                       const Text('Example exercise'),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../theme/myos_spacing.dart';
+import '../theme/mayos_spacing.dart';
 import 'catalog.dart';
 import 'choices.dart';
 import 'controller.dart';
@@ -12,16 +12,16 @@ class DisplayLanguageSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final language = ref.watch(displayLanguageProvider);
-    final MyosCopy copy = MyosCopy(language);
+    final MayosCopy copy = MayosCopy(language);
     return Align(
       alignment: AlignmentDirectional.centerEnd,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: kMyosMinTapTarget),
+        constraints: const BoxConstraints(minHeight: kMayosMinTapTarget),
         child: DropdownButton<String>(
           key: const Key('display_language_selector'),
           value: language,
           isDense: compact,
-          iconSize: compact ? MyosIconSizes.medium : MyosIconSizes.navigation,
+          iconSize: compact ? MayosIconSizes.medium : MayosIconSizes.navigation,
           style: compact ? Theme.of(context).textTheme.bodySmall : null,
           underline: const SizedBox.shrink(),
           items: displayLanguageMenuItems(copy),

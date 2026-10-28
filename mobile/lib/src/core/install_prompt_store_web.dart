@@ -32,7 +32,7 @@ class _WebInstallPromptStore implements InstallPromptStore {
     );
   }
 
-  bool get _installAvailable => _readBoolean('MYOS_INSTALL_PROMPT_AVAILABLE');
+  bool get _installAvailable => _readBoolean('MAYOS_INSTALL_PROMPT_AVAILABLE');
 
   bool get _isStandalone {
     final JSBoolean? standalone = (web.window.navigator as JSObject)
@@ -66,7 +66,7 @@ class _WebInstallPromptStore implements InstallPromptStore {
   @override
   Future<String> promptInstall() async {
     final JSFunction? prompt = (web.window as JSObject)
-        .getProperty<JSFunction?>('MYOS_PROMPT_INSTALL'.toJS);
+        .getProperty<JSFunction?>('MAYOS_PROMPT_INSTALL'.toJS);
     if (prompt == null) return 'unavailable';
     final JSPromise<JSAny?> resultPromise =
         prompt.callAsFunction() as JSPromise<JSAny?>;
@@ -77,7 +77,7 @@ class _WebInstallPromptStore implements InstallPromptStore {
   @override
   void listenForInstalled(void Function() onInstalled) {
     web.window.addEventListener(
-      'myos-app-installed',
+      'mayos-app-installed',
       ((web.Event _) => onInstalled()).toJS,
     );
   }
@@ -85,7 +85,7 @@ class _WebInstallPromptStore implements InstallPromptStore {
   @override
   void listenForInstallState(void Function() onInstallStateChanged) {
     web.window.addEventListener(
-      'myos-install-state',
+      'mayos-install-state',
       ((web.Event _) => onInstallStateChanged()).toJS,
     );
   }
@@ -93,7 +93,7 @@ class _WebInstallPromptStore implements InstallPromptStore {
   @override
   bool consumeInstalled() {
     final JSFunction? consume = (web.window as JSObject)
-        .getProperty<JSFunction?>('MYOS_CONSUME_APP_INSTALLED'.toJS);
+        .getProperty<JSFunction?>('MAYOS_CONSUME_APP_INSTALLED'.toJS);
     final JSBoolean? result = consume?.callAsFunction() as JSBoolean?;
     return result?.toDart ?? false;
   }

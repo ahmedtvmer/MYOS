@@ -1,5 +1,5 @@
 import 'arabic_count.dart';
-import 'catalog.dart' show MyosCopy;
+import 'catalog.dart' show MayosCopy;
 import '../personal_records.dart';
 import '../training_status_projection.dart';
 import '../workout_equipment.dart';
@@ -84,22 +84,22 @@ class WorkoutCopy {
       ? 'ستظهر السعرات بعد حفظ الحصة'
       : 'Calories appear once the workout is saved';
   String cardioMachine(String kind) =>
-      MyosCopy(languageCode).cardioMachineName(kind);
-  String get cardioMachineLabel => MyosCopy(languageCode).cardioMachineLabel;
-  String get cardioSpeed => MyosCopy(languageCode).cardioSpeedLabel;
-  String get cardioIncline => MyosCopy(languageCode).cardioInclineLabel;
-  String get cardioLevel => MyosCopy(languageCode).cardioLevelLabel;
-  String get cardioWatts => MyosCopy(languageCode).cardioWattsLabel;
-  String get cardioDistance => MyosCopy(languageCode).cardioDistanceLabel;
-  String get cardioRangeError => MyosCopy(languageCode).cardioRangeError;
+      MayosCopy(languageCode).cardioMachineName(kind);
+  String get cardioMachineLabel => MayosCopy(languageCode).cardioMachineLabel;
+  String get cardioSpeed => MayosCopy(languageCode).cardioSpeedLabel;
+  String get cardioIncline => MayosCopy(languageCode).cardioInclineLabel;
+  String get cardioLevel => MayosCopy(languageCode).cardioLevelLabel;
+  String get cardioWatts => MayosCopy(languageCode).cardioWattsLabel;
+  String get cardioDistance => MayosCopy(languageCode).cardioDistanceLabel;
+  String get cardioRangeError => MayosCopy(languageCode).cardioRangeError;
   String cardioSpeedValue(num value) =>
-      MyosCopy(languageCode).cardioSpeedValue(value);
+      MayosCopy(languageCode).cardioSpeedValue(value);
   String cardioInclineValue(num value) =>
-      MyosCopy(languageCode).cardioInclineValue(value);
+      MayosCopy(languageCode).cardioInclineValue(value);
   String cardioWattsValue(num value) =>
-      MyosCopy(languageCode).cardioWattsValue(value);
+      MayosCopy(languageCode).cardioWattsValue(value);
   String cardioDistanceValue(num value) =>
-      MyosCopy(languageCode).cardioDistanceValue(value);
+      MayosCopy(languageCode).cardioDistanceValue(value);
   String get addCardioEntry => isArabic ? 'إضافة تمرين لياقة' : 'Add Cardio entry';
   String get removeCardioEntry => isArabic ? 'حذف تمرين اللياقة' : 'Remove Cardio entry';
   String get minutes => isArabic ? 'دقائق' : 'Minutes';
@@ -108,7 +108,7 @@ class WorkoutCopy {
   String tempoCue(String value) =>
       isArabic ? 'الإيقاع: ${_ltr(value)}' : 'Tempo: $value';
   String restNotificationTitle(String time) =>
-      isArabic ? 'MYOS · راحة ${_ltr(time)}' : 'MYOS · Rest $time';
+      isArabic ? 'MAYOS · راحة ${_ltr(time)}' : 'MAYOS · Rest $time';
   String restNotificationLine({
     required String exerciseName,
     required int setNumber,
@@ -352,12 +352,12 @@ class WorkoutCopy {
   String get saveFailedNoLoss => isArabic
       ? 'تعذر حفظ الحصة. لم يُفقد شيء؛ حاول مجددًا.'
       : 'The workout could not be saved. Nothing was lost — try again.';
-  String get couldNotReachMyos => isArabic
-      ? 'تعذر الاتصال بـ MYOS. حُفظت حصتك في هذا المتصفح.'
-      : "Couldn't reach MYOS. Your workout is kept in this browser.";
-  String get myosBusy => isArabic
-      ? 'MYOS مشغول الآن. حُفظت حصتك في هذا المتصفح.'
-      : 'MYOS is busy. Your workout is kept in this browser.';
+  String get couldNotReachMayos => isArabic
+      ? 'تعذر الاتصال بـ MAYOS. حُفظت حصتك في هذا المتصفح.'
+      : "Couldn't reach MAYOS. Your workout is kept in this browser.";
+  String get mayosBusy => isArabic
+      ? 'MAYOS مشغول الآن. حُفظت حصتك في هذا المتصفح.'
+      : 'MAYOS is busy. Your workout is kept in this browser.';
   String get versionChanged => isArabic
       ? 'تغير البرنامج التدريبي منذ بدء هذه الحصة. بدّل التمرين من تبويب البرنامج.'
       : 'Your program changed since this workout started; substitute it from the Program tab';

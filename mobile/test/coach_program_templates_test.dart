@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/display_language/coach_copy.dart';
-import 'package:myos_mobile/src/core/program_prescription.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/coach/coach_program_templates_screen.dart';
-import 'package:myos_mobile/src/features/coach/coach_template_assignment_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/display_language/coach_copy.dart';
+import 'package:mayos_mobile/src/core/program_prescription.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/coach/coach_program_templates_screen.dart';
+import 'package:mayos_mobile/src/features/coach/coach_template_assignment_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 import 'support/coach_layout_harness.dart';
 
 /// Pumps finite frames until [finder] matches, then a few more so transitions
@@ -97,7 +97,7 @@ Future<void> _pumpUntilGone(WidgetTester tester, Finder finder,
 
 Future<void> _pumpLibrary(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   String language = 'en',
   Size logicalSize = const Size(540, 1200),
 }) async {
@@ -131,7 +131,7 @@ Future<void> _pumpLibrary(
 
 Future<void> _pumpAssignment(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   String templateId = 'tmpl:upper',
   String templateName = 'Upper Block',
   String language = 'en',
@@ -171,8 +171,8 @@ Future<void> _pumpAssignment(
       tester, find.byKey(const Key('template_assign_submit')));
 }
 
-FakeMyosApi _coachFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _coachFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -238,7 +238,7 @@ Future<void> _selectCatalogExercise(
 }
 
 void _seedTemplate(
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   required String id,
   required String name,
   String? description,
@@ -258,10 +258,10 @@ void _seedTemplate(
 void main() {
   testWidgets('phone template list starts a draft from the selected template',
       (tester) async {
-    late FakeMyosApi phoneFake;
+    late FakeMayosApi phoneFake;
     await expectCoachPhoneLayout(
       tester,
-      configureFake: (FakeMyosApi fake) {
+      configureFake: (FakeMayosApi fake) {
         phoneFake = fake;
         _seedTemplate(fake,
             id: 'tmpl:upper',
@@ -298,7 +298,7 @@ void main() {
   testWidgets('desktop template list starts a draft from the selected template',
       (tester) async {
     const String language = 'en';
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     const String templateName = 'Upper Block';
     _seedTemplate(fake,
         id: 'tmpl:upper', name: templateName, description: 'Reusable split');
@@ -359,7 +359,7 @@ void main() {
 
   testWidgets('library lists templates and opens the editor in template mode',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake,
         id: 'tmpl:upper', name: 'Upper Block', description: 'Reusable split');
 
@@ -391,7 +391,7 @@ void main() {
 
   testWidgets('Arabic template editor edits a structured cardio prescription',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:cardio', name: 'خطة');
     final Map<String, dynamic> program =
         fake.programTemplates.single['program'] as Map<String, dynamic>;
@@ -433,7 +433,7 @@ void main() {
 
   testWidgets('creating a template with an exercise saves the prescription',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpLibrary(tester, fake);
 
     expect(find.text('No Program templates yet.'), findsOneWidget);
@@ -473,7 +473,7 @@ void main() {
 
   testWidgets('an invalid template shows server validation and stays open',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     await _pumpLibrary(tester, fake);
 
     await tester.tap(find.byKey(const Key('program_templates_new')));
@@ -496,7 +496,7 @@ void main() {
 
   testWidgets('opening a template hydrates the editor from the read response',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake,
         id: 'tmpl:upper',
         name: 'Stale list name',
@@ -518,7 +518,7 @@ void main() {
 
   testWidgets('a description-only edit guards unsaved changes',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake,
         id: 'tmpl:upper', name: 'Upper Block', description: 'Old description');
     await _pumpLibrary(tester, fake);
@@ -538,7 +538,7 @@ void main() {
 
   testWidgets('a failed archive keeps the error visible without reloading',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     await _pumpLibrary(tester, fake);
     final int loadsBefore = fake.programTemplateListRequests;
@@ -559,7 +559,7 @@ void main() {
 
   testWidgets('a failed duplicate keeps the error visible without reloading',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     await _pumpLibrary(tester, fake);
     final int loadsBefore = fake.programTemplateListRequests;
@@ -576,7 +576,7 @@ void main() {
   });
 
   testWidgets('archives, reveals and unarchives a template', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     await _pumpLibrary(tester, fake);
 
@@ -598,7 +598,7 @@ void main() {
 
   testWidgets('duplicates a template with the server default name',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     await _pumpLibrary(tester, fake);
 
@@ -611,7 +611,7 @@ void main() {
   });
 
   testWidgets('Arabic library renders Arabic copy', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     await _pumpLibrary(tester, fake, language: 'ar');
 
@@ -621,7 +621,7 @@ void main() {
 
   testWidgets('bulk assignment picks players and reports a per-player summary',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     fake.assignments.addAll(<Map<String, dynamic>>[
       <String, dynamic>{
@@ -689,7 +689,7 @@ void main() {
 
   testWidgets('publish all publishes the assigned players after confirmation',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     fake.assignments.add(<String, dynamic>{
       'assignment_id': 'asg:1',
@@ -722,7 +722,7 @@ void main() {
 
   testWidgets('publish all keeps player validation details and customize access',
       (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     fake.assignments.addAll(<Map<String, dynamic>>[
       <String, dynamic>{
@@ -766,7 +766,7 @@ void main() {
   });
 
   testWidgets('Arabic assignment screen renders Arabic copy', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     fake.assignments.add(<String, dynamic>{
       'assignment_id': 'asg:1',
@@ -784,7 +784,7 @@ void main() {
   });
 
   testWidgets('Arabic assignment actions fit a narrow screen', (tester) async {
-    final FakeMyosApi fake = _coachFake();
+    final FakeMayosApi fake = _coachFake();
     _seedTemplate(fake, id: 'tmpl:upper', name: 'Upper Block');
     fake.assignments.add(<String, dynamic>{
       'assignment_id': 'asg:1',

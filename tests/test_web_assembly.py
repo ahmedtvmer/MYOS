@@ -24,8 +24,8 @@ def _assembled_site(tmp_path):
     )
     landing = tmp_path / "landing"
     landing.mkdir()
-    (landing / "index.html").write_text("MYOS Log in", encoding="utf-8")
-    (landing / "myos-logo.png").write_bytes(b"logo")
+    (landing / "index.html").write_text("MAYOS Log in", encoding="utf-8")
+    (landing / "mayos-logo.png").write_bytes(b"logo")
     output = tmp_path / "output"
     assemble(flutter, landing, output)
     return output
@@ -34,8 +34,8 @@ def _assembled_site(tmp_path):
 def test_assembly_layout_keeps_landing_and_flutter_separate(tmp_path):
     output = _assembled_site(tmp_path)
 
-    assert (output / "index.html").read_text(encoding="utf-8") == "MYOS Log in"
-    assert (output / "myos-logo.png").read_bytes() == b"logo"
+    assert (output / "index.html").read_text(encoding="utf-8") == "MAYOS Log in"
+    assert (output / "mayos-logo.png").read_bytes() == b"logo"
     assert (output / "app" / "main.dart.js").read_text(encoding="utf-8") == "js"
     assert '<base href="/app/">' in (output / "app" / "index.html").read_text(
         encoding="utf-8"

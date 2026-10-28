@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/copy_context.dart';
-import '../../../core/theme/myos_theme.dart';
+import '../../../core/theme/mayos_theme.dart';
 import 'feature_list.dart';
 
 /// Highlights a registered widget inside the Player shell's visible body.
@@ -169,8 +169,8 @@ class _SpotlightOverlayState extends State<SpotlightOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final MyosThemeExtension colors = MyosTheme.of(context);
-    final MyosCopy copy = displayCopyOf(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
+    final MayosCopy copy = displayCopyOf(context);
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {

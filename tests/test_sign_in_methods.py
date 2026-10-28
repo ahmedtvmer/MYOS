@@ -21,7 +21,7 @@ from svc.dependencies import GoogleIdentity, GoogleIdentityError, get_db, get_go
 TEST_JWT_SECRET = "test-secret-key-0123456789abcdef"
 TEST_WEB_CLIENT_ID = "1234567890-testapps.googleusercontent.com"
 #: The exact conflict message #114 pins down — never which account holds it.
-LINKED_ELSEWHERE = "This Google account is already connected to another MYOS account"
+LINKED_ELSEWHERE = "This Google account is already connected to another MAYOS account"
 #: Backdated well outside the 5-minute window deletion requires.
 STALE_SECONDS = -600
 
@@ -169,7 +169,7 @@ def test_whats_new_seen_release_is_scoped_and_monotonic(api):
     password = "correct-horse-1"
     alice = _password_account(client, "whats-alice", password)
     bob = _password_account(client, "whats-bob")
-    assert _me(client, alice)["whats_new_seen_release"] == 1
+    assert _me(client, alice)["whats_new_seen_release"] == 2
     saved = client.put("/auth/whats-new-seen", headers=_authed(alice), json={"release": 2})
     assert saved.status_code == 200, saved.text
     assert saved.json() == {"whats_new_seen_release": 2}
@@ -182,7 +182,7 @@ def test_whats_new_seen_release_is_scoped_and_monotonic(api):
     second_session = second_login.json()["access_token"]
     assert second_session != alice
     assert _me(client, second_session)["whats_new_seen_release"] == 2
-    assert _me(client, bob)["whats_new_seen_release"] == 1
+    assert _me(client, bob)["whats_new_seen_release"] == 2
 
 
 def test_tour_seen_version_is_visible_on_a_second_device_session(api):
@@ -336,7 +336,7 @@ def test_constraint_violation_on_connect_maps_to_its_own_conflict(api, monkeypat
 
     # UNIQUE(provider, subject): Bob holds the identity, hidden from the
     # pre-check so only the constraint can refuse Carol — and the answer must
-    # still be the "another MYOS account" message, never Bob's.
+    # still be the "another MAYOS account" message, never Bob's.
     bob_token = _password_account(client, "bob")
     assert client.post(
         "/auth/google/link", json={"id_token": "shared-token:S"}, headers=_authed(bob_token)
@@ -597,7 +597,7 @@ def test_delete_account_via_google_frees_the_subject_for_a_new_account(api):
     assert _link_rows(db) == []
     assert client.get("/auth/me", headers=_authed(token)).json() == {"error": "account_deleted"}
 
-    # The same Google identity can now create a brand-new MYOS account.
+    # The same Google identity can now create a brand-new MAYOS account.
     again = client.post("/auth/google", json={"id_token": "ana-token:Ana"})
     assert again.status_code == 200, again.text
     assert "signup_ticket" in again.json()

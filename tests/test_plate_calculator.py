@@ -5,10 +5,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-from utils.logger import MyosLogger
+from utils.logger import MayosLogger
 from utils.plate_calculator import calculate_barbell_plates
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def test_standard_loads():

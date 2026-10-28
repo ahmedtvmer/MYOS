@@ -9,11 +9,11 @@ import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/feature_copy_context.dart';
 import '../../../core/models.dart';
 import '../../../core/performed_date_window.dart';
-import '../../../core/theme/myos_spacing.dart';
-import '../../../core/theme/myos_theme.dart';
-import '../../../core/theme/myos_typography.dart';
-import '../../../core/ui/myos_button.dart';
-import '../../../core/ui/myos_card.dart';
+import '../../../core/theme/mayos_spacing.dart';
+import '../../../core/theme/mayos_theme.dart';
+import '../../../core/theme/mayos_typography.dart';
+import '../../../core/ui/mayos_button.dart';
+import '../../../core/ui/mayos_card.dart';
 import '../../../core/ui/first_strong_direction.dart';
 import '../../../providers.dart';
 import 'draft_sync_service.dart';
@@ -29,16 +29,16 @@ class WorkoutDraftsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
     if (!ref.watch(offlineWorkoutDraftsEnabledProvider)) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Text(
             copy.androidDraftsUnavailable,
             textAlign: TextAlign.center,
-            style: MyosTypography.of(context).body.copyWith(color: c.textSecondary),
+            style: MayosTypography.of(context).body.copyWith(color: c.textSecondary),
           ),
         ),
       );
@@ -50,11 +50,11 @@ class WorkoutDraftsScreen extends ConsumerWidget {
     return Column(
       children: <Widget>[
         Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(MyosSpacing.lg,
-              MyosSpacing.md, MyosSpacing.lg, MyosSpacing.xs),
+          padding: const EdgeInsetsDirectional.fromSTEB(MayosSpacing.lg,
+              MayosSpacing.md, MayosSpacing.lg, MayosSpacing.xs),
           child: Wrap(
-            spacing: MyosSpacing.sm,
-            runSpacing: MyosSpacing.xs,
+            spacing: MayosSpacing.sm,
+            runSpacing: MayosSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             alignment: WrapAlignment.spaceBetween,
             children: <Widget>[
@@ -63,13 +63,13 @@ class WorkoutDraftsScreen extends ConsumerWidget {
                     ? copy.noDraftsYet
                     : copy.draftsCounts(pending, synced),
                 textAlign: copy.isArabic ? TextAlign.end : null,
-                style: MyosTypography.of(context).bodySecondary
+                style: MayosTypography.of(context).bodySecondary
                     .copyWith(color: c.textSecondary),
               ),
-              MyosButton(
+              MayosButton(
                 label: copy.syncNow,
                 icon: Icons.sync,
-                variant: MyosButtonVariant.secondary,
+                variant: MayosButtonVariant.secondary,
                 expand: false,
                 loading: sync.isSyncing,
                 onPressed: sync.isSyncing ? null : sync.syncNow,
@@ -81,18 +81,18 @@ class WorkoutDraftsScreen extends ConsumerWidget {
           child: drafts.isEmpty
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(MyosSpacing.xl),
+                    padding: const EdgeInsets.all(MayosSpacing.xl),
                     child: Text(
                       copy.offlineDraftsExplanation,
                       textAlign: TextAlign.center,
                       style:
-                          MyosTypography.of(context).body.copyWith(color: c.textSecondary),
+                          MayosTypography.of(context).body.copyWith(color: c.textSecondary),
                     ),
                   ),
                 )
               : ListView(
                   padding: const EdgeInsetsDirectional.fromSTEB(
-                      MyosSpacing.lg, 0, MyosSpacing.lg, MyosSpacing.xxl),
+                      MayosSpacing.lg, 0, MayosSpacing.lg, MayosSpacing.xxl),
                   children: <Widget>[
                     for (final WorkoutDraft draft in drafts)
                       _DraftTile(draft: draft),
@@ -111,13 +111,13 @@ class _DraftTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final WorkoutCopy copy = workoutCopyOf(context);
-    final MyosCopy displayCopy = MyosCopy(ref.watch(displayLanguageProvider));
+    final MayosCopy displayCopy = MayosCopy(ref.watch(displayLanguageProvider));
     final DraftSyncService sync = ref.watch(draftSyncServiceProvider);
     return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: MyosSpacing.sm),
-      child: MyosCard(
+      padding: const EdgeInsetsDirectional.only(bottom: MayosSpacing.sm),
+      child: MayosCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -125,21 +125,21 @@ class _DraftTile extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 _statusIcon(context),
-                const SizedBox(width: MyosSpacing.sm),
+                const SizedBox(width: MayosSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
                         '${draft.dayName} · ${draft.performedDate}',
-                        style: MyosTypography.of(context).exerciseTitle
+                        style: MayosTypography.of(context).exerciseTitle
                             .copyWith(color: c.textPrimary),
                         textDirection: TextDirection.ltr,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${copy.workingSetCount(draft.workingSetCount)} · ${copy.draftStatus(draft.status)}',
-                        style: MyosTypography.of(context).bodySecondary
+                        style: MayosTypography.of(context).bodySecondary
                             .copyWith(color: c.textSecondary),
                         textAlign: copy.isArabic ? TextAlign.end : null,
                       ),
@@ -153,7 +153,7 @@ class _DraftTile extends ConsumerWidget {
                                   draft.activeProgramVersionAtSync!,
                                 )
                               : draft.versionDifferenceLabel!,
-                          style: MyosTypography.of(context).caption
+                          style: MayosTypography.of(context).caption
                               .copyWith(color: c.textMuted),
                           textAlign: copy.isArabic ? TextAlign.end : null,
                         ),
@@ -171,7 +171,7 @@ class _DraftTile extends ConsumerWidget {
                               draft.lastErrorFailure ??
                                   ServerFailureMessage(draft.lastError!),
                             ),
-                            style: MyosTypography.of(context).caption
+                            style: MayosTypography.of(context).caption
                                 .copyWith(color: c.danger),
                           ),
                         ),
@@ -181,7 +181,7 @@ class _DraftTile extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: MyosSpacing.xs),
+            const SizedBox(height: MayosSpacing.xs),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: <Widget>[
@@ -245,7 +245,7 @@ class _DraftTile extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              MyosCopy(ref.read(displayLanguageProvider))
+              MayosCopy(ref.read(displayLanguageProvider))
                   .failureMessage(apiFailureMessage(error)),
             ),
           ),
@@ -270,10 +270,10 @@ class _DraftTile extends ConsumerWidget {
 
   Widget _statusIcon(BuildContext context) {
     if (draft.isSynced) {
-      return Icon(Icons.cloud_done, color: MyosTheme.of(context).success);
+      return Icon(Icons.cloud_done, color: MayosTheme.of(context).success);
     }
     if (draft.needsAttention) {
-      return Icon(Icons.error_outline, color: MyosTheme.of(context).warning);
+      return Icon(Icons.error_outline, color: MayosTheme.of(context).warning);
     }
     if (draft.inFlight) {
       return const SizedBox(

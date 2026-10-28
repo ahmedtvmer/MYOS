@@ -13,7 +13,7 @@ if (arabic) {
   document.documentElement.lang = 'ar';
   document.documentElement.dir = 'rtl';
   document.getElementById('message').textContent =
-    'يحتاج MYOS إلى اتصال بالإنترنت. اتصل بالشبكة وحاول مرة أخرى.';
+    'يحتاج MAYOS إلى اتصال بالإنترنت. اتصل بالشبكة وحاول مرة أخرى.';
   document.getElementById('retry').textContent = 'إعادة المحاولة';
 }
 

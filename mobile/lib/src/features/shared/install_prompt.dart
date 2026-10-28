@@ -11,10 +11,10 @@ import '../../core/install_prompt_store.dart';
 import '../../core/install_prompt_store_stub.dart'
     if (dart.library.js_interop) '../../core/install_prompt_store_web.dart'
     as platform;
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
 import '../../providers.dart';
 import '../../router.dart';
 import '../player/tour/tour_controller.dart';
@@ -229,18 +229,18 @@ class _InstallPromptDialog extends ConsumerWidget {
     if (variant == null) return const SizedBox.shrink();
     final String language = ref.watch(displayLanguageProvider);
     final InstallPromptCopy copy = InstallPromptCopy(language);
-    final MyosThemeExtension colors = MyosTheme.of(context);
+    final MayosThemeExtension colors = MayosTheme.of(context);
     final bool isButton = variant == InstallPromptVariant.button;
     final bool isArabic = language.toLowerCase().startsWith('ar');
     final String primary = isButton ? copy.install : copy.gotIt;
     return Dialog(
       backgroundColor: colors.surfaceElevated,
-      shape: const RoundedRectangleBorder(borderRadius: MyosRadii.xlargeRadius),
-      insetPadding: const EdgeInsets.all(MyosSpacing.lg),
+      shape: const RoundedRectangleBorder(borderRadius: MayosRadii.xlargeRadius),
+      insetPadding: const EdgeInsets.all(MayosSpacing.lg),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 400),
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
             Align(
               alignment: isArabic ? Alignment.topLeft : Alignment.topRight,
@@ -255,35 +255,35 @@ class _InstallPromptDialog extends ConsumerWidget {
             ),
             Image.asset(
               colors.brightness == Brightness.dark
-                  ? 'assets/brand/myos-mark-white.png'
-                  : 'assets/brand/myos-mark-black.png',
+                  ? 'assets/brand/mayos-mark-white.png'
+                  : 'assets/brand/mayos-mark-black.png',
               width: 64,
               height: 64,
-              semanticLabel: 'MYOS',
+              semanticLabel: 'MAYOS',
             ),
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             Text(
               copy.title,
-              style: MyosTypography.of(context)
+              style: MayosTypography.of(context)
                   .sectionHeading
                   .copyWith(color: colors.textPrimary),
             ),
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             if (isButton)
               Text(
                 copy.benefit,
                 textAlign: TextAlign.center,
-                style: MyosTypography.of(context)
+                style: MayosTypography.of(context)
                     .body
                     .copyWith(color: colors.textSecondary),
               )
             else ...<Widget>[
               _StepRow(icon: Icons.ios_share, text: copy.shareStep),
-              const SizedBox(height: MyosSpacing.sm),
+              const SizedBox(height: MayosSpacing.sm),
               _StepRow(icon: Icons.add_box_outlined, text: copy.addStep),
             ],
-            const SizedBox(height: MyosSpacing.xl),
-            MyosButton(
+            const SizedBox(height: MayosSpacing.xl),
+            MayosButton(
               label: primary,
               onPressed: () {
                 if (isButton) {
@@ -295,9 +295,9 @@ class _InstallPromptDialog extends ConsumerWidget {
               },
             ),
             if (isButton)
-              MyosButton(
+              MayosButton(
                 label: copy.notNow,
-                variant: MyosButtonVariant.tertiary,
+                variant: MayosButtonVariant.tertiary,
                 onPressed: () {
                   Navigator.of(context).pop();
                   onDismiss();
@@ -316,11 +316,11 @@ class _StepRow extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: MyosSpacing.xs),
+        padding: const EdgeInsets.symmetric(vertical: MayosSpacing.xs),
         child: Row(children: <Widget>[
-          Icon(icon, color: MyosTheme.of(context).textSecondary),
-          const SizedBox(width: MyosSpacing.md),
-          Expanded(child: Text(text, style: MyosTypography.of(context).body)),
+          Icon(icon, color: MayosTheme.of(context).textSecondary),
+          const SizedBox(width: MayosSpacing.md),
+          Expanded(child: Text(text, style: MayosTypography.of(context).body)),
         ]),
       );
 }

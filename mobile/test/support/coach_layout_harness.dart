@@ -3,17 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/display_language/controller.dart';
-import 'package:myos_mobile/src/core/shared_program_text.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/display_language/controller.dart';
+import 'package:mayos_mobile/src/core/shared_program_text.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'fake_myos_api.dart';
+import 'fake_mayos_api.dart';
 
-typedef CoachFakeSetup = void Function(FakeMyosApi fake);
+typedef CoachFakeSetup = void Function(FakeMayosApi fake);
 typedef CoachPhonePrepare = Future<void> Function(
   WidgetTester tester,
   String language,
@@ -23,7 +23,7 @@ typedef CoachLayoutAssertions = FutureOr<void> Function(
   String language,
 );
 
-FakeMyosApi createCoachFake({String language = 'en'}) => FakeMyosApi()
+FakeMayosApi createCoachFake({String language = 'en'}) => FakeMayosApi()
   ..issuedToken = 'token-alice'
   ..currentUsername = 'alice'
   ..tokenValid = true
@@ -36,7 +36,7 @@ FakeMyosApi createCoachFake({String language = 'en'}) => FakeMyosApi()
 /// Shared fake API and ProviderScope setup for Coach route tests.
 Future<void> pumpCoachApp(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   Size logicalSize = const Size(1440, 960),
   String language = 'en',
   InMemoryAppModeStore? modeStore,
@@ -71,7 +71,7 @@ Future<void> pumpCoachApp(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
 }
@@ -95,7 +95,7 @@ Future<void> expectCoachPhoneLayout(
   for (final String language in <String>['en', 'ar']) {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    final FakeMyosApi fake = createCoachFake(language: language);
+    final FakeMayosApi fake = createCoachFake(language: language);
     configureFake(fake);
     fake.displayLanguage = language;
     await pumpCoachApp(
@@ -199,7 +199,7 @@ Future<void> pumpCoachDesktopLayout(
   required Finder ready,
   Size logicalSize = const Size(1280, 900),
 }) async {
-  final FakeMyosApi fake = createCoachFake();
+  final FakeMayosApi fake = createCoachFake();
   configureFake(fake);
   await pumpCoachApp(tester, fake, logicalSize: logicalSize);
   for (int attempt = 0; attempt < 60 && ready.evaluate().isEmpty; attempt++) {

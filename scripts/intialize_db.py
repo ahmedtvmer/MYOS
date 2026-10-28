@@ -16,11 +16,11 @@ from database.database_manager import (  # noqa: E402
     DEFAULT_LEDGERS_DIR,
     DatabaseManager,
 )
-from utils.logger import MyosLogger  # noqa: E402
+from utils.logger import MayosLogger  # noqa: E402
 
 DEFAULT_PROCESSED_PATH = BASE_DIR / "data" / "processed_exercises.csv"
 
-logger = MyosLogger().get_logger(__name__)
+logger = MayosLogger().get_logger(__name__)
 
 
 def resolve_csv_path() -> Path:
@@ -168,7 +168,7 @@ def run_tests(csv_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Initialize/seed the MYOS catalog on the configured data root.")
+    parser = argparse.ArgumentParser(description="Initialize/seed the MAYOS catalog on the configured data root.")
     parser.add_argument(
         "--seed-only",
         action="store_true",

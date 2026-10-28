@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
-import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
+import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:mayos_mobile/src/features/player/tour/tour_targets.dart';
 
 Set<String> _registeredTargetIds() {
   final Directory lib = Directory('lib');
@@ -44,6 +44,19 @@ void main() {
     );
 
     expect(errors, contains(contains('titleAr')));
+  });
+
+  test('MAYOS brand announcement is available in the next release', () {
+    final FeatureEntry entry = featureList.singleWhere(
+      (FeatureEntry entry) => entry.id == 'brand-mayos',
+    );
+    expect(entry.titleEn, 'MYOS is now MAYOS');
+    expect(entry.sentenceEn, "Same app, same training — we're now called MAYOS.");
+    expect(entry.titleAr, 'MYOS أصبح MAYOS');
+    expect(entry.sentenceAr, 'نفس التطبيق ونفس التدريب، أصبح اسمنا الآن MAYOS.');
+    expect(entry.target, 'brand_mayos');
+    expect(entry.release, currentFeatureRelease);
+    expect(entry.audience, 'lifter');
   });
 
   test('Feature list copy, targets, and Tour stop ids are valid', () {

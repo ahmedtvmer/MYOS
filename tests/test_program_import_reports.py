@@ -12,8 +12,8 @@ def test_committed_sheet_report_and_prompt_hash_remain_valid():
     from service import program_import_ai
 
     report = json.loads((Path(__file__).parents[1] / "reports/program_import_eval.json").read_text(encoding="utf-8"))
-    assert program_import_ai.prompt_version_hash() == "90613fbabe789c229d42bfb005c62219e214f7711647a53e45704aef0b02d216"
-    assert program_import_ai.text_prompt_version_hash() == "5818fa6c815960187fa6bd65f542e1a8d28bdeae831bb1b53c1f3fccfedbb30a"
+    assert program_import_ai.prompt_version_hash() == "a5c879aa7e28699a58ef47234425587fadabbe720b2b47471c1512788d1f3e7c"
+    assert program_import_ai.text_prompt_version_hash() == "fdd73d190b388369fabe9f0270d985bc038725e2aacf342209ee2603136a2120"
     assert program_import_ai.validate_report(report) == (True, [])
     text_report = json.loads((Path(__file__).parents[1] / "reports/program_import_text_eval.json").read_text(encoding="utf-8"))
     assert program_import_ai.validate_report(text_report) == (True, [])

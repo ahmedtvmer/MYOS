@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/features/player/plan/plan_screen.dart';
-import 'package:myos_mobile/src/router.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/features/player/plan/plan_screen.dart';
+import 'package:mayos_mobile/src/router.dart';
 
 import 'support/auth_harness.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 /// Pumps frames until [finder] matches, avoiding `pumpAndSettle` (the app can
 /// keep scheduling frames while an indicator is on screen).
@@ -24,8 +24,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -37,7 +37,7 @@ FakeMyosApi _signedInFake() {
 void main() {
   testWidgets('an unknown path shows the not-found page',
       (WidgetTester tester) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     await tokens.save('token-alice');
 
@@ -45,7 +45,7 @@ void main() {
     await _pumpUntilFound(tester, find.text('Home'));
 
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     container.read(routerProvider).go('/no-such-page');
@@ -70,7 +70,7 @@ void main() {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = lifterPlanPath;
     addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     final InMemoryTokenStore tokens = InMemoryTokenStore();
     await tokens.save('token-alice');
 
@@ -78,7 +78,7 @@ void main() {
     await _pumpUntilFound(tester, find.byType(PlanScreen));
 
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     expect(
@@ -97,7 +97,7 @@ void main() {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = lifterPlanPath;
     addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..passwords['alice'] = 'correct-horse-1';
     final InMemoryTokenStore tokens = InMemoryTokenStore();
 
@@ -105,7 +105,7 @@ void main() {
     await _pumpUntilFound(tester, find.byKey(const Key('login_username')));
 
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     final Uri loginUri =
@@ -136,13 +136,13 @@ void main() {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = lifterPlanPath;
     addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
-    await tester.pumpWidget(authApp(FakeMyosApi(), InMemoryTokenStore()));
+    await tester.pumpWidget(authApp(FakeMayosApi(), InMemoryTokenStore()));
     await _pumpUntilFound(tester, find.byKey(const Key('login_username')));
 
     await tester.tap(find.text('Create an account'));
     await _pumpUntilFound(tester, find.byKey(const Key('register_username')));
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     Uri currentUri() =>
@@ -161,7 +161,7 @@ void main() {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = lifterPlanPath;
     addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..passwords['alice'] = 'correct-horse-1'
       ..recoveryEmail = null;
     final InMemoryTokenStore tokens = InMemoryTokenStore();
@@ -175,7 +175,7 @@ void main() {
     await _pumpUntilFound(tester, find.text('Verify your recovery email'));
 
     final ProviderContainer container = ProviderScope.containerOf(
-      tester.element(find.byType(MyosApp)),
+      tester.element(find.byType(MayosApp)),
       listen: false,
     );
     expect(

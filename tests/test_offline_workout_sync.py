@@ -867,7 +867,7 @@ def test_workout_completed_is_aggregate_only_and_replay_emits_once(api, recordin
         }
     ]
     payload["sets"][1]["sets"][0]["rpe"] = None
-    payload["session_notes"] = "private note must stay in MYOS"
+    payload["session_notes"] = "private note must stay in MAYOS"
 
     first = client.post("/workouts/sessions", headers=headers, json=payload)
     replay = client.post("/workouts/sessions", headers=headers, json=payload)
@@ -898,7 +898,7 @@ def test_workout_completed_is_aggregate_only_and_replay_emits_once(api, recordin
         "cardio_entry_count": 2,
         "cardio_machine_kinds": ["bike", "treadmill"],
     }
-    assert "private note must stay in MYOS" not in repr(event)
+    assert "private note must stay in MAYOS" not in repr(event)
     assert "Squat" not in repr(event)
     assert "Overhead Press" not in repr(event)
     assert "100.0" not in repr(event)
@@ -2194,7 +2194,7 @@ def test_checkpoint_review_is_created_once_when_commit_reaches_ten(api, legacy):
     review = client.get("/checkpoint-reviews/10", headers=headers)
     assert review.status_code == 200, review.text
     assert review.json()["text"] == (
-        "Checkpoint 10: 10 workouts since you started logging in MYOS."
+        "Checkpoint 10: 10 workouts since you started logging in MAYOS."
     )
     assert review.json()["text_is_template"] is True
     assert client.get("/checkpoint-reviews", headers=headers).json()[0]["opened"] is True

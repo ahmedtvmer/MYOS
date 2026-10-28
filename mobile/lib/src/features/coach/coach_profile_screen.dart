@@ -13,11 +13,11 @@ import '../../core/display_language/controller.dart';
 import '../../core/display_language/feature_copy_context.dart';
 import '../../core/display_language/message_resolver.dart';
 import '../../core/models.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/theme/myos_typography.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/theme/mayos_typography.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
 import '../../core/ui/first_strong_direction.dart';
 import '../../core/ui/is_desktop_layout.dart';
 import '../../providers.dart';
@@ -278,16 +278,16 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
     if (_loadError != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(MyosSpacing.xl),
+          padding: const EdgeInsets.all(MayosSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(displayCopyOf(context).failureMessage(_loadError!),
                   textAlign: TextAlign.center),
-              const SizedBox(height: MyosSpacing.md),
-              MyosButton(
+              const SizedBox(height: MayosSpacing.md),
+              MayosButton(
                 label: copy.retry,
-                variant: MyosButtonVariant.secondary,
+                variant: MayosButtonVariant.secondary,
                 expand: false,
                 onPressed: _load,
               ),
@@ -296,23 +296,23 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
         ),
       );
     }
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     return Form(
       key: _formKey,
       child: ListView(
-        padding: MyosSpacing.screen,
+        padding: MayosSpacing.screen,
         children: <Widget>[
           Text(
             copy.profileTitle,
-            style: MyosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
+            style: MayosTypography.of(context).pageHeading.copyWith(color: c.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xxs),
+          const SizedBox(height: MayosSpacing.xxs),
           Text(
             copy.profileLead,
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           TextFormField(
             controller: _displayName,
             maxLength: _maxDisplayName,
@@ -322,7 +322,7 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
             ),
             validator: _validateDisplayName,
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           TextFormField(
             controller: _specialization,
             maxLength: _maxSpecialization,
@@ -332,7 +332,7 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           TextFormField(
             controller: _bio,
             maxLength: _maxBio,
@@ -342,7 +342,7 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           TextFormField(
             controller: _capacity,
             keyboardType: TextInputType.number,
@@ -355,48 +355,48 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
             validator: _validateCapacity,
           ),
           if (_saveError != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.sm),
+            const SizedBox(height: MayosSpacing.sm),
             Text(
               displayCopyOf(context).failureMessage(_saveError!),
-              style: MyosTypography.of(context).bodySecondary.copyWith(color: c.danger),
+              style: MayosTypography.of(context).bodySecondary.copyWith(color: c.danger),
             ),
           ],
-          const SizedBox(height: MyosSpacing.lg),
-          MyosButton(
+          const SizedBox(height: MayosSpacing.lg),
+          MayosButton(
             label: copy.saveProfile,
             loading: _saving,
             onPressed: _saving ? null : _save,
           ),
-          const SizedBox(height: MyosSpacing.xl),
+          const SizedBox(height: MayosSpacing.xl),
           _inviteCard(context),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _noticesCard(context),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _resolvedAlertsCard(context),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _coachSettingsCard(context),
-          const SizedBox(height: MyosSpacing.xl),
+          const SizedBox(height: MayosSpacing.xl),
         ],
       ),
     );
   }
 
   Widget _coachSettingsCard(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final copy = coachCopyOf(context);
-    return MyosCard(
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _coachSettingsHeading(context, c, copy),
-          const SizedBox(height: MyosSpacing.sm),
+          const SizedBox(height: MayosSpacing.sm),
           _stallThresholdSelector(copy),
           _stallThresholdStatus(context, c),
-          const SizedBox(height: MyosSpacing.sm),
-          MyosButton(
+          const SizedBox(height: MayosSpacing.sm),
+          MayosButton(
             key: const Key('coach_program_templates_open'),
             label: copy.programTemplates,
-            variant: MyosButtonVariant.secondary,
+            variant: MayosButtonVariant.secondary,
             icon: Icons.library_books_outlined,
             onPressed: _openProgramTemplates,
           ),
@@ -414,21 +414,21 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
 
   Widget _coachSettingsHeading(
     BuildContext context,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
     CoachCopy copy,
   ) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
             copy.coachSettings,
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .sectionHeading
                 .copyWith(color: colors.textPrimary),
           ),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             copy.stallThresholdDescription,
-            style: MyosTypography.of(context)
+            style: MayosTypography.of(context)
                 .bodySecondary
                 .copyWith(color: colors.textSecondary),
           ),
@@ -454,20 +454,20 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
 
   Widget _stallThresholdStatus(
     BuildContext context,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) {
     if (_savingStallThreshold) {
       return const Padding(
-        padding: EdgeInsets.only(top: MyosSpacing.xs),
+        padding: EdgeInsets.only(top: MayosSpacing.xs),
         child: LinearProgressIndicator(),
       );
     }
     if (_saveError == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: MyosSpacing.xs),
+      padding: const EdgeInsets.only(top: MayosSpacing.xs),
       child: Text(
         displayCopyOf(context).failureMessage(_saveError!),
-        style: MyosTypography.of(context)
+        style: MayosTypography.of(context)
             .bodySecondary
             .copyWith(color: colors.danger),
       ),
@@ -475,23 +475,23 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
   }
 
   Widget _inviteCard(BuildContext context) {
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final AssignmentInvite? invite = _invite;
-    return MyosCard(
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(coachCopyOf(context).invitePlayer,
-              style: MyosTypography.of(context).sectionHeading
+              style: MayosTypography.of(context).sectionHeading
                   .copyWith(color: c.textPrimary)),
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(
             coachCopyOf(context).inviteExplanation,
             style:
-                MyosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
+                MayosTypography.of(context).bodySecondary.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: MyosSpacing.sm),
-          MyosButton(
+          const SizedBox(height: MayosSpacing.sm),
+          MayosButton(
             key: const Key('coach_create_player_invite'),
             label: coachCopyOf(context).createPlayerInvite,
             icon: Icons.add,
@@ -499,29 +499,29 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
             onPressed: _issuing ? null : _issue,
           ),
           if (invite != null) ...<Widget>[
-            const SizedBox(height: MyosSpacing.md),
+            const SizedBox(height: MayosSpacing.md),
             SelectableText(
               invite.token,
               textDirection: TextDirection.ltr,
-              style: MyosTypography.of(context).numeric.copyWith(color: c.textPrimary),
+              style: MayosTypography.of(context).numeric.copyWith(color: c.textPrimary),
             ),
             if (!isDesktopLayout(context)) ...<Widget>[
-              const SizedBox(height: MyosSpacing.xs),
-              MyosButton(
+              const SizedBox(height: MayosSpacing.xs),
+              MayosButton(
                 key: const Key('coach_invite_share'),
                 label: coachCopyOf(context).copyInviteCode,
-                variant: MyosButtonVariant.secondary,
+                variant: MayosButtonVariant.secondary,
                 icon: Icons.copy_outlined,
                 onPressed: () => _shareInvite(invite),
               ),
             ],
-            const SizedBox(height: MyosSpacing.xxs),
+            const SizedBox(height: MayosSpacing.xxs),
             Text(coachCopyOf(context).inviteExpires(invite.expiresAt),
-                style: MyosTypography.of(context).caption.copyWith(color: c.textMuted)),
+                style: MayosTypography.of(context).caption.copyWith(color: c.textMuted)),
             Text(
                 coachCopyOf(context)
                     .rosterSlotsFree(invite.remaining, invite.capacity),
-                style: MyosTypography.of(context).caption.copyWith(color: c.textMuted)),
+                style: MayosTypography.of(context).caption.copyWith(color: c.textMuted)),
           ],
         ],
       ),
@@ -532,10 +532,10 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
     if (_notices.isEmpty) {
       return const SizedBox.shrink();
     }
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final int unread =
         _notices.where((AssignmentNotice n) => n.isUnread).length;
-    return MyosCard(
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -543,13 +543,13 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
             children: <Widget>[
               Expanded(
                 child: Text(coachCopyOf(context).notices,
-                    style: MyosTypography.of(context).sectionHeading
+                    style: MayosTypography.of(context).sectionHeading
                         .copyWith(color: c.textPrimary)),
               ),
               if (unread > 0)
-                MyosButton(
+                MayosButton(
                   label: coachCopyOf(context).markAllRead,
-                  variant: MyosButtonVariant.tertiary,
+                  variant: MayosButtonVariant.tertiary,
                   expand: false,
                   onPressed: _markRead,
                 ),
@@ -589,14 +589,14 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
     if (_resolvedAlerts.isEmpty) {
       return const SizedBox.shrink();
     }
-    final MyosThemeExtension c = MyosTheme.of(context);
+    final MayosThemeExtension c = MayosTheme.of(context);
     final String languageCode = displayCopyOf(context).languageCode;
-    return MyosCard(
+    return MayosCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(coachCopyOf(context).resolvedAlerts,
-              style: MyosTypography.of(context).sectionHeading
+              style: MayosTypography.of(context).sectionHeading
                   .copyWith(color: c.textPrimary)),
           for (final CoachAlert alert in _resolvedAlerts)
             _resolvedAlertTile(context, alert, languageCode, c),
@@ -609,7 +609,7 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
     BuildContext context,
     CoachAlert alert,
     String languageCode,
-    MyosThemeExtension colors,
+    MayosThemeExtension colors,
   ) {
     final String description =
         resolveCoachAlertDescription(alert, languageCode);
@@ -626,7 +626,7 @@ class _CoachProfileScreenState extends ConsumerState<CoachProfileScreen> {
           ? null
           : Text(coachCopyOf(context).resolvedBy(alert.resolvedBy!),
               style:
-                  MyosTypography.of(context).caption.copyWith(color: colors.textMuted)),
+                  MayosTypography.of(context).caption.copyWith(color: colors.textMuted)),
     );
   }
 }

@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/display_language/controller.dart';
 import '../../core/display_language/settings_copy.dart';
-import '../../core/theme/myos_spacing.dart';
-import '../../core/theme/myos_theme.dart';
-import '../../core/ui/myos_button.dart';
-import '../../core/ui/myos_card.dart';
-import '../../core/ui/myos_section_header.dart';
-import '../../core/ui/myos_text_field.dart';
+import '../../core/theme/mayos_spacing.dart';
+import '../../core/theme/mayos_theme.dart';
+import '../../core/ui/mayos_button.dart';
+import '../../core/ui/mayos_card.dart';
+import '../../core/ui/mayos_section_header.dart';
+import '../../core/ui/mayos_text_field.dart';
 import '../../providers.dart';
 
 enum _RecoveryEmailChangeStatus { ready, busy, changed }
@@ -150,9 +150,9 @@ class _RecoveryEmailSettingsScreenState
         ? _codeSent
         : details.pendingEmail != null;
     return ListView(
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
-        MyosSectionHeader(
+        MayosSectionHeader(
           title: _copy.currentRecoveryEmail,
           subtitle: currentEmail ?? _copy.recoveryEmailNotSet,
         ),
@@ -163,11 +163,11 @@ class _RecoveryEmailSettingsScreenState
 
   Widget _buildLoadFailure() {
     return ListView(
-      padding: MyosSpacing.screen,
+      padding: MayosSpacing.screen,
       children: <Widget>[
         Text(_copy.recoveryEmailLoadFailed),
-        const SizedBox(height: MyosSpacing.md),
-        MyosButton(
+        const SizedBox(height: MayosSpacing.md),
+        MayosButton(
           label: _copy.retry,
           onPressed: () => ref.invalidate(recoveryEmailDetailsProvider),
         ),
@@ -180,13 +180,13 @@ class _RecoveryEmailSettingsScreenState
     String? pendingEmail,
     bool codeSent,
   ) {
-    return MyosCard(
-      padding: const EdgeInsets.all(MyosSpacing.md),
+    return MayosCard(
+      padding: const EdgeInsets.all(MayosSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(_copy.recoveryEmailCodeLead),
-          const SizedBox(height: MyosSpacing.md),
+          const SizedBox(height: MayosSpacing.md),
           _buildChangeStep(context, pendingEmail, codeSent),
           if (_error != null) _buildError(context),
         ],
@@ -213,9 +213,9 @@ class _RecoveryEmailSettingsScreenState
       children: <Widget>[
         Text(
           _copy.recoveryEmailChanged,
-          style: TextStyle(color: MyosTheme.of(context).success),
+          style: TextStyle(color: MayosTheme.of(context).success),
         ),
-        const SizedBox(height: MyosSpacing.xs),
+        const SizedBox(height: MayosSpacing.xs),
         Text(_copy.recoveryEmailChangeSuccessLead),
       ],
     );
@@ -227,20 +227,20 @@ class _RecoveryEmailSettingsScreenState
       children: <Widget>[
         Text(_copy.recoveryEmailCodeSent),
         if (pendingEmail != null) ...<Widget>[
-          const SizedBox(height: MyosSpacing.xs),
+          const SizedBox(height: MayosSpacing.xs),
           Text(_copy.pendingRecoveryEmail),
           Text(pendingEmail, textDirection: TextDirection.ltr),
         ],
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         _buildCodeField(),
-        const SizedBox(height: MyosSpacing.sm),
+        const SizedBox(height: MayosSpacing.sm),
         _buildVerificationActions(pendingEmail),
       ],
     );
   }
 
   Widget _buildCodeField() {
-    return MyosTextField(
+    return MayosTextField(
       fieldKey: const Key('recovery_email_change_code'),
       controller: _code,
       label: _copy.recoveryEmailCode,
@@ -259,15 +259,15 @@ class _RecoveryEmailSettingsScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        MyosButton(
+        MayosButton(
           key: const Key('recovery_email_change_verify'),
           label: _copy.verifyAndChangeRecoveryEmail,
           loading: isBusy,
           onPressed: isBusy ? null : _verifyCode,
         ),
-        MyosButton(
+        MayosButton(
           label: _copy.useDifferentRecoveryEmail,
-          variant: MyosButtonVariant.tertiary,
+          variant: MayosButtonVariant.tertiary,
           loading: isBusy,
           onPressed: isBusy ? null : () => _useDifferentEmail(pendingEmail),
         ),
@@ -279,7 +279,7 @@ class _RecoveryEmailSettingsScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        MyosTextField(
+        MayosTextField(
           fieldKey: const Key('recovery_email_change_address'),
           controller: _email,
           label: _copy.newRecoveryEmail,
@@ -290,8 +290,8 @@ class _RecoveryEmailSettingsScreenState
           enableSuggestions: false,
           onSubmitted: (_) => _requestCode(),
         ),
-        const SizedBox(height: MyosSpacing.sm),
-        MyosButton(
+        const SizedBox(height: MayosSpacing.sm),
+        MayosButton(
           key: const Key('recovery_email_change_send'),
           label: _copy.sendRecoveryEmailCode,
           loading: _status == _RecoveryEmailChangeStatus.busy,
@@ -305,10 +305,10 @@ class _RecoveryEmailSettingsScreenState
 
   Widget _buildError(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: MyosSpacing.sm),
+      padding: const EdgeInsets.only(top: MayosSpacing.sm),
       child: Text(
         _error!,
-        style: TextStyle(color: MyosTheme.of(context).danger),
+        style: TextStyle(color: MayosTheme.of(context).danger),
       ),
     );
   }

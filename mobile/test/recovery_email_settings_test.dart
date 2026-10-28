@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/ui/myos_settings_tile.dart';
-import 'package:myos_mobile/src/features/shared/mode_switch.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/ui/mayos_settings_tile.dart';
+import 'package:mayos_mobile/src/features/shared/mode_switch.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 Future<void> _pumpSettings(
   WidgetTester tester,
-  FakeMyosApi fake, {
+  FakeMayosApi fake, {
   Size size = const Size(360, 2200),
 }) async {
   tester.view.physicalSize = size;
@@ -41,7 +41,7 @@ Future<void> _pumpSettings(
           return client;
         }),
       ],
-      child: const MyosApp(),
+      child: const MayosApp(),
     ),
   );
   await _pumpUntilFound(tester, find.text(fake.displayLanguage == 'ar' ? 'الرئيسية' : 'Home'));
@@ -75,8 +75,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
   fail('Timed out waiting for $finder');
 }
 
-FakeMyosApi _signedInFake({String language = 'en'}) {
-  return FakeMyosApi()
+FakeMayosApi _signedInFake({String language = 'en'}) {
+  return FakeMayosApi()
     ..issuedToken = 'token-alice'
     ..currentUsername = 'alice'
     ..tokenValid = true
@@ -88,13 +88,13 @@ FakeMyosApi _signedInFake({String language = 'en'}) {
 
 void main() {
   for (final String language in <String>['en', 'ar']) {
-    testWidgets('About explains MYOS in $language without an action', (
+    testWidgets('About explains MAYOS in $language without an action', (
       WidgetTester tester,
     ) async {
-      final FakeMyosApi fake = _signedInFake(language: language);
+      final FakeMayosApi fake = _signedInFake(language: language);
       await _pumpSettings(tester, fake, size: const Size(360, 5000));
       final Finder brandTitle =
-          find.text(language == 'ar' ? 'ميوس' : 'MYOS').last;
+          find.text(language == 'ar' ? 'ميوس' : 'MAYOS').last;
       final Finder brandSubtitle = find.text(language == 'ar'
           ? 'يعني العضلة باليوناني'
           : 'Greek for muscle · said “meyos”');
@@ -102,7 +102,7 @@ void main() {
       expect(brandSubtitle, findsOneWidget);
       final Finder aboutTile = find
           .ancestor(
-              of: brandTitle, matching: find.byType(MyosSettingsTile))
+              of: brandTitle, matching: find.byType(MayosSettingsTile))
           .first;
       final SemanticsData aboutSemantics =
           tester.getSemantics(aboutTile).getSemanticsData();
@@ -126,7 +126,7 @@ void main() {
   testWidgets('Settings shows the verified address and completes its change', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpSettings(tester, fake);
 
     expect(find.text('Recovery email'), findsOneWidget);
@@ -164,7 +164,7 @@ void main() {
   testWidgets('Recovery-email Settings copy is Arabic', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake(language: 'ar')
+    final FakeMayosApi fake = _signedInFake(language: 'ar')
       ..recoveryEmailVerified = false;
     await _pumpSettings(tester, fake);
 
@@ -193,7 +193,7 @@ void main() {
   testWidgets('Settings warning opens verification and clears after success', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake()..recoveryEmailVerified = false;
+    final FakeMayosApi fake = _signedInFake()..recoveryEmailVerified = false;
     await _pumpSettings(tester, fake);
 
     expect(
@@ -238,7 +238,7 @@ void main() {
   testWidgets('wrong change code keeps the current and pending addresses', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake();
+    final FakeMayosApi fake = _signedInFake();
     await _pumpSettings(tester, fake);
     await tester.tap(find.byKey(const Key('recovery_email_settings_entry')));
     await _pumpUntilFound(tester, find.text('Current recovery email'));
@@ -266,7 +266,7 @@ void main() {
   testWidgets('Settings resumes the verification step for an existing pending change', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..pendingRecoveryEmail = 'pending@example.com'
       ..currentRecoveryEmailChangeCode = '123456';
     await _pumpSettings(tester, fake);
@@ -292,7 +292,7 @@ void main() {
   testWidgets('linked recovery email shows the server refusal message', (
     WidgetTester tester,
   ) async {
-    final FakeMyosApi fake = _signedInFake()
+    final FakeMayosApi fake = _signedInFake()
       ..recoveryEmailsLinkedElsewhere.add('taken@example.com');
     await _pumpSettings(tester, fake);
     await tester.tap(find.byKey(const Key('recovery_email_settings_entry')));

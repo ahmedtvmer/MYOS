@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myos_mobile/src/app.dart';
-import 'package:myos_mobile/src/core/active_workout.dart';
-import 'package:myos_mobile/src/core/api_client.dart';
-import 'package:myos_mobile/src/core/app_mode.dart';
-import 'package:myos_mobile/src/core/baselines.dart';
-import 'package:myos_mobile/src/core/chat_storage.dart';
-import 'package:myos_mobile/src/core/device_timezone.dart';
-import 'package:myos_mobile/src/core/models.dart';
-import 'package:myos_mobile/src/core/theme/myos_theme.dart';
-import 'package:myos_mobile/src/core/theme/theme_mode_store.dart';
-import 'package:myos_mobile/src/core/token_store.dart';
-import 'package:myos_mobile/src/core/workout_storage.dart';
-import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
-import 'package:myos_mobile/src/features/player/workout/logger_card_widgets.dart';
-import 'package:myos_mobile/src/features/player/workout/workout_logger_screen.dart';
-import 'package:myos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/app.dart';
+import 'package:mayos_mobile/src/core/active_workout.dart';
+import 'package:mayos_mobile/src/core/api_client.dart';
+import 'package:mayos_mobile/src/core/app_mode.dart';
+import 'package:mayos_mobile/src/core/baselines.dart';
+import 'package:mayos_mobile/src/core/chat_storage.dart';
+import 'package:mayos_mobile/src/core/device_timezone.dart';
+import 'package:mayos_mobile/src/core/models.dart';
+import 'package:mayos_mobile/src/core/theme/mayos_theme.dart';
+import 'package:mayos_mobile/src/core/theme/theme_mode_store.dart';
+import 'package:mayos_mobile/src/core/token_store.dart';
+import 'package:mayos_mobile/src/core/workout_storage.dart';
+import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
+import 'package:mayos_mobile/src/features/player/workout/logger_card_widgets.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
+import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_media_http.dart';
-import 'support/fake_myos_api.dart';
+import 'support/fake_mayos_api.dart';
 
 /// #161: the catalog picture on every exercise card — loaded, missing and
 /// failed pictures through a fake `GET /media` route, all three laid out in
@@ -81,8 +81,8 @@ Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
   }
 }
 
-FakeMyosApi _signedInFake() {
-  final FakeMyosApi fake = FakeMyosApi();
+FakeMayosApi _signedInFake() {
+  final FakeMayosApi fake = FakeMayosApi();
   fake.issuedToken = 'token-alice';
   fake.currentUsername = 'alice';
   fake.tokenValid = true;
@@ -94,7 +94,7 @@ FakeMyosApi _signedInFake() {
   return fake;
 }
 
-ApiClient _api(FakeMyosApi fake, TokenStore tokens) => ApiClient(
+ApiClient _api(FakeMayosApi fake, TokenStore tokens) => ApiClient(
       tokens: tokens,
       baseUrl: 'http://test.local',
       adapter: fake.adapter,
@@ -104,7 +104,7 @@ ApiClient _api(FakeMyosApi fake, TokenStore tokens) => ApiClient(
 /// cards the test sees carry the payload `ProgramExercise.toJson` wrote —
 /// image path included (#161).
 Future<InMemoryActiveWorkoutStore> _seedThroughController({
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
 }) async {
   final InMemoryTokenStore tokens = InMemoryTokenStore();
   await tokens.save('token-alice');
@@ -141,7 +141,7 @@ void _usePhoneView(WidgetTester tester, {Size size = const Size(1080, 2400)}) {
 }
 
 List<Override> _appOverrides({
-  required FakeMyosApi fake,
+  required FakeMayosApi fake,
   required InMemoryTokenStore tokens,
   required InMemoryActiveWorkoutStore store,
   ThemeMode themeMode = ThemeMode.light,
@@ -175,7 +175,7 @@ Future<void> _pumpApp(WidgetTester tester,
     {required List<Override> overrides}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: overrides,
-    child: const MyosApp(),
+    child: const MayosApp(),
   ));
 }
 
@@ -201,7 +201,7 @@ Future<void> _openLogger(
 }) async {
   _usePhoneView(tester, size: size);
 
-  final FakeMyosApi fake = _signedInFake();
+  final FakeMayosApi fake = _signedInFake();
   fake.displayLanguage = languageCode;
   final InMemoryTokenStore tokens = InMemoryTokenStore();
   await tokens.save('token-alice');
@@ -456,7 +456,7 @@ void main() {
   mediaTest('media kill switch: the thumbnail falls back and never asks (#53)',
       (WidgetTester tester, FakeMediaCatalog media) async {
     await tester.pumpWidget(MaterialApp(
-      theme: MyosTheme.light,
+      theme: MayosTheme.light,
       home: const Scaffold(
         body: ExerciseCatalogThumbnail(
           imagePath: 'images/incline.jpg',
