@@ -83,6 +83,9 @@ class FakeMyosApi {
   bool analyticsPreferenceUpdateFails = false;
   bool analyticsAllowed = true;
   int tourSeenVersion = 1;
+  int whatsNewSeenRelease = 1;
+  int whatsNewSeenWriteCount = 0;
+  int whatsNewSeenWriteFailures = 0;
   int tourSeenWriteCount = 0;
   int tourCreatedVersion = 1;
   int tourSeenWriteFailures = 0;
@@ -875,6 +878,17 @@ class FakeMyosApi {
                 401, <String, dynamic>{'detail': 'Token has been revoked.'});
       case '/auth/me':
         return _me(request);
+      case '/auth/whats-new-seen':
+        whatsNewSeenWriteCount++;
+        if (!_authorized(request)) return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
+        if (whatsNewSeenWriteFailures > 0) {
+          whatsNewSeenWriteFailures--;
+          return const FakeResponse(503, <String, dynamic>{'detail': 'Offline.'});
+        }
+        whatsNewSeenRelease = whatsNewSeenRelease > (request.body['release'] as int)
+            ? whatsNewSeenRelease
+            : request.body['release'] as int;
+        return FakeResponse(200, <String, dynamic>{'whats_new_seen_release': whatsNewSeenRelease});
       case '/auth/tour-seen':
         tourSeenWriteCount++;
         if (!_authorized(request)) return const FakeResponse(401, <String, dynamic>{'detail': 'Token has been revoked.'});
@@ -1323,6 +1337,7 @@ class FakeMyosApi {
           currentAccountDisplayLanguageOverride ?? displayLanguage,
       'analytics_allowed': analyticsAllowed,
       'tour_seen_version': tourSeenVersion,
+      'whats_new_seen_release': whatsNewSeenRelease,
       'tour_created_version': tourCreatedVersion,
       'recovery_email_verified':
           recoveryEmail != null && recoveryEmailVerified,

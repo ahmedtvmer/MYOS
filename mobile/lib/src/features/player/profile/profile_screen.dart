@@ -942,9 +942,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       );
     }
-    return ListView(
+    return SingleChildScrollView(
       padding: MyosSpacing.screen,
-      children: <Widget>[
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
         TourTarget(
           id: 'profile',
           child: MyosSectionHeader(
@@ -952,7 +954,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             subtitle: copy.profileLead,
           ),
         ),
-        const SizedBox(height: MyosSpacing.md),
         MyosSectionHeader(title: copy.guides),
         MyosCard(
           padding: EdgeInsets.zero,
@@ -964,6 +965,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   MyosCopy(ref.watch(displayLanguageProvider)).featureGuideTitle,
               onTap: () => context.push(featureGuidePath),
             ),
+          ),
+        ),
+        const SizedBox(height: MyosSpacing.xs),
+        MyosCard(
+          padding: EdgeInsets.zero,
+          child: MyosSettingsTile(
+            icon: Icons.new_releases_outlined,
+            title: MyosCopy(ref.watch(displayLanguageProvider)).whatsNewProfile,
+            onTap: () => context.push(whatsNewPath),
           ),
         ),
         const SizedBox(height: MyosSpacing.xs),
@@ -1226,7 +1236,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: MyosTypography.of(context).body.copyWith(color: c.textPrimary),
             ),
         const SizedBox(height: MyosSpacing.md),
-        ExpansionTile(
+        TourTarget(
+          id: 'whats_new_movements_to_avoid',
+          child: ExpansionTile(
           key: const Key('profile_movement_restrictions_section'),
           tilePadding: EdgeInsets.zero,
           title: Text(copy.movementsToAvoid),
@@ -1240,9 +1252,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Text('${copy.movementsToAvoid}: ${_savedProfile!.suggestedMovementRestrictions.map(copy.movementRestriction).join(', ')}'),
             Align(alignment: AlignmentDirectional.centerStart, child: TextButton(key: const Key('save_movement_restrictions_button'), onPressed: _saving ? null : _saveMovementRestrictions, child: Text(copy.saveMovementsToAvoid))),
           ],
-        ),
+        )),
         const SizedBox(height: MyosSpacing.sm),
-        ExpansionTile(
+        TourTarget(
+          id: 'whats_new_weak_points',
+          child: ExpansionTile(
           key: const Key('profile_weak_points_section'),
           tilePadding: EdgeInsets.zero,
           title: Text(copy.weakPoints),
@@ -1269,10 +1283,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ],
-        ),
+        )),
         const SizedBox(height: MyosSpacing.md),
         const SizedBox(height: MyosSpacing.xxl),
-      ],
+        ],
+      ),
     );
   }
 }

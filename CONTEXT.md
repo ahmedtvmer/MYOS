@@ -29,6 +29,9 @@ The one-time spotlight walkthrough of Player mode, with stops on real app featur
 **Feature guide**:
 The permanent list of Player features in Profile, with a Show me action for each feature.
 
+**What's new**:
+The per-update list of Player features added since the Account last saw it, shown in a sheet and kept in Profile.
+
 **Feature list**:
 The single app-owned list of Player features that defines the Tour stops and serves as the source for later discovery surfaces.
 

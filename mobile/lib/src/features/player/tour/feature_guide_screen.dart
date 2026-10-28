@@ -15,8 +15,8 @@ class FeatureGuideScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final MyosCopy copy = MyosCopy(ref.watch(displayLanguageProvider));
     final bool isArabic = copy.isArabic;
-    final List<FeatureEntry> entries = featureList
-        .where((FeatureEntry entry) => entry.audience == 'lifter')
+    final List<FeatureEntry> entries = ref.watch(featureEntriesProvider)
+        .where((FeatureEntry entry) => entry.audience == 'lifter' && entry.release <= currentFeatureRelease)
         .toList(growable: false);
     return MyosScaffold(
       title: copy.featureGuideTitle,

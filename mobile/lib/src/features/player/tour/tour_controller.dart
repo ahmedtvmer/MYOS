@@ -75,6 +75,34 @@ class SecureTourSeenRetryStore implements TourSeenRetryStore {
 final Provider<TourSeenRetryStore> tourSeenRetryStoreProvider =
     Provider<TourSeenRetryStore>((ref) => SecureTourSeenRetryStore());
 
+abstract interface class WhatsNewSeenRetryStore {
+  Future<int?> read(String accountId);
+  Future<void> write(String accountId, int release);
+  Future<void> clear(String accountId);
+}
+
+class SecureWhatsNewSeenRetryStore implements WhatsNewSeenRetryStore {
+  SecureWhatsNewSeenRetryStore({FlutterSecureStorage? storage})
+      : _storage = storage ?? const FlutterSecureStorage();
+
+  final FlutterSecureStorage _storage;
+  String _key(String accountId) => 'mayos.whats_new_seen_pending.$accountId';
+
+  @override
+  Future<int?> read(String accountId) async =>
+      int.tryParse(await _storage.read(key: _key(accountId)) ?? '');
+
+  @override
+  Future<void> write(String accountId, int release) =>
+      _storage.write(key: _key(accountId), value: '$release');
+
+  @override
+  Future<void> clear(String accountId) => _storage.delete(key: _key(accountId));
+}
+
+final Provider<WhatsNewSeenRetryStore> whatsNewSeenRetryStoreProvider =
+    Provider<WhatsNewSeenRetryStore>((ref) => SecureWhatsNewSeenRetryStore());
+
 final Provider<int> tourCurrentVersionProvider =
     Provider<int>((ref) => tourCurrentVersion);
 
@@ -92,9 +120,71 @@ class TourController extends StateNotifier<TourSession?> {
   bool _focusing = false;
   String? _pendingAccountId;
   int? _pendingVersion;
+  String? _pendingWhatsNewAccountId;
+  int? _pendingWhatsNewRelease;
 
   bool hasPendingSeenWriteFor(String accountId) =>
       _pendingAccountId == accountId && _pendingVersion != null;
+
+  Future<void> retryPendingWhatsNewSeen() async {
+    final Account? account = _ref.read(authControllerProvider).session?.account;
+    if (account == null) return;
+    final String accountId = account.accountId;
+    final AuthController auth = _ref.read(authControllerProvider.notifier);
+    final WhatsNewSeenRetryStore store =
+        _ref.read(whatsNewSeenRetryStoreProvider);
+    try {
+      final int? release = await store.read(accountId);
+      if (!mounted || !auth.ownsAccount(accountId) || release == null) return;
+      _pendingWhatsNewAccountId = accountId;
+      _pendingWhatsNewRelease = release;
+      auth.confirmWhatsNewSeenRelease(accountId, release);
+      await _persistWhatsNewSeen(accountId, store, auth: auth);
+    } on Object {
+      // Secure-store failures leave any in-memory write pending for this session.
+    }
+  }
+
+  Future<void> markWhatsNewSeen(int release) async {
+    final Account? account = _ref.read(authControllerProvider).session?.account;
+    if (account == null) return;
+    final String accountId = account.accountId;
+    final int nextRelease = release > account.whatsNewSeenRelease
+        ? release
+        : account.whatsNewSeenRelease;
+    final AuthController auth = _ref.read(authControllerProvider.notifier);
+    final WhatsNewSeenRetryStore store =
+        _ref.read(whatsNewSeenRetryStoreProvider);
+    _pendingWhatsNewAccountId = accountId;
+    _pendingWhatsNewRelease = nextRelease;
+    auth.confirmWhatsNewSeenRelease(accountId, nextRelease);
+    try {
+      await store.write(accountId, nextRelease);
+    } on Object {
+      // Keep the in-memory dismissal and attempt the network write now.
+    }
+    await _persistWhatsNewSeen(accountId, store, auth: auth);
+  }
+
+  Future<void> _persistWhatsNewSeen(
+    String accountId,
+    WhatsNewSeenRetryStore store, {
+    required AuthController auth,
+  }) async {
+    final int? release = _pendingWhatsNewRelease;
+    if (release == null || _pendingWhatsNewAccountId != accountId) return;
+    try {
+      final int savedRelease =
+          await _ref.read(apiClientProvider).markWhatsNewSeen(release);
+      if (!mounted || !auth.ownsAccount(accountId)) return;
+      auth.confirmWhatsNewSeenRelease(accountId, savedRelease);
+      _pendingWhatsNewAccountId = null;
+      _pendingWhatsNewRelease = null;
+      await store.clear(accountId);
+    } on ApiException {
+      // The local dismissal remains in secure storage and retries next app open.
+    }
+  }
 
   Future<void> startTour(int version, {bool replay = false}) async {
     if (state != null || _starting) return;
@@ -148,12 +238,23 @@ class TourController extends StateNotifier<TourSession?> {
     await _focusCurrent(started: true);
   }
 
-  Future<void> showMe(String featureId) async {
-    if (!featureList.any((FeatureEntry entry) => entry.id == featureId)) return;
+  Future<void> showMe(String featureId, {String? source}) async {
+    FeatureEntry? entry;
+    for (final FeatureEntry candidate in featureList) {
+      if (candidate.id == featureId) {
+        entry = candidate;
+        break;
+      }
+    }
+    if (entry == null ||
+        entry.release > currentFeatureRelease ||
+        entry.audience != 'lifter') {
+      return;
+    }
     final ActiveWorkoutState workout =
         _ref.read(activeWorkoutControllerProvider);
     if (!workout.ready || workout.hasWorkout) return;
-    _ref.read(analyticsClientProvider).showMeTapped(featureId);
+    _ref.read(analyticsClientProvider).showMeTapped(featureId, source: source);
     _operation++;
     state = TourSession(
       stopIds: <String>[featureId],
@@ -257,7 +358,25 @@ class TourController extends StateNotifier<TourSession?> {
       );
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted || operation != _operation || state == null) return;
-      if (!targetContext.mounted) return;
+      if (!targetContext.mounted) {
+        final BuildContext? refreshedTargetContext =
+            _ref.read(tourTargetRegistryProvider)[entry.target]?.key.currentContext;
+        if (refreshedTargetContext == null || !refreshedTargetContext.mounted) {
+          return;
+        }
+        targetContext = refreshedTargetContext;
+        await Scrollable.ensureVisible(
+          refreshedTargetContext,
+          alignment: 0.35,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+        );
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || operation != _operation || state == null ||
+            !refreshedTargetContext.mounted) {
+          return;
+        }
+      }
       final String routePath = currentTourRoutePath(router);
       final ActiveWorkoutState workout =
           _ref.read(activeWorkoutControllerProvider);

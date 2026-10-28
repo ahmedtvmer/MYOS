@@ -1279,7 +1279,7 @@ void main() {
 
     await tester.tap(find.text('Training profile'));
     await _pumpUntilFound(tester, find.text('Training schedule'));
-    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
     await tester.pump();
     await tester.ensureVisible(find.text('Save schedule'));
     await tester.tap(find.text('Save schedule'));

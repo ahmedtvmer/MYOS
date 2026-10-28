@@ -500,7 +500,8 @@ class SchemaMixin:
                     last_seen_build INTEGER,
                     display_language TEXT NOT NULL DEFAULT 'en' CHECK (display_language IN ('en', 'ar')),
                     tour_seen_version INTEGER NOT NULL DEFAULT 0,
-                    tour_created_version INTEGER NOT NULL DEFAULT 0
+                    tour_created_version INTEGER NOT NULL DEFAULT 0,
+                    whats_new_seen_release INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE TABLE IF NOT EXISTS account_analytics_preferences (
                     account_id TEXT PRIMARY KEY,
@@ -1267,6 +1268,10 @@ class SchemaMixin:
         if columns and "tour_created_version" not in columns:
             self.catalog_conn.execute(
                 "ALTER TABLE accounts ADD COLUMN tour_created_version INTEGER NOT NULL DEFAULT 0"
+            )
+        if columns and "whats_new_seen_release" not in columns:
+            self.catalog_conn.execute(
+                "ALTER TABLE accounts ADD COLUMN whats_new_seen_release INTEGER NOT NULL DEFAULT 0"
             )
 
     def _ensure_coach_invites_revoked_at(self) -> None:

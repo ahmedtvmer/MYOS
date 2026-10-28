@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,7 @@ import 'package:myos_mobile/src/core/ui/myos_bottom_navigation.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
 import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
 import 'package:myos_mobile/src/features/player/tour/spotlight_overlay.dart';
+import 'package:myos_mobile/src/features/player/tour/whats_new_screen.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
 import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
 import 'package:myos_mobile/src/router.dart';
@@ -26,6 +29,7 @@ import 'package:myos_mobile/src/router.dart';
 import 'support/fake_myos_api.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_tour_seen_retry_store.dart';
+import 'support/fake_whats_new_seen_retry_store.dart';
 
 class _FakeInstallPromptStore implements InstallPromptStore {
   _FakeInstallPromptStore(this.environment, {this.outcome = 'unavailable'});
@@ -77,6 +81,19 @@ class _FakeInstallPromptStore implements InstallPromptStore {
   }
 }
 
+class _BlockingWhatsNewRetryStore implements WhatsNewSeenRetryStore {
+  final Completer<int?> pendingRead = Completer<int?>();
+
+  @override
+  Future<int?> read(String accountId) => pendingRead.future;
+
+  @override
+  Future<void> write(String accountId, int release) async {}
+
+  @override
+  Future<void> clear(String accountId) async {}
+}
+
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     {int attempts = 40}) async {
   for (int i = 0; i < attempts; i++) {
@@ -99,6 +116,7 @@ Future<void> _pumpHome(
   Size size = const Size(1080, 2400),
   List<Override> extraOverrides = const <Override>[],
   TourSeenRetryStore? tourRetryStore,
+  WhatsNewSeenRetryStore? whatsNewRetryStore,
 }) async {
   fake.displayLanguage = languageCode;
   tester.view.physicalSize = size;
@@ -121,6 +139,8 @@ Future<void> _pumpHome(
         systemDisplayLanguageProvider.overrideWithValue(languageCode),
         tourSeenRetryStoreProvider.overrideWithValue(
             tourRetryStore ?? FakeTourSeenRetryStore()),
+        whatsNewSeenRetryStoreProvider.overrideWithValue(
+            whatsNewRetryStore ?? FakeWhatsNewSeenRetryStore()),
         draftStoreProvider
             .overrideWithValue(draftStore ?? InMemoryDraftStore()),
         workoutCacheStoreProvider
@@ -156,6 +176,180 @@ FakeMyosApi _signedInFake() {
 }
 
 void main() {
+  testWidgets('What’s new shows only unseen supported entries and Got it remembers the release', (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    final FakeWhatsNewSeenRetryStore retryStore = FakeWhatsNewSeenRetryStore();
+    final FeatureEntry unsupported = FeatureEntry(
+      id: 'future_feature',
+      titleEn: 'Future feature',
+      sentenceEn: 'This will arrive in a later release.',
+      titleAr: 'ميزة مستقبلية',
+      sentenceAr: 'ستصل هذه الميزة في إصدار لاحق.',
+      target: 'profile',
+      location: TourRouteLocation(profilePath),
+      release: currentFeatureRelease + 1,
+      audience: 'lifter',
+    );
+    await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore, extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+      featureEntriesProvider.overrideWithValue(<FeatureEntry>[...featureList, unsupported]),
+    ]);
+    await _pumpUntilFound(tester, find.text("What's new"));
+    final Finder sheetList = find.descendant(
+      of: find.byType(BottomSheet), matching: find.byType(Scrollable),
+    ).first;
+    for (final FeatureEntry entry in featureList.where((FeatureEntry item) => item.release == currentFeatureRelease)) {
+      await tester.scrollUntilVisible(find.text(entry.titleEn), 220, scrollable: sheetList);
+      expect(find.text(entry.titleEn), findsOneWidget);
+    }
+    expect(find.text('Future feature'), findsNothing);
+    await tester.ensureVisible(find.text('Got it'));
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+    expect(fake.whatsNewSeenRelease, currentFeatureRelease);
+    expect(fake.whatsNewSeenWriteCount, 1);
+    expect(retryStore.pending, isEmpty);
+    expect(analytics.events.any((Map<String, Object> event) => event['event'] == 'whats_new_opened'), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore);
+    expect(find.text("What's new"), findsNothing);
+  });
+
+  testWidgets("offline What's new dismissal is queued and retried after app restart", (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..whatsNewSeenRelease = 0
+      ..whatsNewSeenWriteFailures = 1;
+    final FakeWhatsNewSeenRetryStore retryStore = FakeWhatsNewSeenRetryStore();
+    await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore);
+    await _pumpUntilFound(tester, find.text("What's new"));
+    await tester.ensureVisible(find.text('Got it'));
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+
+    expect(retryStore.pending['account-alice'], currentFeatureRelease);
+    final ProviderContainer firstContainer = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    expect(firstContainer.read(authControllerProvider).session?.account.whatsNewSeenRelease, currentFeatureRelease);
+    expect(fake.whatsNewSeenRelease, 0);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore);
+    await _pumpUntilFound(tester, find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(fake.whatsNewSeenRelease, currentFeatureRelease);
+    expect(fake.whatsNewSeenWriteCount, 2);
+    expect(retryStore.pending, isEmpty);
+    expect(find.text("What's new"), findsNothing);
+  });
+
+  testWidgets("What's new close marks the release seen", (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text("What's new"));
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(fake.whatsNewSeenRelease, currentFeatureRelease);
+    expect(fake.whatsNewSeenWriteCount, 1);
+  });
+
+  testWidgets("Profile What's new list is grouped and localized", (tester) async {
+    for (final String language in <String>['en', 'ar']) {
+      final FakeMyosApi fake = _signedInFake();
+      final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+      await _pumpHome(tester, fake, languageCode: language, size: const Size(390, 844), extraOverrides: <Override>[
+        analyticsClientProvider.overrideWithValue(analytics),
+      ]);
+      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+      for (int attempt = 0; attempt < 40 && !container.read(activeWorkoutControllerProvider).ready; attempt++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(container.read(activeWorkoutControllerProvider).ready, isTrue);
+      container.read(routerProvider).go(profilePath);
+      await tester.pumpAndSettle();
+      final String listLabel = language == 'ar' ? 'ما الجديد' : "What's new";
+      await tester.ensureVisible(find.text(listLabel));
+      await tester.tap(find.text(listLabel));
+      await tester.pumpAndSettle();
+      expect(container.read(routerProvider).routerDelegate.state.uri.path, whatsNewPath);
+      expect(find.text(language == 'ar' ? 'أكتوبر 2026' : 'October 2026'), findsOneWidget);
+      for (final FeatureEntry entry in featureList.where((FeatureEntry item) => item.release == currentFeatureRelease)) {
+        await tester.scrollUntilVisible(
+          find.text(language == 'ar' ? entry.titleAr : entry.titleEn),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(language == 'ar' ? entry.titleAr : entry.titleEn), findsOneWidget, reason: entry.id);
+      }
+      expect(find.text(language == 'ar' ? 'أرني' : 'Show me'), findsWidgets);
+      expect(analytics.events.any((Map<String, Object> event) =>
+          event['event'] == 'whats_new_opened' &&
+          (event['properties'] as Map<String, Object>)['source'] == 'profile'), isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets("What's new analytics respects the opt-out", (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..analyticsAllowed = false
+      ..whatsNewSeenRelease = 0;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, size: const Size(390, 844), extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    await _pumpUntilFound(tester, find.text("What's new"));
+    final Finder row = find.ancestor(
+      of: find.text(featureList.firstWhere((FeatureEntry entry) => entry.id == 'weak_points').titleEn),
+      matching: find.byType(WhatsNewFeatureRow),
+    );
+    await tester.tap(find.descendant(of: row, matching: find.text('Show me')));
+    await tester.pumpAndSettle();
+    expect(analytics.events.where((Map<String, Object> event) =>
+        event['event'] == 'whats_new_opened' || event['event'] == 'show_me_tapped'), isEmpty);
+  });
+
+  testWidgets("What's new waits for an open workout to close", (tester) async {
+    final FakeMyosApi fake = _signedInFake()..whatsNewSeenRelease = 0;
+    final _BlockingWhatsNewRetryStore retryStore = _BlockingWhatsNewRetryStore();
+    await _pumpHome(tester, fake, size: const Size(390, 844), whatsNewRetryStore: retryStore);
+    final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final ActiveWorkout workout = ActiveWorkout.fromJson(<String, dynamic>{
+      'id': 'whats-new-workout',
+      'account_id': 'account-alice',
+      'started_at': '2026-10-28T10:00:00Z',
+      'day_order': 1,
+      'day_name': 'Upper 1',
+      'exercises': <dynamic>[],
+      'baselines': <String, dynamic>{},
+    });
+    container.read(activeWorkoutControllerProvider.notifier).state = ActiveWorkoutState(
+      accountId: 'account-alice', ready: true, workout: workout,
+    );
+    retryStore.pendingRead.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsNothing);
+    container.read(activeWorkoutControllerProvider.notifier).state = const ActiveWorkoutState(
+      accountId: 'account-alice', ready: true, workout: null,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsOneWidget);
+  });
+
+  testWidgets("What's new waits until the app session after the Tour", (tester) async {
+    final FakeMyosApi fake = _signedInFake()
+      ..tourSeenVersion = 0
+      ..whatsNewSeenRelease = 0;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    expect(find.text("What's new"), findsNothing);
+    await tester.tap(find.byKey(const ValueKey<String>('tour_skip')));
+    await tester.pumpAndSettle();
+    expect(find.text("What's new"), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    await _pumpUntilFound(tester, find.text("What's new"));
+    expect(find.text("What's new"), findsOneWidget);
+  });
+
   testWidgets('eligible install dialog waits for its injected delay', (tester) async {
     final _FakeInstallPromptStore store = _FakeInstallPromptStore(
       const InstallPromptEnvironment(
@@ -862,19 +1056,83 @@ void main() {
     expect(fake.tourSeenWriteCount, writesBefore);
   });
 
+  testWidgets("What's new Show me lands and spotlights each release entry", (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    final List<FeatureEntry> entries = featureList
+        .where((FeatureEntry entry) => entry.release == currentFeatureRelease)
+        .toList(growable: false);
+
+    for (final FeatureEntry entry in entries) {
+      fake.whatsNewSeenRelease = 0;
+      final int writesBefore = fake.whatsNewSeenWriteCount;
+      await _pumpHome(tester, fake, size: const Size(390, 844), extraOverrides: <Override>[
+        analyticsClientProvider.overrideWithValue(analytics),
+      ]);
+      await _pumpUntilFound(tester, find.text("What's new"));
+      final Finder row = find.ancestor(
+        of: find.text(entry.titleEn), matching: find.byType(WhatsNewFeatureRow),
+      );
+      final Finder showMe = find.descendant(of: row, matching: find.text('Show me'));
+      final Finder sheetList = find.descendant(
+        of: find.byType(BottomSheet), matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(showMe, 180, scrollable: sheetList);
+      await tester.ensureVisible(showMe);
+      await tester.pumpAndSettle();
+      await tester.tap(showMe);
+      await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+      await tester.pumpAndSettle();
+
+      final ProviderContainer container = ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+      final GoRouter router = container.read(routerProvider);
+      expect(entry.location.matches(router.routerDelegate.state.uri.path, container.read(playerShellTabProvider)), isTrue, reason: entry.id);
+      final TourTargetHandle target = container.read(tourTargetRegistryProvider)[entry.target]!;
+      final Finder spotlightBorder = find.descendant(
+        of: find.byType(SpotlightOverlay),
+        matching: find.byWidgetPredicate((Widget widget) =>
+            widget is DecoratedBox && widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).border != null),
+      );
+      expect(tester.getRect(spotlightBorder), tester.getRect(find.byKey(target.key)), reason: entry.id);
+      expect(analytics.events.any((Map<String, Object> event) =>
+          event['event'] == 'show_me_tapped' &&
+          (event['properties'] as Map<String, Object>)['feature_id'] == entry.id &&
+          (event['properties'] as Map<String, Object>)['source'] == 'whats_new'), isTrue, reason: entry.id);
+      await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
+      await tester.pumpAndSettle();
+      expect(fake.whatsNewSeenRelease, currentFeatureRelease, reason: entry.id);
+      expect(fake.whatsNewSeenWriteCount, writesBefore + 1, reason: entry.id);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   testWidgets('Feature guide Show me lands and spotlights every lifter feature',
       (tester) async {
     final FakeMyosApi fake = _signedInFake();
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    const FeatureEntry unsupported = FeatureEntry(
+      id: 'future_feature',
+      titleEn: 'Future feature',
+      sentenceEn: 'This will arrive in a later release.',
+      titleAr: 'ميزة مستقبلية',
+      sentenceAr: 'ستصل هذه الميزة في إصدار لاحق.',
+      target: 'profile',
+      location: TourRouteLocation(profilePath),
+      release: currentFeatureRelease + 1,
+      audience: 'lifter',
+    );
     await _pumpHome(tester, fake, size: const Size(390, 844),
         extraOverrides: <Override>[
       analyticsClientProvider.overrideWithValue(analytics),
+      featureEntriesProvider.overrideWithValue(<FeatureEntry>[...featureList, unsupported]),
     ]);
     final ProviderContainer container =
         ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
     final GoRouter router = container.read(routerProvider);
     router.go(featureGuidePath);
     await tester.pumpAndSettle();
+    expect(find.text('Future feature'), findsNothing);
 
     final List<FeatureEntry> entries = featureList
         .where((FeatureEntry entry) => entry.audience == 'lifter')

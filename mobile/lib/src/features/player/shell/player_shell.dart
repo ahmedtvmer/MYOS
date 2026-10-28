@@ -28,6 +28,7 @@ import '../workout/active_workout_prompt.dart';
 import '../tour/feature_list.dart';
 import '../tour/tour_controller.dart';
 import '../tour/tour_targets.dart';
+import '../tour/whats_new_screen.dart';
 
 /// The player navigation shell.
 ///
@@ -72,6 +73,9 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   /// appears at most once per opening of the app (#123).
   bool _offeredResume = false;
   bool _rosterAiDisclosureChecked = false;
+  String? _whatsNewAttemptedAccountId;
+  bool _whatsNewRetryReady = false;
+  bool _tourWasShownThisSession = false;
   bool _startupNoticesComplete = false;
   String? _tourAttemptedAccountId;
   GoRouter? _observedRouter;
@@ -105,11 +109,21 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
   }
 
   Future<void> _offerStartupNotices() async {
+    final Account? account =
+        ref.read(authControllerProvider).session?.account;
+    if (account != null && !account.isCoach) {
+      unawaited(_retryPendingWhatsNewSeen());
+    }
     await _offerRosterAiDisclosure();
     if (mounted) {
-      _startupNoticesComplete = true;
+      setState(() => _startupNoticesComplete = true);
       _offerResume(ref.read(activeWorkoutControllerProvider));
     }
+  }
+
+  Future<void> _retryPendingWhatsNewSeen() async {
+    await ref.read(tourControllerProvider.notifier).retryPendingWhatsNewSeen();
+    if (mounted) setState(() => _whatsNewRetryReady = true);
   }
 
   Future<void> _offerRosterAiDisclosure() async {
@@ -142,12 +156,20 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
     final bool homeIsCurrent =
         tabIndex == PlayerShellTab.home.index && routePath == homePath;
     if (!homeIsCurrent) _tourAttemptedAccountId = null;
-    if (tour != null ||
-        !homeIsCurrent ||
+    if (tour != null) {
+      _tourWasShownThisSession = true;
+      return;
+    }
+    if (!homeIsCurrent ||
         !workout.ready ||
         workout.hasWorkout ||
         streaming) {
       return;
+    }
+    if (account != null &&
+        !account.isCoach &&
+        !isTourEligible(account, currentVersion: version)) {
+      _scheduleWhatsNewSheet(account);
     }
     final String firstStopId = tourV1StopIds.first;
     final FeatureEntry firstStop = featureList.firstWhere(
@@ -189,6 +211,124 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
       _tourAttemptedAccountId = account.accountId;
       unawaited(controller.startTour(version));
     });
+  }
+
+  void _scheduleWhatsNewSheet(Account account) {
+    if (!_startupNoticesComplete ||
+        !_whatsNewRetryReady ||
+        _tourWasShownThisSession ||
+        account.whatsNewSeenRelease >= currentFeatureRelease ||
+        _whatsNewAttemptedAccountId == account.accountId) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _whatsNewAttemptedAccountId == account.accountId) return;
+      final ActiveWorkoutState workout = ref.read(activeWorkoutControllerProvider);
+      final bool canShow = workout.ready &&
+          !workout.hasWorkout &&
+          !ref.read(playerChatStreamingProvider) &&
+          ref.read(tourControllerProvider) == null &&
+          GoRouter.of(context).routeInformationProvider.value.uri.path == homePath;
+      if (!canShow) return;
+      final List<FeatureEntry> entries = ref.read(featureEntriesProvider).where((FeatureEntry entry) =>
+          entry.audience == 'lifter' &&
+          entry.release > account.whatsNewSeenRelease &&
+          entry.release <= currentFeatureRelease).toList();
+      if (entries.isEmpty) return;
+      _whatsNewAttemptedAccountId = account.accountId;
+      _recordWhatsNewOpened(entries);
+      unawaited(_showWhatsNewSheet(entries));
+    });
+  }
+
+  void _recordWhatsNewOpened(List<FeatureEntry> entries) {
+    final Set<int> releases = entries.map((FeatureEntry entry) => entry.release).toSet();
+    ref.read(analyticsClientProvider).whatsNewOpened(
+      releaseCount: releases.length,
+      highestRelease: releases.reduce((int a, int b) => a > b ? a : b),
+      source: 'sheet',
+    );
+  }
+
+  Future<void> _showWhatsNewSheet(List<FeatureEntry> entries) async {
+    final String language = ref.read(displayLanguageProvider);
+    final MyosCopy copy = MyosCopy(language);
+    final String? selectedFeature = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(copy.whatsNewTitle,
+                          style: Theme.of(context).textTheme.headlineSmall),
+                    ),
+                    IconButton(
+                      tooltip: copy.close,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                Text(copy.whatsNewSinceLastVisit),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      for (final FeatureEntry entry in entries)
+                        WhatsNewFeatureRow(
+                          entry: entry,
+                          copy: copy,
+                          onShowMe: () =>
+                              _showFeatureFromWhatsNew(sheetContext, entry),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: Text(copy.gotIt),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await _markWhatsNewSeen();
+    if (selectedFeature != null) {
+      await ref
+          .read(tourControllerProvider.notifier)
+          .showMe(selectedFeature, source: 'whats_new');
+    }
+  }
+
+  void _showFeatureFromWhatsNew(BuildContext sheetContext, FeatureEntry entry) {
+    Navigator.pop(sheetContext, entry.id);
+  }
+
+  Future<void> _markWhatsNewSeen() async {
+    try {
+      await ref.read(tourControllerProvider.notifier).markWhatsNewSeen(currentFeatureRelease);
+    } on ApiException {
+      // The next authenticated account refresh will offer the release again.
+    }
   }
 
   bool _needsRosterAiDisclosure(Assignment? assignment) =>

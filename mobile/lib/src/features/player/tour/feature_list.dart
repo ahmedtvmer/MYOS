@@ -1,9 +1,12 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/models.dart';
 import '../../../router.dart';
 import 'tour_targets.dart';
 
 /// The shared Feature list used by the Tour and later discovery surfaces.
 const int tourCurrentVersion = 1;
+const int currentFeatureRelease = 1;
 
 bool isTourEligible(Account account, {int currentVersion = tourCurrentVersion}) =>
     account.tourSeenVersion < currentVersion &&
@@ -18,7 +21,7 @@ class FeatureEntry {
     required this.sentenceAr,
     required this.target,
     required this.location,
-    required this.appVersion,
+    required this.release,
     required this.audience,
   });
 
@@ -29,7 +32,7 @@ class FeatureEntry {
   final String sentenceAr;
   final String target;
   final TourTargetLocation location;
-  final String appVersion;
+  final int release;
   final String audience;
 }
 
@@ -42,7 +45,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'اطّلع على تمرينك التالي وابدأ التدريب.',
     target: 'home',
     location: TourShellTabLocation(tabIndex: 0),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -53,7 +56,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'عدّل يومًا، وأضف تمارين، أو استبدل حركة بخيار آخر.',
     target: 'program',
     location: TourShellTabLocation(tabIndex: 1),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -64,7 +67,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'اسأل عن تدريبك، بما في ذلك تغييرات برنامجك التدريبي.',
     target: 'assistant',
     location: TourShellTabLocation(tabIndex: 0),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -75,7 +78,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'راجع أهدافك وسجّل الماء وتابع وزن جسمك.',
     target: 'nutrition',
     location: TourShellTabLocation(tabIndex: 2),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -86,7 +89,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'تابع مخططاتك وراجع ملاحظات محطات التقدم.',
     target: 'progress',
     location: TourShellTabLocation(tabIndex: 3),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -99,7 +102,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
         'وغيّر اللغة من الإعدادات.',
     target: 'profile',
     location: TourRouteLocation(profilePath),
-    appVersion: '0.1.0',
+    release: 0,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -110,10 +113,68 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'افتح دليل الميزات أو أعد الجولة من الملف الشخصي.',
     target: 'feature_guide',
     location: TourRouteLocation(profilePath),
-    appVersion: '0.1.0',
+    release: 0,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'weak_points',
+    titleEn: 'Weak points',
+    sentenceEn: 'Choose muscles you want your Training program to focus on.',
+    titleAr: 'نقاط الضعف',
+    sentenceAr: 'اختر العضلات التي تريد أن يركز عليها برنامجك التدريبي.',
+    target: 'whats_new_weak_points',
+    location: TourRouteLocation(profilePath),
+    release: 1,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'assistant_why',
+    titleEn: 'Ask the assistant why',
+    sentenceEn: 'Ask why an exercise or training decision is in your program.',
+    titleAr: 'اسأل المساعد عن السبب',
+    sentenceAr: 'اسأل عن سبب وجود تمرين أو قرار تدريبي في برنامجك.',
+    target: 'whats_new_assistant_why',
+    location: TourRouteLocation(chatPath),
+    release: 1,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'add_exercises',
+    titleEn: 'Add exercises in the Program tab',
+    sentenceEn: 'Add exercises to a training day from the Program tab.',
+    titleAr: 'أضف تمارين من تبويب البرنامج',
+    sentenceAr: 'أضف تمارين إلى يوم تدريبي من تبويب البرنامج.',
+    target: 'whats_new_add_exercises',
+    location: TourShellTabLocation(tabIndex: 1),
+    release: 1,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'edit_program_chat',
+    titleEn: 'Edit your program from chat',
+    sentenceEn: 'Tell the assistant how you want to change your Training program.',
+    titleAr: 'عدّل برنامجك عبر المحادثة',
+    sentenceAr: 'أخبر المساعد بالتغييرات التي تريدها في برنامجك التدريبي.',
+    target: 'whats_new_edit_program_chat',
+    location: TourRouteLocation(chatPath),
+    release: 1,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
+    id: 'movements_to_avoid',
+    titleEn: 'Movements to avoid',
+    sentenceEn: 'Choose movements your Training program should avoid.',
+    titleAr: 'حركات يجب تجنبها',
+    sentenceAr: 'اختر الحركات التي يجب أن يتجنبها برنامجك التدريبي.',
+    target: 'whats_new_movements_to_avoid',
+    location: TourRouteLocation(profilePath),
+    release: 1,
     audience: 'lifter',
   ),
 ];
+
+final Provider<List<FeatureEntry>> featureEntriesProvider =
+    Provider<List<FeatureEntry>>((ref) => featureList);
 
 const List<String> tourV1StopIds = <String>[
   'home',

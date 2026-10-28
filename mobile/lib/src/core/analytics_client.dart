@@ -52,7 +52,13 @@ abstract interface class AnalyticsClient {
 
   void tourEvent(String event, {int? step, bool replay = false});
 
-  void showMeTapped(String featureId);
+  void showMeTapped(String featureId, {String? source});
+
+  void whatsNewOpened({
+    required int releaseCount,
+    required int highestRelease,
+    required String source,
+  });
 
   void reset();
 }
@@ -94,7 +100,14 @@ class NoOpAnalyticsClient implements AnalyticsClient {
   void tourEvent(String event, {int? step, bool replay = false}) {}
 
   @override
-  void showMeTapped(String featureId) {}
+  void showMeTapped(String featureId, {String? source}) {}
+
+  @override
+  void whatsNewOpened({
+    required int releaseCount,
+    required int highestRelease,
+    required String source,
+  }) {}
 
   @override
   void reset() {}
@@ -306,9 +319,23 @@ class PostHogAnalyticsClient implements AnalyticsClient {
       );
 
   @override
-  void showMeTapped(String featureId) => _captureEvent(
+  void showMeTapped(String featureId, {String? source}) => _captureEvent(
         'show_me_tapped',
-        <String, Object>{'feature_id': featureId},
+        <String, Object>{'feature_id': featureId, if (source != null) 'source': source},
+      );
+
+  @override
+  void whatsNewOpened({
+    required int releaseCount,
+    required int highestRelease,
+    required String source,
+  }) => _captureEvent(
+        'whats_new_opened',
+        <String, Object>{
+          'release_count': releaseCount,
+          'highest_release': highestRelease,
+          'source': source,
+        },
       );
 
   void _captureEvent(String event, Map<String, Object> properties) {

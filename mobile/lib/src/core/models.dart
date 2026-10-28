@@ -293,6 +293,7 @@ class Account {
     this.analyticsAllowed = true,
     this.tourSeenVersion = 0,
     this.tourCreatedVersion = 0,
+    this.whatsNewSeenRelease = 1,
     this.recoveryEmailVerified = false,
     this.googleEmail,
     this.productEmailsOptedIn = false,
@@ -325,6 +326,7 @@ class Account {
       displayLanguage: normalizeDisplayLanguage(json['display_language']),
       analyticsAllowed: json['analytics_allowed'] as bool? ?? true,
       tourSeenVersion: json['tour_seen_version'] as int? ?? 0,
+      whatsNewSeenRelease: json['whats_new_seen_release'] as int? ?? 1,
       tourCreatedVersion: json['tour_created_version'] as int? ?? 0,
       recoveryEmailVerified: json['recovery_email_verified'] as bool? ?? false,
       googleEmail: json['google_email'] as String?,
@@ -367,6 +369,7 @@ class Account {
   final bool analyticsAllowed;
   final int tourSeenVersion;
   final int tourCreatedVersion;
+  final int whatsNewSeenRelease;
 
   /// Whether `/auth/me` confirms the current recovery email address.
   final bool recoveryEmailVerified;
@@ -393,6 +396,7 @@ class Account {
     bool? analyticsAllowed,
     int? tourSeenVersion,
     int? tourCreatedVersion,
+    int? whatsNewSeenRelease,
     bool? recoveryEmailVerified,
     String? googleEmail,
     bool? productEmailsOptedIn,
@@ -415,6 +419,7 @@ class Account {
         analyticsAllowed: analyticsAllowed ?? this.analyticsAllowed,
         tourSeenVersion: tourSeenVersion ?? this.tourSeenVersion,
         tourCreatedVersion: tourCreatedVersion ?? this.tourCreatedVersion,
+        whatsNewSeenRelease: whatsNewSeenRelease ?? this.whatsNewSeenRelease,
         recoveryEmailVerified:
             recoveryEmailVerified ?? this.recoveryEmailVerified,
         googleEmail: googleEmail ?? this.googleEmail,

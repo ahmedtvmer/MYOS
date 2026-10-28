@@ -249,6 +249,10 @@ class TourSeenVersionIn(BaseModel):
     version: int = Field(ge=0)
 
 
+class WhatsNewSeenReleaseIn(BaseModel):
+    release: int = Field(ge=0)
+
+
 class GoogleSignInIn(BaseModel):
     """Google ID token from the client. Verified server-side; never trusted as-is."""
 
@@ -360,6 +364,7 @@ class AccountOut(BaseModel):
     display_language: DisplayLanguage
     analytics_allowed: bool = True
     tour_seen_version: int = 0
+    whats_new_seen_release: int = 0
     tour_created_version: int = 0
     recovery_email_verified: bool = False
     google_email: str | None = None

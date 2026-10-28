@@ -940,7 +940,7 @@ void main() {
     await _openProfile(tester);
     await _pumpUntilFound(tester, find.text('Training pause'));
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -1100));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1100));
     await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('pause_start_button')));
     await tester.tap(find.byKey(const Key('pause_start_button')));

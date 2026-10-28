@@ -368,6 +368,7 @@ def test_current_account_reports_capabilities_from_durable_registry(api):
         "analytics_allowed": True,
         "tour_seen_version": 0,
         "tour_created_version": 1,
+        "whats_new_seen_release": 1,
         "capabilities": {"player": True, "coach": False},
         "coach_ai_enabled": False,
         "coach_roster_ai_enabled": False,

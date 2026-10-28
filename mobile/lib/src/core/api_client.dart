@@ -659,6 +659,18 @@ class ApiClient {
     return body['tour_seen_version'] as int;
   }
 
+  Future<int> markWhatsNewSeen(int release) async {
+    final response = await _send(() => _dio.put<dynamic>(
+          '/auth/whats-new-seen',
+          data: <String, dynamic>{'release': release},
+        ));
+    final dynamic body = response.data;
+    if (body is! Map<String, dynamic> || body['whats_new_seen_release'] is! int) {
+      throw const ApiException("The service returned an invalid What's new status.");
+    }
+    return body['whats_new_seen_release'] as int;
+  }
+
   /// Redeems a single-use Coach invite from MYOS and returns the updated account.
   Future<Account> redeemCoachInvite(String token) async {
     final response = await _send(

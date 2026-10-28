@@ -1434,15 +1434,21 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                           color: c.accent,
                         ),
                       if (program.playerControlsProgram)
-                        IconButton(
-                          key: Key('program_edit_day_${day.dayOrder}'),
-                          tooltip: displayCopyOf(context).editDay,
-                          onPressed: _editingProgramDay || _substituting
-                              ? null
-                              : () => unawaited(
-                                    _editProgramDay(day, program.version),
-                                  ),
-                          icon: const Icon(Icons.edit_outlined),
+                        TourTarget(
+                          id: day.weekOrder == program.days.first.weekOrder &&
+                                  day.dayOrder == program.days.first.dayOrder
+                              ? 'whats_new_add_exercises'
+                              : 'program_edit_day_${day.weekOrder}_${day.dayOrder}',
+                          child: IconButton(
+                            key: Key('program_edit_day_${day.dayOrder}'),
+                            tooltip: displayCopyOf(context).editDay,
+                            onPressed: _editingProgramDay || _substituting
+                                ? null
+                                : () => unawaited(
+                                      _editProgramDay(day, program.version),
+                                    ),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
                         ),
                     ],
                   ),

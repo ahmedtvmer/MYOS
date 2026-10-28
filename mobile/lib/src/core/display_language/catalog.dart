@@ -40,6 +40,15 @@ class MyosCopy {
   String get assistant => isArabic ? 'المساعد' : 'Assistant';
   String get tourSkip => isArabic ? 'تخطي' : 'Skip';
   String get featureGuideTitle => isArabic ? 'دليل الميزات' : 'Feature guide';
+  String get whatsNewTitle => isArabic ? 'ما الجديد' : "What's new";
+  String whatsNewRelease(int release) => switch (release) {
+        1 => isArabic ? 'أكتوبر 2026' : 'October 2026',
+        _ => isArabic ? 'إصدار $release' : 'Release $release',
+      };
+  String get whatsNewProfile => whatsNewTitle;
+  String get whatsNewSinceLastVisit => isArabic ? 'منذ زيارتك الأخيرة' : 'Since your last visit';
+  String get gotIt => isArabic ? 'حسنًا' : 'Got it';
+  String get close => isArabic ? 'إغلاق' : 'Close';
   String get showMe => isArabic ? 'أرني' : 'Show me';
   String get tourBack => isArabic ? 'السابق' : 'Back';
   String get tourNext => isArabic ? 'التالي' : 'Next';

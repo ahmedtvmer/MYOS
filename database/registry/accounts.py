@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 CURRENT_TOUR_VERSION = 1
+CURRENT_FEATURE_RELEASE = 1
 
 _ANALYTICS_ALLOWED_SQL = (
     "COALESCE((SELECT analytics_allowed FROM account_analytics_preferences "
@@ -32,7 +33,7 @@ class RegistryAccountsMixin:
 
     _ACCOUNT_COLUMNS = (
         "account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, last_seen_at, last_seen_build, display_language, "
-        + _ANALYTICS_ALLOWED_SQL + ", tour_seen_version, tour_created_version"
+        + _ANALYTICS_ALLOWED_SQL + ", tour_seen_version, tour_created_version, whats_new_seen_release"
     )
 
     @staticmethod
@@ -55,6 +56,7 @@ class RegistryAccountsMixin:
             "analytics_allowed": bool(row[12]),
             "tour_seen_version": int(row[13] or 0),
             "tour_created_version": int(row[14] or 0),
+            "whats_new_seen_release": int(row[15] or 0),
         }
 
     @staticmethod
@@ -130,8 +132,8 @@ class RegistryAccountsMixin:
                 ledger_id = self._unique_ledger_id(cursor, clean_id, account_id)
                 cursor.execute(
                     "INSERT INTO accounts"
-                    " (account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, display_language, tour_created_version)"
-                    " VALUES (?, ?, ?, 'active', 1, 0, 1, ?, NULL, ?, ?)",
+                    " (account_id, username, ledger_id, status, is_player, is_coach, session_epoch, created_at, deleted_at, display_language, tour_created_version, whats_new_seen_release)"
+                    " VALUES (?, ?, ?, 'active', 1, 0, 1, ?, NULL, ?, ?, ?)",
                     (
                         account_id,
                         clean_id,
@@ -139,6 +141,7 @@ class RegistryAccountsMixin:
                         now,
                         display_language if display_language in ("en", "ar") else "en",
                         CURRENT_TOUR_VERSION,
+                        CURRENT_FEATURE_RELEASE,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -220,6 +223,19 @@ class RegistryAccountsMixin:
                 "UPDATE accounts SET tour_seen_version = MAX(tour_seen_version, ?) "
                 "WHERE account_id = ? AND status = 'active' AND deleted_at IS NULL",
                 (version, str(account_id)),
+            )
+            return cursor.rowcount == 1
+
+    def set_account_whats_new_seen_release(self, account_id: str, release: int) -> bool:
+        """Advances the signed-in Account's What's new release monotonically."""
+        if release < 0:
+            return False
+        self.ensure_account_schema()
+        with self.catalog_transaction(immediate=True):
+            cursor = self.catalog_conn.execute(
+                "UPDATE accounts SET whats_new_seen_release = MAX(whats_new_seen_release, ?) "
+                "WHERE account_id = ? AND status = 'active' AND deleted_at IS NULL",
+                (release, str(account_id)),
             )
             return cursor.rowcount == 1
 

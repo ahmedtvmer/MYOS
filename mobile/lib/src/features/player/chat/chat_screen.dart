@@ -26,6 +26,7 @@ import '../../../core/ui/first_strong_direction.dart';
 import '../../../core/workout_storage.dart';
 import '../../../providers.dart';
 import '../assignment/program_request_dialog.dart';
+import '../tour/tour_targets.dart';
 
 /// Hosted player-assistant chat (#37, ADR 016/036).
 ///
@@ -654,7 +655,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         : copy.failureMessage(_sendFailure!),
                     onRetry: _failedContent == null ? null : _retry,
                   ),
-                _composer(),
+                TourTarget(
+                  id: 'whats_new_edit_program_chat',
+                  child: _composer(),
+                ),
               ],
             ),
     );
@@ -981,23 +985,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
             Expanded(
-              child: MyosTextField(
-                fieldKey: const Key('chat_composer'),
-                controller: _controller,
-                enabled: _composerEnabled,
-                minLines: 1,
-                maxLines: 4,
-                maxLength: chatMessageMaxChars,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                inputFormatters: const <TextInputFormatter>[
-                  ChatMessageCodePointLengthFormatter(),
-                ],
-                hideCounter: true,
-                textInputAction: TextInputAction.newline,
-                hint: _offline ? copy.offline : copy.messageAssistant,
-                helperText: helperText,
-                onChanged: (_) => _setStateIfMounted(() {}),
-                onSubmitted: (_) => _send(),
+              child: TourTarget(
+                id: 'whats_new_assistant_why',
+                child: MyosTextField(
+                  fieldKey: const Key('chat_composer'),
+                  controller: _controller,
+                  enabled: _composerEnabled,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: chatMessageMaxChars,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  inputFormatters: const <TextInputFormatter>[
+                    ChatMessageCodePointLengthFormatter(),
+                  ],
+                  hideCounter: true,
+                  textInputAction: TextInputAction.newline,
+                  hint: _offline ? copy.offline : copy.messageAssistant,
+                  helperText: helperText,
+                  onChanged: (_) => _setStateIfMounted(() {}),
+                  onSubmitted: (_) => _send(),
+                ),
               ),
             ),
             const SizedBox(width: MyosSpacing.xs),

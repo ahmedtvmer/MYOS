@@ -90,12 +90,18 @@ class FakeAnalyticsClient implements AnalyticsClient {
   }
 
   @override
-  void showMeTapped(String featureId) {
+  void showMeTapped(String featureId, {String? source}) {
     if (!enabled) return;
     events.add(<String, Object>{
       'event': 'show_me_tapped',
-      'properties': <String, Object>{'feature_id': featureId},
+      'properties': <String, Object>{'feature_id': featureId, if (source != null) 'source': source},
     });
+  }
+
+  @override
+  void whatsNewOpened({required int releaseCount, required int highestRelease, required String source}) {
+    if (!enabled) return;
+    events.add(<String, Object>{'event': 'whats_new_opened', 'properties': <String, Object>{'release_count': releaseCount, 'highest_release': highestRelease, 'source': source}});
   }
 
   void _recordWorkoutEvent(String event) {

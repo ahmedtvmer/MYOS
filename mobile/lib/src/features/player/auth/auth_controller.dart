@@ -305,6 +305,27 @@ class AuthController extends StateNotifier<AuthState> {
     return true;
   }
 
+  bool confirmWhatsNewSeenRelease(String accountId, int release) {
+    final AccountSession? session = state.session;
+    if (session == null || !ownsAccount(accountId) || release < 0) {
+      return false;
+    }
+    state = AuthState.authenticated(
+      AccountSession(
+        account: session.account.copyWith(
+          whatsNewSeenRelease: release > session.account.whatsNewSeenRelease
+              ? release
+              : session.account.whatsNewSeenRelease,
+        ),
+        onboarded: session.onboarded,
+        hasRecoveryEmail: session.hasRecoveryEmail,
+        recoveryEmail: session.recoveryEmail,
+      ),
+      notice: state.notice,
+    );
+    return true;
+  }
+
   /// Applies the server-confirmed Tour version to the current account session.
   bool confirmTourSeenVersion(String accountId, int version) {
     final AccountSession? session = state.session;

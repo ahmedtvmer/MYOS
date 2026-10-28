@@ -50,6 +50,7 @@ from svc.schemas import (
     AnalyticsPreferenceIn,
     DisplayLanguageIn,
     TourSeenVersionIn,
+    WhatsNewSeenReleaseIn,
     AccountPlansOut,
     EmailUpdateIn,
     ProductEmailConsentIn,
@@ -505,6 +506,7 @@ async def read_current_account(
         display_language=account["display_language"],
         analytics_allowed=account["analytics_allowed"],
         tour_seen_version=account["tour_seen_version"],
+        whats_new_seen_release=account["whats_new_seen_release"],
         tour_created_version=account["tour_created_version"],
         recovery_email_verified=recovery_email_verified,
         google_email=google_email,
@@ -583,6 +585,21 @@ async def update_tour_seen_version(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
     current = await asyncio.to_thread(db.get_account, account.account_id)
     return {"tour_seen_version": current["tour_seen_version"]}
+
+
+@router.put("/whats-new-seen")
+async def update_whats_new_seen_release(
+    body: WhatsNewSeenReleaseIn,
+    account: Annotated[VerifiedAccount, Depends(get_verified_account)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    saved = await asyncio.to_thread(
+        db.set_account_whats_new_seen_release, account.account_id, body.release
+    )
+    if not saved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    current = await asyncio.to_thread(db.get_account, account.account_id)
+    return {"whats_new_seen_release": current["whats_new_seen_release"]}
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
