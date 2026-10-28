@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:myos_mobile/src/app.dart';
 import 'package:myos_mobile/src/core/app_mode.dart';
 import 'package:myos_mobile/src/core/active_workout.dart';
@@ -16,6 +17,8 @@ import 'package:myos_mobile/src/features/shared/install_prompt.dart';
 import 'package:myos_mobile/src/providers.dart';
 import 'package:myos_mobile/src/core/ui/myos_bottom_navigation.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_controller.dart';
+import 'package:myos_mobile/src/features/player/tour/feature_list.dart';
+import 'package:myos_mobile/src/features/player/tour/spotlight_overlay.dart';
 import 'package:myos_mobile/src/features/player/tour/tour_targets.dart';
 import 'package:myos_mobile/src/features/player/workout/active_workout_controller.dart';
 import 'package:myos_mobile/src/router.dart';
@@ -717,7 +720,7 @@ void main() {
     await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
     await spotlight;
 
-    expect(router.routeInformationProvider.value.uri.path, homePath);
+    expect(router.routerDelegate.state.uri.path, homePath);
     expect(container.read(playerShellTabProvider), 1);
     expect(find.text('Program'), findsWidgets);
     expect(fake.tourSeenVersion, 1);
@@ -735,7 +738,7 @@ void main() {
         container.read(tourControllerProvider.notifier).showMe('profile');
     await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
     await spotlight;
-    expect(router.routeInformationProvider.value.uri.path, profilePath);
+    expect(router.routerDelegate.state.uri.path, profilePath);
     expect(find.text('Profile'), findsWidgets);
     expect(fake.tourSeenVersion, 1);
 
@@ -745,6 +748,205 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
     expect(container.read(tourTargetRegistryProvider), isNot(contains('profile')));
+  });
+
+  testWidgets('Profile Guides rows open the Feature guide and replay the Tour',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 1;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
+    router.push(profilePath);
+    await _pumpUntilFound(tester, find.text('Injuries'));
+    final Finder profileList = find.byWidget(tester.widget<Scrollable>(find
+        .ancestor(of: find.text('Injuries'), matching: find.byType(Scrollable))
+        .first));
+
+    await tester.scrollUntilVisible(find.text('Feature guide'), 300,
+        scrollable: profileList);
+    await tester.tap(find.text('Feature guide'));
+    await tester.pumpAndSettle();
+    expect(router.routerDelegate.state.uri.path, featureGuidePath);
+    expect(find.text('Show me'), findsWidgets);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    final int writesBefore = fake.tourSeenWriteCount;
+    await tester.scrollUntilVisible(find.text('Replay tour'), 300,
+        scrollable: find.byWidget(tester.widget<Scrollable>(find
+            .ancestor(
+                of: find.text('Feature guide'),
+                matching: find.byType(Scrollable))
+            .first)));
+    await tester.tap(find.text('Replay tour'));
+    await _pumpUntilFound(tester, find.text('1 OF 7'));
+    expect(router.routerDelegate.state.uri.path, homePath);
+    expect(fake.tourSeenWriteCount, writesBefore);
+  });
+
+  testWidgets('Feature guide Show me lands and spotlights every lifter feature',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, size: const Size(390, 844),
+        extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
+    router.go(featureGuidePath);
+    await tester.pumpAndSettle();
+
+    final List<FeatureEntry> entries = featureList
+        .where((FeatureEntry entry) => entry.audience == 'lifter')
+        .toList(growable: false);
+    for (final FeatureEntry entry in entries) {
+      final Finder button = find.text('Show me').at(entries.indexOf(entry));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+      await tester.pumpAndSettle();
+
+      final int shellTab = container.read(playerShellTabProvider);
+      final String routePath = router.routerDelegate.state.uri.path;
+      expect(entry.location.matches(routePath, shellTab), isTrue,
+          reason: '${entry.id} should land at its Feature list location; '
+              'route=$routePath tab=$shellTab location=${entry.location} '
+              'tour=${container.read(tourControllerProvider)} '
+              'feature=${container.read(tourControllerProvider)?.featureId} '
+              'visible=${container.read(tourControllerProvider)?.visible} '
+              'events=${analytics.events}');
+      expect(
+        find.descendant(
+          of: find.byType(SpotlightOverlay),
+          matching: find.text(entry.titleEn),
+        ),
+        findsOneWidget,
+        reason: '${entry.id} title should appear in the spotlight',
+      );
+
+      final TourTargetHandle target =
+          container.read(tourTargetRegistryProvider)[entry.target]!;
+      final Rect targetRect = tester.getRect(find.byKey(target.key));
+      final Finder spotlightBorder = find.descendant(
+        of: find.byType(SpotlightOverlay),
+        matching: find.byWidgetPredicate((Widget widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).border != null),
+      );
+      expect(spotlightBorder, findsOneWidget,
+          reason: '${entry.id} should render a spotlight border');
+      expect(tester.getRect(spotlightBorder), targetRect,
+          reason: '${entry.id} spotlight should match its registered target');
+
+      await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
+      router.go(featureGuidePath);
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      analytics.events.where((event) => event['event'] == 'show_me_tapped')
+          .map((event) => (event['properties'] as Map<String, Object>)['feature_id'])
+          .toList(),
+      entries.map((FeatureEntry entry) => entry.id).toList(),
+    );
+  });
+
+  testWidgets('Show me to Profile preserves the guide as the Back destination',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake();
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
+    router.go(featureGuidePath);
+    await tester.pumpAndSettle();
+    final List<FeatureEntry> entries = featureList
+        .where((FeatureEntry entry) => entry.audience == 'lifter')
+        .toList();
+    final FeatureEntry profile = entries.firstWhere(
+      (FeatureEntry entry) => entry.id == 'profile',
+    );
+    await tester.ensureVisible(find.text('Show me').at(entries.indexOf(profile)));
+    await tester.tap(find.text('Show me').at(entries.indexOf(profile)));
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    await tester.pumpAndSettle();
+    expect(router.routerDelegate.state.uri.path, profilePath);
+    await tester.tap(find.byKey(const ValueKey<String>('tour_next')));
+    await tester.pumpAndSettle();
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(router.routerDelegate.state.uri.path, featureGuidePath);
+    expect(find.text('Feature guide'), findsOneWidget);
+  });
+
+  testWidgets('Show me leaves tour seen version unchanged and is blocked by workout',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..tourSeenVersion = 1;
+    await _pumpHome(tester, fake, size: const Size(390, 844));
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    final GoRouter router = container.read(routerProvider);
+    router.go(featureGuidePath);
+    await tester.pumpAndSettle();
+    final ActiveWorkout workout = ActiveWorkout.fromJson(<String, dynamic>{
+      'id': 'feature-guide-workout',
+      'account_id': 'account-alice',
+      'started_at': '2026-10-28T10:00:00Z',
+      'day_order': 1,
+      'day_name': 'Upper 1',
+      'exercises': <dynamic>[],
+      'baselines': <String, dynamic>{},
+    });
+    container.read(activeWorkoutControllerProvider.notifier).state =
+        ActiveWorkoutState(
+      accountId: 'account-alice',
+      ready: true,
+      workout: workout,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show me').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('tour_next')), findsNothing);
+    expect(router.routerDelegate.state.uri.path, featureGuidePath);
+    expect(fake.tourSeenVersion, 1);
+
+    container.read(activeWorkoutControllerProvider.notifier).state =
+        const ActiveWorkoutState(
+      accountId: 'account-alice',
+      ready: true,
+      workout: null,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show me').first);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    await tester.pumpAndSettle();
+    expect(fake.tourSeenVersion, 1);
+  });
+
+  testWidgets('Feature guide Show me analytics honors the account opt-out',
+      (tester) async {
+    final FakeMyosApi fake = _signedInFake()..analyticsAllowed = false;
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await _pumpHome(tester, fake, size: const Size(390, 844),
+        extraOverrides: <Override>[
+      analyticsClientProvider.overrideWithValue(analytics),
+    ]);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MyosApp)));
+    container.read(routerProvider).go(featureGuidePath);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show me').first);
+    await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('tour_next')));
+    expect(
+      analytics.events.where((event) => event['event'] == 'show_me_tapped'),
+      isEmpty,
+    );
   });
 
   testWidgets('Tour version 2 only reaches accounts created at version 2',

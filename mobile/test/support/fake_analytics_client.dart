@@ -89,6 +89,15 @@ class FakeAnalyticsClient implements AnalyticsClient {
     });
   }
 
+  @override
+  void showMeTapped(String featureId) {
+    if (!enabled) return;
+    events.add(<String, Object>{
+      'event': 'show_me_tapped',
+      'properties': <String, Object>{'feature_id': featureId},
+    });
+  }
+
   void _recordWorkoutEvent(String event) {
     events.add(<String, Object>{
       'event': event,

@@ -58,8 +58,7 @@ class _TourOverlayHostState extends ConsumerState<TourOverlayHost> {
     final bool streaming = ref.watch(playerChatStreamingProvider);
     final int shellTabIndex = ref.watch(playerShellTabProvider);
     final GoRouter router = ref.watch(routerProvider);
-    final String routePath =
-        router.routerDelegate.currentConfiguration.uri.path;
+    final String routePath = currentTourRoutePath(router);
     final bool homeIsCurrent =
         routePath == homePath && shellTabIndex == PlayerShellTab.home.index;
     final bool blocked = !workout.ready ||
@@ -87,8 +86,7 @@ class _TourOverlayHostState extends ConsumerState<TourOverlayHost> {
             tour.visible &&
             !blocked &&
             locationIsCurrent &&
-            handle != null &&
-            handle.location == entry.location)
+            handle != null)
           SpotlightOverlay(
             targetKey: handle.key,
             entry: entry,
@@ -151,7 +149,7 @@ class _TourOverlayHostState extends ConsumerState<TourOverlayHost> {
       final GoRouter router = ref.read(routerProvider);
       final ActiveWorkoutState currentWorkout =
           ref.read(activeWorkoutControllerProvider);
-      if (router.routerDelegate.currentConfiguration.uri.path == homePath &&
+      if (currentTourRoutePath(router) == homePath &&
           ref.read(playerShellTabProvider) == PlayerShellTab.home.index &&
           currentWorkout.ready &&
           !currentWorkout.hasWorkout &&

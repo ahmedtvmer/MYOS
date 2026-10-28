@@ -945,7 +945,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       children: <Widget>[
         TourTarget(
           id: 'profile',
-          location: const TourRouteLocation('/profile'),
           child: MyosSectionHeader(
             title: copy.trainingProfile,
             subtitle: copy.profileLead,
@@ -1248,7 +1247,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         MyosSectionHeader(title: copy.guides),
         TourTarget(
           id: 'feature_guide',
-          location: const TourRouteLocation('/profile'),
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(copy.featureGuide),

@@ -135,7 +135,6 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
       textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
       child: TourTarget(
         id: 'nutrition',
-        location: const TourShellTabLocation(tabIndex: 2),
         child: _content(context, copy),
       ),
     );

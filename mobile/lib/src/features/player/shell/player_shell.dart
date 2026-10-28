@@ -267,7 +267,6 @@ class _PlayerShellState extends ConsumerState<PlayerShell> {
         actions: <Widget>[
           TourTarget(
             id: 'assistant',
-            location: const TourShellTabLocation(tabIndex: 0),
             child: IconButton(
               tooltip: copy.assistant,
               onPressed: () => context.push(chatPath),

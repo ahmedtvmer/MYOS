@@ -26,6 +26,9 @@ _Avoid_: مايوس (reads as مأيوس, “hopeless”)
 **Tour**:
 The one-time spotlight walkthrough of Player mode, with stops on real app features.
 
+**Feature guide**:
+The permanent list of Player features in Profile, with a Show me action for each feature.
+
 **Feature list**:
 The single app-owned list of Player features that defines the Tour stops and serves as the source for later discovery surfaces.
 

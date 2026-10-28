@@ -1399,7 +1399,6 @@ class _ProgramTabState extends ConsumerState<ProgramTab> {
                         day.dayOrder == program.days.first.dayOrder
                     ? 'program'
                     : 'program_day_${day.weekOrder}_${day.dayOrder}',
-                location: const TourShellTabLocation(tabIndex: 1),
                 child: MyosCard(
                 padding: EdgeInsets.zero,
                 child: ExpansionTile(

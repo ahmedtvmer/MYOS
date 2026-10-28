@@ -52,6 +52,8 @@ abstract interface class AnalyticsClient {
 
   void tourEvent(String event, {int? step, bool replay = false});
 
+  void showMeTapped(String featureId);
+
   void reset();
 }
 
@@ -90,6 +92,9 @@ class NoOpAnalyticsClient implements AnalyticsClient {
 
   @override
   void tourEvent(String event, {int? step, bool replay = false}) {}
+
+  @override
+  void showMeTapped(String featureId) {}
 
   @override
   void reset() {}
@@ -298,6 +303,12 @@ class PostHogAnalyticsClient implements AnalyticsClient {
   void tourEvent(String event, {int? step, bool replay = false}) => _captureEvent(
         event,
         <String, Object>{if (step != null) 'step': step, if (replay) 'replay': true},
+      );
+
+  @override
+  void showMeTapped(String featureId) => _captureEvent(
+        'show_me_tapped',
+        <String, Object>{'feature_id': featureId},
       );
 
   void _captureEvent(String event, Map<String, Object> properties) {

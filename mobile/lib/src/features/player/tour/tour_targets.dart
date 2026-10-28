@@ -12,6 +12,14 @@ abstract class TourTargetLocation {
   void navigate(GoRouter router, StateController<int> shellTabController);
 }
 
+String currentTourRoutePath(GoRouter router) {
+  final RouteMatchList configuration =
+      router.routerDelegate.currentConfiguration;
+  return configuration.isEmpty
+      ? router.routeInformationProvider.value.uri.path
+      : router.routerDelegate.state.uri.path;
+}
+
 class TourShellTabLocation extends TourTargetLocation {
   const TourShellTabLocation({required this.tabIndex, this.routePath = '/home'});
 
@@ -24,7 +32,7 @@ class TourShellTabLocation extends TourTargetLocation {
 
   @override
   void navigate(GoRouter router, StateController<int> shellTabController) {
-    if (router.routeInformationProvider.value.uri.path != routePath) {
+    if (currentTourRoutePath(router) != routePath) {
       router.go(routePath);
     }
     shellTabController.state = tabIndex;
@@ -50,8 +58,8 @@ class TourRouteLocation extends TourTargetLocation {
 
   @override
   void navigate(GoRouter router, StateController<int> shellTabController) {
-    if (router.routeInformationProvider.value.uri.path != path) {
-      router.go(path);
+    if (currentTourRoutePath(router) != path) {
+      router.push(path);
     }
   }
 
@@ -66,12 +74,10 @@ class TourRouteLocation extends TourTargetLocation {
 class TourTargetHandle {
   const TourTargetHandle({
     required this.id,
-    required this.location,
     required this.key,
   });
 
   final String id;
-  final TourTargetLocation location;
   final GlobalKey key;
 }
 
@@ -100,13 +106,11 @@ final StateNotifierProvider<TourTargetRegistry,
 class TourTarget extends ConsumerStatefulWidget {
   const TourTarget({
     required this.id,
-    required this.location,
     required this.child,
     super.key,
   });
 
   final String id;
-  final TourTargetLocation location;
   final Widget child;
 
   @override
@@ -128,9 +132,7 @@ class _TourTargetState extends ConsumerState<TourTarget> {
   void didUpdateWidget(TourTarget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) _unregister(oldWidget.id);
-    if (oldWidget.id != widget.id || oldWidget.location != widget.location) {
-      _register();
-    }
+    if (oldWidget.id != widget.id) _register();
   }
 
   void _register() {
@@ -139,7 +141,6 @@ class _TourTargetState extends ConsumerState<TourTarget> {
       _registry.register(
         TourTargetHandle(
           id: widget.id,
-          location: widget.location,
           key: _targetKey,
         ),
       );

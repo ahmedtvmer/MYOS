@@ -153,6 +153,7 @@ class TourController extends StateNotifier<TourSession?> {
     final ActiveWorkoutState workout =
         _ref.read(activeWorkoutControllerProvider);
     if (!workout.ready || workout.hasWorkout) return;
+    _ref.read(analyticsClientProvider).showMeTapped(featureId);
     _operation++;
     state = TourSession(
       stopIds: <String>[featureId],
@@ -233,9 +234,7 @@ class TourController extends StateNotifier<TourSession?> {
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted || operation != _operation || state == null) return;
         target = _ref.read(tourTargetRegistryProvider)[entry.target];
-        targetContext = target?.location == entry.location
-            ? target?.key.currentContext
-            : null;
+        targetContext = target?.key.currentContext;
         if (targetContext != null && targetContext.mounted) break;
       }
       if (target == null || targetContext == null || !targetContext.mounted) {
@@ -251,7 +250,7 @@ class TourController extends StateNotifier<TourSession?> {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted || operation != _operation || state == null) return;
       if (!targetContext.mounted) return;
-      final String routePath = router.routeInformationProvider.value.uri.path;
+      final String routePath = currentTourRoutePath(router);
       final ActiveWorkoutState workout =
           _ref.read(activeWorkoutControllerProvider);
       if (!entry.location.matches(routePath, tabController.state) ||

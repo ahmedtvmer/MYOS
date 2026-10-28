@@ -294,7 +294,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         children: <Widget>[
           TourTarget(
             id: 'progress',
-            location: const TourShellTabLocation(tabIndex: 3),
             child: Text(
               displayCopyOf(context).progress,
               style: MyosTypography.of(context).display.copyWith(
