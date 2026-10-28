@@ -23,6 +23,7 @@ import 'package:mayos_mobile/src/features/player/auth/auth_controller.dart';
 import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
 import 'package:mayos_mobile/src/features/player/tour/spotlight_overlay.dart';
 import 'package:mayos_mobile/src/features/player/tour/whats_new_screen.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 import 'package:mayos_mobile/src/features/player/tour/tour_targets.dart';
 import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
 import 'package:mayos_mobile/src/router.dart';
@@ -1892,6 +1893,7 @@ void main() {
   });
 
   testWidgets('latest saved workout on Home offers Share to Story', (tester) async {
+    int shareCalls = 0;
     final FakeMayosApi fake = _signedInFake()
       ..latestSessionBody = <String, dynamic>{
         'session_id': 'sess-share',
@@ -1904,13 +1906,21 @@ void main() {
         'volume_kg': 1500,
         'pr_count': 2,
       };
-    await _pumpHome(tester, fake);
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      workoutCardShareProvider.overrideWithValue((BuildContext context, WorkoutShareCard card) async {
+        shareCalls++;
+        return true;
+      }),
+    ]);
     expect(find.text('Upper 1'), findsNWidgets(2));
     expect(find.text('Share to Story'), findsOneWidget);
     await tester.tap(find.text('Share to Story'));
     await tester.pumpAndSettle();
     expect(find.text('Choose from gallery'), findsOneWidget);
     expect(find.text('No photo'), findsOneWidget);
+    Navigator.of(tester.element(find.text('No photo'))).pop();
+    await tester.pumpAndSettle();
+    expect(shareCalls, 0);
   });
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',

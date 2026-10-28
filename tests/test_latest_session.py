@@ -192,6 +192,12 @@ def test_latest_session_includes_distinct_exercises_with_session_records(api):
         client_id="55555555-5555-4555-8555-555555555555",
     )
     db.ledger_conn.execute(
+        "INSERT INTO workout_sets (id, session_id, exercise_id, set_index, weight_kg, reps, is_warmup, logged_at)"
+        " VALUES (?, ?, ?, 1, 0, 12, 0, ?)",
+        ("bw-1", latest["session_id"], "sq", "2026-09-26T11:00:00Z"),
+    )
+    db.ledger.log_session_cardio(latest["session_id"], [{"machine": "bike", "minutes": 20}], "2026-09-26T11:00:00Z")
+    db.ledger_conn.execute(
         "INSERT INTO personal_records"
         " (id, exercise_id, record_type, reps, value, prev_value, achieved_at, session_id)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -209,7 +215,7 @@ def test_latest_session_includes_distinct_exercises_with_session_records(api):
     assert body["pr_count"] == 1
     assert body["working_sets"] == 1
     assert body["volume_kg"] == 500
-    assert body["cardio_minutes"] == 0
+    assert body["cardio_minutes"] == 20
     assert body["duration_seconds"] is None
 
 

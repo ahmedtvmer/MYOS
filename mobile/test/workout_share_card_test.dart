@@ -27,6 +27,32 @@ void main() {
     expect(analytics.events, hasLength(1));
   });
 
+  test('share flow tracks completion once, but not dismissal or opt-out', () async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    final WorkoutPhotoChoiceResult photo = WorkoutPhotoChoiceResult.noPhoto();
+    int calls = 0;
+    await shareWorkoutCardAndTrack(
+      share: () async { calls++; return true; }, analytics: analytics,
+      source: 'finish', photo: photo,
+    );
+    expect(calls, 1);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'has_photo': false, 'photo_source': 'none',
+    });
+    await shareWorkoutCardAndTrack(
+      share: () async { calls++; return false; }, analytics: analytics,
+      source: 'home', photo: photo,
+    );
+    expect(analytics.events, hasLength(1));
+    analytics.setEnabled(false);
+    await shareWorkoutCardAndTrack(
+      share: () async { calls++; return true; }, analytics: analytics,
+      source: 'home', photo: photo,
+    );
+    expect(analytics.events, hasLength(1));
+    expect(calls, 3);
+  });
+
   testWidgets('Home latest workout omits unknown duration but keeps session stats',
       (WidgetTester tester) async {
     final LatestSession session = LatestSession.fromJson(<String, dynamic>{
@@ -71,7 +97,7 @@ void main() {
     expect(find.text('DURATION'), findsOneWidget);
   });
 
-  testWidgets('photo background uses centred cover crop and bounded decoding',
+  testWidgets('photo background keeps its source aspect ratio when decoded',
       (WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -89,9 +115,26 @@ void main() {
     final Image photo = tester.widget<Image>(find.byType(Image).first);
     expect(photo.fit, BoxFit.cover);
     expect(photo.alignment, Alignment.center);
-    expect((photo.image as ResizeImage).width, 1080);
-    expect((photo.image as ResizeImage).height, 1920);
+    final ResizeImage decoded = photo.image as ResizeImage;
+    expect(decoded.policy, ResizeImagePolicy.fit);
   });
+
+  testWidgets('large stat values never use ellipsis in Arabic at 2x scale',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+      child: const MaterialApp(home: Scaffold(body: WorkoutShareCard(
+        languageCode: 'ar', dayName: null, duration: Duration(minutes: 72),
+        stats: WorkoutSummaryStats(exercisesDone: 1, workingSets: 3, totalVolumeKg: 12345),
+        records: <WorkoutRecord>[],
+      ))),
+    ));
+    final RenderParagraph volume = tester.renderObject(find.text('12,345 kg'));
+    final RenderParagraph duration = tester.renderObject(find.text('1س 12د'));
+    expect(volume.didExceedMaxLines, isFalse);
+    expect(duration.didExceedMaxLines, isFalse);
+  });
+
 
   testWidgets('card shows lifting stats, day and exercise-count PR badge',
       (WidgetTester tester) async {

@@ -417,6 +417,14 @@ void main() {
       );
     });
 
+    test('keeps the finished day name in the immutable summary snapshot', () {
+      final WorkoutSummary summary = WorkoutSummary.of(
+        summaryWorkout(benchSets: <ActiveWorkoutSet>[]),
+        now: DateTime.parse('2026-09-28T09:00:00.000Z'),
+      );
+      expect(summary.withStats(summary.stats).dayName, 'Upper A');
+    });
+
     test('lists a most-reps record in reps with no weight unit', () {
       final ActiveWorkout workout = ActiveWorkout(
         id: 'aw-bw',

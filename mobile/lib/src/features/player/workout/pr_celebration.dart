@@ -17,18 +17,21 @@ class PrCelebration extends StatefulWidget {
   State<PrCelebration> createState() => _PrCelebrationState();
 }
 
-class _PrCelebrationState extends State<PrCelebration> {
+class _PrCelebrationState extends State<PrCelebration> with SingleTickerProviderStateMixin {
   Timer? _timer;
+  late final AnimationController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..forward();
     _timer = Timer(const Duration(seconds: 2), widget.onComplete);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -50,17 +53,28 @@ class _PrCelebrationState extends State<PrCelebration> {
   Widget build(BuildContext context) {
     final WorkoutRecord record = _headline();
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
-    return Semantics(
+    return GestureDetector(
+      key: const ValueKey<String>('prCelebration.skip'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _timer?.cancel();
+        widget.onComplete();
+      },
+      child: Semantics(
       liveRegion: true,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
           const ColoredBox(color: Color(0xff07101f)),
           if (!reduceMotion)
-            const IgnorePointer(
-              child: CustomPaint(
-                key: ValueKey<String>('prCelebration.confetti'),
-                painter: _PrConfettiPainter(),
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _confettiController,
+                builder: (BuildContext context, Widget? child) => CustomPaint(
+                  key: const ValueKey<String>('prCelebration.confetti'),
+                  painter: PrConfettiPainter(_confettiController.value),
+                  child: child,
+                ),
               ),
             ),
           Center(
@@ -80,26 +94,40 @@ class _PrCelebrationState extends State<PrCelebration> {
           ),
         ],
       ),
+      ),
     );
   }
 }
 
-class _PrConfettiPainter extends CustomPainter {
-  const _PrConfettiPainter();
+class PrConfettiPainter extends CustomPainter {
+  const PrConfettiPainter(this.progress);
+  final double progress;
+
+  List<Offset> particlePositions(Size size) => List<Offset>.generate(
+        48,
+        (int i) => Offset(
+          ((i * 73) % 101) / 100 * size.width,
+          ((((i * 47) % 97) / 100) +
+                  progress * (0.35 + (i % 4) * .08)) %
+              1 *
+              size.height,
+        ),
+      );
 
   @override
   void paint(Canvas canvas, Size size) {
     const List<Color> colors = <Color>[Color(0xff2f6bff), Color(0xffffd166), Colors.white];
     final Paint paint = Paint()..style = PaintingStyle.fill;
-    for (int i = 0; i < 48; i++) {
-      final double x = ((i * 73) % 101) / 100 * size.width;
-      final double y = ((i * 47) % 97) / 100 * size.height;
+    final List<Offset> positions = particlePositions(size);
+    for (int i = 0; i < positions.length; i++) {
+      final double x = positions[i].dx;
+      final double y = positions[i].dy;
       final double w = 4 + (i % 3) * 2;
-      paint.color = colors[i % colors.length].withValues(alpha: .8);
+      paint.color = colors[i % colors.length].withValues(alpha: .8 * (1 - progress));
       canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: w, height: w * 2), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_PrConfettiPainter oldDelegate) => false;
+  bool shouldRepaint(PrConfettiPainter oldDelegate) => oldDelegate.progress != progress;
 }

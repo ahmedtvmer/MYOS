@@ -365,6 +365,7 @@ class WorkoutSummary {
     required this.records,
     required this.stats,
     required this.duration,
+    this.dayName,
     this.trainingLines = const <TrainingStatusSummaryLine>[],
   });
 
@@ -380,11 +381,13 @@ class WorkoutSummary {
         records: workoutRecords(workout),
         stats: workoutSummaryStats(workout),
         duration: workoutElapsed(workout, now: now),
+        dayName: workout.dayName,
         trainingLines:
             List<TrainingStatusSummaryLine>.unmodifiable(trainingLines),
       );
 
   final List<WorkoutRecord> records;
+  final String? dayName;
   final WorkoutSummaryStats stats;
 
   /// Weekly streak and Checkpoint lines captured with this summary at Finish.
@@ -399,6 +402,7 @@ class WorkoutSummary {
         records: records,
         stats: nextStats,
         duration: duration,
+        dayName: dayName,
         trainingLines: trainingLines,
       );
 }

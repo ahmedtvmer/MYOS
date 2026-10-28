@@ -34,6 +34,7 @@ import 'package:mayos_mobile/src/features/player/workout/logger_top_bar.dart';
 import 'package:mayos_mobile/src/features/player/workout/logger_card_widgets.dart';
 import 'package:mayos_mobile/src/features/player/workout/personal_record_badge.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_api_adapter.dart';
@@ -407,6 +408,7 @@ List<Override> _appOverrides({
   bool webDirectCommit = false,
   FakeAnalyticsClient? analytics,
   String languageCode = 'en',
+  WorkoutCardShare? shareFunction,
 }) =>
     <Override>[
       tokenStoreProvider.overrideWithValue(tokens),
@@ -424,6 +426,8 @@ List<Override> _appOverrides({
       analyticsClientProvider.overrideWithValue(
         analytics ?? const NoOpAnalyticsClient(),
       ),
+      if (shareFunction != null)
+        workoutCardShareProvider.overrideWithValue(shareFunction),
       deviceTimezoneProvider.overrideWithValue(Future<String>.value('UTC')),
       deviceTimezoneOrNullProvider
           .overrideWithValue(Future<String?>.value('UTC')),
@@ -485,6 +489,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
   String? languageCode,
   bool roundTripStoredWorkout = false,
   FakeAnalyticsClient? analytics,
+  WorkoutCardShare? shareFunction,
 }) async {
   _usePhoneView(tester);
 
@@ -553,6 +558,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
       clock: clock,
       webDirectCommit: webDirectCommit,
       analytics: analytics,
+      shareFunction: shareFunction,
       languageCode: effectiveLanguage,
     ),
   );
@@ -614,6 +620,16 @@ WorkoutDraft _summaryDraft(String id, String performedDate) => WorkoutDraft(
       readiness: 4,
       updatedAt: '${performedDate}T12:00:00Z',
     );
+
+class _CountingDraftStore extends InMemoryDraftStore {
+  int writes = 0;
+
+  @override
+  Future<void> write(String accountId, List<WorkoutDraft> drafts) {
+    writes++;
+    return super.write(accountId, drafts);
+  }
+}
 
 Finder _cell(int exercise, int set, String field) =>
     find.byKey(ValueKey<String>('logger.cell.$exercise.$set.$field'));
@@ -1118,10 +1134,14 @@ void main() {
     ]);
   });
 
-  testWidgets('Share to Story appears only after a local workout save',
+  testWidgets('dismissing the summary photo sheet never invokes sharing',
       (WidgetTester tester) async {
     final InMemoryDraftStore drafts = InMemoryDraftStore();
-    await _openLogger(tester, drafts: drafts);
+    int shareCalls = 0;
+    await _openLogger(tester, drafts: drafts, shareFunction: (_, __) async {
+      shareCalls++;
+      return true;
+    });
     await tester.tap(_tick(0, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
@@ -1136,6 +1156,69 @@ void main() {
     await tester.pumpAndSettle();
     expect((await drafts.read(_account)), hasLength(1));
     expect(find.byKey(const ValueKey<String>('logger.shareStory')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.text('No photo'))).pop();
+    await tester.pumpAndSettle();
+    expect(shareCalls, 0);
+  });
+
+  testWidgets('saving once, sharing, then Done keeps one draft and returns Home',
+      (WidgetTester tester) async {
+    final _CountingDraftStore drafts = _CountingDraftStore();
+    int shareCalls = 0;
+    WorkoutShareCard? sharedCard;
+    await _openLogger(tester, drafts: drafts, shareFunction: (_, WorkoutShareCard card) async {
+      shareCalls++;
+      sharedCard = card;
+      return true;
+    });
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
+    await tester.pumpAndSettle();
+    final Finder discard = find.text('Discard unticked sets and finish');
+    if (discard.evaluate().isNotEmpty) {
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
+    await tester.pumpAndSettle();
+    final int writesAfterSave = drafts.writes;
+    expect(writesAfterSave, greaterThan(0));
+    expect(await drafts.read(_account), hasLength(1));
+    await tester.ensureVisible(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.tap(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No photo'));
+    await tester.pumpAndSettle();
+    expect(shareCalls, 1);
+    expect(sharedCard?.dayName, 'Upper A');
+    await tester.ensureVisible(find.text('Done'));
+    await tester.tap(find.text('Done'));
+    await _pumpUntilFound(tester, find.text('Home'));
+    expect(drafts.writes, writesAfterSave);
+    expect(await drafts.read(_account), hasLength(1));
+  });
+
+  testWidgets('tapping the PR burst immediately shows Save in the summary',
+      (WidgetTester tester) async {
+    await _openLogger(tester);
+    await _typeCell(tester, 0, 0, 'kg', '110');
+    await tester.tap(_tick(0, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
+    await tester.pumpAndSettle();
+    final Finder discard = find.text('Discard unticked sets and finish');
+    if (discard.evaluate().isNotEmpty) {
+      await tester.tap(discard);
+      await tester.pump();
+    }
+    expect(find.text('New PR!'), findsOneWidget);
+    await tester.tapAt(const Offset(540, 1200));
+    await tester.pump();
+    expect(find.text('Workout summary'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('logger.save')), findsOneWidget);
   });
 
   testWidgets('saved bike calories appear in the finished Player summary',
@@ -2625,7 +2708,7 @@ void main() {
     // bench set 3 and the incline exercise are unticked.
     expect(find.text("2 sets aren't ticked"), findsOneWidget);
     await tester.tap(find.text('Discard unticked sets and finish'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('New PR!'), findsOneWidget);
     expect(find.text('Bench Press · 110 kg × 6'), findsOneWidget);

@@ -54,7 +54,7 @@ void main() {
   testWidgets('picker denial returns to choices and no photo remains usable',
       (WidgetTester tester) async {
     int attempts = 0;
-    Uint8List? result;
+    WorkoutPhotoChoiceResult? result;
     await tester.pumpWidget(MaterialApp(
       home: Builder(builder: (BuildContext context) {
         return Scaffold(
@@ -85,6 +85,22 @@ void main() {
     expect(find.text('بدون صورة'), findsOneWidget);
     await tester.tap(find.text('بدون صورة'));
     await tester.pumpAndSettle();
-    expect(result, isNull);
+    expect(result?.cancelled, isFalse);
+    expect(result?.photoBytes, isNull);
+  });
+
+  testWidgets('dismissing photo choice is cancelled, distinct from no photo',
+      (WidgetTester tester) async {
+    WorkoutPhotoChoiceResult? result;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) => Scaffold(
+      body: TextButton(onPressed: () async {
+        result = await chooseWorkoutPhoto(context, languageCode: 'en');
+      }, child: const Text('open')),
+    ))));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.text('No photo'))).pop();
+    await tester.pumpAndSettle();
+    expect(result?.cancelled, isTrue);
   });
 }

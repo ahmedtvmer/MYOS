@@ -443,7 +443,8 @@ class LedgerWorkoutsMixin:
         session_id = row[0]
         stats = self.conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(weight_kg * reps), 0)"
-            " FROM workout_sets WHERE session_id = ? AND is_warmup = 0",
+            " FROM workout_sets WHERE session_id = ? AND is_warmup = 0"
+            " AND weight_kg > 0 AND reps > 0",
             (session_id,),
         ).fetchone()
         pr_count = self.conn.execute(

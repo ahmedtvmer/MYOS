@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -220,28 +218,21 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   Future<void> _shareLatest(LatestSession session) async {
     final String language = ref.read(displayLanguageProvider);
-    String photoSource = 'none';
-    final Uint8List? photo = await chooseWorkoutPhoto(
+    final WorkoutPhotoChoiceResult choice = await chooseWorkoutPhoto(
       context,
       languageCode: language,
-      onSourceSelected: (String source) => photoSource = source,
     );
-    if (!mounted) return;
-    final bool shared = await shareWorkoutCard(
-      context,
-      latestSessionShareCard(
+    if (!mounted || choice.cancelled) return;
+    await shareWorkoutCardAndTrack(
+      share: () => ref.read(workoutCardShareProvider)(context, latestSessionShareCard(
         session: session,
         languageCode: language,
-        photoBytes: photo,
-      ),
+        photoBytes: choice.photoBytes,
+      )),
+      analytics: ref.read(analyticsClientProvider),
+      source: 'home',
+      photo: choice,
     );
-    if (shared) {
-      ref.read(analyticsClientProvider).shareCardShared(
-            source: 'home',
-            hasPhoto: photo != null,
-            photoSource: photoSource,
-          );
-    }
   }
 
   Future<void> _openCheckpointReview(int checkpoint) async {

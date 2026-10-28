@@ -2,12 +2,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/display_language/workout_copy.dart';
+import '../../../core/analytics_client.dart';
 import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
 
@@ -96,12 +98,15 @@ class WorkoutShareCard extends StatelessWidget {
           children: <Widget>[
             if (photoBytes case final Uint8List photo)
               Positioned.fill(
-                child: Image.memory(
-                  photo,
+                child: Image(
+                  image: ResizeImage(
+                    MemoryImage(photo),
+                    width: 1080,
+                    height: 1920,
+                    policy: ResizeImagePolicy.fit,
+                  ),
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
-                  cacheWidth: 1080,
-                  cacheHeight: 1920,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
@@ -208,14 +213,17 @@ class WorkoutShareCard extends StatelessWidget {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(value,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(value,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     textDirection: ui.TextDirection.ltr,
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 34,
                         fontWeight: FontWeight.w700)),
+                ),
                 const SizedBox(height: 6),
                 Text(label,
                     maxLines: 2,
@@ -268,13 +276,50 @@ Future<bool> shareWorkoutCard(
   return result.status != ShareResultStatus.dismissed;
 }
 
+Future<bool> shareWorkoutCardAndTrack({
+  required Future<bool> Function() share,
+  required AnalyticsClient analytics,
+  required String source,
+  required WorkoutPhotoChoiceResult photo,
+}) async {
+  final bool completed = await share();
+  if (completed) {
+    analytics.shareCardShared(
+      source: source,
+      hasPhoto: photo.photoBytes != null,
+      photoSource: photo.source,
+    );
+  }
+  return completed;
+}
+
 typedef WorkoutImagePicker = Future<XFile?> Function(ImageSource source);
+
+typedef WorkoutCardShare = Future<bool> Function(
+    BuildContext context, WorkoutShareCard card);
+
+final Provider<WorkoutCardShare> workoutCardShareProvider =
+    Provider<WorkoutCardShare>((Ref ref) => shareWorkoutCard);
 
 enum _WorkoutPhotoChoice { camera, gallery, none }
 
+@immutable
+class WorkoutPhotoChoiceResult {
+  const WorkoutPhotoChoiceResult.cancelled()
+      : cancelled = true, photoBytes = null, source = 'none';
+  const WorkoutPhotoChoiceResult.noPhoto()
+      : cancelled = false, photoBytes = null, source = 'none';
+  const WorkoutPhotoChoiceResult.photo(this.photoBytes, this.source)
+      : cancelled = false;
+
+  final bool cancelled;
+  final Uint8List? photoBytes;
+  final String source;
+}
+
 /// Shows the on-device photo choice. A cancelled or denied picker returns to
 /// this sheet, so skipping the photo is always available.
-Future<Uint8List?> chooseWorkoutPhoto(
+Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
   BuildContext context, {
   required String languageCode,
   WorkoutImagePicker? pickImage,
@@ -289,31 +334,32 @@ Future<Uint8List?> chooseWorkoutPhoto(
             imageQuality: 90,
           );
   while (context.mounted) {
-    if (!context.mounted) return null;
+    if (!context.mounted) return const WorkoutPhotoChoiceResult.cancelled();
     final _WorkoutPhotoChoice? choice =
         await _showWorkoutPhotoChoices(context, copy);
-    if (!context.mounted) return null;
-    if (choice == null) return null;
+    if (!context.mounted) return const WorkoutPhotoChoiceResult.cancelled();
+    if (choice == null) return const WorkoutPhotoChoiceResult.cancelled();
     if (choice == _WorkoutPhotoChoice.none) {
       onSourceSelected?.call('none');
-      return null;
+      return const WorkoutPhotoChoiceResult.noPhoto();
     }
     try {
       final ImageSource source = choice == _WorkoutPhotoChoice.camera
           ? ImageSource.camera
           : ImageSource.gallery;
+      final String sourceName = choice == _WorkoutPhotoChoice.camera
+          ? 'camera'
+          : 'gallery';
       final Uint8List? photoBytes = await _pickWorkoutPhoto(picker, source);
       if (photoBytes != null) {
-        onSourceSelected?.call(
-          choice == _WorkoutPhotoChoice.camera ? 'camera' : 'gallery',
-        );
-        return photoBytes;
+        onSourceSelected?.call(sourceName);
+        return WorkoutPhotoChoiceResult.photo(photoBytes, sourceName);
       }
     } on PlatformException {
       continue;
     }
   }
-  return null;
+  return const WorkoutPhotoChoiceResult.cancelled();
 }
 
 Future<_WorkoutPhotoChoice?> _showWorkoutPhotoChoices(
@@ -369,6 +415,16 @@ Future<Uint8List?> _pickWorkoutPhoto(
 
 Future<Uint8List> _captureWorkoutCard(
     BuildContext context, WorkoutShareCard card) async {
+  if (card.photoBytes case final Uint8List photo) {
+    await precacheImage(
+      ResizeImage(MemoryImage(photo), width: 1080, height: 1920,
+          policy: ResizeImagePolicy.fit),
+      context,
+    );
+  }
+  if (!context.mounted) throw StateError('Share card capture context was removed');
+  await precacheImage(const AssetImage('assets/brand/mayos-lockup-white.png'), context);
+  if (!context.mounted) throw StateError('Share card capture context was removed');
   final GlobalKey boundaryKey = GlobalKey();
   final OverlayState overlay = Overlay.of(context);
   final OverlayEntry entry = OverlayEntry(
@@ -380,6 +436,7 @@ Future<Uint8List> _captureWorkoutCard(
     ),
   );
   overlay.insert(entry);
+  WidgetsBinding.instance.scheduleFrame();
   try {
     await WidgetsBinding.instance.endOfFrame;
     final RenderRepaintBoundary boundary = boundaryKey.currentContext!
