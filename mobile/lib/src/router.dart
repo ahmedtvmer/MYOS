@@ -33,6 +33,7 @@ import 'features/player/onboarding/onboarding_screen.dart';
 import 'features/player/onboarding/rest_alert_permission_screen.dart';
 import 'features/player/plan/plan_screen.dart';
 import 'features/player/profile/profile_screen.dart';
+import 'features/player/tour/feature_guide_screen.dart';
 import 'features/player/progress/checkpoint_review_screen.dart';
 import 'features/player/setup/player_setup_screen.dart';
 import 'features/player/shell/player_shell.dart';
@@ -66,6 +67,7 @@ const String assistantPreferencesPath = '/assistant-preferences';
 const String lifterPlanPath = '/lifter-plan';
 const String coachPlanPath = '/coach-plan';
 const String profilePath = '/profile';
+const String featureGuidePath = '/feature-guide';
 const String coachPath = '/coach';
 const String coachRosterRoutePath = 'roster';
 const String coachAssignmentRoutePath = ':assignmentId';
@@ -511,6 +513,11 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((ref) {
                 body: ProfileScreen(),
               ),
             ),
+      ),
+      GoRoute(
+        path: featureGuidePath,
+        builder: (BuildContext context, GoRouterState state) =>
+            const FeatureGuideScreen(),
       ),
       GoRoute(
         path: chatPath,

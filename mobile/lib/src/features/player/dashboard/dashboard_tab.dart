@@ -368,7 +368,6 @@ class _HomeBody extends StatelessWidget {
           if (nextDay == null && activeProgram != null)
             TourTarget(
               id: 'home',
-              location: const TourShellTabLocation(tabIndex: 0),
               child: Text(
                 displayCopyOf(context).greetingFor(now),
                 style: MyosTypography.of(context).display.copyWith(
@@ -396,7 +395,6 @@ class _HomeBody extends StatelessWidget {
           if (activeProgram != null)
             TourTarget(
               id: 'program',
-              location: const TourShellTabLocation(tabIndex: 0),
               child: _ProgramSection(
                 program: activeProgram,
                 assignment: assignment,
@@ -429,7 +427,6 @@ class _HomeBody extends StatelessWidget {
             const SizedBox(height: MyosSpacing.xl),
             TourTarget(
               id: 'home',
-              location: const TourShellTabLocation(tabIndex: 0),
               child: _NextSessionSection(
                 day: nextDay,
                 label: nextSessionLabel(data.schedule, now,

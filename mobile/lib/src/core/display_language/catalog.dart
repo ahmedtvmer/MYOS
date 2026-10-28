@@ -39,6 +39,8 @@ class MyosCopy {
   String get nutritionTab => nutrition.tab;
   String get assistant => isArabic ? 'المساعد' : 'Assistant';
   String get tourSkip => isArabic ? 'تخطي' : 'Skip';
+  String get featureGuideTitle => isArabic ? 'دليل الميزات' : 'Feature guide';
+  String get showMe => isArabic ? 'أرني' : 'Show me';
   String get tourBack => isArabic ? 'السابق' : 'Back';
   String get tourNext => isArabic ? 'التالي' : 'Next';
   String tourStepLabel(int step, int count) => isArabic
