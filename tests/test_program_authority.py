@@ -2189,3 +2189,18 @@ def test_concurrent_unrelated_profile_patch_preserves_new_movement_restrictions(
     profile = client.get("/profile", headers=headers).json()
     assert profile["current_goal"] == "New goal"
     assert profile["movement_restrictions"] == ["Knee flexion"]
+
+
+def test_profile_injuries_send_clarification_pending_as_boolean(api):
+    client, db, _ = api
+    player = _register(client, "injury_flag_boolean")
+    headers = _authed(player["access_token"])
+    db.switch_user("injury_flag_boolean")
+    db.ledger.upsert_player_profile({"current_goal": "Strength"})
+    db.ledger.create_injury_record(None, "knee hurts", clarification_pending=True)
+    db.ledger.create_injury_record("hip", "hip impingement")
+
+    injuries = client.get("/profile", headers=headers).json()["injuries"]
+
+    assert sorted(record["clarification_pending"] for record in injuries) == [False, True]
+    assert all(type(record["clarification_pending"]) is bool for record in injuries)
