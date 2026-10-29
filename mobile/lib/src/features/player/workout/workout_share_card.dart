@@ -105,7 +105,6 @@ class WorkoutShareCard extends StatelessWidget {
     children: <Widget>[
       if (_prExerciseCount > 0) _buildPrBadge(),
       if (_dayName case final String name) _buildDayName(name),
-      const SizedBox(height: 20),
       _buildStatsRow(cardioOnly: cardioOnly, volume: volume),
     ]);
 
