@@ -94,7 +94,7 @@ void main() {
       final FakeMayosApi fake = _signedInFake(language: language);
       await _pumpSettings(tester, fake, size: const Size(360, 5000));
       final Finder brandTitle =
-          find.text(language == 'ar' ? 'مايوس' : 'MAYOS').last;
+          find.text(language == 'ar' ? 'ميوس' : 'MAYOS').last;
       final Finder brandSubtitle = find.text(language == 'ar'
           ? 'يعني العضلة باليوناني'
           : 'Greek for muscle · said “meyos”');

@@ -48,7 +48,7 @@
   function updatePageMetadata(language) {
     document.title = language === 'ar' ? 'MAYOS — تمرينك. مدروس.' : 'MAYOS — Your training. Engineered.';
     document.querySelector('meta[name="description"]').content = language === 'ar'
-      ? 'يبني مايوس برنامج تمرينك بالذكاء الاصطناعي حسب هدفك ووقتك والأدوات المتاحة لك. سجّل كل مجموعة وتابع قوتك وهي تزيد.'
+      ? 'يبني ميوس برنامج تمرينك بالذكاء الاصطناعي حسب هدفك ووقتك والأدوات المتاحة لك. سجّل كل مجموعة وتابع قوتك وهي تزيد.'
       : 'MAYOS uses AI to build your training program around your goal, schedule and equipment. Log every set and watch your strength grow.';
   }
 

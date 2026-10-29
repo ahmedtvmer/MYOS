@@ -218,7 +218,7 @@ void main() {
         ));
         await tester.pump();
         final String expected = locale.languageCode == 'ar'
-            ? 'مايوس'
+            ? 'ميوس'
             : 'MAYOS';
         final SemanticsHandle semantics = tester.ensureSemantics();
         expect(tester.getSemantics(find.byType(MayosBrandLockup)).label, expected);
@@ -253,7 +253,7 @@ void main() {
       final SemanticsHandle semantics = tester.ensureSemantics();
 
       expect(tester.getSemantics(find.byType(MayosBrandLockup)).label,
-          'مايوس');
+          'ميوس');
       expect(find.bySemanticsLabel('MAYOS'), findsNothing);
 
       semantics.dispose();

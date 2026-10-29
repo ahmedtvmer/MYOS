@@ -33,9 +33,9 @@ MESSAGES = {
     "incomplete": ("Complete your Training profile before setting Nutrition targets.",
                    "أكمل الملف التدريبي قبل إعداد الأهداف الغذائية."),
     "under_18": ("MAYOS does not set automatic Nutrition targets for players under 18.",
-                 "لا يحدد مايوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا."),
+                 "لا يحدد ميوس أهدافًا غذائية تلقائية لمن هم دون 18 عامًا."),
     "blocked": ("MAYOS will not set calorie targets. Please speak with a registered dietitian.",
-                "لن يحدد مايوس أهداف السعرات. يُرجى التحدث إلى اختصاصي تغذية مسجل."),
+                "لن يحدد ميوس أهداف السعرات. يُرجى التحدث إلى اختصاصي تغذية مسجل."),
 }
 
 
