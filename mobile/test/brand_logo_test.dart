@@ -49,11 +49,11 @@ Future<void> _pumpThemed(
 }
 
 void main() {
-  testWidgets('header wordmark uses Montserrat SemiBold like the logo lockup',
+  testWidgets('header wordmark uses the MAYOS lockup face (A drawn as Λ)',
       (WidgetTester tester) async {
     await _pumpThemed(tester, const MayosAppHeader(), brightness: Brightness.dark);
     final Text word = tester.widget<Text>(find.text('MAYOS').first);
-    expect(word.style?.fontFamily, 'Montserrat');
+    expect(word.style?.fontFamily, 'MayosWordmark');
     expect(word.style?.fontWeight, FontWeight.w600);
   });
 
@@ -140,16 +140,19 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('is centred on the screen and at most 24px tall',
+    testWidgets('is centred, stacked (mark above MAYOS) and at most 40px tall',
         (WidgetTester tester) async {
       const Size size = Size(360, 640);
       await pumpHeader(tester, size);
 
       final Rect brand = tester.getRect(find.byKey(MayosAppHeader.brandKey));
       expect(brand.center.dx, closeTo(size.width / 2, 0.5));
-      expect(brand.height, lessThanOrEqualTo(24));
-      expect(tester.getSize(find.byType(MayosBrandMark)).height,
-          lessThanOrEqualTo(24));
+      expect(brand.height, lessThanOrEqualTo(40));
+      final Rect mark = tester.getRect(find.byType(MayosBrandMark));
+      final Rect word = tester.getRect(find.text('MAYOS'));
+      expect(word.top, greaterThanOrEqualTo(mark.bottom),
+          reason: 'the wordmark sits under the mark, never beside it');
+      expect(word.center.dx, closeTo(mark.center.dx, 0.5));
     });
 
     testWidgets('does not crowd the actions at 320px width',
