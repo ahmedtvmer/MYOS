@@ -30,6 +30,90 @@ void main() {
     expect(analytics.events, hasLength(1));
   });
 
+  test('share failures record only source and stage and honor opt-out', () {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    for (final String stage in <String>[
+      'picker_error', 'picker_empty', 'decode_error', 'capture_timeout',
+      'capture_error', 'share_error',
+    ]) {
+      analytics.shareCardFailed(source: 'home', stage: stage);
+    }
+    expect(analytics.events, hasLength(6));
+    expect(analytics.events.map((event) => event['properties']), <Map<String, Object>>[
+      for (final String stage in <String>[
+        'picker_error', 'picker_empty', 'decode_error', 'capture_timeout',
+        'capture_error', 'share_error',
+      ]) <String, Object>{'source': 'home', 'stage': stage},
+    ]);
+    analytics.setEnabled(false);
+    analytics.shareCardFailed(source: 'finish', stage: 'capture_error');
+    expect(analytics.events, hasLength(6));
+  });
+
+  testWidgets('preparing overlay blocks capture and is removed when preview opens', (tester) async {
+    final Completer<Uint8List> capture = Completer<Uint8List>();
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    final Uint8List png = _validPngBytes();
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) => Scaffold(
+      body: TextButton(onPressed: () async {
+        final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+          overlay: Overlay.of(context), source: 'finish', analytics: analytics, languageCode: 'en');
+        await captureAndPreviewWorkoutCard(context, const WorkoutShareCard(
+          languageCode: 'en', dayName: 'Push A',
+          stats: WorkoutSummaryStats(exercisesDone: 0, workingSets: 0, totalVolumeKg: 0),
+          records: <WorkoutRecord>[]), capture: () => capture.future, feedback: feedback);
+      }, child: const Text('start share')),
+    ))));
+    await tester.tap(find.text('start share'));
+    await tester.pump();
+    expect(find.text('Preparing your card…'), findsOneWidget);
+    capture.complete(png);
+    await tester.pumpAndSettle();
+    expect(find.text('Save image'), findsOneWidget);
+    expect(find.text('Preparing your card…'), findsNothing);
+  });
+
+  testWidgets('preparing overlay uses the Arabic message for Arabic display', (tester) async {
+    WorkoutShareFlowFeedback? feedback;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) => Scaffold(
+      body: TextButton(onPressed: () {
+        feedback = WorkoutShareFlowFeedback(
+        overlay: Overlay.of(context), source: 'finish', analytics: FakeAnalyticsClient(),
+        languageCode: 'ar')..showPreparing();
+      }, child: const Text('prepare')),
+    ))));
+    await tester.tap(find.text('prepare'));
+    await tester.pump();
+    expect(find.text('جارٍ تجهيز البطاقة…'), findsOneWidget);
+    feedback!.dismissPreparing();
+  });
+
+  testWidgets('preparing overlay is removed when capture fails', (tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    final Completer<Uint8List> capture = Completer<Uint8List>();
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) => Scaffold(
+      body: TextButton(onPressed: () async {
+        final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+          overlay: Overlay.of(context), source: 'home', analytics: analytics, languageCode: 'en');
+        await captureAndPreviewWorkoutCard(context, const WorkoutShareCard(
+          languageCode: 'en', dayName: 'Push A',
+          stats: WorkoutSummaryStats(exercisesDone: 0, workingSets: 0, totalVolumeKg: 0),
+          records: <WorkoutRecord>[]), capture: () => capture.future,
+          feedback: feedback);
+      }, child: const Text('start share')),
+    ))));
+    await tester.tap(find.text('start share'));
+    await tester.pump();
+    expect(find.text('Preparing your card…'), findsOneWidget);
+    capture.completeError(StateError('private failure'));
+    await tester.pumpAndSettle();
+    expect(find.text('Preparing your card…'), findsNothing);
+    expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'home', 'stage': 'capture_error',
+    });
+  });
+
   testWidgets('share card shows the performed date in English and Arabic', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: WorkoutShareCard(
       languageCode: 'en', dayName: 'Push A', performedDate: DateTime(2026, 10, 28),
@@ -103,12 +187,15 @@ void main() {
 
   testWidgets('share failure in preview shows a localized error',
       (WidgetTester tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await tester.pumpWidget(MaterialApp(home: Builder(
       builder: (BuildContext context) => Scaffold(
         body: TextButton(onPressed: () => showWorkoutCardPreview(
           context, Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]), languageCode: 'en',
           share: () async => throw StateError('share failed'),
           save: () async => true,
+          feedback: WorkoutShareFlowFeedback(overlay: Overlay.of(context), source: 'home',
+            analytics: analytics, languageCode: 'en'),
         ), child: const Text('open')),
       ),
     )));
@@ -118,23 +205,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Could not create or share the image. Try again.'), findsAtLeastNWidgets(1));
     expect(find.text('Save image'), findsOneWidget);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'home', 'stage': 'share_error',
+    });
   });
 
   testWidgets('capture timeout reports a localized error',
       (WidgetTester tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await tester.pumpWidget(MaterialApp(home: Builder(
       builder: (BuildContext context) => Scaffold(body: TextButton(
-        onPressed: () => captureAndPreviewWorkoutCard(context, const WorkoutShareCard(
+        onPressed: () async {
+          final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+            overlay: Overlay.of(context), source: 'finish', analytics: analytics,
+            languageCode: 'ar');
+          await captureAndPreviewWorkoutCard(context, const WorkoutShareCard(
           languageCode: 'ar', dayName: null, stats: WorkoutSummaryStats(
             exercisesDone: 0, workingSets: 0, totalVolumeKg: 0), records: <WorkoutRecord>[]),
           capture: () => Completer<Uint8List>().future,
-          captureTimeout: const Duration(milliseconds: 1)), child: const Text('capture'))),
+          captureTimeout: const Duration(milliseconds: 1), feedback: feedback);
+        }, child: const Text('capture'))),
     )));
     await tester.tap(find.text('capture'));
     await tester.pump(const Duration(milliseconds: 5));
     await tester.pump();
     expect(find.textContaining('تعذر إنشاء الصورة'), findsAtLeastNWidgets(1));
     expect(find.text('Share'), findsNothing);
+    expect(find.text('Preparing your card…'), findsNothing);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'capture_timeout',
+    });
   });
 
   testWidgets('closing preview invokes neither share nor save',
@@ -493,19 +593,26 @@ void main() {
 
   testWidgets('photo decode failure shows localized share error',
       (WidgetTester tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     await tester.pumpWidget(MaterialApp(home: Builder(
       builder: (BuildContext context) => Scaffold(body: TextButton(
         onPressed: () => shareWorkoutCard(context, WorkoutShareCard(
           languageCode: 'ar', dayName: null,
           stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
             totalVolumeKg: 0), records: const <WorkoutRecord>[],
-          photoBytes: Uint8List.fromList(<int>[1, 2, 3]))),
+          photoBytes: Uint8List.fromList(<int>[1, 2, 3]),
+          feedback: WorkoutShareFlowFeedback(overlay: Overlay.of(context), source: 'finish',
+            analytics: analytics, languageCode: 'ar'))),
         child: const Text('open'))),
     )));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.textContaining('تعذر إنشاء الصورة'), findsAtLeastNWidgets(1));
     expect(find.text('Share'), findsNothing);
+    expect(find.text('Preparing your card…'), findsNothing);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'decode_error',
+    });
   });
 
   test('web share calls the prepared share path synchronously and treats dismissal as incomplete', () async {

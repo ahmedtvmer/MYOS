@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
+import 'support/fake_analytics_client.dart';
 
 void main() {
   testWidgets('photo choice supports camera, gallery and no photo in English and Arabic',
@@ -55,6 +56,8 @@ void main() {
   testWidgets('picker denial returns to choices and no photo remains usable',
       (WidgetTester tester) async {
     int attempts = 0;
+    final List<String> failureStages = <String>[];
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     WorkoutPhotoChoiceResult? result;
     await tester.pumpWidget(MaterialApp(
       home: Builder(builder: (BuildContext context) {
@@ -64,6 +67,11 @@ void main() {
               result = await chooseWorkoutPhoto(
                 context,
                 languageCode: 'ar',
+                onFailureStage: (String stage) {
+                  failureStages.add(stage);
+                  WorkoutShareFlowFeedback(overlay: Overlay.of(context),
+                    source: 'home', analytics: analytics, languageCode: 'ar').failed(stage);
+                },
                 pickImage: (ImageSource source) async {
                   attempts++;
                   throw PlatformException(code: 'photo_access_denied');
@@ -83,11 +91,44 @@ void main() {
     await tester.tap(find.text('التقط صورة'));
     await tester.pumpAndSettle();
     expect(attempts, 1);
+    expect(failureStages, <String>['picker_error']);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'home', 'stage': 'picker_error',
+    });
     expect(find.text('بدون صورة'), findsOneWidget);
     await tester.tap(find.text('بدون صورة'));
     await tester.pumpAndSettle();
     expect(result?.cancelled, isFalse);
     expect(result?.photoBytes, isNull);
+  });
+
+  testWidgets('empty gallery result is recorded and choices remain available', (tester) async {
+    final List<String> failureStages = <String>[];
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    WorkoutPhotoChoiceResult? choice;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) => Scaffold(
+      body: TextButton(onPressed: () async {
+        choice = await chooseWorkoutPhoto(context, languageCode: 'en',
+          onFailureStage: (String stage) {
+            failureStages.add(stage);
+            WorkoutShareFlowFeedback(overlay: Overlay.of(context), source: 'finish',
+              analytics: analytics, languageCode: 'en').failed(stage);
+          },
+          pickImage: (_) async => null);
+      }, child: const Text('open')),
+    ))));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pumpAndSettle();
+    expect(failureStages, <String>['picker_empty']);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'picker_empty',
+    });
+    expect(find.text('No photo'), findsOneWidget);
+    await tester.tap(find.text('No photo'));
+    await tester.pumpAndSettle();
+    expect(choice?.cancelled, isFalse);
   });
 
   testWidgets('dismissing photo choice is cancelled, distinct from no photo',

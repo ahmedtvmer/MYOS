@@ -223,10 +223,15 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
     final AnalyticsClient analytics = ref.read(analyticsClientProvider);
     final WorkoutImagePicker picker = ref.read(workoutImagePickerProvider);
     final BuildContext shareContext = Navigator.of(context, rootNavigator: true).context;
+    final OverlayState shareOverlay = Navigator.of(context, rootNavigator: true).overlay!;
+    final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+      overlay: shareOverlay, analytics: analytics, source: 'home',
+      languageCode: language);
     final WorkoutPhotoChoiceResult choice = await chooseWorkoutPhoto(
       shareContext,
       languageCode: language,
       pickImage: picker,
+      onFailureStage: feedback.failed,
     );
     if (choice.cancelled) return;
     await shareWorkoutCardAndTrack(
@@ -234,6 +239,7 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
         session: session,
         languageCode: language,
         photoBytes: choice.photoBytes,
+        feedback: feedback,
       )),
       analytics: analytics,
       source: 'home',

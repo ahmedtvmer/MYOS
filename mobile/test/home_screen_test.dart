@@ -1958,6 +1958,7 @@ void main() {
 
   testWidgets('Home sharing survives Home disposal while the gallery is open', (tester) async {
     final Completer<XFile?> pendingPicker = Completer<XFile?>();
+    final Completer<Uint8List> pendingCapture = Completer<Uint8List>();
     final Uint8List photo = _validTestPng();
     WorkoutShareCard? sharedCard;
     final FakeMayosApi fake = _signedInFake()
@@ -1970,9 +1971,8 @@ void main() {
       workoutImagePickerProvider.overrideWithValue((_) => pendingPicker.future),
       workoutCardShareProvider.overrideWithValue((BuildContext context, WorkoutShareCard card) async {
         sharedCard = card;
-        await showWorkoutCardPreview(context, _validTestPng(), languageCode: 'en',
-          share: () async => true, save: () async => true);
-        return true;
+        return captureAndPreviewWorkoutCard(context, card,
+          capture: () => pendingCapture.future, feedback: card.feedback);
       }),
     ]);
     final GoRouter router = ProviderScope.containerOf(tester.element(find.text('Share to Story')))
@@ -1985,6 +1985,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DashboardTab), findsNothing);
     pendingPicker.complete(XFile.fromData(photo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sharedCard?.photoBytes, orderedEquals(photo));
+    expect(find.text('Preparing your card…'), findsOneWidget);
+    pendingCapture.complete(_validTestPng());
     await tester.pumpAndSettle();
     expect(find.text('Save image'), findsOneWidget);
     expect(sharedCard?.photoBytes, orderedEquals(photo));

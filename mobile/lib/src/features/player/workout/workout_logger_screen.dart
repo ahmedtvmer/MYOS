@@ -2459,16 +2459,21 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 icon: Icons.ios_share,
                 onPressed: () async {
                   final BuildContext shareContext = Navigator.of(context, rootNavigator: true).context;
+                  final OverlayState shareOverlay = Navigator.of(context, rootNavigator: true).overlay!;
                   final WorkoutCardShare shareCard = ref.read(workoutCardShareProvider);
                   final AnalyticsClient analytics = ref.read(analyticsClientProvider);
                   final WorkoutImagePicker picker = ref.read(workoutImagePickerProvider);
                   final String language = _copy.isArabic ? 'ar' : 'en';
                   final DateTime performedDate = DateTime(
                     _performedDate.year, _performedDate.month, _performedDate.day);
+                  final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+                    overlay: shareOverlay, analytics: analytics, source: 'finish',
+                    languageCode: language);
                   final WorkoutPhotoChoiceResult choice = await chooseWorkoutPhoto(
                     shareContext,
                     languageCode: language,
                     pickImage: picker,
+                    onFailureStage: feedback.failed,
                   );
                   if (choice.cancelled) return;
                   await shareWorkoutCardAndTrack(
@@ -2480,6 +2485,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                       records: summary.records,
                       performedDate: performedDate,
                       photoBytes: choice.photoBytes,
+                      feedback: feedback,
                     )),
                     analytics: analytics,
                     source: 'finish',

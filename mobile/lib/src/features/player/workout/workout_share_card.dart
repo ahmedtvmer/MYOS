@@ -15,6 +15,50 @@ import '../../../core/personal_records.dart';
 import 'workout_card_action_adapter.dart';
 import 'workout_card_action_platform.dart';
 
+class WorkoutShareFlowFeedback {
+  WorkoutShareFlowFeedback({
+    required this.overlay,
+    required this.analytics,
+    required this.source,
+    required this.languageCode,
+  });
+
+  final OverlayState overlay;
+  final AnalyticsClient analytics;
+  final String source;
+  final String languageCode;
+  final Set<String> _reportedStages = <String>{};
+  OverlayEntry? _preparingOverlay;
+
+  void showPreparing() {
+    if (!overlay.mounted || _preparingOverlay != null) return;
+    final bool arabic = WorkoutCopy(languageCode).isArabic;
+    _preparingOverlay = OverlayEntry(builder: (BuildContext context) =>
+      Positioned.fill(child: Stack(children: <Widget>[
+        const ModalBarrier(dismissible: false, color: Color(0xc9070f1a)),
+        Center(child: Column(mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const CircularProgressIndicator(color: Color(0xff2F6BFF)),
+            const SizedBox(height: 16),
+            Text(arabic ? 'جارٍ تجهيز البطاقة…' : 'Preparing your card…',
+              style: const TextStyle(color: Colors.white, fontSize: 16)),
+          ])),
+      ])));
+    overlay.insert(_preparingOverlay!);
+  }
+
+  void dismissPreparing() {
+    _preparingOverlay?.remove();
+    _preparingOverlay = null;
+  }
+
+  void failed(String stage) {
+    if (!_reportedStages.add(stage)) return;
+    dismissPreparing();
+    analytics.shareCardFailed(source: source, stage: stage);
+  }
+}
+
 /// A device-rendered 9:16 workout card. Its inputs are the immutable summary
 /// captured when Finish was tapped; sensitive profile and cardio calorie data
 /// are deliberately not inputs to this view.
@@ -28,6 +72,7 @@ class WorkoutShareCard extends StatelessWidget {
     this.prCount,
     this.photoBytes,
     this.performedDate,
+    this.feedback,
     super.key,
   });
 
@@ -39,6 +84,7 @@ class WorkoutShareCard extends StatelessWidget {
   final int? prCount;
   final Uint8List? photoBytes;
   final DateTime? performedDate;
+  final WorkoutShareFlowFeedback? feedback;
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
@@ -215,6 +261,7 @@ WorkoutShareCard latestSessionShareCard({
   required LatestSession session,
   required String languageCode,
   Uint8List? photoBytes,
+  WorkoutShareFlowFeedback? feedback,
 }) =>
     WorkoutShareCard(
       languageCode: languageCode,
@@ -233,6 +280,7 @@ WorkoutShareCard latestSessionShareCard({
       prCount: session.prCount,
       performedDate: _sessionDate(session.sessionDate),
       photoBytes: photoBytes,
+      feedback: feedback,
     );
 
 DateTime? _sessionDate(String value) {
@@ -244,33 +292,47 @@ DateTime? _sessionDate(String value) {
 Future<bool> shareWorkoutCard(
     BuildContext context, WorkoutShareCard card) =>
     captureAndPreviewWorkoutCard(context, card,
-      capture: () => _captureWorkoutCard(context, card));
+      capture: () => _captureWorkoutCard(context, card), feedback: card.feedback);
 
 Future<bool> captureAndPreviewWorkoutCard(
   BuildContext context, WorkoutShareCard card, {
   required Future<Uint8List> Function() capture,
   Duration captureTimeout = const Duration(seconds: 20),
   WorkoutCardActionAdapter? actionAdapter,
+  WorkoutShareFlowFeedback? feedback,
 }) async {
   final String languageCode = card.languageCode;
   try {
+    feedback?.showPreparing();
     final Uint8List pngBytes = await capture().timeout(captureTimeout);
-    if (!context.mounted) return false;
+    feedback?.dismissPreparing();
+    if (!context.mounted) {
+      feedback?.failed('capture_error');
+      return false;
+    }
     final WorkoutCardActionAdapter actions = actionAdapter ??
         createWorkoutCardActionAdapter(pngBytes);
     try {
       return await showWorkoutCardPreview(context, pngBytes,
-        languageCode: languageCode, share: actions.share, save: actions.save) ?? false;
+        languageCode: languageCode, share: actions.share, save: actions.save,
+        feedback: feedback) ?? false;
     } finally {
       actions.dispose();
     }
   } on TimeoutException {
+    feedback?.failed('capture_timeout');
+    if (context.mounted) _showShareError(context, languageCode);
+    return false;
+  } on _WorkoutPhotoDecodeException {
+    feedback?.failed('decode_error');
     if (context.mounted) _showShareError(context, languageCode);
     return false;
   } on Exception {
+    feedback?.failed('capture_error');
     if (context.mounted) _showShareError(context, languageCode);
     return false;
   } on Error {
+    feedback?.failed('capture_error');
     if (context.mounted) _showShareError(context, languageCode);
     return false;
   }
@@ -283,20 +345,23 @@ Future<bool?> showWorkoutCardPreview(
   required String languageCode,
   required Future<bool> Function() share,
   required Future<bool> Function() save,
+  WorkoutShareFlowFeedback? feedback,
 }) => showDialog<bool>(
   context: context,
   barrierDismissible: false,
   builder: (BuildContext dialogContext) => _WorkoutCardPreview(
-    pngBytes: pngBytes, languageCode: languageCode, share: share, save: save),
+    pngBytes: pngBytes, languageCode: languageCode, share: share, save: save,
+    feedback: feedback),
 );
 
 class _WorkoutCardPreview extends StatefulWidget {
   const _WorkoutCardPreview({required this.pngBytes, required this.languageCode,
-    required this.share, required this.save});
+    required this.share, required this.save, this.feedback});
   final Uint8List pngBytes;
   final String languageCode;
   final Future<bool> Function() share;
   final Future<bool> Function() save;
+  final WorkoutShareFlowFeedback? feedback;
   @override
   State<_WorkoutCardPreview> createState() => _WorkoutCardPreviewState();
 }
@@ -305,7 +370,7 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
   bool _busy = false;
   bool get _ar => widget.languageCode == 'ar';
 
-  Future<void> _run(Future<bool> Function() action) async {
+  Future<void> _run(Future<bool> Function() action, {bool isShare = false}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -316,8 +381,10 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
         setState(() => _busy = false);
       }
     } on Exception {
+      if (isShare) widget.feedback?.failed('share_error');
       _reportActionFailure();
     } on Error {
+      if (isShare) widget.feedback?.failed('share_error');
       _reportActionFailure();
     }
   }
@@ -341,7 +408,7 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
         child: AspectRatio(aspectRatio: 9 / 16, child: Image.memory(widget.pngBytes, fit: BoxFit.contain)))),),
       Padding(padding: const EdgeInsets.all(16), child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
         SizedBox(width: double.infinity, child: FilledButton.icon(
-          key: const ValueKey<String>('workoutCard.share'), onPressed: _busy ? null : () => _run(widget.share),
+          key: const ValueKey<String>('workoutCard.share'), onPressed: _busy ? null : () => _run(widget.share, isShare: true),
           icon: const Icon(Icons.ios_share), label: Text(_ar ? 'مشاركة' : 'Share'))),
         SizedBox(width: double.infinity, child: OutlinedButton.icon(
           key: const ValueKey<String>('workoutCard.save'), onPressed: _busy ? null : () => _run(widget.save),
@@ -415,7 +482,8 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
   BuildContext context, {
   required String languageCode,
   WorkoutImagePicker? pickImage,
-    void Function(String source)? onSourceSelected,
+  void Function(String source)? onSourceSelected,
+  void Function(String stage)? onFailureStage,
 }) async {
   final WorkoutCopy copy = WorkoutCopy(languageCode);
   final WorkoutImagePicker picker = pickImage ?? _pickWorkoutImage;
@@ -437,11 +505,20 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
           ? 'camera'
           : 'gallery';
       final Uint8List? photoBytes = await _pickWorkoutPhoto(picker, source);
-      if (photoBytes != null) {
-        onSourceSelected?.call(sourceName);
-        return WorkoutPhotoChoiceResult.photo(photoBytes, sourceName);
+      if (photoBytes == null) {
+        onFailureStage?.call('picker_empty');
+        continue;
       }
+      onSourceSelected?.call(sourceName);
+      return WorkoutPhotoChoiceResult.photo(photoBytes, sourceName);
     } on PlatformException {
+      onFailureStage?.call('picker_error');
+      continue;
+    } on Exception {
+      onFailureStage?.call('picker_error');
+      continue;
+    } on Error {
+      onFailureStage?.call('picker_error');
       continue;
     }
   }
@@ -500,7 +577,9 @@ Future<Uint8List?> _pickWorkoutPhoto(
 }
 
 
-Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) {
+class _WorkoutPhotoDecodeException implements Exception {}
+
+Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) async {
   final Completer<void> decoded = Completer<void>();
   precacheImage(
     ResizeImage(MemoryImage(photo), width: 1080, height: 1920,
@@ -514,7 +593,11 @@ Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) {
   ).then((_) {
     if (!decoded.isCompleted) decoded.complete();
   });
-  return decoded.future;
+  try {
+    await decoded.future;
+  } on Object {
+    throw _WorkoutPhotoDecodeException();
+  }
 }
 
 Future<Uint8List> _captureWorkoutCard(
