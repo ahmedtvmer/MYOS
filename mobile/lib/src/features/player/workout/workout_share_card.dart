@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/display_language/workout_copy.dart';
 import '../../../core/analytics_client.dart';
 import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
+import 'workout_card_action_adapter.dart';
+import 'workout_card_action_platform.dart';
 
 /// A device-rendered 9:16 workout card. Its inputs are the immutable summary
 /// captured when Finish was tapped; sensitive profile and cardio calorie data
@@ -198,15 +199,20 @@ Future<bool> captureAndPreviewWorkoutCard(
   BuildContext context, WorkoutShareCard card, {
   required Future<Uint8List> Function() capture,
   Duration captureTimeout = const Duration(seconds: 20),
+  WorkoutCardActionAdapter? actionAdapter,
 }) async {
   final String languageCode = card.languageCode;
   try {
     final Uint8List pngBytes = await capture().timeout(captureTimeout);
     if (!context.mounted) return false;
-    return await showWorkoutCardPreview(context, pngBytes,
-      languageCode: languageCode,
-      share: () => _shareWorkoutPng(pngBytes),
-      save: () => _shareWorkoutPng(pngBytes)) ?? false;
+    final WorkoutCardActionAdapter actions = actionAdapter ??
+        createWorkoutCardActionAdapter(pngBytes);
+    try {
+      return await showWorkoutCardPreview(context, pngBytes,
+        languageCode: languageCode, share: actions.share, save: actions.save) ?? false;
+    } finally {
+      actions.dispose();
+    }
   } on TimeoutException {
     if (context.mounted) _showShareError(context, languageCode);
     return false;
@@ -217,15 +223,6 @@ Future<bool> captureAndPreviewWorkoutCard(
     if (context.mounted) _showShareError(context, languageCode);
     return false;
   }
-}
-
-Future<bool> _shareWorkoutPng(Uint8List pngBytes) async {
-  final ShareResult result = await SharePlus.instance.share(
-    ShareParams(files: <XFile>[
-      XFile.fromData(pngBytes, mimeType: 'image/png', name: 'mayos-workout.png'),
-    ]),
-  );
-  return result.status != ShareResultStatus.dismissed;
 }
 
 /// Full-screen preview. The platform operation is invoked only by a button tap.
@@ -258,6 +255,7 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
   bool get _ar => widget.languageCode == 'ar';
 
   Future<void> _run(Future<bool> Function() action) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       final bool complete = await action();
@@ -280,7 +278,9 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PopScope<dynamic>(
+    canPop: !_busy,
+    child: Scaffold(
     backgroundColor: const Color(0xff07162d),
     appBar: AppBar(backgroundColor: const Color(0xff07162d),
       leading: IconButton(tooltip: _ar ? 'إغلاق' : 'Close', icon: const Icon(Icons.close),
@@ -297,7 +297,7 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
           icon: const Icon(Icons.download), label: Text(_ar ? 'حفظ الصورة' : 'Save image'))),
       ])),
     ])),
-  );
+  ));
 }
 
 void _showShareError(BuildContext context, String languageCode) {
@@ -444,14 +444,28 @@ Future<Uint8List?> _pickWorkoutPhoto(
   return photoFile?.readAsBytes();
 }
 
+
+Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) {
+  final Completer<void> decoded = Completer<void>();
+  precacheImage(
+    ResizeImage(MemoryImage(photo), width: 1080, height: 1920,
+        policy: ResizeImagePolicy.fit),
+    context,
+    onError: (Object error, StackTrace? stackTrace) {
+      if (!decoded.isCompleted) {
+        decoded.completeError(error, stackTrace ?? StackTrace.current);
+      }
+    },
+  ).then((_) {
+    if (!decoded.isCompleted) decoded.complete();
+  });
+  return decoded.future;
+}
+
 Future<Uint8List> _captureWorkoutCard(
     BuildContext context, WorkoutShareCard card) async {
   if (card.photoBytes case final Uint8List photo) {
-    await precacheImage(
-      ResizeImage(MemoryImage(photo), width: 1080, height: 1920,
-          policy: ResizeImagePolicy.fit),
-      context,
-    );
+    await _precacheWorkoutPhoto(photo, context);
   }
   if (!context.mounted) throw StateError('Share card capture context was removed');
   await precacheImage(const AssetImage('assets/brand/mayos-lockup-white.png'), context);

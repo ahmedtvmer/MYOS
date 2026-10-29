@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mayos_mobile/src/core/models.dart';
 import 'package:mayos_mobile/src/core/personal_records.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_card_action_adapter.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_card_web_action_adapter.dart';
 import 'support/fake_analytics_client.dart';
 
 void main() {
@@ -389,4 +391,165 @@ void main() {
     expect(logoPlacement.alignment.resolve(TextDirection.rtl), Alignment.bottomLeft);
   });
 
+  testWidgets('capture actions keep Save distinct from Share',
+      (WidgetTester tester) async {
+    final _FakeWorkoutCardActions actions = _FakeWorkoutCardActions();
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => captureAndPreviewWorkoutCard(context,
+          const WorkoutShareCard(languageCode: 'en', dayName: 'Push A',
+            stats: WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
+              totalVolumeKg: 0), records: <WorkoutRecord>[]),
+          capture: () async => Uint8List.fromList(<int>[
+             137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+             0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0,
+             0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31,
+             0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68,
+             174, 66, 96, 130]),
+          actionAdapter: actions), child: const Text('open'))),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('workoutCard.save')));
+    await tester.pumpAndSettle();
+    expect(actions.saves, 1);
+    expect(actions.shares, 0);
+  });
+
+  testWidgets('pending share ignores a second tap callback',
+      (WidgetTester tester) async {
+    final Completer<bool> completion = Completer<bool>();
+    int calls = 0;
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => showWorkoutCardPreview(context, _validPngBytes(),
+          languageCode: 'en', share: () { calls++; return completion.future; },
+          save: () async => true), child: const Text('open'))),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final FilledButton shareButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey<String>('workoutCard.share')));
+    shareButton.onPressed!();
+    shareButton.onPressed!();
+    await tester.pump();
+    expect(calls, 1);
+    completion.complete(true);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('pending share blocks system Back',
+      (WidgetTester tester) async {
+    final Completer<bool> completion = Completer<bool>();
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => showWorkoutCardPreview(context, _validPngBytes(),
+          languageCode: 'en', share: () => completion.future,
+          save: () async => true), child: const Text('open'))),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    tester.widget<FilledButton>(find.byKey(const ValueKey<String>('workoutCard.share')))
+        .onPressed!();
+    await tester.pump();
+    expect(tester.widget<PopScope<dynamic>>(find.byType(PopScope)).canPop, isFalse);
+    await Navigator.of(tester.element(
+      find.byKey(const ValueKey<String>('workoutCard.share')))).maybePop();
+    await tester.pump();
+    expect(find.byKey(const ValueKey<String>('workoutCard.share')), findsOneWidget);
+    completion.complete(true);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('photo decode failure shows localized share error',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => shareWorkoutCard(context, WorkoutShareCard(
+          languageCode: 'ar', dayName: null,
+          stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
+            totalVolumeKg: 0), records: const <WorkoutRecord>[],
+          photoBytes: Uint8List.fromList(<int>[1, 2, 3]))),
+        child: const Text('open'))),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('تعذر إنشاء الصورة'), findsAtLeastNWidgets(1));
+    expect(find.text('Share'), findsNothing);
+  });
+
+  test('web share calls the prepared share path synchronously and treats dismissal as incomplete', () async {
+    final _FakeWebBindings bindings = _FakeWebBindings();
+    final WebWorkoutCardActionAdapter actions = WebWorkoutCardActionAdapter(bindings);
+    final Future<bool> pendingShare = actions.share();
+    expect(bindings.shareCalls, 1);
+    expect(bindings.downloadCalls, 0);
+    bindings.shareCompletion.complete();
+    expect(await pendingShare, isTrue);
+
+    bindings.shareError = const WorkoutCardShareDismissed();
+    expect(await actions.share(), isFalse);
+    expect(bindings.downloadCalls, 0);
+  });
+
+  test('web Share falls back to Save when canShare is unavailable', () async {
+    final _FakeWebBindings bindings = _FakeWebBindings()..canShareUnavailable = true;
+    final WebWorkoutCardActionAdapter actions = WebWorkoutCardActionAdapter(bindings);
+    expect(await actions.share(), isTrue);
+    expect(bindings.shareCalls, 0);
+    expect(bindings.downloadCalls, 1);
+  });
+
+  test('web Share falls back to Save when file sharing is unavailable', () async {
+    final _FakeWebBindings bindings = _FakeWebBindings()..canShareFile = false;
+    final WebWorkoutCardActionAdapter actions = WebWorkoutCardActionAdapter(bindings);
+    expect(await actions.share(), isTrue);
+    expect(bindings.shareCalls, 0);
+    expect(bindings.downloadCalls, 1);
+  });
+
+}
+
+
+class _FakeWorkoutCardActions implements WorkoutCardActionAdapter {
+  int shares = 0;
+  int saves = 0;
+  @override
+  Future<bool> share() async { shares++; return true; }
+  @override
+  Future<bool> save() async { saves++; return true; }
+  @override
+  void dispose() {}
+}
+
+Uint8List _validPngBytes() => Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+
+
+class _FakeWebBindings implements WorkoutCardWebBindings {
+  final Completer<void> shareCompletion = Completer<void>();
+  bool canShareFile = true;
+  bool canShareUnavailable = false;
+  Object? shareError;
+  int shareCalls = 0;
+  int downloadCalls = 0;
+  @override
+  bool canShare() {
+    if (canShareUnavailable) {
+      throw NoSuchMethodError.withInvocation(
+        Object(), Invocation.method(#canShare, const <Object?>[]));
+    }
+    return canShareFile;
+  }
+  @override
+  Future<void> share() {
+    shareCalls++;
+    if (shareError case final Object error) {
+      return Future<void>.error(error);
+    }
+    return shareCompletion.future;
+  }
+  @override
+  void download() { downloadCalls++; }
+  @override
+  void dispose() {}
 }
