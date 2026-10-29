@@ -1188,7 +1188,7 @@ void main() {
       shareCalls++;
       sharedCard = card;
       return true;
-    });
+    }, clock: () => DateTime(2026, 9, 30, 12));
     await tester.tap(_tick(0, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
@@ -1210,7 +1210,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shareCalls, 1);
     expect(sharedCard?.dayName, 'Upper A');
-    expect(sharedCard?.performedDate, isNotNull);
+    expect(sharedCard?.performedDate, DateTime(2026, 9, 28));
     await tester.ensureVisible(find.text('Done'));
     await tester.tap(find.text('Done'));
     await _pumpUntilFound(tester, find.text('Home'));
@@ -1246,7 +1246,7 @@ void main() {
     pendingPicker.complete(XFile.fromData(photo));
     await tester.pumpAndSettle();
     expect(find.text('Save image'), findsOneWidget);
-    expect(sharedCard?.photoBytes, orderedEquals(photo));
+    expect(await sharedCard?.photoFile?.readAsBytes(), orderedEquals(photo));
   });
 
   testWidgets('tapping the PR burst immediately shows Save in the summary',

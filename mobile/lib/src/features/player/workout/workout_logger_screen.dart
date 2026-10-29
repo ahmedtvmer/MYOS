@@ -2457,7 +2457,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 key: const ValueKey<String>('logger.shareStory'),
                 label: _copy.shareToStory,
                 icon: Icons.ios_share,
-                onPressed: () async {
+                onPressed: () => WorkoutShareFlowGuard.run(() async {
                   final BuildContext shareContext = Navigator.of(context, rootNavigator: true).context;
                   final OverlayState shareOverlay = Navigator.of(context, rootNavigator: true).overlay!;
                   final WorkoutCardShare shareCard = ref.read(workoutCardShareProvider);
@@ -2484,14 +2484,15 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                       stats: summary.stats,
                       records: summary.records,
                       performedDate: performedDate,
-                      photoBytes: choice.photoBytes,
+                      photoFile: choice.photoFile,
                       feedback: feedback,
+                      captureOverlay: shareOverlay,
                     )),
                     analytics: analytics,
                     source: 'finish',
                     photo: choice,
                   );
-                },
+                }),
               ),
             ),
             const SizedBox(height: MayosSpacing.sm),

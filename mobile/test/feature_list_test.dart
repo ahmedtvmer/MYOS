@@ -66,9 +66,9 @@ void main() {
     expect(entry.titleEn, isNotEmpty);
     expect(entry.titleAr, isNotEmpty);
     expect(entry.sentenceEn,
-        'Preview your workout card, then share or save the image.');
+        'Preview your dated workout card, then share or save it.');
     expect(entry.sentenceAr,
-        'عاين بطاقة تمرينك، ثم شاركها أو احفظ الصورة.');
+        'عاين بطاقة تمرينك بتاريخها، ثم شاركها أو احفظها.');
     expect(entry.target, 'home');
     expect(entry.release, currentFeatureRelease);
     expect(entry.audience, 'lifter');

@@ -27,7 +27,7 @@ class WorkoutShareFlowFeedback {
   final AnalyticsClient analytics;
   final String source;
   final String languageCode;
-  final Set<String> _reportedStages = <String>{};
+  bool _reportedFailure = false;
   OverlayEntry? _preparingOverlay;
 
   void showPreparing() {
@@ -53,9 +53,24 @@ class WorkoutShareFlowFeedback {
   }
 
   void failed(String stage) {
-    if (!_reportedStages.add(stage)) return;
+    if (_reportedFailure) return;
+    _reportedFailure = true;
     dismissPreparing();
     analytics.shareCardFailed(source: source, stage: stage);
+  }
+}
+
+class WorkoutShareFlowGuard {
+  static bool _inFlight = false;
+
+  static Future<void> run(Future<void> Function() flow) async {
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      await flow();
+    } finally {
+      _inFlight = false;
+    }
   }
 }
 
@@ -71,8 +86,10 @@ class WorkoutShareCard extends StatelessWidget {
     required this.records,
     this.prCount,
     this.photoBytes,
+    this.photoFile,
     this.performedDate,
     this.feedback,
+    this.captureOverlay,
     super.key,
   });
 
@@ -83,8 +100,23 @@ class WorkoutShareCard extends StatelessWidget {
   final List<WorkoutRecord> records;
   final int? prCount;
   final Uint8List? photoBytes;
+  final XFile? photoFile;
   final DateTime? performedDate;
   final WorkoutShareFlowFeedback? feedback;
+  final OverlayState? captureOverlay;
+
+  WorkoutShareCard withPhotoBytes(Uint8List? bytes) => WorkoutShareCard(
+    languageCode: languageCode,
+    dayName: dayName,
+    duration: duration,
+    stats: stats,
+    records: records,
+    prCount: prCount,
+    photoBytes: bytes,
+    performedDate: performedDate,
+    feedback: feedback,
+    captureOverlay: captureOverlay,
+  );
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
@@ -261,7 +293,9 @@ WorkoutShareCard latestSessionShareCard({
   required LatestSession session,
   required String languageCode,
   Uint8List? photoBytes,
+  XFile? photoFile,
   WorkoutShareFlowFeedback? feedback,
+  OverlayState? captureOverlay,
 }) =>
     WorkoutShareCard(
       languageCode: languageCode,
@@ -280,7 +314,9 @@ WorkoutShareCard latestSessionShareCard({
       prCount: session.prCount,
       performedDate: _sessionDate(session.sessionDate),
       photoBytes: photoBytes,
+      photoFile: photoFile,
       feedback: feedback,
+      captureOverlay: captureOverlay,
     );
 
 DateTime? _sessionDate(String value) {
@@ -292,7 +328,12 @@ DateTime? _sessionDate(String value) {
 Future<bool> shareWorkoutCard(
     BuildContext context, WorkoutShareCard card) =>
     captureAndPreviewWorkoutCard(context, card,
-      capture: () => _captureWorkoutCard(context, card), feedback: card.feedback);
+      capture: () async {
+        final Uint8List? photo = card.photoBytes ?? await card.photoFile?.readAsBytes();
+        if (!context.mounted) throw StateError('Share card capture context was removed');
+        return _captureWorkoutCard(context, card, photoBytes: photo,
+          overlay: card.captureOverlay);
+      }, feedback: card.feedback);
 
 Future<bool> captureAndPreviewWorkoutCard(
   BuildContext context, WorkoutShareCard card, {
@@ -381,10 +422,10 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
         setState(() => _busy = false);
       }
     } on Exception {
-      if (isShare) widget.feedback?.failed('share_error');
+      widget.feedback?.failed(isShare ? 'share_error' : 'save_error');
       _reportActionFailure();
     } on Error {
-      if (isShare) widget.feedback?.failed('share_error');
+      widget.feedback?.failed(isShare ? 'share_error' : 'save_error');
       _reportActionFailure();
     }
   }
@@ -434,7 +475,7 @@ Future<bool> shareWorkoutCardAndTrack({
   if (completed) {
     analytics.shareCardShared(
       source: source,
-      hasPhoto: photo.photoBytes != null,
+      hasPhoto: photo.photoBytes != null || photo.photoFile != null,
       photoSource: photo.source,
     );
   }
@@ -445,9 +486,6 @@ typedef WorkoutImagePicker = Future<XFile?> Function(ImageSource source);
 
 Future<XFile?> _pickWorkoutImage(ImageSource source) => ImagePicker().pickImage(
   source: source,
-  maxWidth: 1920,
-  maxHeight: 3414,
-  imageQuality: 90,
 );
 
 final Provider<WorkoutImagePicker> workoutImagePickerProvider =
@@ -464,14 +502,15 @@ enum _WorkoutPhotoChoice { camera, gallery, none }
 @immutable
 class WorkoutPhotoChoiceResult {
   const WorkoutPhotoChoiceResult.cancelled()
-      : cancelled = true, photoBytes = null, source = 'none';
+      : cancelled = true, photoBytes = null, photoFile = null, source = 'none';
   const WorkoutPhotoChoiceResult.noPhoto()
-      : cancelled = false, photoBytes = null, source = 'none';
-  const WorkoutPhotoChoiceResult.photo(this.photoBytes, this.source)
-      : cancelled = false;
+      : cancelled = false, photoBytes = null, photoFile = null, source = 'none';
+  const WorkoutPhotoChoiceResult.photo(this.photoFile, this.source)
+      : cancelled = false, photoBytes = null;
 
   final bool cancelled;
   final Uint8List? photoBytes;
+  final XFile? photoFile;
 
   final String source;
 }
@@ -504,22 +543,21 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
       final String sourceName = choice == _WorkoutPhotoChoice.camera
           ? 'camera'
           : 'gallery';
-      final Uint8List? photoBytes = await _pickWorkoutPhoto(picker, source);
-      if (photoBytes == null) {
-        onFailureStage?.call('picker_empty');
+      final XFile? photoFile = await picker(source);
+      if (photoFile == null) {
         continue;
       }
       onSourceSelected?.call(sourceName);
-      return WorkoutPhotoChoiceResult.photo(photoBytes, sourceName);
+      return WorkoutPhotoChoiceResult.photo(photoFile, sourceName);
     } on PlatformException {
       onFailureStage?.call('picker_error');
-      continue;
+      return const WorkoutPhotoChoiceResult.cancelled();
     } on Exception {
       onFailureStage?.call('picker_error');
-      continue;
+      return const WorkoutPhotoChoiceResult.cancelled();
     } on Error {
       onFailureStage?.call('picker_error');
-      continue;
+      return const WorkoutPhotoChoiceResult.cancelled();
     }
   }
   return const WorkoutPhotoChoiceResult.cancelled();
@@ -570,13 +608,6 @@ ListTile _photoChoiceTile(BuildContext context, _WorkoutPhotoChoice choice,
       onTap: () => Navigator.pop(context, choice),
     );
 
-Future<Uint8List?> _pickWorkoutPhoto(
-    WorkoutImagePicker picker, ImageSource source) async {
-  final XFile? photoFile = await picker(source);
-  return photoFile?.readAsBytes();
-}
-
-
 class _WorkoutPhotoDecodeException implements Exception {}
 
 Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) async {
@@ -601,15 +632,19 @@ Future<void> _precacheWorkoutPhoto(Uint8List photo, BuildContext context) async 
 }
 
 Future<Uint8List> _captureWorkoutCard(
-    BuildContext context, WorkoutShareCard card) async {
-  if (card.photoBytes case final Uint8List photo) {
+    BuildContext context, WorkoutShareCard card, {
+      Uint8List? photoBytes, OverlayState? overlay,
+    }) async {
+  final Uint8List? imageBytes = photoBytes ?? card.photoBytes;
+  final WorkoutShareCard renderedCard = card.withPhotoBytes(imageBytes);
+  if (imageBytes case final Uint8List photo) {
     await _precacheWorkoutPhoto(photo, context);
   }
   if (!context.mounted) throw StateError('Share card capture context was removed');
   await precacheImage(const AssetImage('assets/brand/mayos-lockup-white.png'), context);
   if (!context.mounted) throw StateError('Share card capture context was removed');
   final GlobalKey boundaryKey = GlobalKey();
-  final OverlayState overlay = Overlay.of(context);
+  final OverlayState captureOverlay = overlay ?? Overlay.of(context);
   final OverlayEntry entry = OverlayEntry(
     builder: (BuildContext context) => Positioned(
       left: -1200,
@@ -617,10 +652,10 @@ Future<Uint8List> _captureWorkoutCard(
       width: 360,
       child: Material(type: MaterialType.transparency, child: DefaultTextStyle(
         style: TextStyle(fontFamily: card.languageCode == 'ar' ? 'IBMPlexSansArabic' : 'Inter', color: Colors.white),
-        child: RepaintBoundary(key: boundaryKey, child: card))),
+        child: RepaintBoundary(key: boundaryKey, child: renderedCard))),
     ),
   );
-  overlay.insert(entry);
+  captureOverlay.insert(entry);
   WidgetsBinding.instance.scheduleFrame();
   try {
     await WidgetsBinding.instance.endOfFrame;

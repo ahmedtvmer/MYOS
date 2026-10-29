@@ -53,7 +53,7 @@ void main() {
     expect(selectedSources, <String>['none']);
   });
 
-  testWidgets('picker denial returns to choices and no photo remains usable',
+  testWidgets('picker exception ends the flow and records picker_error',
       (WidgetTester tester) async {
     int attempts = 0;
     final List<String> failureStages = <String>[];
@@ -95,14 +95,12 @@ void main() {
     expect(analytics.events.single['properties'], <String, Object>{
       'source': 'home', 'stage': 'picker_error',
     });
-    expect(find.text('بدون صورة'), findsOneWidget);
-    await tester.tap(find.text('بدون صورة'));
     await tester.pumpAndSettle();
-    expect(result?.cancelled, isFalse);
-    expect(result?.photoBytes, isNull);
+    expect(find.text('بدون صورة'), findsNothing);
+    expect(result?.cancelled, isTrue);
   });
 
-  testWidgets('empty gallery result is recorded and choices remain available', (tester) async {
+  testWidgets('empty gallery result has no failure event and choices remain available', (tester) async {
     final List<String> failureStages = <String>[];
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     WorkoutPhotoChoiceResult? choice;
@@ -121,10 +119,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose from gallery'));
     await tester.pumpAndSettle();
-    expect(failureStages, <String>['picker_empty']);
-    expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'picker_empty',
-    });
+    expect(failureStages, isEmpty);
+    expect(analytics.events, isEmpty);
     expect(find.text('No photo'), findsOneWidget);
     await tester.tap(find.text('No photo'));
     await tester.pumpAndSettle();
@@ -168,7 +164,7 @@ void main() {
     expect(startingContext!.mounted, isFalse);
     picker.complete(XFile.fromData(photo));
     await tester.pumpAndSettle();
-    expect(result?.photoBytes, orderedEquals(photo));
+    expect(await result?.photoFile?.readAsBytes(), orderedEquals(photo));
     expect(result?.cancelled, isFalse);
   });
 }

@@ -153,9 +153,9 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
   FeatureEntry(
     id: 'workout_share_card',
     titleEn: 'Share workout card',
-    sentenceEn: 'Preview your workout card, then share or save the image.',
+    sentenceEn: 'Preview your dated workout card, then share or save it.',
     titleAr: 'مشاركة بطاقة الحصة',
-    sentenceAr: 'عاين بطاقة تمرينك، ثم شاركها أو احفظ الصورة.',
+    sentenceAr: 'عاين بطاقة تمرينك بتاريخها، ثم شاركها أو احفظها.',
     target: 'home',
     location: TourShellTabLocation(tabIndex: 0),
     release: currentFeatureRelease,

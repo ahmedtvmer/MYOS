@@ -1927,6 +1927,7 @@ void main() {
     ]);
     expect(find.text('Upper 1'), findsNWidgets(2));
     expect(find.text('Share to Story'), findsOneWidget);
+    await tester.ensureVisible(find.text('Share to Story'));
     await tester.tap(find.text('Share to Story'));
     await tester.pumpAndSettle();
     expect(find.text('Choose from gallery'), findsOneWidget);
@@ -1935,6 +1936,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(shareCalls, 1);
     expect(sharedCard?.performedDate, DateTime(2026, 9, 20));
+  });
+
+  testWidgets('double tapping Share to Story starts one share flow', (tester) async {
+    int pickerCalls = 0;
+    final FakeMayosApi fake = _signedInFake()
+      ..latestSessionBody = <String, dynamic>{
+        'session_id': 'sess-double-share', 'session_date': '2026-09-20',
+        'split_name': 'Upper 1', 'day_order': null, 'program_version': 1,
+      };
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      workoutImagePickerProvider.overrideWithValue((_) async {
+        pickerCalls++;
+        return null;
+      }),
+      workoutCardShareProvider.overrideWithValue((_, __) async => true),
+    ]);
+    await tester.ensureVisible(find.text('Share to Story'));
+    await tester.tap(find.text('Share to Story'));
+    await tester.tap(find.text('Share to Story'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pumpAndSettle();
+    expect(pickerCalls, 1);
+    await tester.tap(find.text('No photo'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Home State survives app pause and resume account and policy refreshes', (tester) async {
@@ -1987,12 +2013,12 @@ void main() {
     pendingPicker.complete(XFile.fromData(photo));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(sharedCard?.photoBytes, orderedEquals(photo));
+    expect(await sharedCard?.photoFile?.readAsBytes(), orderedEquals(photo));
     expect(find.text('Preparing your card…'), findsOneWidget);
     pendingCapture.complete(_validTestPng());
     await tester.pumpAndSettle();
     expect(find.text('Save image'), findsOneWidget);
-    expect(sharedCard?.photoBytes, orderedEquals(photo));
+    expect(await sharedCard?.photoFile?.readAsBytes(), orderedEquals(photo));
   });
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',

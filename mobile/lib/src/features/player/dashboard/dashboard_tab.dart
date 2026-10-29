@@ -217,7 +217,8 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   void _openDrafts() => context.push(workoutsPath);
 
-  Future<void> _shareLatest(LatestSession session) async {
+  Future<void> _shareLatest(LatestSession session) =>
+      WorkoutShareFlowGuard.run(() async {
     final String language = ref.read(displayLanguageProvider);
     final WorkoutCardShare shareCard = ref.read(workoutCardShareProvider);
     final AnalyticsClient analytics = ref.read(analyticsClientProvider);
@@ -238,14 +239,15 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
       share: () => shareCard(shareContext, latestSessionShareCard(
         session: session,
         languageCode: language,
-        photoBytes: choice.photoBytes,
+        photoFile: choice.photoFile,
         feedback: feedback,
+        captureOverlay: shareOverlay,
       )),
       analytics: analytics,
       source: 'home',
       photo: choice,
     );
-  }
+  });
 
   Future<void> _openCheckpointReview(int checkpoint) async {
     await context.push('$checkpointReviewPath/$checkpoint');

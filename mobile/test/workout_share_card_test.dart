@@ -12,6 +12,16 @@ import 'package:mayos_mobile/src/features/player/workout/workout_card_web_action
 import 'support/fake_analytics_client.dart';
 
 void main() {
+  testWidgets('historical performed date is shown on the card', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: WorkoutShareCard(
+      languageCode: 'en', dayName: 'Upper A',
+      stats: const WorkoutSummaryStats(exercisesDone: 0,
+        workingSets: 3, totalVolumeKg: 1500),
+      records: const <WorkoutRecord>[], performedDate: DateTime(2026, 9, 28),
+    ))));
+    expect(find.text('Mon, 28 Sep 2026'), findsOneWidget);
+  });
+
   test('share analytics records only approved properties once and respects opt-out', () {
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     analytics.shareCardShared(source: 'finish', hasPhoto: true, photoSource: 'camera');
@@ -33,21 +43,37 @@ void main() {
   test('share failures record only source and stage and honor opt-out', () {
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     for (final String stage in <String>[
-      'picker_error', 'picker_empty', 'decode_error', 'capture_timeout',
-      'capture_error', 'share_error',
+      'picker_error', 'decode_error', 'capture_timeout',
+      'capture_error', 'share_error', 'save_error',
     ]) {
       analytics.shareCardFailed(source: 'home', stage: stage);
     }
     expect(analytics.events, hasLength(6));
     expect(analytics.events.map((event) => event['properties']), <Map<String, Object>>[
       for (final String stage in <String>[
-        'picker_error', 'picker_empty', 'decode_error', 'capture_timeout',
-        'capture_error', 'share_error',
+        'picker_error', 'decode_error', 'capture_timeout',
+        'capture_error', 'share_error', 'save_error',
       ]) <String, Object>{'source': 'home', 'stage': stage},
     ]);
     analytics.setEnabled(false);
     analytics.shareCardFailed(source: 'finish', stage: 'capture_error');
     expect(analytics.events, hasLength(6));
+  });
+
+  testWidgets('a flow reports only its first terminal failure', (tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) {
+      final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+        overlay: Overlay.of(context), analytics: analytics, source: 'home',
+        languageCode: 'en');
+      feedback.failed('capture_timeout');
+      feedback.failed('share_error');
+      return const SizedBox.shrink();
+    })));
+    expect(analytics.events, hasLength(1));
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'home', 'stage': 'capture_timeout',
+    });
   });
 
   testWidgets('preparing overlay blocks capture and is removed when preview opens', (tester) async {
@@ -207,6 +233,26 @@ void main() {
     expect(find.text('Save image'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
       'source': 'home', 'stage': 'share_error',
+    });
+  });
+
+  testWidgets('save exception reports one save_error failure', (tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => showWorkoutCardPreview(context, _validPngBytes(),
+          languageCode: 'en', share: () async => true,
+          save: () async => throw StateError('private save failure'),
+          feedback: WorkoutShareFlowFeedback(overlay: Overlay.of(context),
+            source: 'finish', analytics: analytics, languageCode: 'en')),
+        child: const Text('open'))),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save image'));
+    await tester.pumpAndSettle();
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'save_error',
     });
   });
 
@@ -660,6 +706,7 @@ class _FakeWorkoutCardActions implements WorkoutCardActionAdapter {
 }
 
 Uint8List _validPngBytes() => Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+
 
 
 class _FakeWebBindings implements WorkoutCardWebBindings {
