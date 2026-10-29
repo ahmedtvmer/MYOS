@@ -60,9 +60,10 @@ final class MayosTypography {
   static const List<FontFeature> _tabular = <FontFeature>[
     FontFeature.tabularFigures(),
   ];
-  /// Same face as the MAYOS lockup image (Montserrat SemiBold).
+  /// Same face as the MAYOS lockup image: Montserrat SemiBold with the A drawn
+  /// as Λ (no crossbar), bundled as the 5-glyph MayosWordmark font.
   static const TextStyle brandWordmark = TextStyle(
-    fontFamily: 'Montserrat',
+    fontFamily: 'MayosWordmark',
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 14,
     height: 1.2,

@@ -13,7 +13,7 @@
   <link rel="preload" as="image" href="/screen-logger.webp" fetchpriority="high">
   <link rel="preload" as="font" href="/IBMPlexSansArabic-Regular.woff2" type="font/woff2" crossorigin>
   <style>
-    @font-face{font-family:MayosWordmark;src:url('/Montserrat-Wordmark.woff2') format('woff2');font-weight:600;font-display:swap}
+    @font-face{font-family:MayosWordmark;src:url('/MayosWordmark.woff2') format('woff2');font-weight:600;font-display:swap}
     @font-face{font-family:Inter;src:url('/Inter-Variable.woff2') format('woff2');font-weight:400 800;font-display:swap}
     @font-face{font-family:Arabic;src:url('/IBMPlexSansArabic-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
     @font-face{font-family:Arabic;src:url('/IBMPlexSansArabic-SemiBold.woff2') format('woff2');font-weight:600 800;font-display:swap}
@@ -33,9 +33,9 @@
     /* Navbar */
     .topbar{position:absolute;inset-inline:0;top:0;z-index:5}
     .topbar .shell{height:76px;display:flex;align-items:center;gap:20px}
-    .brand{display:inline-flex;align-items:center;gap:10px;min-height:44px;text-decoration:none}
+    .brand{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:44px;text-decoration:none}
     .brand img{width:32px;height:32px;object-fit:contain;filter:invert(1)}
-    .brand-word{font:600 16px/1 MayosWordmark,Inter,sans-serif;letter-spacing:.22em}
+    .brand-word{font:600 11px/1 MayosWordmark,Inter,sans-serif;letter-spacing:.24em;margin-inline-start:.24em}
     .nav-links{display:flex;gap:4px;margin-inline-start:auto}
     .nav-links a{min-height:44px;display:inline-flex;align-items:center;padding-inline:12px;color:var(--secondary);text-decoration:none;font-size:15px;transition:color .15s}
     .nav-links a:hover{color:var(--text)}
@@ -111,7 +111,7 @@
     .footer{border-block-start:1px solid var(--line);padding-block:20px 28px;color:var(--muted);font-size:14px}
     .footer .shell{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap}
     .footer .brand img{width:24px;height:24px}
-    .footer .brand-word{font-size:13px;color:var(--text)}
+    .footer .brand-word{font-size:9px;color:var(--text)}
     .footer-links{display:flex;align-items:center;gap:4px 20px;flex-wrap:wrap;margin-inline-start:auto}
     .socials{display:flex;gap:10px}
     .social{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--secondary);transition:color .15s,border-color .15s,background .15s,transform .15s}
@@ -157,7 +157,6 @@
     @media(max-width:420px){
       :root{--gutter:16px}
       .topbar .shell{height:68px;gap:10px}
-      .brand-word{display:none}
       .phones{height:400px}
       .phone{width:185px}
       .duo{gap:12px}

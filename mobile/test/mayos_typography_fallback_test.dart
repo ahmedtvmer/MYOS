@@ -74,7 +74,7 @@ void main() {
     }
     expect(english.code.fontFamily, 'monospace');
     // The text wordmark matches the MAYOS lockup image (Montserrat SemiBold).
-    expect(MayosTypography.brandWordmark.fontFamily, 'Montserrat');
+    expect(MayosTypography.brandWordmark.fontFamily, 'MayosWordmark');
     expect(
       MayosTheme.lightForLanguage('en').textTheme.bodyMedium?.fontFamily,
       MayosTypography.uiFamily,

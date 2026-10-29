@@ -122,12 +122,11 @@ class MayosAppHeader extends StatelessWidget {
   }
 }
 
-/// The small-placement brand treatment: the supplied mark at ~24dp beside a
-/// clean, letterspaced "MAYOS" wordmark in the brand sans, in the theme's
-/// primary text colour. This is the documented clean text treatment used where
-/// the vertical lockup's baked wordmark would be illegible. The wordmark is a
-/// decorative label, so its text scaling is clamped to keep the header from
-/// crowding the actions at 320dp.
+/// The small-placement brand treatment: the supplied mark with a clean,
+/// letterspaced "MAYOS" wordmark stacked under it (never beside it), in the
+/// lockup's own face (A drawn as Λ) and the theme's primary text colour. The
+/// wordmark is a decorative label, so its text scaling is clamped to keep the
+/// header from crowding the actions at 320dp.
 class _MayosWordmark extends StatelessWidget {
   const _MayosWordmark({super.key});
 
@@ -140,16 +139,17 @@ class _MayosWordmark extends StatelessWidget {
       child: Semantics(
         label: brandName,
         excludeSemantics: true,
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const MayosBrandMark(size: 24),
-            const SizedBox(width: MayosSpacing.xxs),
+            const MayosBrandMark(size: 22),
+            const SizedBox(height: 1),
             Text(
               'MAYOS',
               style: MayosTypography.brandWordmark.copyWith(
-                fontSize: 11.5,
-                letterSpacing: 2.4,
+                fontSize: 8,
+                height: 1.1,
+                letterSpacing: 2.2,
                 color: c.textPrimary,
               ),
             ),

@@ -77,6 +77,10 @@ flutter:
     - family: PlayfairDisplay
       fonts:
         - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+    - family: MayosWordmark
+      fonts:
+        - asset: assets/fonts/MayosWordmark-SemiBold.ttf
+          weight: 600
     - family: Montserrat
       fonts:
         - asset: assets/fonts/Montserrat-Bold.ttf
