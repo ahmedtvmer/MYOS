@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -58,8 +59,26 @@ class WorkoutShareFlowFeedback {
     _reportedFailure = true;
     dismissPreparing();
     analytics.shareCardFailed(source: source, stage: stage,
-        errorType: error.runtimeType.toString());
+        errorType: shareErrorCategory(error));
   }
+}
+
+/// A stable, message-free name for a share failure. Release web builds minify
+/// class names (`runtimeType` reads `minified:K1`), so known types map to fixed
+/// categories; a browser DOMException contributes only its standard name
+/// (e.g. `SecurityError`), never its message.
+String shareErrorCategory(Object error) {
+  if (error is TimeoutException) return 'timeout';
+  if (error is PlatformException) return 'platform';
+  if (error is StateError) return 'state';
+  if (error is FormatException) return 'format';
+  if (error is ArgumentError) return 'argument';
+  if (error is Exception) return 'exception';
+  if (error is Error) return 'error';
+  if (error is String) return 'string';
+  final RegExpMatch? named =
+      RegExp(r'^([A-Z][A-Za-z]*(?:Error|Exception))\b').firstMatch(error.toString());
+  return named?.group(1) ?? 'object';
 }
 
 class WorkoutShareFlowGuard {

@@ -93,7 +93,7 @@ void main() {
     expect(attempts, 1);
     expect(failureStages, <String>['picker_error']);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'picker_error', 'error_type': 'PlatformException',
+      'source': 'home', 'stage': 'picker_error', 'error_type': 'platform',
     });
     expect(find.text('تعذر إنشاء الصورة أو مشاركتها. حاول مرة أخرى.'), findsOneWidget);
     await tester.pumpAndSettle();
@@ -122,7 +122,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'picker_error', 'error_type': 'String',
+      'source': 'home', 'stage': 'picker_error', 'error_type': 'string',
     });
   });
 

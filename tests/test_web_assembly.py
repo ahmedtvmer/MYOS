@@ -145,3 +145,13 @@ GoRoute(path: "/double-quoted", builder: build),
 def test_router_parser_fails_loudly_on_unresolvable_routes(source):
     with pytest.raises(ValueError, match="GoRoute.*path|unresolved"):
         parse_router_routes(source)
+
+
+def test_csp_allows_reading_picked_photos_from_blob_urls():
+    """The share card reads the picked photo through its blob: URL (fetch/XHR).
+    Without blob: in connect-src the browser blocks it and every photo card
+    fails with decode_error (#567)."""
+    headers = (ROOT / "mobile" / "web" / "_headers").read_text(encoding="utf-8")
+    csp = re.search(r"Content-Security-Policy: (.*)", headers).group(1)
+    connect = re.search(r"connect-src ([^;]*)", csp).group(1).split()
+    assert "blob:" in connect

@@ -14,6 +14,16 @@ import 'package:mayos_mobile/src/features/player/workout/workout_photo_adapter.d
 import 'support/fake_analytics_client.dart';
 
 void main() {
+  test('share error categories are stable names, never messages', () {
+    expect(shareErrorCategory(TimeoutException('t')), 'timeout');
+    expect(shareErrorCategory(StateError('secret')), 'state');
+    expect(shareErrorCategory('raw'), 'string');
+    expect(shareErrorCategory(const FormatException('x')), 'format');
+    expect(shareErrorCategory(Exception('secret message')), 'exception');
+    expect(shareErrorCategory(_ToStringError('SecurityError: Refused to connect to blob:x')), 'SecurityError');
+    expect(shareErrorCategory(_ToStringError('something odd')), 'object');
+  });
+
   testWidgets('historical performed date is shown on the card', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: WorkoutShareCard(
       languageCode: 'en', dayName: 'Upper A',
@@ -48,17 +58,17 @@ void main() {
       'picker_error', 'decode_error', 'capture_timeout',
       'capture_error', 'share_error', 'save_error',
     ]) {
-      analytics.shareCardFailed(source: 'home', stage: stage, errorType: 'StateError');
+      analytics.shareCardFailed(source: 'home', stage: stage, errorType: 'state');
     }
     expect(analytics.events, hasLength(6));
     expect(analytics.events.map((event) => event['properties']), <Map<String, Object>>[
       for (final String stage in <String>[
         'picker_error', 'decode_error', 'capture_timeout',
         'capture_error', 'share_error', 'save_error',
-      ]) <String, Object>{'source': 'home', 'stage': stage, 'error_type': 'StateError'},
+      ]) <String, Object>{'source': 'home', 'stage': stage, 'error_type': 'state'},
     ]);
     analytics.setEnabled(false);
-    analytics.shareCardFailed(source: 'finish', stage: 'capture_error', errorType: 'StateError');
+    analytics.shareCardFailed(source: 'finish', stage: 'capture_error', errorType: 'state');
     expect(analytics.events, hasLength(6));
   });
 
@@ -104,16 +114,16 @@ void main() {
     expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
     expect(analytics.events, hasLength(1));
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'decode_error', 'error_type': 'String',
+      'source': 'finish', 'stage': 'decode_error', 'error_type': 'string',
     });
   });
 
   test('share failure analytics sends error type but never error message', () {
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     analytics.shareCardFailed(source: 'finish', stage: 'capture_error',
-        errorType: 'StateError');
+        errorType: 'state');
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'capture_error', 'error_type': 'StateError',
+      'source': 'finish', 'stage': 'capture_error', 'error_type': 'state',
     });
     expect(analytics.events.single.toString(), isNot(contains('private detail')));
   });
@@ -130,7 +140,7 @@ void main() {
     })));
     expect(analytics.events, hasLength(1));
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'capture_timeout', 'error_type': 'TimeoutException',
+      'source': 'home', 'stage': 'capture_timeout', 'error_type': 'timeout',
     });
     expect(analytics.events.single.toString(), isNot(contains('private detail')));
   });
@@ -195,7 +205,7 @@ void main() {
     expect(find.text('Preparing your card…'), findsNothing);
     expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'capture_error', 'error_type': '_RawShareFailure',
+      'source': 'home', 'stage': 'capture_error', 'error_type': 'object',
     });
   });
 
@@ -291,7 +301,7 @@ void main() {
     expect(find.text('Could not create or share the image. Try again.'), findsAtLeastNWidgets(1));
     expect(find.text('Save image'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'share_error', 'error_type': '_RawShareFailure',
+      'source': 'home', 'stage': 'share_error', 'error_type': 'object',
     });
   });
 
@@ -311,7 +321,7 @@ void main() {
     await tester.tap(find.text('Save image'));
     await tester.pumpAndSettle();
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'save_error', 'error_type': '_RawShareFailure',
+      'source': 'finish', 'stage': 'save_error', 'error_type': 'object',
     });
   });
 
@@ -338,7 +348,7 @@ void main() {
     expect(find.text('Share'), findsNothing);
     expect(find.text('Preparing your card…'), findsNothing);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'capture_timeout', 'error_type': 'TimeoutException',
+      'source': 'finish', 'stage': 'capture_timeout', 'error_type': 'timeout',
     });
   });
 
@@ -716,7 +726,7 @@ void main() {
     expect(find.text('Share'), findsNothing);
     expect(find.text('Preparing your card…'), findsNothing);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'decode_error', 'error_type': '_WorkoutPhotoDecodeException',
+      'source': 'finish', 'stage': 'decode_error', 'error_type': 'exception',
     });
   });
 
@@ -799,4 +809,11 @@ class _FakeWebBindings implements WorkoutCardWebBindings {
   void download() { downloadCalls++; }
   @override
   void dispose() {}
+}
+
+class _ToStringError {
+  const _ToStringError(this.text);
+  final String text;
+  @override
+  String toString() => text;
 }
