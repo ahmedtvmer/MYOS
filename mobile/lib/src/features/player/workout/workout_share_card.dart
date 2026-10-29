@@ -230,7 +230,7 @@ class WorkoutShareCard extends StatelessWidget {
         child: Image.asset('assets/brand/mayos-lockup-white.png',
           key: const ValueKey<String>('workoutCard.logo'), height: 37, fit: BoxFit.contain))),
       Align(alignment: Alignment.bottomCenter, child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(26, 24, 26, 77),
+        padding: const EdgeInsetsDirectional.fromSTEB(26, 24, 26, 57),
         child: _buildCardDetails(cardioOnly: cardioOnly, volume: volume))),
     ]));
 
