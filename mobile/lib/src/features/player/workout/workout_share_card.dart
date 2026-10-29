@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -260,20 +261,122 @@ WorkoutShareCard latestSessionShareCard({
       photoBytes: photoBytes,
     );
 
-/// Captures an off-screen card locally and opens the platform share sheet.
+/// Captures the card, then waits for an explicit action in the preview.
 Future<bool> shareWorkoutCard(
-    BuildContext context, WorkoutShareCard card) async {
-  final Uint8List pngBytes = await _captureWorkoutCard(context, card);
+    BuildContext context, WorkoutShareCard card) =>
+    captureAndPreviewWorkoutCard(context, card,
+      capture: () => _captureWorkoutCard(context, card));
+
+Future<bool> captureAndPreviewWorkoutCard(
+  BuildContext context, WorkoutShareCard card, {
+  required Future<Uint8List> Function() capture,
+  Duration captureTimeout = const Duration(seconds: 20),
+}) async {
+  final String languageCode = card.languageCode;
+  try {
+    final Uint8List pngBytes = await capture().timeout(captureTimeout);
+    if (!context.mounted) return false;
+    return await showWorkoutCardPreview(context, pngBytes,
+      languageCode: languageCode,
+      share: () => _shareWorkoutPng(pngBytes),
+      save: () => _shareWorkoutPng(pngBytes)) ?? false;
+  } on TimeoutException {
+    if (context.mounted) _showShareError(context, languageCode);
+    return false;
+  } on Exception {
+    if (context.mounted) _showShareError(context, languageCode);
+    return false;
+  } on Error {
+    if (context.mounted) _showShareError(context, languageCode);
+    return false;
+  }
+}
+
+Future<bool> _shareWorkoutPng(Uint8List pngBytes) async {
   final ShareResult result = await SharePlus.instance.share(
     ShareParams(files: <XFile>[
-      XFile.fromData(
-        pngBytes,
-        mimeType: 'image/png',
-        name: 'mayos-workout.png',
-      ),
+      XFile.fromData(pngBytes, mimeType: 'image/png', name: 'mayos-workout.png'),
     ]),
   );
   return result.status != ShareResultStatus.dismissed;
+}
+
+/// Full-screen preview. The platform operation is invoked only by a button tap.
+Future<bool?> showWorkoutCardPreview(
+  BuildContext context,
+  Uint8List pngBytes, {
+  required String languageCode,
+  required Future<bool> Function() share,
+  required Future<bool> Function() save,
+}) => showDialog<bool>(
+  context: context,
+  barrierDismissible: false,
+  builder: (BuildContext dialogContext) => _WorkoutCardPreview(
+    pngBytes: pngBytes, languageCode: languageCode, share: share, save: save),
+);
+
+class _WorkoutCardPreview extends StatefulWidget {
+  const _WorkoutCardPreview({required this.pngBytes, required this.languageCode,
+    required this.share, required this.save});
+  final Uint8List pngBytes;
+  final String languageCode;
+  final Future<bool> Function() share;
+  final Future<bool> Function() save;
+  @override
+  State<_WorkoutCardPreview> createState() => _WorkoutCardPreviewState();
+}
+
+class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
+  bool _busy = false;
+  bool get _ar => widget.languageCode == 'ar';
+
+  Future<void> _run(Future<bool> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      final bool complete = await action();
+      if (mounted && complete) {
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        setState(() => _busy = false);
+      }
+    } on Exception {
+      _reportActionFailure();
+    } on Error {
+      _reportActionFailure();
+    }
+  }
+
+  void _reportActionFailure() {
+    if (!mounted) return;
+    setState(() => _busy = false);
+    _showShareError(context, widget.languageCode);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xff07162d),
+    appBar: AppBar(backgroundColor: const Color(0xff07162d),
+      leading: IconButton(tooltip: _ar ? 'إغلاق' : 'Close', icon: const Icon(Icons.close),
+        onPressed: _busy ? null : () => Navigator.of(context).pop(false))),
+    body: SafeArea(child: Column(children: <Widget>[
+      Expanded(child: Center(child: Padding(padding: const EdgeInsets.all(12),
+        child: AspectRatio(aspectRatio: 9 / 16, child: Image.memory(widget.pngBytes, fit: BoxFit.contain)))),),
+      Padding(padding: const EdgeInsets.all(16), child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+        SizedBox(width: double.infinity, child: FilledButton.icon(
+          key: const ValueKey<String>('workoutCard.share'), onPressed: _busy ? null : () => _run(widget.share),
+          icon: const Icon(Icons.ios_share), label: Text(_ar ? 'مشاركة' : 'Share'))),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          key: const ValueKey<String>('workoutCard.save'), onPressed: _busy ? null : () => _run(widget.save),
+          icon: const Icon(Icons.download), label: Text(_ar ? 'حفظ الصورة' : 'Save image'))),
+      ])),
+    ])),
+  );
+}
+
+void _showShareError(BuildContext context, String languageCode) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(languageCode == 'ar' ? 'تعذر إنشاء الصورة أو مشاركتها. حاول مرة أخرى.' : 'Could not create or share the image. Try again.'),
+  ));
 }
 
 Future<bool> shareWorkoutCardAndTrack({
@@ -314,6 +417,7 @@ class WorkoutPhotoChoiceResult {
 
   final bool cancelled;
   final Uint8List? photoBytes;
+
   final String source;
 }
 

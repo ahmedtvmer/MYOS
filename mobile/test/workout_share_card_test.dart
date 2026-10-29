@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -51,6 +52,91 @@ void main() {
     );
     expect(analytics.events, hasLength(1));
     expect(calls, 3);
+  });
+
+
+  testWidgets('preview waits for Share or Save tap and closing cancels',
+      (WidgetTester tester) async {
+    int shares = 0;
+    int saves = 0;
+    bool? result;
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(
+        body: TextButton(onPressed: () async {
+          result = await showWorkoutCardPreview(
+            context, Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]), languageCode: 'en',
+            share: () async { shares++; return true; },
+            save: () async { saves++; return true; },
+          );
+        }, child: const Text('open')),
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share'), findsOneWidget);
+    expect(find.text('Save image'), findsOneWidget);
+    expect(shares, 0);
+    expect(saves, 0);
+    await tester.tap(find.text('Save image'));
+    await tester.pumpAndSettle();
+    expect(saves, 1);
+    expect(shares, 0);
+    expect(result, isTrue);
+  });
+
+  testWidgets('share failure in preview shows a localized error',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(
+        body: TextButton(onPressed: () => showWorkoutCardPreview(
+          context, Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]), languageCode: 'en',
+          share: () async => throw StateError('share failed'),
+          save: () async => true,
+        ), child: const Text('open')),
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('workoutCard.share')));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not create or share the image. Try again.'), findsAtLeastNWidgets(1));
+    expect(find.text('Save image'), findsOneWidget);
+  });
+
+  testWidgets('capture timeout reports a localized error',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(body: TextButton(
+        onPressed: () => captureAndPreviewWorkoutCard(context, const WorkoutShareCard(
+          languageCode: 'ar', dayName: null, stats: WorkoutSummaryStats(
+            exercisesDone: 0, workingSets: 0, totalVolumeKg: 0), records: <WorkoutRecord>[]),
+          capture: () => Completer<Uint8List>().future,
+          captureTimeout: const Duration(milliseconds: 1)), child: const Text('capture'))),
+    )));
+    await tester.tap(find.text('capture'));
+    await tester.pump(const Duration(milliseconds: 5));
+    await tester.pump();
+    expect(find.textContaining('تعذر إنشاء الصورة'), findsAtLeastNWidgets(1));
+    expect(find.text('Share'), findsNothing);
+  });
+
+  testWidgets('closing preview invokes neither share nor save',
+      (WidgetTester tester) async {
+    int calls = 0;
+    await tester.pumpWidget(MaterialApp(home: Builder(
+      builder: (BuildContext context) => Scaffold(
+        body: TextButton(onPressed: () => showWorkoutCardPreview(
+          context, Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]), languageCode: 'en',
+          share: () async { calls++; return true; },
+          save: () async { calls++; return true; },
+        ), child: const Text('open')),
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(calls, 0);
   });
 
   testWidgets('Home latest workout omits unknown duration but keeps session stats',
