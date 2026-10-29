@@ -48,7 +48,10 @@ FakeMayosApi _signedInFake() {
 ActiveWorkout _storedWorkout() => ActiveWorkout(
       id: 'aw-stored',
       accountId: _account,
-      startedAt: '2026-09-28T08:00:00.000Z',
+      startedAt: DateTime.now()
+          .subtract(const Duration(minutes: 45))
+          .toUtc()
+          .toIso8601String(),
       dayOrder: 2,
       dayName: 'Upper A',
       programVersion: 3,

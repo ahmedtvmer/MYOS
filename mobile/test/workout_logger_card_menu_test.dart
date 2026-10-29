@@ -23,6 +23,7 @@ import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.d
 import 'package:mayos_mobile/src/providers.dart';
 
 import 'support/fake_mayos_api.dart';
+import 'support/finish_flow_test_clock.dart';
 
 // The card's ⋮ menu (#162): Replace exercise for every player, Rest time…
 // behind the same #125 picker, Remove exercise only for an unplanned one —
@@ -658,7 +659,12 @@ void main() {
     final SemanticsHandle semantics = tester.ensureSemantics();
     final FakeMayosApi fake = _signedInFake()..commitFails = true;
     final InMemoryDraftStore drafts = InMemoryDraftStore();
-    await _openLogger(tester, fakeApi: fake, drafts: drafts);
+    await _openLogger(
+      tester,
+      fakeApi: fake,
+      drafts: drafts,
+      clock: finishFlowTestClock(),
+    );
 
     await _pickMenuItem(tester, 0, _replaceItem(0));
     await _searchAndPick(tester, 'fly', 'Cable Fly');

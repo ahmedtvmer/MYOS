@@ -33,7 +33,10 @@ ActiveWorkout _workout({
       accountId: accountId,
       clientSessionId: _sessionId,
       commitAttempted: commitAttempted,
-      startedAt: '2026-09-28T08:00:00.000Z',
+      startedAt: DateTime.now()
+          .subtract(const Duration(minutes: 45))
+          .toUtc()
+          .toIso8601String(),
       dayOrder: 1,
       dayName: 'Upper 1',
       programVersion: 3,

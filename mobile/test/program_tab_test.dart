@@ -18,6 +18,7 @@ import 'package:mayos_mobile/src/features/player/workout/active_workout_controll
 import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
 
 import 'support/fake_mayos_api.dart';
+import 'support/finish_flow_test_clock.dart';
 
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     {int attempts = 40}) async {
@@ -102,6 +103,7 @@ Future<void> _pumpProgram(
   ActiveWorkoutStore? activeWorkoutStore,
   WorkoutCacheStore? workoutCacheStore,
   String languageCode = 'en',
+  DateTime Function()? clock,
 }) async {
   fake.displayLanguage = languageCode;
   tester.view.physicalSize = const Size(1080, 2400);
@@ -114,6 +116,7 @@ Future<void> _pumpProgram(
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
+        if (clock != null) clockProvider.overrideWithValue(clock),
         tokenStoreProvider.overrideWithValue(tokens),
         appModeStoreProvider.overrideWithValue(InMemoryAppModeStore()),
         systemDisplayLanguageProvider.overrideWithValue(languageCode),
@@ -2141,6 +2144,7 @@ void main() {
       fake,
       languageCode: 'ar',
       activeWorkoutStore: InMemoryActiveWorkoutStore(),
+      clock: finishFlowTestClock(),
     );
 
     await tester.tap(find.text('تسجيل حصة تدريبية'));

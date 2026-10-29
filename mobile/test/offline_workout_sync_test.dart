@@ -23,6 +23,7 @@ import 'package:mayos_mobile/src/providers.dart';
 import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_mayos_api.dart';
+import 'support/finish_flow_test_clock.dart';
 
 const String _accountA = 'account-alice';
 const String _accountB = 'account-bob';
@@ -1074,7 +1075,12 @@ void main() {
     final FakeMayosApi fake = FakeMayosApi()..programVersion = 1;
     fake.baselinesBody = <Map<String, dynamic>>[_benchBaseline()];
     final InMemoryDraftStore store = InMemoryDraftStore();
-    await _pumpApp(tester, fake, draftStore: store);
+    await _pumpApp(
+      tester,
+      fake,
+      draftStore: store,
+      clock: finishFlowTestClock(),
+    );
 
     await tester.tap(find.text('Program'));
     await _pumpUntilFound(tester, find.text('Log workout'));
@@ -1119,7 +1125,11 @@ void main() {
     final InMemoryDraftStore store = InMemoryDraftStore();
     await store.write(_accountA, <WorkoutDraft>[_draft(accountId: _accountA)]);
 
-    await _pumpApp(tester, fake, draftStore: store);
+    await _pumpApp(
+      tester,
+      fake,
+      draftStore: store,
+    );
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await _pumpUntilFound(tester, find.text('المظهر'));
     final Finder draftsEntry = find.text('مسودات الحصص');
@@ -1160,7 +1170,12 @@ void main() {
     final FakeMayosApi fake = FakeMayosApi()..programVersion = 1;
     fake.baselinesBody = <Map<String, dynamic>>[_benchBaseline()];
     final InMemoryDraftStore store = InMemoryDraftStore();
-    await _pumpApp(tester, fake, draftStore: store);
+    await _pumpApp(
+      tester,
+      fake,
+      draftStore: store,
+      clock: finishFlowTestClock(),
+    );
 
     await tester.tap(find.text('Program'));
     await _pumpUntilFound(tester, find.text('Log workout'));
@@ -1478,6 +1493,7 @@ Future<void> _pumpApp(
   String? deviceTimezone = 'UTC',
   bool offlineDraftsEnabled = true,
   AnalyticsClient? analytics,
+  DateTime Function()? clock,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.0;
@@ -1495,6 +1511,7 @@ Future<void> _pumpApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
+        if (clock != null) clockProvider.overrideWithValue(clock),
         tokenStoreProvider.overrideWithValue(tokens),
         appModeStoreProvider.overrideWithValue(InMemoryAppModeStore()),
         draftStoreProvider.overrideWithValue(draftStore),
