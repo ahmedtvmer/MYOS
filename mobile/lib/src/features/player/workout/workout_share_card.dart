@@ -27,6 +27,7 @@ class WorkoutShareCard extends StatelessWidget {
     required this.records,
     this.prCount,
     this.photoBytes,
+    this.performedDate,
     super.key,
   });
 
@@ -37,6 +38,7 @@ class WorkoutShareCard extends StatelessWidget {
   final List<WorkoutRecord> records;
   final int? prCount;
   final Uint8List? photoBytes;
+  final DateTime? performedDate;
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
@@ -127,6 +129,7 @@ class WorkoutShareCard extends StatelessWidget {
     children: <Widget>[
       if (_prExerciseCount > 0) _buildPrBadge(),
       if (_dayName case final String name) _buildDayName(name),
+      if (performedDate case final DateTime date) _buildPerformedDate(date),
       _buildStatsRow(cardioOnly: cardioOnly, volume: volume),
     ]);
 
@@ -144,10 +147,30 @@ class WorkoutShareCard extends StatelessWidget {
       ? '${NumberFormat('#,##0', 'en').format(_prExerciseCount)} ${_prExerciseCount == 1 ? 'رقم قياسي' : 'أرقام قياسية'}'
       : '${NumberFormat('#,##0', 'en').format(_prExerciseCount)} personal records';
 
-  Widget _buildDayName(String name) => Padding(padding: const EdgeInsets.only(bottom: 20),
+  // With a date under it the day name hugs the date so they read as one unit.
+  Widget _buildDayName(String name) => Padding(
+    padding: EdgeInsets.only(bottom: performedDate == null ? 20 : 6),
     child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
       style: TextStyle(color: Colors.white, fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Montserrat',
         fontSize: 43, height: 1.02, fontWeight: FontWeight.w800)));
+
+  Widget _buildPerformedDate(DateTime date) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Text(_formatPerformedDate(date),
+      style: TextStyle(color: const Color(0xffC9D3E1),
+        fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Inter', fontSize: 14.3,
+        fontWeight: FontWeight.w500)));
+
+  static const List<String> _weekdaysEn = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const List<String> _monthsEn = <String>['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const List<String> _weekdaysAr = <String>['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+  static const List<String> _monthsAr = <String>['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+  /// Fixed names instead of intl locale data, so the card never waits on (or
+  /// throws for) locale initialisation at capture time. Digits stay Latin.
+  String _formatPerformedDate(DateTime date) => _arabic
+      ? '${_weekdaysAr[date.weekday - 1]} ${date.day} ${_monthsAr[date.month - 1]} ${date.year}'
+      : '${_weekdaysEn[date.weekday - 1]}, ${date.day} ${_monthsEn[date.month - 1]} ${date.year}';
 
   String? get _dayName {
     final String? name = dayName?.trim();
@@ -208,8 +231,14 @@ WorkoutShareCard latestSessionShareCard({
       ),
       records: const <WorkoutRecord>[],
       prCount: session.prCount,
+      performedDate: _sessionDate(session.sessionDate),
       photoBytes: photoBytes,
     );
+
+DateTime? _sessionDate(String value) {
+  final DateTime? parsed = DateTime.tryParse(value);
+  return parsed == null ? null : DateTime(parsed.year, parsed.month, parsed.day);
+}
 
 /// Captures the card, then waits for an explicit action in the preview.
 Future<bool> shareWorkoutCard(
@@ -347,6 +376,16 @@ Future<bool> shareWorkoutCardAndTrack({
 
 typedef WorkoutImagePicker = Future<XFile?> Function(ImageSource source);
 
+Future<XFile?> _pickWorkoutImage(ImageSource source) => ImagePicker().pickImage(
+  source: source,
+  maxWidth: 1920,
+  maxHeight: 3414,
+  imageQuality: 90,
+);
+
+final Provider<WorkoutImagePicker> workoutImagePickerProvider =
+    Provider<WorkoutImagePicker>((Ref ref) => _pickWorkoutImage);
+
 typedef WorkoutCardShare = Future<bool> Function(
     BuildContext context, WorkoutShareCard card);
 
@@ -379,13 +418,7 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
     void Function(String source)? onSourceSelected,
 }) async {
   final WorkoutCopy copy = WorkoutCopy(languageCode);
-  final WorkoutImagePicker picker = pickImage ??
-      (ImageSource source) => ImagePicker().pickImage(
-            source: source,
-            maxWidth: 1920,
-            maxHeight: 3414,
-            imageQuality: 90,
-          );
+  final WorkoutImagePicker picker = pickImage ?? _pickWorkoutImage;
   while (context.mounted) {
     if (!context.mounted) return const WorkoutPhotoChoiceResult.cancelled();
     final _WorkoutPhotoChoice? choice =

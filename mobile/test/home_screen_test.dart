@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mayos_mobile/src/app.dart';
 import 'package:mayos_mobile/src/core/app_mode.dart';
@@ -24,6 +26,7 @@ import 'package:mayos_mobile/src/features/player/tour/feature_list.dart';
 import 'package:mayos_mobile/src/features/player/tour/spotlight_overlay.dart';
 import 'package:mayos_mobile/src/features/player/tour/whats_new_screen.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
+import 'package:mayos_mobile/src/features/player/dashboard/dashboard_tab.dart';
 import 'package:mayos_mobile/src/features/player/tour/tour_targets.dart';
 import 'package:mayos_mobile/src/features/player/workout/active_workout_controller.dart';
 import 'package:mayos_mobile/src/router.dart';
@@ -33,6 +36,14 @@ import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_tour_seen_retry_store.dart';
 import 'support/fake_whats_new_seen_retry_store.dart';
+
+Uint8List _validTestPng() => Uint8List.fromList(<int>[
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+  0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
+  0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240,
+  31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69,
+  78, 68, 174, 66, 96, 130,
+]);
 
 class _FakeInstallPromptStore implements InstallPromptStore {
   _FakeInstallPromptStore(this.environment, {this.outcome = 'unavailable'});
@@ -1894,6 +1905,7 @@ void main() {
 
   testWidgets('latest saved workout on Home offers Share to Story', (tester) async {
     int shareCalls = 0;
+    WorkoutShareCard? sharedCard;
     final FakeMayosApi fake = _signedInFake()
       ..latestSessionBody = <String, dynamic>{
         'session_id': 'sess-share',
@@ -1909,6 +1921,7 @@ void main() {
     await _pumpHome(tester, fake, extraOverrides: <Override>[
       workoutCardShareProvider.overrideWithValue((BuildContext context, WorkoutShareCard card) async {
         shareCalls++;
+        sharedCard = card;
         return true;
       }),
     ]);
@@ -1918,9 +1931,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Choose from gallery'), findsOneWidget);
     expect(find.text('No photo'), findsOneWidget);
-    Navigator.of(tester.element(find.text('No photo'))).pop();
+    await tester.tap(find.text('No photo'));
     await tester.pumpAndSettle();
-    expect(shareCalls, 0);
+    expect(shareCalls, 1);
+    expect(sharedCard?.performedDate, DateTime(2026, 9, 20));
+  });
+
+  testWidgets('Home State survives app pause and resume account and policy refreshes', (tester) async {
+    final FakeMayosApi fake = _signedInFake();
+    await _pumpHome(tester, fake);
+    final State homeState = tester.state(find.byType(DashboardTab));
+    final int policyCallsBefore = fake.adapter.requests
+        .where((request) => request.path == '/app/version-policy').length;
+    final int accountCallsBefore = fake.adapter.requests
+        .where((request) => request.path == '/auth/me').length;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(fake.adapter.requests.where((request) => request.path == '/app/version-policy').length,
+        greaterThan(policyCallsBefore));
+    expect(fake.adapter.requests.where((request) => request.path == '/auth/me').length,
+        greaterThan(accountCallsBefore));
+    expect(tester.state(find.byType(DashboardTab)), same(homeState));
+  });
+
+  testWidgets('Home sharing survives Home disposal while the gallery is open', (tester) async {
+    final Completer<XFile?> pendingPicker = Completer<XFile?>();
+    final Uint8List photo = _validTestPng();
+    WorkoutShareCard? sharedCard;
+    final FakeMayosApi fake = _signedInFake()
+      ..latestSessionBody = <String, dynamic>{
+        'session_id': 'sess-dispose', 'session_date': '2026-09-20',
+        'split_name': 'Upper 1', 'day_order': null, 'program_version': 1,
+        'duration_seconds': 3600, 'working_sets': 3, 'volume_kg': 1500,
+      };
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      workoutImagePickerProvider.overrideWithValue((_) => pendingPicker.future),
+      workoutCardShareProvider.overrideWithValue((BuildContext context, WorkoutShareCard card) async {
+        sharedCard = card;
+        await showWorkoutCardPreview(context, _validTestPng(), languageCode: 'en',
+          share: () async => true, save: () async => true);
+        return true;
+      }),
+    ]);
+    final GoRouter router = ProviderScope.containerOf(tester.element(find.text('Share to Story')))
+        .read(routerProvider);
+    await tester.tap(find.text('Share to Story'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pumpAndSettle();
+    router.go(workoutsPath);
+    await tester.pumpAndSettle();
+    expect(find.byType(DashboardTab), findsNothing);
+    pendingPicker.complete(XFile.fromData(photo));
+    await tester.pumpAndSettle();
+    expect(find.text('Save image'), findsOneWidget);
+    expect(sharedCard?.photoBytes, orderedEquals(photo));
   });
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',

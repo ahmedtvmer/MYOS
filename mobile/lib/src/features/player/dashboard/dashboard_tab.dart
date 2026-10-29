@@ -7,6 +7,7 @@ import '../../../core/active_program.dart';
 import '../../../core/app_failure.dart';
 import '../../../core/connectivity_message.dart';
 import '../../../core/api_client.dart';
+import '../../../core/analytics_client.dart';
 import '../../../core/display_language/catalog.dart';
 import '../../../core/display_language/controller.dart';
 import '../../../core/display_language/copy_context.dart';
@@ -218,18 +219,23 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   Future<void> _shareLatest(LatestSession session) async {
     final String language = ref.read(displayLanguageProvider);
+    final WorkoutCardShare shareCard = ref.read(workoutCardShareProvider);
+    final AnalyticsClient analytics = ref.read(analyticsClientProvider);
+    final WorkoutImagePicker picker = ref.read(workoutImagePickerProvider);
+    final BuildContext shareContext = Navigator.of(context, rootNavigator: true).context;
     final WorkoutPhotoChoiceResult choice = await chooseWorkoutPhoto(
-      context,
+      shareContext,
       languageCode: language,
+      pickImage: picker,
     );
-    if (!mounted || choice.cancelled) return;
+    if (choice.cancelled) return;
     await shareWorkoutCardAndTrack(
-      share: () => ref.read(workoutCardShareProvider)(context, latestSessionShareCard(
+      share: () => shareCard(shareContext, latestSessionShareCard(
         session: session,
         languageCode: language,
         photoBytes: choice.photoBytes,
       )),
-      analytics: ref.read(analyticsClientProvider),
+      analytics: analytics,
       source: 'home',
       photo: choice,
     );

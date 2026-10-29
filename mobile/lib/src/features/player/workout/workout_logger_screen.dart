@@ -9,6 +9,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/active_workout.dart';
 import '../../../core/active_program.dart';
 import '../../../core/api_client.dart';
+import '../../../core/analytics_client.dart';
 import '../../../core/app_failure.dart';
 import '../../../core/baselines.dart';
 import '../../../core/client_session_id.dart';
@@ -2457,21 +2458,30 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 label: _copy.shareToStory,
                 icon: Icons.ios_share,
                 onPressed: () async {
+                  final BuildContext shareContext = Navigator.of(context, rootNavigator: true).context;
+                  final WorkoutCardShare shareCard = ref.read(workoutCardShareProvider);
+                  final AnalyticsClient analytics = ref.read(analyticsClientProvider);
+                  final WorkoutImagePicker picker = ref.read(workoutImagePickerProvider);
+                  final String language = _copy.isArabic ? 'ar' : 'en';
+                  final DateTime performedDate = DateTime(
+                    _performedDate.year, _performedDate.month, _performedDate.day);
                   final WorkoutPhotoChoiceResult choice = await chooseWorkoutPhoto(
-                    context,
-                    languageCode: _copy.isArabic ? 'ar' : 'en',
+                    shareContext,
+                    languageCode: language,
+                    pickImage: picker,
                   );
-                  if (!mounted || choice.cancelled) return;
+                  if (choice.cancelled) return;
                   await shareWorkoutCardAndTrack(
-                    share: () => ref.read(workoutCardShareProvider)(context, WorkoutShareCard(
-                      languageCode: _copy.isArabic ? 'ar' : 'en',
+                    share: () => shareCard(shareContext, WorkoutShareCard(
+                      languageCode: language,
                       dayName: summary.dayName,
                       duration: summary.duration,
                       stats: summary.stats,
                       records: summary.records,
+                      performedDate: performedDate,
                       photoBytes: choice.photoBytes,
                     )),
-                    analytics: ref.read(analyticsClientProvider),
+                    analytics: analytics,
                     source: 'finish',
                     photo: choice,
                   );

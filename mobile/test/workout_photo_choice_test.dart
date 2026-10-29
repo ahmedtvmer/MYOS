@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,5 +103,31 @@ void main() {
     Navigator.of(tester.element(find.text('No photo'))).pop();
     await tester.pumpAndSettle();
     expect(result?.cancelled, isTrue);
+  });
+
+  testWidgets('selected photo survives replacement of the page while picker is open',
+      (WidgetTester tester) async {
+    final Uint8List photo = Uint8List.fromList(<int>[1, 2, 3]);
+    final Completer<XFile?> picker = Completer<XFile?>();
+    WorkoutPhotoChoiceResult? result;
+    BuildContext? startingContext;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (BuildContext context) {
+      startingContext = context;
+      return Scaffold(body: TextButton(onPressed: () async {
+        result = await chooseWorkoutPhoto(context, languageCode: 'en',
+          pickImage: (ImageSource _) => picker.future);
+      }, child: const Text('open')));
+    })));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pump();
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Text('replacement page'))));
+    await tester.pumpAndSettle();
+    expect(startingContext!.mounted, isFalse);
+    picker.complete(XFile.fromData(photo));
+    await tester.pumpAndSettle();
+    expect(result?.photoBytes, orderedEquals(photo));
+    expect(result?.cancelled, isFalse);
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mayos_mobile/src/app.dart';
 import 'package:mayos_mobile/src/core/active_workout.dart';
 import 'package:mayos_mobile/src/core/analytics_client.dart';
@@ -36,11 +39,19 @@ import 'package:mayos_mobile/src/features/player/workout/personal_record_badge.d
 import 'package:mayos_mobile/src/features/player/workout/workout_logger_screen.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 import 'package:mayos_mobile/src/providers.dart';
+import 'package:mayos_mobile/src/router.dart';
 
 import 'support/fake_api_adapter.dart';
 import 'support/fake_analytics_client.dart';
 import 'support/fake_mayos_api.dart';
 
+Uint8List _validShareTestPng() => Uint8List.fromList(<int>[
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+  0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
+  0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240,
+  31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69,
+  78, 68, 174, 66, 96, 130,
+]);
 const String _account = 'account-alice';
 
 enum _WorkoutSeedVariant { standard, firstExerciseReplaced }
@@ -409,6 +420,7 @@ List<Override> _appOverrides({
   FakeAnalyticsClient? analytics,
   String languageCode = 'en',
   WorkoutCardShare? shareFunction,
+  WorkoutImagePicker? imagePicker,
 }) =>
     <Override>[
       tokenStoreProvider.overrideWithValue(tokens),
@@ -428,6 +440,8 @@ List<Override> _appOverrides({
       ),
       if (shareFunction != null)
         workoutCardShareProvider.overrideWithValue(shareFunction),
+      if (imagePicker != null)
+        workoutImagePickerProvider.overrideWithValue(imagePicker),
       deviceTimezoneProvider.overrideWithValue(Future<String>.value('UTC')),
       deviceTimezoneOrNullProvider
           .overrideWithValue(Future<String?>.value('UTC')),
@@ -490,6 +504,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
   bool roundTripStoredWorkout = false,
   FakeAnalyticsClient? analytics,
   WorkoutCardShare? shareFunction,
+  WorkoutImagePicker? imagePicker,
 }) async {
   _usePhoneView(tester);
 
@@ -559,6 +574,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
       webDirectCommit: webDirectCommit,
       analytics: analytics,
       shareFunction: shareFunction,
+      imagePicker: imagePicker,
       languageCode: effectiveLanguage,
     ),
   );
@@ -1194,11 +1210,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(shareCalls, 1);
     expect(sharedCard?.dayName, 'Upper A');
+    expect(sharedCard?.performedDate, isNotNull);
     await tester.ensureVisible(find.text('Done'));
     await tester.tap(find.text('Done'));
     await _pumpUntilFound(tester, find.text('Home'));
     expect(drafts.writes, writesAfterSave);
     expect(await drafts.read(_account), hasLength(1));
+  });
+
+  testWidgets('Finish sharing survives summary disposal while the gallery is open', (tester) async {
+    final Completer<XFile?> pendingPicker = Completer<XFile?>();
+    final Uint8List photo = _validShareTestPng();
+    WorkoutShareCard? sharedCard;
+    await _openLogger(tester, shareFunction: (BuildContext context, WorkoutShareCard card) async {
+      sharedCard = card;
+      await showWorkoutCardPreview(context, _validShareTestPng(), languageCode: 'en',
+        share: () async => true, save: () async => true);
+      return true;
+    }, imagePicker: (_) => pendingPicker.future);
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _finishAndOpenSummary(tester);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
+    await tester.pumpAndSettle();
+    final GoRouter router = ProviderScope.containerOf(
+      tester.element(find.byKey(const ValueKey<String>('logger.shareStory'))))
+        .read(routerProvider);
+    await tester.tap(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pumpAndSettle();
+    router.go(homePath);
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkoutLoggerScreen), findsNothing);
+    pendingPicker.complete(XFile.fromData(photo));
+    await tester.pumpAndSettle();
+    expect(find.text('Save image'), findsOneWidget);
+    expect(sharedCard?.photoBytes, orderedEquals(photo));
   });
 
   testWidgets('tapping the PR burst immediately shows Save in the summary',

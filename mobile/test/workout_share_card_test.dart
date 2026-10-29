@@ -30,6 +30,21 @@ void main() {
     expect(analytics.events, hasLength(1));
   });
 
+  testWidgets('share card shows the performed date in English and Arabic', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: WorkoutShareCard(
+      languageCode: 'en', dayName: 'Push A', performedDate: DateTime(2026, 10, 28),
+      stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0, totalVolumeKg: 0),
+      records: const <WorkoutRecord>[],
+    ))));
+    expect(find.text('Wed, 28 Oct 2026'), findsOneWidget);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: WorkoutShareCard(
+      languageCode: 'ar', dayName: 'Push A', performedDate: DateTime(2026, 10, 28),
+      stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0, totalVolumeKg: 0),
+      records: const <WorkoutRecord>[],
+    ))));
+    expect(find.text('الأربعاء 28 أكتوبر 2026'), findsOneWidget);
+  });
+
   test('share flow tracks completion once, but not dismissal or opt-out', () async {
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     final WorkoutPhotoChoiceResult photo = WorkoutPhotoChoiceResult.noPhoto();
