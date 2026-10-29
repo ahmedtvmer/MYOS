@@ -374,13 +374,14 @@ class WorkoutSummary {
   factory WorkoutSummary.of(
     ActiveWorkout workout, {
     required DateTime now,
+    Duration? duration,
     List<TrainingStatusSummaryLine> trainingLines =
         const <TrainingStatusSummaryLine>[],
   }) =>
       WorkoutSummary(
         records: workoutRecords(workout),
         stats: workoutSummaryStats(workout),
-        duration: workoutElapsed(workout, now: now),
+        duration: duration ?? workoutElapsed(workout, now: now),
         dayName: workout.dayName,
         trainingLines:
             List<TrainingStatusSummaryLine>.unmodifiable(trainingLines),

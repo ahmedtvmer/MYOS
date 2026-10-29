@@ -489,7 +489,7 @@ Future<void> _resumeFromPrompt(
 /// Returns the shared store, so a test can assert what the app did to it.
 Future<InMemoryActiveWorkoutStore> _openLogger(
   WidgetTester tester, {
-  String startedAt = '2026-09-28T08:00:00.000Z',
+  String? startedAt,
   InMemoryDraftStore? drafts,
   InMemoryWorkoutCacheStore? workoutCache,
   List<Map<String, dynamic>>? baselines,
@@ -508,6 +508,10 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
 }) async {
   _usePhoneView(tester);
 
+  final DateTime defaultStart = (clock?.call() ?? DateTime.now())
+      .subtract(const Duration(minutes: 10));
+  final String fixtureStart = startedAt ?? defaultStart.toUtc().toIso8601String();
+
   final FakeMayosApi fake = fakeApi ?? _signedInFake(baselines: baselines);
   final String effectiveLanguage = languageCode ?? fake.displayLanguage;
   if (languageCode != null) fake.displayLanguage = languageCode;
@@ -518,7 +522,7 @@ Future<InMemoryActiveWorkoutStore> _openLogger(
   final InMemoryActiveWorkoutStore store = (await tester.runAsync(
     () => _seedThroughController(
       fake: fake,
-      startedAt: startedAt,
+      startedAt: fixtureStart,
       day: day,
       programWeekCount: programWeekCount,
       workoutCache: workoutCache,
@@ -617,9 +621,24 @@ Future<void> _finishAndOpenSummary(WidgetTester tester) async {
     await tester.tap(discard);
   }
   await tester.pumpAndSettle();
+  final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
+  if (keepDuration.evaluate().isNotEmpty) {
+    await tester.tap(keepDuration);
+    await tester.pumpAndSettle();
+  }
   if (find.text('New PR!').evaluate().isNotEmpty ||
       find.text('رقم قياسي جديد!').evaluate().isNotEmpty) {
     await tester.pump(const Duration(seconds: 2));
+  }
+}
+
+Future<void> _tapFinishPastUntickedSets(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
+  await tester.pumpAndSettle();
+  final Finder discard = find.text('Discard unticked sets and finish');
+  if (discard.evaluate().isNotEmpty) {
+    await tester.tap(discard);
+    await tester.pumpAndSettle();
   }
 }
 
@@ -1188,7 +1207,8 @@ void main() {
       shareCalls++;
       sharedCard = card;
       return true;
-    }, clock: () => DateTime(2026, 9, 30, 12));
+    }, startedAt: '2026-09-28T08:00:00.000Z',
+       clock: () => DateTime(2026, 9, 30, 12));
     await tester.tap(_tick(0, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
@@ -1196,6 +1216,11 @@ void main() {
     final Finder discard = find.text('Discard unticked sets and finish');
     if (discard.evaluate().isNotEmpty) {
       await tester.tap(discard);
+      await tester.pumpAndSettle();
+    }
+    final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
+    if (keepDuration.evaluate().isNotEmpty) {
+      await tester.tap(keepDuration);
       await tester.pumpAndSettle();
     }
     await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
@@ -1206,6 +1231,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey<String>('logger.shareStory')));
     await tester.tap(find.byKey(const ValueKey<String>('logger.shareStory')));
     await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.text('No photo'));
     await tester.tap(find.text('No photo'));
     await tester.pumpAndSettle();
     expect(shareCalls, 1);
@@ -1247,6 +1273,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Save image'), findsOneWidget);
     expect(await sharedCard?.photoFile?.readAsBytes(), orderedEquals(photo));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('tapping the PR burst immediately shows Save in the summary',
@@ -2560,7 +2588,11 @@ void main() {
       'the saved draft matches today\'s shape: ticked sets, warm-up flag, skipped exercise',
       (WidgetTester tester) async {
     final InMemoryDraftStore drafts = InMemoryDraftStore();
-    await _openLogger(tester, drafts: drafts);
+    await _openLogger(
+      tester,
+      drafts: drafts,
+      startedAt: '2026-09-28T08:00:00.000Z',
+    );
 
     // Bench set 1 ticked from the previous values; bench set 2 turned into a
     // warm-up, which has no previous to borrow, so its numbers come from the
@@ -2600,6 +2632,11 @@ void main() {
     expect(find.text("2 sets aren't ticked"), findsOneWidget);
     await tester.tap(find.text('Discard unticked sets and finish'));
     await tester.pumpAndSettle();
+    final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
+    if (keepDuration.evaluate().isNotEmpty) {
+      await tester.tap(keepDuration);
+      await tester.pumpAndSettle();
+    }
 
     await tester.enterText(find.byType(TextField), 'felt strong');
     await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
@@ -2659,6 +2696,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discard unticked sets and finish'));
     await tester.pumpAndSettle();
+    final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
+    if (keepDuration.evaluate().isNotEmpty) {
+      await tester.tap(keepDuration);
+      await tester.pumpAndSettle();
+    }
 
     // The default lands on the first day the window allows, not the start day.
     final PerformedDateWindow window = performedDateWindow();
@@ -3694,5 +3736,156 @@ void main() {
     expect(nudge, findsNothing);
     expect(notice, findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('normal elapsed duration opens summary without a prompt',
+      (WidgetTester tester) async {
+    await _openLogger(tester);
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Is this workout duration right?'), findsNothing);
+    expect(find.text('Workout summary'), findsOneWidget);
+  });
+
+  testWidgets('long duration prompts and Keep freezes elapsed time',
+      (WidgetTester tester) async {
+    final InMemoryWorkoutCacheStore cache = InMemoryWorkoutCacheStore();
+    await cache.writeLatestSession(_account, const LatestSession(
+      sessionId: 'previous', sessionDate: '2026-09-27', splitName: 'Upper',
+      durationSeconds: 1800,
+    ));
+    await _openLogger(
+      tester,
+      workoutCache: cache,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T09:30:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Is this workout duration right?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Keep'));
+    await tester.pumpAndSettle();
+    expect(find.text('1:30:00'), findsOneWidget);
+  });
+
+  testWidgets('Edit freezes 4200 seconds through summary, draft, and share card',
+      (WidgetTester tester) async {
+    final InMemoryWorkoutCacheStore cache = InMemoryWorkoutCacheStore();
+    await cache.writeLatestSession(_account, const LatestSession(
+      sessionId: 'previous', sessionDate: '2026-09-27', splitName: 'Upper',
+      durationSeconds: 1800,
+    ));
+    final InMemoryDraftStore drafts = InMemoryDraftStore();
+    WorkoutShareCard? sharedCard;
+    await _openLogger(
+      tester,
+      workoutCache: cache,
+      drafts: drafts,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      shareFunction: (_, WorkoutShareCard card) async {
+        sharedCard = card;
+        return true;
+      },
+      clock: () => DateTime.parse('2026-09-28T09:30:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.duration.hours')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 h').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.duration.minutes')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10 m').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+    expect(find.text('1:10:00'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
+    await tester.pumpAndSettle();
+    expect((await drafts.read(_account)).single.durationSeconds, 4200);
+    await tester.ensureVisible(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.tap(find.byKey(const ValueKey<String>('logger.shareStory')));
+    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.text('No photo'));
+    await tester.tap(find.text('No photo'));
+    await tester.pumpAndSettle();
+    expect(sharedCard?.duration?.inSeconds, 4200);
+  });
+
+  testWidgets('short duration prompts before summary',
+      (WidgetTester tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _openLogger(
+      tester,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T08:04:59.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Is this workout duration right?'), findsOneWidget);
+    expect(find.text('Workout summary'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('edited duration is sent in the web session commit',
+      (WidgetTester tester) async {
+    final FakeMayosApi fake = _signedInFake();
+    final InMemoryWorkoutCacheStore cache = InMemoryWorkoutCacheStore();
+    await cache.writeLatestSession(_account, const LatestSession(
+      sessionId: 'previous', sessionDate: '2026-09-27', splitName: 'Upper',
+      durationSeconds: 1800,
+    ));
+    await _openLogger(
+      tester,
+      fakeApi: fake,
+      workoutCache: cache,
+      webDirectCommit: true,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T09:30:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.duration.hours')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 h').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.duration.minutes')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10 m').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('logger.save')));
+    await tester.pumpAndSettle();
+
+    final FakeRequest commit = fake.adapter.requests.lastWhere(
+      (FakeRequest request) =>
+          request.method == 'POST' && request.path == '/workouts/sessions',
+    );
+    expect(commit.body['duration_seconds'], 4200);
+  });
+
+  testWidgets('uncached duration uses three hour fallback at Finish',
+      (WidgetTester tester) async {
+    await _openLogger(
+      tester,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T11:00:01.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Is this workout duration right?'), findsOneWidget);
   });
 }

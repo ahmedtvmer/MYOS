@@ -48,6 +48,7 @@ import 'logger_card_widgets.dart';
 import 'logger_keypad.dart';
 import 'rest_timer_widgets.dart';
 import 'workout_share_card.dart';
+import 'unusual_workout_duration.dart';
 import 'pr_celebration.dart';
 import 'web_workout_committer.dart';
 import '../tour/tour_targets.dart';
@@ -130,6 +131,116 @@ class _WorkoutExerciseAtIndex {
 
   final ActiveWorkout workout;
   final ActiveWorkoutExercise exercise;
+}
+
+class _WorkoutDurationConfirmation extends StatefulWidget {
+  const _WorkoutDurationConfirmation({
+    required this.elapsed,
+    required this.initialHours,
+    required this.initialMinutes,
+    required this.isArabic,
+    required this.isShort,
+  });
+
+  final Duration elapsed;
+  final int initialHours;
+  final int initialMinutes;
+  final bool isArabic;
+  final bool isShort;
+
+  @override
+  State<_WorkoutDurationConfirmation> createState() =>
+      _WorkoutDurationConfirmationState();
+}
+
+class _WorkoutDurationConfirmationState
+    extends State<_WorkoutDurationConfirmation> {
+  late int _hours = widget.initialHours;
+  late int _minutes = widget.initialMinutes;
+  bool _editing = false;
+
+  Widget _durationFields(bool isArabic) => Row(
+        children: <Widget>[
+          Expanded(
+            child: DropdownButton<int>(
+              key: const ValueKey<String>('logger.duration.hours'),
+              value: _hours,
+              isExpanded: true,
+              items: List<DropdownMenuItem<int>>.generate(
+                25,
+                (int value) => DropdownMenuItem<int>(
+                  value: value,
+                  child: Text('$value ${isArabic ? 'س' : 'h'}'),
+                ),
+              ),
+              onChanged: (int? value) => setState(() {
+                _hours = value ?? 0;
+                if (_hours == 24) _minutes = 0;
+              }),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButton<int>(
+              key: const ValueKey<String>('logger.duration.minutes'),
+              value: _minutes,
+              isExpanded: true,
+              items: List<DropdownMenuItem<int>>.generate(
+                _hours == 24 ? 1 : 60,
+                (int value) => DropdownMenuItem<int>(
+                  value: value,
+                  child: Text('$value ${isArabic ? 'د' : 'm'}'),
+                ),
+              ),
+              onChanged: (int? value) => setState(() => _minutes = value ?? 0),
+            ),
+          ),
+        ],
+      );
+
+  List<Widget> _actions(bool isArabic) => _editing
+      ? <Widget>[
+          TextButton(
+            onPressed: () => setState(() => _editing = false),
+            child: Text(isArabic ? 'رجوع' : 'Back'),
+          ),
+          FilledButton(
+            onPressed: _hours == 0 && _minutes == 0
+                ? null
+                : () => Navigator.of(context).pop(
+                      Duration(hours: _hours, minutes: _minutes),
+                    ),
+            child: Text(isArabic ? 'تأكيد' : 'Confirm'),
+          ),
+        ]
+      : <Widget>[
+          TextButton(
+            onPressed: () => setState(() => _editing = true),
+            child: Text(isArabic ? 'تعديل' : 'Edit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(widget.elapsed),
+            child: Text(isArabic ? 'احتفاظ' : 'Keep'),
+          ),
+        ];
+
+  @override
+  Widget build(BuildContext context) {
+    final bool ar = widget.isArabic;
+    final String duration =
+        '${widget.elapsed.inHours}h ${widget.elapsed.inMinutes % 60}m';
+    return AlertDialog(
+      title: Text(
+        ar ? 'هل مدة الحصة صحيحة؟' : 'Is this workout duration right?',
+      ),
+      content: _editing
+          ? _durationFields(ar)
+        : Text(ar
+              ? 'استغرقت الحصة $duration، وهي ${widget.isShort ? 'أقصر' : 'أطول'} من المعتاد. هل هذا صحيح؟'
+              : 'This workout lasted $duration — ${widget.isShort ? 'shorter' : 'longer'} than usual. Is that right?'),
+      actions: _actions(ar),
+    );
+  }
 }
 
 class _LoggerProgramLoad {
@@ -1043,6 +1154,13 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       return;
     }
     final DateTime now = ref.read(clockProvider)();
+    final Duration? confirmedDuration =
+        await _confirmUnusualDuration(finished, now);
+    if (confirmedDuration == null ||
+        !mounted ||
+        _workout?.id != finished.id) {
+      return;
+    }
     List<WorkoutDraft> drafts = const <WorkoutDraft>[];
     try {
       drafts = await ref.read(draftStoreProvider).read(finished.accountId);
@@ -1077,6 +1195,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       _summary = WorkoutSummary.of(
         finished,
         now: now,
+        duration: confirmedDuration,
         trainingLines: trainingLines,
       );
       _checkpointNumber = checkpointNumber;
@@ -1094,6 +1213,48 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
     // The summary replaces the workout: the lock-screen notification and the
     // end alarm come off until Back returns to a still-running rest (#125).
     unawaited(_controller.suspendRestAlerts());
+  }
+
+  Future<Duration?> _confirmUnusualDuration(
+    ActiveWorkout workout,
+    DateTime now,
+  ) async {
+    final Duration elapsed = workoutElapsed(workout, now: now);
+    int? lastDuration;
+    try {
+      lastDuration = (await ref
+              .read(workoutCacheStoreProvider)
+              .readLatestSession(workout.accountId))
+          ?.durationSeconds;
+    } on PlatformException {
+      // The fallback rule applies when no cached duration is available.
+    } on MissingPluginException {
+      // The fallback rule applies when no cached duration is available.
+    }
+    if (!mounted || _workout?.id != workout.id) return null;
+    if (!needsWorkoutDurationConfirmation(
+      durationSeconds: elapsed.inSeconds,
+      lastSessionDurationSeconds: lastDuration,
+    )) {
+      return elapsed;
+    }
+    return _confirmWorkoutDuration(elapsed);
+  }
+
+  Future<Duration?> _confirmWorkoutDuration(Duration elapsed) async {
+    final int hours = elapsed.inHours.clamp(0, 24);
+    final int minutes = (elapsed.inMinutes % 60);
+    final Duration? picked = await showDialog<Duration>(
+      context: context,
+      builder: (BuildContext dialogContext) => _WorkoutDurationConfirmation(
+        elapsed: elapsed,
+        initialHours: hours,
+        initialMinutes: minutes,
+        isArabic: _copy.isArabic,
+        isShort: elapsed < const Duration(minutes: 5),
+      ),
+    );
+    return picked;
   }
 
   /// "N sets aren't ticked · Discard unticked sets and finish / Keep logging"

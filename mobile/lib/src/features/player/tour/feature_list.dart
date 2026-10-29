@@ -6,7 +6,7 @@ import 'tour_targets.dart';
 
 /// The shared Feature list used by the Tour and later discovery surfaces.
 const int tourCurrentVersion = 1;
-const int currentFeatureRelease = 3;
+const int currentFeatureRelease = 4;
 
 bool isTourEligible(Account account, {int currentVersion = tourCurrentVersion}) =>
     account.tourSeenVersion < currentVersion &&
@@ -151,6 +151,17 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     audience: 'lifter',
   ),
   FeatureEntry(
+    id: 'duration_check',
+    titleEn: 'Workout duration check',
+    sentenceEn: 'Confirm an unusually short or long workout before saving.',
+    titleAr: 'تأكيد مدة الحصة',
+    sentenceAr: 'أكّد مدة الحصة إذا كانت قصيرة أو طويلة بشكل غير معتاد قبل حفظها.',
+    target: 'home',
+    location: TourShellTabLocation(tabIndex: 0),
+    release: currentFeatureRelease,
+    audience: 'lifter',
+  ),
+  FeatureEntry(
     id: 'workout_share_card',
     titleEn: 'Share workout card',
     sentenceEn: 'Preview your dated workout card, then share or save it.',
@@ -158,7 +169,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'عاين بطاقة تمرينك بتاريخها، ثم شاركها أو احفظها.',
     target: 'home',
     location: TourShellTabLocation(tabIndex: 0),
-    release: currentFeatureRelease,
+    release: currentFeatureRelease - 1,
     audience: 'lifter',
   ),
   FeatureEntry(
@@ -169,7 +180,7 @@ const List<FeatureEntry> featureList = <FeatureEntry>[
     sentenceAr: 'شاهد احتفالك برقم قياسي شخصي بعد إنهاء الحصة.',
     target: 'home',
     location: TourShellTabLocation(tabIndex: 0),
-    release: currentFeatureRelease,
+    release: currentFeatureRelease - 1,
     audience: 'lifter',
   ),
   FeatureEntry(

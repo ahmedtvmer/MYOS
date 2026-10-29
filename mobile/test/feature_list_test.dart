@@ -55,11 +55,11 @@ void main() {
     expect(entry.titleAr, 'MYOS أصبح MAYOS');
     expect(entry.sentenceAr, 'نفس التطبيق ونفس التدريب، أصبح اسمنا الآن MAYOS.');
     expect(entry.target, 'brand_mayos');
-    expect(entry.release, currentFeatureRelease - 1);
+    expect(entry.release, 2);
     expect(entry.audience, 'lifter');
   });
 
-  test('workout share card is a bilingual lifter feature in this release', () {
+  test('workout share card remains in release 3', () {
     final FeatureEntry entry = featureList.singleWhere(
       (FeatureEntry entry) => entry.id == 'workout_share_card',
     );
@@ -70,7 +70,7 @@ void main() {
     expect(entry.sentenceAr,
         'عاين بطاقة تمرينك بتاريخها، ثم شاركها أو احفظها.');
     expect(entry.target, 'home');
-    expect(entry.release, currentFeatureRelease);
+    expect(entry.release, currentFeatureRelease - 1);
     expect(entry.audience, 'lifter');
   });
 

@@ -1478,7 +1478,7 @@ void main() {
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
           'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
-          'workout_share_card' => find.text('Log workout'),
+          'workout_share_card' || 'duration_check' => find.text('Log workout'),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
@@ -1568,7 +1568,7 @@ void main() {
           'edit_program_chat' => find.byKey(const Key('chat_composer_bar')),
           'movements_to_avoid' => find.byKey(const Key('profile_movement_restrictions_section')),
           'brand-mayos' => find.byKey(MayosAppHeader.brandKey),
-          'workout_share_card' => find.text('Log workout'),
+          'workout_share_card' || 'duration_check' => find.text('Log workout'),
           _ => find.text(entry.titleEn),
         };
         expect(realControl, findsOneWidget, reason: entry.id);
@@ -2019,6 +2019,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Save image'), findsOneWidget);
     expect(await sharedCard?.photoFile?.readAsBytes(), orderedEquals(photo));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('home opens an unopened Checkpoint review and clears its card',
