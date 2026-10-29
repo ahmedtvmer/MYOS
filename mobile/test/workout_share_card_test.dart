@@ -218,9 +218,10 @@ void main() {
       ))),
     ));
     final RenderParagraph volume = tester.renderObject(find.text('12,345'));
-    final RenderParagraph duration = tester.renderObject(find.text('1س 12د'));
     expect(volume.didExceedMaxLines, isFalse);
-    expect(duration.didExceedMaxLines, isFalse);
+    for (final String piece in <String>['د', '12', 'س', '1']) {
+      expect(tester.renderObject<RenderParagraph>(find.text(piece)).didExceedMaxLines, isFalse);
+    }
   });
 
 
@@ -295,7 +296,9 @@ void main() {
       ),
     ));
     expect(find.text('30 دقائق'), findsOneWidget);
-    expect(find.text('58د'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('د')).dx,
+        lessThan(tester.getTopLeft(find.text('58')).dx),
+        reason: 'Arabic duration unit sits to the left of its number');
     expect(find.text('المدة'), findsOneWidget);
     expect(find.text('تمارين اللياقة'), findsOneWidget);
     expect(find.text('🏆 0 PRs'), findsNothing);
@@ -334,7 +337,13 @@ void main() {
     expect(find.text('Day'), findsNothing);
     expect(tester.takeException(), isNull);
     expect(find.text('72د'), findsNothing);
-    expect(find.text('1س 12د'), findsOneWidget);
+    // Visual order left to right: د 12  س 1 (each unit left of its number,
+    // hours on the right where an Arabic reader starts).
+    final double minUnit = tester.getTopLeft(find.text('د')).dx;
+    final double mins = tester.getTopLeft(find.text('12')).dx;
+    final double hourUnit = tester.getTopLeft(find.text('س')).dx;
+    final double hours = tester.getTopLeft(find.text('1')).dx;
+    expect(minUnit < mins && mins < hourUnit && hourUnit < hours, isTrue);
     final RenderRepaintBoundary boundary = boundaryKey.currentContext!
         .findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3);
@@ -372,7 +381,13 @@ void main() {
     ))));
     expect(find.text('12,345'), findsOneWidget);
     expect(find.text('الوزن كجم'), findsOneWidget);
-    expect(find.text('1س 12د'), findsOneWidget);
+    // Visual order left to right: د 12  س 1 (each unit left of its number,
+    // hours on the right where an Arabic reader starts).
+    final double minUnit = tester.getTopLeft(find.text('د')).dx;
+    final double mins = tester.getTopLeft(find.text('12')).dx;
+    final double hourUnit = tester.getTopLeft(find.text('س')).dx;
+    final double hours = tester.getTopLeft(find.text('1')).dx;
+    expect(minUnit < mins && mins < hourUnit && hourUnit < hours, isTrue);
     expect(tester.widget<Directionality>(find.byType(Directionality).last).textDirection,
       TextDirection.rtl);
     final Text volume = tester.widget<Text>(find.text('12,345'));

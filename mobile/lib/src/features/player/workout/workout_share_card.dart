@@ -41,6 +41,28 @@ class WorkoutShareCard extends StatelessWidget {
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
 
+  TextStyle get _valueStyle => TextStyle(color: Colors.white,
+      fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Montserrat', fontSize: 24.3,
+      fontWeight: FontWeight.w700);
+
+  /// Arabic duration drawn as separate pieces in a fixed left-to-right row, so
+  /// each unit sits left of its number (د 12  س 1) whatever the text engine's
+  /// bidi ordering does with mixed Arabic letters and Latin digits.
+  Widget _arabicDurationValue() {
+    final int minutes = duration!.inMinutes;
+    final int hours = minutes ~/ 60;
+    final int remainder = minutes % 60;
+    Widget piece(String text) => Text(text, maxLines: 1, style: _valueStyle);
+    List<Widget> part(String unit, int number) =>
+        <Widget>[piece(unit), const SizedBox(width: 2), piece('$number')];
+    return Row(mainAxisSize: MainAxisSize.min, textDirection: ui.TextDirection.ltr,
+      children: <Widget>[
+        if (hours == 0 || remainder > 0) ...part('د', hours == 0 ? minutes : remainder),
+        if (hours > 0 && remainder > 0) const SizedBox(width: 8),
+        if (hours > 0) ...part('س', hours),
+      ]);
+  }
+
   String? get _duration {
     final Duration? elapsed = duration;
     if (elapsed == null) return null;
@@ -151,9 +173,10 @@ class WorkoutShareCard extends StatelessWidget {
             border: BorderDirectional(start: BorderSide(color: Color(0x33f3f6fb)))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
             FittedBox(fit: BoxFit.scaleDown, alignment: AlignmentDirectional.centerStart,
-              child: Text(values[i].$1, maxLines: 1, textDirection: ui.TextDirection.ltr,
-                style: TextStyle(color: Colors.white, fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Montserrat',
-                  fontSize: 24.3, fontWeight: FontWeight.w700))),
+              child: _arabic && values[i].$1 == _duration
+                  ? _arabicDurationValue()
+                  : Text(values[i].$1, maxLines: 1, textDirection: ui.TextDirection.ltr,
+                      style: _valueStyle)),
             const SizedBox(height: 3),
             Text(values[i].$2, maxLines: 2, overflow: TextOverflow.ellipsis,
               style: TextStyle(color: const Color(0xffC9D3E1),
