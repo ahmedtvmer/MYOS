@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -125,10 +125,7 @@ class WorkoutShareCard extends StatelessWidget {
     if (photoBytes != null || photoFile == null) return this;
     try {
       return withPhotoBytes(await preparePhoto(photoFile!));
-    } on Exception catch (error) {
-      feedback?.failed('decode_error', error);
-      rethrow;
-    } on Error catch (error) {
+    } on Object catch (error) {
       feedback?.failed('decode_error', error);
       rethrow;
     }
@@ -388,11 +385,7 @@ Future<bool> captureAndPreviewWorkoutCard(
     feedback?.failed('decode_error', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
-  } on Exception catch (error) {
-    feedback?.failed('capture_error', error);
-    if (context.mounted) _showShareError(context, languageCode);
-    return false;
-  } on Error catch (error) {
+  } on Object catch (error) {
     feedback?.failed('capture_error', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
@@ -441,10 +434,7 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
       } else if (mounted) {
         setState(() => _busy = false);
       }
-    } on Exception catch (error) {
-      widget.feedback?.failed(isShare ? 'share_error' : 'save_error', error);
-      _reportActionFailure();
-    } on Error catch (error) {
+    } on Object catch (error) {
       widget.feedback?.failed(isShare ? 'share_error' : 'save_error', error);
       _reportActionFailure();
     }
@@ -570,17 +560,10 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
       }
       onSourceSelected?.call(sourceName);
       return WorkoutPhotoChoiceResult.photo(photoFile, sourceName);
-    } on PlatformException catch (error) {
+    } on Object catch (error) {
       onFailureStage?.call('picker_error');
       onFailure?.call('picker_error', error);
-      return const WorkoutPhotoChoiceResult.cancelled();
-    } on Exception catch (error) {
-      onFailureStage?.call('picker_error');
-      onFailure?.call('picker_error', error);
-      return const WorkoutPhotoChoiceResult.cancelled();
-    } on Error catch (error) {
-      onFailureStage?.call('picker_error');
-      onFailure?.call('picker_error', error);
+      if (context.mounted) _showShareError(context, languageCode);
       return const WorkoutPhotoChoiceResult.cancelled();
     }
   }

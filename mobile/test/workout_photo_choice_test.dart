@@ -95,9 +95,35 @@ void main() {
     expect(analytics.events.single['properties'], <String, Object>{
       'source': 'home', 'stage': 'picker_error', 'error_type': 'PlatformException',
     });
+    expect(find.text('تعذر إنشاء الصورة أو مشاركتها. حاول مرة أخرى.'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(find.text('بدون صورة'), findsNothing);
     expect(result?.cancelled, isTrue);
+  });
+
+  testWidgets('raw picker rejection is reported and shown to the player', (tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(builder: (BuildContext context) => Scaffold(
+        body: TextButton(
+          onPressed: () => chooseWorkoutPhoto(context,
+            languageCode: 'en',
+            onFailure: (String stage, Object error) => WorkoutShareFlowFeedback(
+              overlay: Overlay.of(context), analytics: analytics, source: 'home',
+              languageCode: 'en').failed(stage, error),
+            pickImage: (_) async => throw 'raw picker rejection'),
+          child: const Text('open'),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Take photo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'home', 'stage': 'picker_error', 'error_type': 'String',
+    });
   });
 
   testWidgets('empty gallery result has no failure event and choices remain available', (tester) async {

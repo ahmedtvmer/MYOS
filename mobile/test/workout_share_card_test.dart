@@ -81,6 +81,33 @@ void main() {
     expect(prepared.photoFile, isNull);
   });
 
+  testWidgets('raw preparation rejection clears progress and reports its type', (tester) async {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(builder: (BuildContext context) => Scaffold(
+        body: TextButton(onPressed: () {
+          final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
+            overlay: Overlay.of(context), analytics: analytics, source: 'finish',
+            languageCode: 'en');
+          shareWorkoutCard(context, WorkoutShareCard(languageCode: 'en', dayName: 'Push A',
+            stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
+              totalVolumeKg: 0), records: const <WorkoutRecord>[],
+            photoFile: XFile.fromData(Uint8List.fromList(<int>[1]), mimeType: 'image/jpeg'),
+            feedback: feedback), preparePhoto: (_) async => throw 'raw rejection');
+        }, child: const Text('share')),
+      )),
+    ));
+    await tester.tap(find.text('share'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Preparing your card…'), findsNothing);
+    expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
+    expect(analytics.events, hasLength(1));
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'decode_error', 'error_type': 'String',
+    });
+  });
+
   test('share failure analytics sends error type but never error message', () {
     final FakeAnalyticsClient analytics = FakeAnalyticsClient();
     analytics.shareCardFailed(source: 'finish', stage: 'capture_error',
@@ -163,12 +190,12 @@ void main() {
     await tester.tap(find.text('start share'));
     await tester.pump();
     expect(find.text('Preparing your card…'), findsOneWidget);
-    capture.completeError(StateError('private failure'));
+    capture.completeError(const _RawShareFailure());
     await tester.pumpAndSettle();
     expect(find.text('Preparing your card…'), findsNothing);
     expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'capture_error', 'error_type': 'StateError',
+      'source': 'home', 'stage': 'capture_error', 'error_type': '_RawShareFailure',
     });
   });
 
@@ -250,7 +277,7 @@ void main() {
       builder: (BuildContext context) => Scaffold(
         body: TextButton(onPressed: () => showWorkoutCardPreview(
           context, Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]), languageCode: 'en',
-          share: () async => throw StateError('share failed'),
+          share: () async => throw const _RawShareFailure(),
           save: () async => true,
           feedback: WorkoutShareFlowFeedback(overlay: Overlay.of(context), source: 'home',
             analytics: analytics, languageCode: 'en'),
@@ -264,7 +291,7 @@ void main() {
     expect(find.text('Could not create or share the image. Try again.'), findsAtLeastNWidgets(1));
     expect(find.text('Save image'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'share_error', 'error_type': 'StateError',
+      'source': 'home', 'stage': 'share_error', 'error_type': '_RawShareFailure',
     });
   });
 
@@ -274,7 +301,7 @@ void main() {
       builder: (BuildContext context) => Scaffold(body: TextButton(
         onPressed: () => showWorkoutCardPreview(context, _validPngBytes(),
           languageCode: 'en', share: () async => true,
-          save: () async => throw StateError('private save failure'),
+          save: () async => throw const _RawShareFailure(),
           feedback: WorkoutShareFlowFeedback(overlay: Overlay.of(context),
             source: 'finish', analytics: analytics, languageCode: 'en')),
         child: const Text('open'))),
@@ -284,7 +311,7 @@ void main() {
     await tester.tap(find.text('Save image'));
     await tester.pumpAndSettle();
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'save_error', 'error_type': 'StateError',
+      'source': 'finish', 'stage': 'save_error', 'error_type': '_RawShareFailure',
     });
   });
 
@@ -725,6 +752,10 @@ void main() {
 
 }
 
+
+class _RawShareFailure {
+  const _RawShareFailure();
+}
 
 class _FakeWorkoutCardActions implements WorkoutCardActionAdapter {
   int shares = 0;
