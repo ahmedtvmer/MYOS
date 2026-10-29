@@ -369,6 +369,7 @@ void main() {
           totalVolumeKg: 12345), records: <WorkoutRecord>[], prCount: 1),
     ))));
     expect(find.text('12,345'), findsOneWidget);
+    expect(find.text('الوزن كجم'), findsOneWidget);
     expect(find.text('1س 12د'), findsOneWidget);
     expect(tester.widget<Directionality>(find.byType(Directionality).last).textDirection,
       TextDirection.rtl);

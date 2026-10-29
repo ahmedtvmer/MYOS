@@ -138,7 +138,7 @@ class WorkoutShareCard extends StatelessWidget {
     if (cardioOnly) {
       values.add((_cardioMinutes, _copy.cardio));
     } else {
-      values.add((volume, _arabic ? 'إجمالي الوزن' : 'Volume kg'));
+      values.add((volume, _arabic ? 'الوزن كجم' : 'Volume kg'));
       values.add(('${stats.workingSets}', _arabic ? 'المجموعات' : 'Sets'));
     }
     return Container(padding: const EdgeInsets.only(top: 14),
