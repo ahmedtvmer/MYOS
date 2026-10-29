@@ -159,9 +159,9 @@ void main() {
         ),
       ),
     ));
-    expect(find.text('DURATION'), findsNothing);
+    expect(find.text('Duration'), findsNothing);
     expect(find.text('0m'), findsNothing);
-    expect(find.text('1,500 kg'), findsOneWidget);
+    expect(find.text('1,500'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
   });
 
@@ -180,7 +180,7 @@ void main() {
       ),
     ));
     expect(find.text('58m'), findsOneWidget);
-    expect(find.text('DURATION'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
   });
 
   testWidgets('photo background keeps its source aspect ratio when decoded',
@@ -215,7 +215,7 @@ void main() {
         records: <WorkoutRecord>[],
       ))),
     ));
-    final RenderParagraph volume = tester.renderObject(find.text('12,345 kg'));
+    final RenderParagraph volume = tester.renderObject(find.text('12,345'));
     final RenderParagraph duration = tester.renderObject(find.text('1س 12د'));
     expect(volume.didExceedMaxLines, isFalse);
     expect(duration.didExceedMaxLines, isFalse);
@@ -261,14 +261,14 @@ void main() {
         ),
       ),
     ));
-    expect(find.text('🏆 3 PRs'), findsOneWidget);
+    expect(find.text('3 personal records'), findsOneWidget);
     expect(find.text('Push A'), findsOneWidget);
     expect(find.text('1h 12m'), findsOneWidget);
-    expect(find.text('12,346 kg'), findsOneWidget);
+    expect(find.text('12,346'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
-    expect(find.text('DURATION'), findsOneWidget);
-    expect(find.text('TOTAL VOLUME'), findsOneWidget);
-    expect(find.text('TICKED WORKING SETS'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Volume kg'), findsOneWidget);
+    expect(find.text('Sets'), findsOneWidget);
     expect(find.textContaining('Body weight'), findsNothing);
     expect(find.textContaining('Calories'), findsNothing);
     expect(find.textContaining('سعرات'), findsNothing);
@@ -340,4 +340,52 @@ void main() {
     expect(image.height, 1920);
     image.dispose();
   });
+  testWidgets('card uses the approved signature layout and explicit typography',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox(
+      width: 360, child: WorkoutShareCard(
+        languageCode: 'en', dayName: 'Push A', duration: Duration(minutes: 58),
+        stats: WorkoutSummaryStats(exercisesDone: 3, workingSets: 18,
+          totalVolumeKg: 8420), records: <WorkoutRecord>[], prCount: 6),
+    ))));
+    expect(find.textContaining('🏆'), findsNothing);
+    expect(find.text('6 personal records'), findsOneWidget);
+    expect(find.text('Volume kg'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Sets'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('workoutCard.logo')), findsOneWidget);
+    for (final Text text in tester.widgetList<Text>(find.byType(Text))) {
+      expect(text.style?.fontFamily, isNotNull, reason: 'Every card text owns its font style');
+      expect(text.style?.decoration, isNot(TextDecoration.underline));
+    }
+  });
+
+  testWidgets('Arabic card keeps large values on one line and mirrors signature',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox(
+      width: 360, child: WorkoutShareCard(
+        languageCode: 'ar', dayName: 'يوم الدفع', duration: Duration(minutes: 72),
+        stats: WorkoutSummaryStats(exercisesDone: 3, workingSets: 18,
+          totalVolumeKg: 12345), records: <WorkoutRecord>[], prCount: 1),
+    ))));
+    expect(find.text('12,345'), findsOneWidget);
+    expect(find.text('1س 12د'), findsOneWidget);
+    expect(tester.widget<Directionality>(find.byType(Directionality).last).textDirection,
+      TextDirection.rtl);
+    final Text volume = tester.widget<Text>(find.text('12,345'));
+    expect(volume.maxLines, 1);
+  });
+
+  testWidgets('RTL mirrors the logo into the bottom-left signature position',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox(
+      width: 360, child: WorkoutShareCard(languageCode: 'ar', dayName: null,
+        stats: WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
+          totalVolumeKg: 0), records: <WorkoutRecord>[]),
+    ))));
+    final Align logoPlacement = tester.widget<Align>(
+      find.byKey(const ValueKey<String>('workoutCard.logoPlacement')));
+    expect(logoPlacement.alignment.resolve(TextDirection.rtl), Alignment.bottomLeft);
+  });
+
 }

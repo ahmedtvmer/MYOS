@@ -63,179 +63,106 @@ class WorkoutShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool cardioOnly =
-        stats.workingSets == 0 && stats.cardioMinutes != null;
-    final String volume =
-        NumberFormat('#,##0', 'en').format(stats.totalVolumeKg.round());
-    return AspectRatio(
-      aspectRatio: 9 / 16,
-      child: Directionality(
+    final bool cardioOnly = stats.workingSets == 0 && stats.cardioMinutes != null;
+    final String volume = NumberFormat('#,##0', 'en').format(stats.totalVolumeKg.round());
+    final TextStyle baseStyle = TextStyle(fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Inter', color: Colors.white);
+    return AspectRatio(aspectRatio: 9 / 16, child: Material(type: MaterialType.transparency,
+      child: DefaultTextStyle(style: baseStyle, child: Directionality(
         textDirection: _arabic ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-        child: MediaQuery(
-          data:
-              MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-          child: _buildCardSurface(cardioOnly: cardioOnly, volume: volume),
-        ),
-      ),
-    );
+        child: MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+          child: _buildCardSurface(cardioOnly: cardioOnly, volume: volume)),
+      )),
+    ));
   }
 
-  Widget _buildCardSurface(
-          {required bool cardioOnly, required String volume}) =>
-      DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xff102b54),
-              Color(0xff07162d),
-              Color(0xff010814),
-            ],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            if (photoBytes case final Uint8List photo)
-              Positioned.fill(
-                child: Image(
-                  image: ResizeImage(
-                    MemoryImage(photo),
-                    width: 1080,
-                    height: 1920,
-                    policy: ResizeImagePolicy.fit,
-                  ),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            if (photoBytes != null)
-              const Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: <Color>[
-                        Color(0x33010814),
-                        Color(0x66010814),
-                        Color(0xf2010814),
-                      ],
-                      stops: <double>[0, 0.52, 1],
-                    ),
-                  ),
-                ),
-              ),
-            Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 36),
-                child: Image.asset('assets/brand/mayos-lockup-white.png',
-                    width: 190, fit: BoxFit.contain),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(34, 24, 34, 42),
-                child:
-                    _buildCardDetails(cardioOnly: cardioOnly, volume: volume),
-              ),
-            ),
-          ],
-        ),
-      );
+  Widget _buildCardSurface({required bool cardioOnly, required String volume}) => DecoratedBox(
+    decoration: const BoxDecoration(gradient: RadialGradient(
+      center: Alignment(0.6, -0.9), radius: 1.2,
+      colors: <Color>[Color(0xff16305A), Color(0xff0A1422), Color(0xff070F1A)],
+      stops: <double>[0, .55, 1])),
+    child: Stack(fit: StackFit.expand, children: <Widget>[
+      if (photoBytes case final Uint8List photo)
+        Positioned.fill(child: Image(image: ResizeImage(MemoryImage(photo), width: 1080, height: 1920,
+          policy: ResizeImagePolicy.fit), fit: BoxFit.cover, alignment: Alignment.center,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink())),
+      const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: <Color>[Color(0x59070F1A), Color(0x00070F1A), Color(0xeb070F1A)],
+        stops: <double>[0, .45, 1])))),
+      Align(key: const ValueKey<String>('workoutCard.logoPlacement'),
+        alignment: AlignmentDirectional.bottomEnd, child: Padding(
+        padding: const EdgeInsetsDirectional.only(end: 26, bottom: 23),
+        child: Image.asset('assets/brand/mayos-lockup-white.png',
+          key: const ValueKey<String>('workoutCard.logo'), height: 37, fit: BoxFit.contain))),
+      Align(alignment: Alignment.bottomCenter, child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(26, 24, 26, 77),
+        child: _buildCardDetails(cardioOnly: cardioOnly, volume: volume))),
+    ]));
 
-  Widget _buildCardDetails(
-          {required bool cardioOnly, required String volume}) =>
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (_prExerciseCount > 0) _buildPrBadge(),
-          if (_dayName case final String name) _buildDayName(name),
-          const SizedBox(height: 28),
-          _buildStatsRow(cardioOnly: cardioOnly, volume: volume),
-        ],
-      );
+  Widget _buildCardDetails({required bool cardioOnly, required String volume}) => Column(
+    mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      if (_prExerciseCount > 0) _buildPrBadge(),
+      if (_dayName case final String name) _buildDayName(name),
+      const SizedBox(height: 20),
+      _buildStatsRow(cardioOnly: cardioOnly, volume: volume),
+    ]);
 
-  Widget _buildPrBadge() => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Text(
-          '🏆 ${_copy.shareCardPrCount(_prExerciseCount)}',
-          style: const TextStyle(
-            color: Color(0xffffd166),
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+  Widget _buildPrBadge() => Padding(padding: const EdgeInsets.only(bottom: 11),
+    child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+      const Icon(Icons.emoji_events_outlined, key: ValueKey<String>('workoutCard.trophy'),
+        color: Color(0xffF2C94C), size: 20),
+      const SizedBox(width: 8),
+      Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: AlignmentDirectional.centerStart,
+        child: Text(_prCopy, maxLines: 1, style: TextStyle(fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Inter',
+          color: const Color(0xffF2C94C), fontSize: 16.4, fontWeight: FontWeight.w600)))),
+    ]));
 
-  Widget _buildDayName(String name) => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Text(
-          name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 54,
-            height: 1.05,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+  String get _prCopy => _arabic
+      ? '${NumberFormat('#,##0', 'en').format(_prExerciseCount)} ${_prExerciseCount == 1 ? 'رقم قياسي' : 'أرقام قياسية'}'
+      : '${NumberFormat('#,##0', 'en').format(_prExerciseCount)} personal records';
+
+  Widget _buildDayName(String name) => Padding(padding: const EdgeInsets.only(bottom: 20),
+    child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: Colors.white, fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Montserrat',
+        fontSize: 43, height: 1.02, fontWeight: FontWeight.w800)));
 
   String? get _dayName {
     final String? name = dayName?.trim();
     return name == null || name.isEmpty || name == 'Day' ? null : name;
   }
 
-  Widget _buildStatsRow({required bool cardioOnly, required String volume}) =>
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (_duration case final String durationLabel)
-            _stat(durationLabel, _copy.duration.toUpperCase()),
-          if (cardioOnly)
-            _stat(_cardioMinutes, _copy.cardio.toUpperCase())
-          else ...<Widget>[
-            _stat('$volume kg', _copy.totalVolume.toUpperCase()),
-            _stat('${stats.workingSets}', _copy.workingSets.toUpperCase()),
-          ],
-        ],
-      );
+  Widget _buildStatsRow({required bool cardioOnly, required String volume}) {
+    final List<(String, String)> values = <(String, String)>[];
+    if (_duration case final String elapsed) values.add((elapsed, _arabic ? _copy.duration : 'Duration'));
+    if (cardioOnly) {
+      values.add((_cardioMinutes, _copy.cardio));
+    } else {
+      values.add((volume, _arabic ? 'إجمالي الوزن' : 'Volume kg'));
+      values.add(('${stats.workingSets}', _arabic ? 'المجموعات' : 'Sets'));
+    }
+    return Container(padding: const EdgeInsets.only(top: 14),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0x47f3f6fb)))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+      for (int i = 0; i < values.length; i++)
+        Expanded(child: Container(
+          padding: EdgeInsetsDirectional.only(start: i == 0 ? 0 : 14, end: 8),
+          decoration: i == 0 ? null : const BoxDecoration(
+            border: BorderDirectional(start: BorderSide(color: Color(0x33f3f6fb)))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+            FittedBox(fit: BoxFit.scaleDown, alignment: AlignmentDirectional.centerStart,
+              child: Text(values[i].$1, maxLines: 1, textDirection: ui.TextDirection.ltr,
+                style: TextStyle(color: Colors.white, fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Montserrat',
+                  fontSize: 24.3, fontWeight: FontWeight.w700))),
+            const SizedBox(height: 3),
+            Text(values[i].$2, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: const Color(0xffC9D3E1),
+                fontFamily: _arabic ? 'IBMPlexSansArabic' : 'Inter', fontSize: 14.3,
+                fontWeight: FontWeight.w500)),
+          ]))),
+    ]));
+  }
 
-  Widget _stat(String value, String label) => Expanded(
-        child: Padding(
-          padding: const EdgeInsetsDirectional.only(end: 6),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(value,
-                    maxLines: 1,
-                    textDirection: ui.TextDirection.ltr,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: 6),
-                Text(label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xffb6c4d8),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600)),
-              ]),
-        ),
-      );
 }
 
 WorkoutShareCard latestSessionShareCard({
@@ -536,7 +463,9 @@ Future<Uint8List> _captureWorkoutCard(
       left: -1200,
       top: 0,
       width: 360,
-      child: RepaintBoundary(key: boundaryKey, child: card),
+      child: Material(type: MaterialType.transparency, child: DefaultTextStyle(
+        style: TextStyle(fontFamily: card.languageCode == 'ar' ? 'IBMPlexSansArabic' : 'Inter', color: Colors.white),
+        child: RepaintBoundary(key: boundaryKey, child: card))),
     ),
   );
   overlay.insert(entry);
