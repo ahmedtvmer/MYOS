@@ -90,7 +90,8 @@ class MayosBrandMark extends StatelessWidget {
 Widget _fallback(BuildContext context, double height) => Text(
       'MAYOS',
       style: TextStyle(
-        fontFamily: 'PlayfairDisplay',
+        fontFamily: 'Montserrat',
+        fontWeight: FontWeight.w600,
         fontSize: height * 0.5,
         letterSpacing: height * 0.08,
         color: MayosTheme.of(context).textPrimary,

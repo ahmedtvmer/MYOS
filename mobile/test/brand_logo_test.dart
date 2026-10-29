@@ -49,6 +49,14 @@ Future<void> _pumpThemed(
 }
 
 void main() {
+  testWidgets('header wordmark uses Montserrat SemiBold like the logo lockup',
+      (WidgetTester tester) async {
+    await _pumpThemed(tester, const MayosAppHeader(), brightness: Brightness.dark);
+    final Text word = tester.widget<Text>(find.text('MAYOS').first);
+    expect(word.style?.fontFamily, 'Montserrat');
+    expect(word.style?.fontWeight, FontWeight.w600);
+  });
+
   group('MayosBrandLockup asset per theme', () {
     testWidgets('dark theme uses the white lockup',
         (WidgetTester tester) async {
@@ -210,7 +218,7 @@ void main() {
         ));
         await tester.pump();
         final String expected = locale.languageCode == 'ar'
-            ? 'ميوس'
+            ? 'مايوس'
             : 'MAYOS';
         final SemanticsHandle semantics = tester.ensureSemantics();
         expect(tester.getSemantics(find.byType(MayosBrandLockup)).label, expected);
@@ -245,7 +253,7 @@ void main() {
       final SemanticsHandle semantics = tester.ensureSemantics();
 
       expect(tester.getSemantics(find.byType(MayosBrandLockup)).label,
-          'ميوس');
+          'مايوس');
       expect(find.bySemanticsLabel('MAYOS'), findsNothing);
 
       semantics.dispose();
