@@ -23,6 +23,7 @@ import '../../../core/ui/mayos_section_header.dart';
 import '../../../providers.dart';
 import '../../../router.dart';
 import '../program/preparing_program_banner.dart';
+import '../auth/auth_controller.dart';
 import '../workout/workout_share_card.dart';
 import '../workout/active_workout_prompt.dart';
 import 'home_planning.dart';
@@ -77,6 +78,7 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
   late Future<_DashboardData> _future;
   Assignment? _assignmentOverride;
   bool _assignmentOverrideKnown = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -85,6 +87,7 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
   }
 
   Future<_DashboardData> _load() async {
+    final int generation = ++_loadGeneration;
     final ApiClient api = ref.read(apiClientProvider);
     final Future<Assignment?> assignmentFuture = _loadAssignment(api);
     final String? accountId =
@@ -104,16 +107,30 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
     // falls back to the cached copy identically (#54). A missing program is an
     // honest empty state, not an error; a transport failure with no cache
     // rethrows and becomes the Home error state.
-    final ActiveProgram active = await loadActiveProgram(
-      api: api,
-      cache: cache,
-      accountId: accountId,
-    );
+    late ActiveProgram active;
+    try {
+      active = await loadActiveProgram(
+        api: api,
+        cache: cache,
+        accountId: accountId,
+      );
+    } on ApiException {
+      if (!_isCurrentLoad(generation, accountId)) {
+        return const _DashboardData(
+          program: null,
+          schedule: null,
+          volume: <String, double>{},
+          records: <PersonalRecord>[],
+        );
+      }
+      rethrow;
+    }
     final TrainingProgram? program = active.program;
     if (accountId != null) {
       final PlayerProgramUpdate? sharedProgram =
           ref.read(playerProgramUpdateProvider);
-      if (!active.fromCache || sharedProgram?.accountId != accountId) {
+      if (_isCurrentLoad(generation, accountId) &&
+          (!active.fromCache || sharedProgram?.accountId != accountId)) {
         ref.read(playerProgramUpdateProvider.notifier).state =
             PlayerProgramUpdate(
           accountId: accountId,
@@ -157,7 +174,9 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
     }
     try {
       latestSession = await api.latestSession();
-      if (latestSession != null && accountId != null) {
+      if (latestSession != null &&
+          accountId != null &&
+          _isCurrentLoad(generation, accountId)) {
         // Cache the real ledger value so the next day still resolves offline.
         unawaited(cache.writeLatestSession(accountId, latestSession));
       }
@@ -178,6 +197,11 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
       programFromCache: active.fromCache,
     );
   }
+
+  bool _isCurrentLoad(int generation, String? accountId) =>
+      mounted &&
+      generation == _loadGeneration &&
+      ref.read(authControllerProvider).session?.account.accountId == accountId;
 
   Future<Assignment?> _loadAssignment(ApiClient api) async {
     try {
@@ -277,6 +301,29 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(
+      authControllerProvider,
+      (AuthState? previous, AuthState next) {
+        final String? previousId = previous?.session?.account.accountId;
+        final String? nextId = next.session?.account.accountId;
+        if (previousId == nextId) return;
+        ++_loadGeneration;
+        if (mounted) {
+          final Future<_DashboardData> future = nextId == null
+              ? Future<_DashboardData>.value(const _DashboardData(
+                  program: null,
+                  schedule: null,
+                  volume: <String, double>{},
+                  records: <PersonalRecord>[],
+                ))
+              : _load();
+          setState(() {
+            _assignmentOverrideKnown = false;
+            _future = future;
+          });
+        }
+      },
+    );
     final String? accountId =
         ref.watch(authControllerProvider).session?.account.accountId;
     final PlayerProgramUpdate? sharedProgram =

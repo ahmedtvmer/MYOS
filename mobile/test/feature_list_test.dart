@@ -60,6 +60,7 @@ void main() {
   });
 
   test('workout share card remains in release 3', () {
+    expect(kReleaseShareCard, 3);
     final FeatureEntry entry = featureList.singleWhere(
       (FeatureEntry entry) => entry.id == 'workout_share_card',
     );
@@ -70,8 +71,19 @@ void main() {
     expect(entry.sentenceAr,
         'عاين بطاقة تمرينك بتاريخها، ثم شاركها أو احفظها.');
     expect(entry.target, 'home');
-    expect(entry.release, currentFeatureRelease - 1);
+    expect(entry.release, kReleaseShareCard);
     expect(entry.audience, 'lifter');
+  });
+
+  test('duration check is a Home lifter entry in release 4', () {
+    expect(kReleaseDurationCheck, 4);
+    final FeatureEntry entry = featureList.singleWhere(
+      (FeatureEntry entry) => entry.id == 'duration_check',
+    );
+    expect(entry.release, kReleaseDurationCheck);
+    expect(currentFeatureRelease, kReleaseDurationCheck);
+    expect(entry.audience, 'lifter');
+    expect(entry.target, 'home');
   });
 
   test('Feature list copy, targets, and Tour stop ids are valid', () {

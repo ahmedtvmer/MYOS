@@ -1208,7 +1208,7 @@ void main() {
       sharedCard = card;
       return true;
     }, startedAt: '2026-09-28T08:00:00.000Z',
-       clock: () => DateTime(2026, 9, 30, 12));
+       clock: () => DateTime(2026, 9, 28, 8, 10));
     await tester.tap(_tick(0, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Finish workout'));
@@ -1221,6 +1221,11 @@ void main() {
     final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
     if (keepDuration.evaluate().isNotEmpty) {
       await tester.tap(keepDuration);
+      await tester.pumpAndSettle();
+    } else {
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
     }
     await tester.tap(find.widgetWithText(FilledButton, 'Save workout'));
@@ -2636,6 +2641,11 @@ void main() {
     if (keepDuration.evaluate().isNotEmpty) {
       await tester.tap(keepDuration);
       await tester.pumpAndSettle();
+    } else {
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pumpAndSettle();
     }
 
     await tester.enterText(find.byType(TextField), 'felt strong');
@@ -2699,6 +2709,11 @@ void main() {
     final Finder keepDuration = find.widgetWithText(FilledButton, 'Keep');
     if (keepDuration.evaluate().isNotEmpty) {
       await tester.tap(keepDuration);
+      await tester.pumpAndSettle();
+    } else {
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
     }
 
@@ -3887,5 +3902,117 @@ void main() {
     await tester.pumpAndSettle();
     await _tapFinishPastUntickedSets(tester);
     expect(find.text('Is this workout duration right?'), findsOneWidget);
+  });
+
+  testWidgets('rapid Finish taps open only one duration prompt', (tester) async {
+    await _openLogger(
+      tester,
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T11:01:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    final Finder finish = find.widgetWithText(FilledButton, 'Finish workout');
+    await tester.tap(finish);
+    await tester.tap(finish, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    final Finder discard = find.text('Discard unticked sets and finish');
+    if (discard.evaluate().isNotEmpty) {
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Is this workout duration right?'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Finish workout')).onPressed,
+      isNull,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Keep'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout summary'), findsOneWidget);
+  });
+
+  testWidgets('duration edit clamps 24 hours 5 minutes to 24 hours',
+      (tester) async {
+    await _openLogger(
+      tester,
+      startedAt: '2026-09-27T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T08:05:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    final DropdownButton<int> hours = tester.widget(
+      find.byKey(const ValueKey<String>('logger.duration.hours')),
+    );
+    final DropdownButton<int> minutes = tester.widget(
+      find.byKey(const ValueKey<String>('logger.duration.minutes')),
+    );
+    expect(hours.value, 24);
+    expect(minutes.value, 0);
+  });
+
+  testWidgets('unstoreable duration offers Edit without Keep', (tester) async {
+    await _openLogger(
+      tester,
+      startedAt: '2026-09-27T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T09:00:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    // The fixed clock is 25 hours after the start time.
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Keep'), findsNothing);
+    expect(find.textContaining('cannot be saved'), findsOneWidget);
+  });
+
+  testWidgets('Arabic duration prompt fits at phone width and 2x text scale',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _openLogger(
+      tester,
+      languageCode: 'ar',
+      startedAt: '2026-09-28T08:00:00.000Z',
+      clock: () => DateTime.parse('2026-09-28T11:01:00.000Z'),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'إنهاء الحصة'));
+    await tester.pumpAndSettle();
+    final Finder discard = find.text('حذف غير المحدد وإنهاء الحصة');
+    if (discard.evaluate().isNotEmpty) {
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('س 3'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('تعديل'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('logger.duration.hours')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('duration under one second offers Edit without Keep',
+      (tester) async {
+    const String sameInstant = '2026-09-28T08:00:00.000Z';
+    await _openLogger(
+      tester,
+      startedAt: sameInstant,
+      clock: () => DateTime.parse(sameInstant),
+    );
+    await tester.tap(_tick(0, 0));
+    await tester.pumpAndSettle();
+    await _tapFinishPastUntickedSets(tester);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Keep'), findsNothing);
+    expect(find.textContaining('cannot be saved'), findsOneWidget);
   });
 }

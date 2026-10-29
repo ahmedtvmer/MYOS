@@ -140,6 +140,7 @@ class _WorkoutDurationConfirmation extends StatefulWidget {
     required this.initialMinutes,
     required this.isArabic,
     required this.isShort,
+    required this.keepAllowed,
   });
 
   final Duration elapsed;
@@ -147,6 +148,7 @@ class _WorkoutDurationConfirmation extends StatefulWidget {
   final int initialMinutes;
   final bool isArabic;
   final bool isShort;
+  final bool keepAllowed;
 
   @override
   State<_WorkoutDurationConfirmation> createState() =>
@@ -205,7 +207,10 @@ class _WorkoutDurationConfirmationState
             child: Text(isArabic ? 'رجوع' : 'Back'),
           ),
           FilledButton(
-            onPressed: _hours == 0 && _minutes == 0
+            onPressed: _hours == 0 && _minutes == 0 ||
+                    _hours > 24 ||
+                    _minutes > 59 ||
+                    (_hours == 24 && _minutes != 0)
                 ? null
                 : () => Navigator.of(context).pop(
                       Duration(hours: _hours, minutes: _minutes),
@@ -218,17 +223,19 @@ class _WorkoutDurationConfirmationState
             onPressed: () => setState(() => _editing = true),
             child: Text(isArabic ? 'تعديل' : 'Edit'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(widget.elapsed),
-            child: Text(isArabic ? 'احتفاظ' : 'Keep'),
-          ),
+          if (widget.keepAllowed)
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(widget.elapsed),
+              child: Text(isArabic ? 'احتفاظ' : 'Keep'),
+            ),
         ];
 
   @override
   Widget build(BuildContext context) {
     final bool ar = widget.isArabic;
-    final String duration =
-        '${widget.elapsed.inHours}h ${widget.elapsed.inMinutes % 60}m';
+    final String duration = ar
+        ? '\u2066د ${widget.elapsed.inMinutes % 60} س ${widget.elapsed.inHours}\u2069'
+        : '${widget.elapsed.inHours}h ${widget.elapsed.inMinutes % 60}m';
     return AlertDialog(
       title: Text(
         ar ? 'هل مدة الحصة صحيحة؟' : 'Is this workout duration right?',
@@ -236,8 +243,12 @@ class _WorkoutDurationConfirmationState
       content: _editing
           ? _durationFields(ar)
         : Text(ar
-              ? 'استغرقت الحصة $duration، وهي ${widget.isShort ? 'أقصر' : 'أطول'} من المعتاد. هل هذا صحيح؟'
-              : 'This workout lasted $duration — ${widget.isShort ? 'shorter' : 'longer'} than usual. Is that right?'),
+              ? widget.keepAllowed
+                  ? 'استغرقت الحصة $duration، وهي ${widget.isShort ? 'أقصر' : 'أطول'} من المعتاد. هل هذا صحيح؟'
+                  : 'استغرقت الحصة $duration، ولا يمكن حفظ هذه المدة. عدّلها للمتابعة.'
+              : widget.keepAllowed
+                  ? 'This workout lasted $duration — ${widget.isShort ? 'shorter' : 'longer'} than usual. Is that right?'
+                  : 'This duration cannot be saved. Edit it to continue.'),
       actions: _actions(ar),
     );
   }
@@ -327,6 +338,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
   int? _checkpointNumber;
   CheckpointReview? _checkpointReview;
   bool _saving = false;
+  bool _finishInFlight = false;
   WorkoutCopy get _copy => WorkoutCopy(ref.read(displayLanguageProvider));
 
   String? _visibleError(BuildContext context) {
@@ -1127,6 +1139,19 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
   /// The records and the stats are computed once, here, on the device: they
   /// are this workout's snapshot and are never recomputed after a sync.
   Future<void> _finish() async {
+    if (_finishInFlight) return;
+    _finishInFlight = true;
+    setState(() {});
+    try {
+      await _finishOperation();
+    } finally {
+      if (mounted) {
+        setState(() => _finishInFlight = false);
+      }
+    }
+  }
+
+  Future<void> _finishOperation() async {
     final ActiveWorkout? workout = _workout;
     if (workout == null || _blockReason != null) {
       return;
@@ -1222,10 +1247,14 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
     final Duration elapsed = workoutElapsed(workout, now: now);
     int? lastDuration;
     try {
-      lastDuration = (await ref
-              .read(workoutCacheStoreProvider)
-              .readLatestSession(workout.accountId))
-          ?.durationSeconds;
+      final String? currentAccountId =
+          ref.read(authControllerProvider).session?.account.accountId;
+      if (currentAccountId == workout.accountId) {
+        lastDuration = (await ref
+                .read(workoutCacheStoreProvider)
+                .readLatestSession(currentAccountId!))
+            ?.durationSeconds;
+      }
     } on PlatformException {
       // The fallback rule applies when no cached duration is available.
     } on MissingPluginException {
@@ -1242,8 +1271,11 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
   }
 
   Future<Duration?> _confirmWorkoutDuration(Duration elapsed) async {
-    final int hours = elapsed.inHours.clamp(0, 24);
-    final int minutes = (elapsed.inMinutes % 60);
+    final int totalMinutes = elapsed.inMinutes.clamp(1, 24 * 60);
+    final int hours = totalMinutes ~/ 60;
+    final int minutes = totalMinutes % 60;
+    final bool keepAllowed = elapsed >= const Duration(seconds: 1) &&
+        elapsed <= const Duration(hours: 24);
     final Duration? picked = await showDialog<Duration>(
       context: context,
       builder: (BuildContext dialogContext) => _WorkoutDurationConfirmation(
@@ -1252,6 +1284,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
         initialMinutes: minutes,
         isArabic: _copy.isArabic,
         isShort: elapsed < const Duration(minutes: 5),
+        keepAllowed: keepAllowed,
       ),
     );
     return picked;
@@ -1723,7 +1756,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
       setsTotal: progress.setsTotal,
       // The one place the fill is worked out, beside the counts above it.
       progressValue: workoutSetsFractionOf(workout),
-      onFinish: _blockReason != null ? null : _finish,
+      onFinish: _blockReason != null || _finishInFlight ? null : _finish,
       restControls: rest == null ? null : _buildRestControls(rest),
     );
   }

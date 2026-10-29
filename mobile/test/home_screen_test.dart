@@ -127,6 +127,16 @@ class _PendingWriteWhatsNewStore implements WhatsNewSeenRetryStore {
   Future<void> clear(String accountId) async => pending.remove(accountId);
 }
 
+class _TrackingWorkoutCache extends InMemoryWorkoutCacheStore {
+  final List<String> latestSessionWrites = <String>[];
+
+  @override
+  Future<void> writeLatestSession(String accountId, LatestSession session) {
+    latestSessionWrites.add(accountId);
+    return super.writeLatestSession(accountId, session);
+  }
+}
+
 Future<void> _pumpUntilFound(WidgetTester tester, Finder finder,
     {int attempts = 40}) async {
   for (int i = 0; i < attempts; i++) {
@@ -450,7 +460,7 @@ void main() {
   });
 
   testWidgets("What's new retry does not write Account A under Account B", (tester) async {
-    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = currentFeatureRelease - 1;
+    final FakeMayosApi fake = _signedInFake()..whatsNewSeenRelease = kReleaseShareCard - 1;
     fake.passwords['bob'] = 'password123';
     final _PendingWriteWhatsNewStore retryStore = _PendingWriteWhatsNewStore();
     await _pumpHome(
@@ -1901,6 +1911,71 @@ void main() {
       isTrue,
     );
     expect(find.text('Upper 1'), findsNWidgets(2));
+  });
+
+  testWidgets('delayed Home load does not cache Account A after switching to B',
+      (tester) async {
+    final FakeMayosApi fake = _signedInFake()
+      ..latestSessionBody = <String, dynamic>{
+        'session_id': 'late-a',
+        'session_date': '2026-09-20',
+        'split_name': 'Upper 1',
+        'day_order': null,
+        'program_version': 1,
+        'duration_seconds': 1800,
+      };
+    final _TrackingWorkoutCache cache = _TrackingWorkoutCache();
+    final Completer<void> latestRequestStarted = Completer<void>();
+    final Completer<void> releaseLatestRequest = Completer<void>();
+    await _pumpHome(tester, fake, extraOverrides: <Override>[
+      workoutCacheStoreProvider.overrideWithValue(cache),
+    ]);
+    await _pumpUntilFound(tester, find.text('Upper 1'));
+    cache.latestSessionWrites.clear();
+    fake.adapter.beforeRespond = (FakeRequest request) async {
+      if (request.path == '/workouts/sessions/latest') {
+        latestRequestStarted.complete();
+        await releaseLatestRequest.future;
+      }
+    };
+    await tester.drag(find.byType(ListView).first, const Offset(0, 600));
+    await tester.pump();
+    for (int attempt = 0;
+        attempt < 40 && !latestRequestStarted.isCompleted;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(latestRequestStarted.isCompleted, isTrue);
+    final ProviderContainer container =
+        ProviderScope.containerOf(tester.element(find.byType(MayosApp)));
+    expect(container.read(authControllerProvider).session?.account.accountId,
+        'account-alice');
+    final AuthController auth = container.read(authControllerProvider.notifier);
+    final AccountSession accountA = auth.state.session!;
+    final AccountSession accountB = AccountSession(
+      account: accountA.account.copyWith(
+        accountId: 'account-bob',
+        traineeId: 'bob',
+      ),
+      onboarded: true,
+      hasRecoveryEmail: accountA.hasRecoveryEmail,
+      recoveryEmail: accountA.recoveryEmail,
+    );
+    auth.state = const AuthState.unauthenticated();
+    auth.state = AuthState.authenticated(accountB);
+    await tester.pumpAndSettle();
+    expect(container.read(authControllerProvider).session?.account.accountId,
+        'account-bob');
+    expect(find.byType(DashboardTab), findsOneWidget);
+    releaseLatestRequest.complete();
+    await tester.pumpAndSettle();
+    expect(
+      fake.adapter.requests
+          .where((request) => request.path == '/workouts/sessions/latest')
+          .length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(cache.latestSessionWrites, isNot(contains('account-alice')));
   });
 
   testWidgets('latest saved workout on Home offers Share to Story', (tester) async {
