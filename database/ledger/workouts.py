@@ -190,6 +190,7 @@ class LedgerWorkoutsMixin:
         program_day_order: int | None = None,
         captured_at: str | None = None,
         uploaded_at: str | None = None,
+        duration_seconds: int | None = None,
     ) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
@@ -197,8 +198,8 @@ class LedgerWorkoutsMixin:
             INSERT INTO workout_sessions (
                 id, session_date, split_name, started_at, completed_at, session_notes, readiness_score,
                 client_session_id, performed_timezone, program_version, active_program_version_at_sync,
-                program_week_order, program_day_order, captured_at, uploaded_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                program_week_order, program_day_order, captured_at, uploaded_at, duration_seconds
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 session_id,
@@ -216,6 +217,7 @@ class LedgerWorkoutsMixin:
                 program_day_order,
                 captured_at,
                 uploaded_at,
+                duration_seconds,
             ),
         )
         self._commit_ledger()
@@ -432,7 +434,7 @@ class LedgerWorkoutsMixin:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT id, session_date, split_name, program_version,
-                   program_week_order, program_day_order, started_at, completed_at
+                   program_week_order, program_day_order, started_at, completed_at, duration_seconds
             FROM workout_sessions
             ORDER BY session_date DESC, started_at DESC, rowid DESC
             LIMIT 1
@@ -452,16 +454,7 @@ class LedgerWorkoutsMixin:
             (session_id,),
         ).fetchone()[0]
         cardio = self.get_session_cardio(session_id) or []
-        duration_seconds = None
-        if row[7] and row[6]:
-            try:
-                elapsed = int(
-                    (datetime.fromisoformat(row[7]) - datetime.fromisoformat(row[6])).total_seconds()
-                )
-                if elapsed > 0:
-                    duration_seconds = elapsed
-            except ValueError:
-                pass
+        duration_seconds = row[8]
         return {
             "session_id": session_id,
             "session_date": row[1],

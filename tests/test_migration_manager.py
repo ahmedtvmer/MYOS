@@ -43,6 +43,34 @@ def test_v45_adds_nullable_program_rationale_to_training_programs():
     assert "program_rationale_json" in columns
 
 
+def test_v53_adds_nullable_duration_without_changing_existing_sessions(tmp_path):
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE workout_sessions (id TEXT PRIMARY KEY, started_at TEXT NOT NULL)")
+    conn.execute("INSERT INTO workout_sessions VALUES ('old-session', '2026-10-01T10:00:00')")
+    set_ledger_schema_version(conn, 52)
+    conn.commit()
+    apply_lazy_migrations(
+        conn, "duration-test", tmp_path / "ledgers", tmp_path / "backups",
+    )
+    row = conn.execute("SELECT id, duration_seconds FROM workout_sessions").fetchone()
+    assert row == ("old-session", None)
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE workout_sessions SET duration_seconds = 0 WHERE id = 'old-session'")
+
+
+def test_fresh_ledger_schema_has_nullable_duration(temp_db_env):
+    db, _, _ = temp_db_env
+    columns = {row[1] for row in db.conn.execute("PRAGMA table_info(workout_sessions)")}
+    assert "duration_seconds" in columns
+    db.conn.execute(
+        "INSERT INTO workout_sessions (id, session_date, split_name, started_at) "
+        "VALUES ('unknown-duration', '2026-10-01', 'Upper', '2026-10-01T10:00:00')"
+    )
+    assert db.conn.execute(
+        "SELECT duration_seconds FROM workout_sessions WHERE id = 'unknown-duration'"
+    ).fetchone()[0] is None
+
+
 def test_v47_scopes_existing_regeneration_decisions_to_design_v2():
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE program_design_offer (id INTEGER PRIMARY KEY, decision TEXT, reason TEXT)")

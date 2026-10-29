@@ -1173,6 +1173,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
         performedDate: formatPerformedDate(_performedDate),
         readiness: _readiness,
         notes: _notes.text.trim(),
+        durationSeconds: _summary?.duration.inSeconds,
       );
       if (draft == null) {
         setState(() {
@@ -1238,6 +1239,8 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                 performedDate: formatPerformedDate(_performedDate),
                 readiness: _readiness,
                 notes: _notes.text.trim(),
+                durationSeconds: _summary?.duration.inSeconds ??
+                    workoutElapsed(workout, now: DateTime.now()).inSeconds,
               );
       final dynamic checkpointBody = result.response?['checkpoint'];
       final int? reachedCheckpoint = checkpointBody is Map<String, dynamic>

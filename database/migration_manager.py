@@ -18,7 +18,7 @@ from utils.equipment_access import (
 logger = MayosLogger().get_logger(__name__)
 
 # Current target schema version for all user ledgers
-CURRENT_LEDGER_SCHEMA_VERSION: int = 52
+CURRENT_LEDGER_SCHEMA_VERSION: int = 53
 
 VOLUME_REVIEWS_DDL: tuple[str, ...] = (
     "CREATE TABLE IF NOT EXISTS volume_reviews ("
@@ -1217,6 +1217,19 @@ def _migrate_v51_to_v52(conn: sqlite3.Connection) -> None:
     conn.execute(DELETED_INJURY_SOURCE_EVENTS_DDL)
 
 
+def _migrate_v52_to_v53(conn: sqlite3.Connection) -> None:
+    """Persists the elapsed duration captured when a workout is finished (#561)."""
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "workout_sessions" not in tables:
+        return
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(workout_sessions)")}
+    if "duration_seconds" not in columns:
+        conn.execute(
+            "ALTER TABLE workout_sessions ADD COLUMN duration_seconds INTEGER "
+            "CHECK (duration_seconds IS NULL OR duration_seconds BETWEEN 1 AND 86400)"
+        )
+
+
 def get_ledger_schema_version(conn: sqlite3.Connection) -> int:
     """Reads the current user_version PRAGMA from the SQLite connection."""
     cursor = conn.cursor()
@@ -1354,6 +1367,7 @@ MIGRATION_REGISTRY: dict[int, MigrationCallable] = {
     49: _migrate_v49_to_v50,
     50: _migrate_v50_to_v51,
     51: _migrate_v51_to_v52,
+    52: _migrate_v52_to_v53,
 }
 
 

@@ -2087,8 +2087,10 @@ void main() {
       ).buildCommitBody(
         timezone: 'UTC',
         now: now,
+        durationSeconds: workoutElapsed(workout, now: now).inSeconds,
       )!;
       expect(direct['sets'], hasLength(1));
+      expect(direct['duration_seconds'], workoutElapsed(workout, now: now).inSeconds);
       expect(currentSetOf(workout), (exerciseIndex: 0, setIndex: 1));
       expect(workoutProgressOf(workout).setsTotal, 2);
       expect(workoutProgressOf(workout).setsTicked, 1);

@@ -3871,6 +3871,7 @@ class WorkoutDraft {
     this.attempt = 0,
     this.nextAttemptAt,
     this.capturedOffline = false,
+    this.durationSeconds,
     this.lastReportedSyncFailureReason,
     this.pendingNetworkFailureAttempt,
   });
@@ -3905,6 +3906,7 @@ class WorkoutDraft {
         attempt: (json['attempt'] as num?)?.toInt() ?? 0,
         nextAttemptAt: json['next_attempt_at'] as String?,
         capturedOffline: json['captured_offline'] as bool? ?? false,
+        durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
         lastReportedSyncFailureReason:
             json['last_reported_sync_failure_reason'] as String?,
         pendingNetworkFailureAttempt:
@@ -3941,6 +3943,7 @@ class WorkoutDraft {
 
   /// Set when a prior sync attempt failed because connectivity was unavailable.
   final bool capturedOffline;
+  final int? durationSeconds;
 
   /// Last failure reason reported for this draft, used to suppress retry spam.
   final String? lastReportedSyncFailureReason;
@@ -4001,6 +4004,7 @@ class WorkoutDraft {
     int? attempt,
     String? nextAttemptAt,
     bool? capturedOffline,
+    int? durationSeconds,
     String? lastReportedSyncFailureReason,
     bool clearLastReportedSyncFailureReason = false,
     int? pendingNetworkFailureAttempt,
@@ -4035,6 +4039,7 @@ class WorkoutDraft {
         nextAttemptAt:
             clearNextAttempt ? null : (nextAttemptAt ?? this.nextAttemptAt),
         capturedOffline: capturedOffline ?? this.capturedOffline,
+        durationSeconds: durationSeconds ?? this.durationSeconds,
         lastReportedSyncFailureReason: clearLastReportedSyncFailureReason
             ? null
             : (lastReportedSyncFailureReason ?? this.lastReportedSyncFailureReason),
@@ -4076,6 +4081,7 @@ class WorkoutDraft {
         'program_version': programVersion,
         'captured_at': capturedAt,
         'captured_offline': capturedOffline,
+        if (durationSeconds != null) 'duration_seconds': durationSeconds,
       };
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -4109,6 +4115,7 @@ class WorkoutDraft {
         'attempt': attempt,
         'next_attempt_at': nextAttemptAt,
         'captured_offline': capturedOffline,
+        if (durationSeconds != null) 'duration_seconds': durationSeconds,
         'last_reported_sync_failure_reason': lastReportedSyncFailureReason,
         'pending_network_failure_attempt': pendingNetworkFailureAttempt,
       };

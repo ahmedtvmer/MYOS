@@ -397,6 +397,20 @@ void main() {
     expect(find.text('3'), findsOneWidget);
   });
 
+  testWidgets('Home latest workout shows a known payload duration',
+      (WidgetTester tester) async {
+    final LatestSession session = LatestSession.fromJson(<String, dynamic>{
+      'session_id': 'latest', 'session_date': '2026-10-29',
+      'split_name': 'Upper 1', 'duration_seconds': 3472,
+      'working_sets': 3, 'volume_kg': 1500, 'cardio_minutes': 0, 'pr_count': 0,
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: latestSessionShareCard(
+      session: session, languageCode: 'en',
+    ))));
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('57m'), findsOneWidget);
+  });
+
   testWidgets('Finish share card continues to show its elapsed duration',
       (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(

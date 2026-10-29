@@ -51,6 +51,7 @@ class WebWorkoutCommitter {
     required String performedDate,
     required int readiness,
     required String notes,
+    required int durationSeconds,
   }) async {
     try {
       final ActiveWorkout current = await _controller.ensureClientSessionId();
@@ -67,6 +68,7 @@ class WebWorkoutCommitter {
         performedDate: performedDate,
         readiness: readiness,
         notes: notes,
+        durationSeconds: durationSeconds,
       );
       if (body == null) {
         return const WebWorkoutCommitResult(

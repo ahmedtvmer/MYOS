@@ -1008,6 +1008,7 @@ class ActiveWorkout {
     String? performedDate,
     int readiness = 4,
     String notes = '',
+    int? durationSeconds,
   }) {
     final int? version = programVersion;
     final String? sessionId = clientSessionId;
@@ -1031,6 +1032,7 @@ class ActiveWorkout {
       'week_order': weekOrder,
       'readiness': readiness,
       'session_notes': notes,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
       'sets': loggedExercises,
       if (loggedWarmupMovements.isNotEmpty)
         'warmup_movements': <Map<String, dynamic>>[
@@ -1076,6 +1078,7 @@ class ActiveWorkout {
     String? performedDate,
     int readiness = 4,
     String notes = '',
+    int? durationSeconds,
   }) {
     final int? version = programVersion;
     if (version == null) {
@@ -1101,6 +1104,7 @@ class ActiveWorkout {
       cardio: cardio,
       readiness: readiness,
       notes: notes,
+      durationSeconds: durationSeconds,
       status: DraftStatus.pending,
       updatedAt: iso,
     );

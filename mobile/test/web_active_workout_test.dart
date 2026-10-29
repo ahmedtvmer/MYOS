@@ -396,6 +396,7 @@ void main() {
     expect(sent['cardio'], <Map<String, dynamic>>[
       <String, dynamic>{'machine': 'bike', 'minutes': 30},
     ]);
+    expect(sent['duration_seconds'], greaterThan(0));
   });
 
   test('storage denial falls back to in-memory logging for this tab', () async {

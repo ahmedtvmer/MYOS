@@ -1933,6 +1933,7 @@ class CardioIn(BaseModel):
 
 
 class SessionCommitIn(BaseModel):
+    duration_seconds: int | None = None
     day_order: int = Field(ge=1, le=5)
     week_order: int = Field(default=1, ge=1, le=MAX_PROGRAM_WEEKS)
     readiness: int = Field(ge=1, le=5)
@@ -1940,6 +1941,19 @@ class SessionCommitIn(BaseModel):
     sets: list[ExerciseSetsIn] = Field(min_length=1)
     warmup_movements: list[WarmupMovementIn] = Field(default_factory=list)
     cardio: list[CardioIn] | None = Field(default=None, max_length=20)
+
+    @field_validator("duration_seconds", mode="before")
+    @classmethod
+    def _normalize_duration(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not 1 <= value <= 86400
+        ):
+            return None
+        return value
 
     @field_validator("cardio", mode="before")
     @classmethod

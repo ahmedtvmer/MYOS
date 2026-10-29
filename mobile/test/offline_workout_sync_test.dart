@@ -29,6 +29,7 @@ const String _accountB = 'account-bob';
 
 WorkoutDraft _draft({
   required String accountId,
+  int? durationSeconds,
   int programVersion = 1,
   String? clientSessionId,
   String capturedAt = '2026-09-26T11:00:00.000Z',
@@ -65,6 +66,7 @@ WorkoutDraft _draft({
       cardio: cardio,
       readiness: 4,
       updatedAt: '2026-09-26T11:00:00.000Z',
+      durationSeconds: durationSeconds,
     );
 
 TrainingProgram _cachedProgram() => const TrainingProgram(
@@ -155,6 +157,14 @@ void main() {
       expect(cardio.machine, 'other');
       expect(cardio.minutes, 25);
       expect(cardio.ticked, isTrue);
+    });
+    test('duration survives draft JSON and is included in the later commit', () {
+      final WorkoutDraft draft = _draft(accountId: _accountA, durationSeconds: 3472);
+      final WorkoutDraft restored = WorkoutDraft.fromJson(draft.toJson());
+      expect(restored.toCommitBody()['duration_seconds'], 3472);
+      final Map<String, dynamic> legacyJson = Map<String, dynamic>.of(draft.toJson())
+        ..remove('duration_seconds');
+      expect(WorkoutDraft.fromJson(legacyJson).toCommitBody().containsKey('duration_seconds'), isFalse);
     });
     test('Cardio state persists and only ticked Cardio reaches commit', () {
       final WorkoutDraft unticked = _draft(

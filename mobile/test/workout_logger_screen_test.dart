@@ -1775,6 +1775,7 @@ void main() {
     final List<WorkoutDraft> saved = await drafts.read(_account);
     expect(saved, hasLength(1));
     expect(saved.single.exercises.single.sets.single.weightKg, 0);
+    expect(saved.single.durationSeconds, greaterThan(0));
   });
 
   testWidgets('an added load on a body-weight exercise stays numeric',

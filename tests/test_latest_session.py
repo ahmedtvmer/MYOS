@@ -122,7 +122,16 @@ def _prepare_player(client, db, username="p1", day_name="Full A"):
     return headers, version
 
 
-def _commit(client, headers, version, *, date, client_id):
+def _commit(
+    client,
+    headers,
+    version,
+    *,
+    date,
+    client_id,
+    duration_seconds=None,
+    expected_status=201,
+):
     body = {
         "day_order": 1,
         "readiness": 4,
@@ -147,9 +156,10 @@ def _commit(client, headers, version, *, date, client_id):
         "performed_timezone": "UTC",
         "program_version": version,
         "captured_at": f"{date}T11:30:00+00:00",
+        **({"duration_seconds": duration_seconds} if duration_seconds is not None else {}),
     }
     resp = client.post("/workouts/sessions", headers=headers, json=body)
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code == expected_status, resp.text
     return resp.json()
 
 
@@ -218,6 +228,13 @@ def test_latest_session_includes_distinct_exercises_with_session_records(api):
     assert body["cardio_minutes"] == 20
     assert body["duration_seconds"] is None
 
+    db.conn.execute(
+        "UPDATE workout_sessions SET started_at = ?, completed_at = ? WHERE id = ?",
+        ("2026-09-26T10:00:00+00:00", "2026-09-26T11:00:00+00:00", latest["session_id"]),
+    )
+    db.conn.commit()
+    assert client.get("/workouts/sessions/latest", headers=headers).json()["duration_seconds"] is None
+
 
 def test_latest_session_is_isolated_per_account(api):
     client, db = api
@@ -232,5 +249,40 @@ def test_latest_session_is_isolated_per_account(api):
     alice_latest = client.get("/workouts/sessions/latest", headers=headers_a).json()
     assert alice_latest["session_id"] == alice["session_id"]
     assert alice_latest["split_name"] == "Full A"
+    assert alice_latest["duration_seconds"] is None
     # Bob still sees none — Alice's session is not visible.
     assert client.get("/workouts/sessions/latest", headers=headers_b).status_code == 404
+
+
+def test_latest_session_returns_committed_duration_and_ignores_invalid_duration(api):
+    client, db = api
+    headers, version = _prepare_player(client, db)
+    first = _commit(
+        client, headers, version, date="2026-09-26",
+        client_id="55555555-5555-4555-8555-555555555555", duration_seconds=3472,
+    )
+    latest = client.get("/workouts/sessions/latest", headers=headers).json()
+    assert latest["duration_seconds"] == 3472
+    replay = _commit(
+        client, headers, version, date="2026-09-26",
+        client_id="55555555-5555-4555-8555-555555555555", duration_seconds=999,
+        expected_status=200,
+    )
+    assert replay["session_id"] == first["session_id"]
+    assert db.conn.execute(
+        "SELECT duration_seconds FROM workout_sessions WHERE id = ?",
+        (first["session_id"],),
+    ).fetchone()[0] == 3472
+
+    body = {
+        "day_order": 1, "readiness": 4, "sets": [{
+            "exercise": {"exercise_id": "sq", "exercise_name": "Squat", "target_sets": 3,
+                         "target_reps_min": 5, "target_reps_max": 8, "target_rpe": 8.5,
+                         "rest_seconds": 120, "notes": None},
+            "sets": [{"weight_kg": 100.0, "reps": 5}],
+        }], "duration_seconds": 86401,
+    }
+    response = client.post("/workouts/sessions", headers=headers, json=body)
+    assert response.status_code == 201, response.text
+    latest = client.get("/workouts/sessions/latest", headers=headers).json()
+    assert latest["duration_seconds"] is None

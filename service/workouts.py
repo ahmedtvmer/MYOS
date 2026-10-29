@@ -93,6 +93,7 @@ class SyncMetadata:
     program_version: int | None = None
     captured_at: str | None = None
     captured_offline: bool = False
+    duration_seconds: int | None = None
 
 
 def day_plan_from(program: Any, day_order: int, week_order: int = 1) -> Any:
@@ -592,6 +593,7 @@ def _persist_session(
         program_day_order=int(day_plan.day_order),
         captured_at=sync.captured_at,
         uploaded_at=now_iso,
+        duration_seconds=sync.duration_seconds,
     )
 
     total_tonnage_kg = 0.0

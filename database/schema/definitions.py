@@ -287,7 +287,8 @@ class SchemaMixin:
                 program_day_order INTEGER,
                 captured_at TEXT,
                 uploaded_at TEXT,
-                edited_at TEXT
+                edited_at TEXT,
+                duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds BETWEEN 1 AND 86400)
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_sessions_client
                 ON workout_sessions(client_session_id) WHERE client_session_id IS NOT NULL;
