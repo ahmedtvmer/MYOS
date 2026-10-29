@@ -60,13 +60,13 @@ final class MayosTypography {
   static const List<FontFeature> _tabular = <FontFeature>[
     FontFeature.tabularFigures(),
   ];
+  /// Same face as the MAYOS lockup image (Montserrat SemiBold).
   static const TextStyle brandWordmark = TextStyle(
-    fontFamily: uiFamily,
+    fontFamily: 'Montserrat',
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w600,
-    fontVariations: _semibold,
     letterSpacing: 0.1,
   );
 

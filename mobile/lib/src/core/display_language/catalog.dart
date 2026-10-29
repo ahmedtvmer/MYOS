@@ -32,7 +32,7 @@ class MayosCopy {
   bool get isArabic => languageCode == 'ar';
   NutritionCopy get nutrition => NutritionCopy(languageCode);
   AiAllowanceCopy get _allowanceCopy => AiAllowanceCopy(languageCode);
-  String get brandName => isArabic ? 'ميوس' : 'MAYOS';
+  String get brandName => isArabic ? 'مايوس' : 'MAYOS';
   String get home => isArabic ? 'الرئيسية' : 'Home';
   String get program => isArabic ? 'البرنامج التدريبي' : 'Program';
   String get progress => isArabic ? 'التقدم' : 'Progress';
