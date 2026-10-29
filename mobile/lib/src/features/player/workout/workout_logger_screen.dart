@@ -2473,7 +2473,7 @@ class _WorkoutLoggerScreenState extends ConsumerState<WorkoutLoggerScreen>
                     shareContext,
                     languageCode: language,
                     pickImage: picker,
-                    onFailureStage: feedback.failed,
+                    onFailure: (String stage, Object error) => feedback.failed(stage, error),
                   );
                   if (choice.cancelled) return;
                   await shareWorkoutCardAndTrack(

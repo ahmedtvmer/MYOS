@@ -14,6 +14,7 @@ import '../../../core/models.dart';
 import '../../../core/personal_records.dart';
 import 'workout_card_action_adapter.dart';
 import 'workout_card_action_platform.dart';
+import 'workout_photo_adapter.dart';
 
 class WorkoutShareFlowFeedback {
   WorkoutShareFlowFeedback({
@@ -52,11 +53,12 @@ class WorkoutShareFlowFeedback {
     _preparingOverlay = null;
   }
 
-  void failed(String stage) {
+  void failed(String stage, Object error) {
     if (_reportedFailure) return;
     _reportedFailure = true;
     dismissPreparing();
-    analytics.shareCardFailed(source: source, stage: stage);
+    analytics.shareCardFailed(source: source, stage: stage,
+        errorType: error.runtimeType.toString());
   }
 }
 
@@ -117,6 +119,20 @@ class WorkoutShareCard extends StatelessWidget {
     feedback: feedback,
     captureOverlay: captureOverlay,
   );
+
+  Future<WorkoutShareCard> withPreparedPhoto(
+      Future<Uint8List> Function(XFile) preparePhoto) async {
+    if (photoBytes != null || photoFile == null) return this;
+    try {
+      return withPhotoBytes(await preparePhoto(photoFile!));
+    } on Exception catch (error) {
+      feedback?.failed('decode_error', error);
+      rethrow;
+    } on Error catch (error) {
+      feedback?.failed('decode_error', error);
+      rethrow;
+    }
+  }
 
   bool get _arabic => languageCode == 'ar';
   WorkoutCopy get _copy => WorkoutCopy(languageCode);
@@ -326,12 +342,16 @@ DateTime? _sessionDate(String value) {
 
 /// Captures the card, then waits for an explicit action in the preview.
 Future<bool> shareWorkoutCard(
-    BuildContext context, WorkoutShareCard card) =>
+    BuildContext context, WorkoutShareCard card, {
+      Future<Uint8List> Function(XFile)? preparePhoto,
+    }) =>
     captureAndPreviewWorkoutCard(context, card,
       capture: () async {
-        final Uint8List? photo = card.photoBytes ?? await card.photoFile?.readAsBytes();
+        final WorkoutShareCard preparedCard = await card.withPreparedPhoto(
+            preparePhoto ?? prepareWorkoutPhoto);
         if (!context.mounted) throw StateError('Share card capture context was removed');
-        return _captureWorkoutCard(context, card, photoBytes: photo,
+        return _captureWorkoutCard(context, preparedCard,
+          photoBytes: preparedCard.photoBytes,
           overlay: card.captureOverlay);
       }, feedback: card.feedback);
 
@@ -348,7 +368,7 @@ Future<bool> captureAndPreviewWorkoutCard(
     final Uint8List pngBytes = await capture().timeout(captureTimeout);
     feedback?.dismissPreparing();
     if (!context.mounted) {
-      feedback?.failed('capture_error');
+      feedback?.failed('capture_error', StateError('Share card context was removed'));
       return false;
     }
     final WorkoutCardActionAdapter actions = actionAdapter ??
@@ -360,20 +380,20 @@ Future<bool> captureAndPreviewWorkoutCard(
     } finally {
       actions.dispose();
     }
-  } on TimeoutException {
-    feedback?.failed('capture_timeout');
+  } on TimeoutException catch (error) {
+    feedback?.failed('capture_timeout', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
-  } on _WorkoutPhotoDecodeException {
-    feedback?.failed('decode_error');
+  } on _WorkoutPhotoDecodeException catch (error) {
+    feedback?.failed('decode_error', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
-  } on Exception {
-    feedback?.failed('capture_error');
+  } on Exception catch (error) {
+    feedback?.failed('capture_error', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
-  } on Error {
-    feedback?.failed('capture_error');
+  } on Error catch (error) {
+    feedback?.failed('capture_error', error);
     if (context.mounted) _showShareError(context, languageCode);
     return false;
   }
@@ -421,11 +441,11 @@ class _WorkoutCardPreviewState extends State<_WorkoutCardPreview> {
       } else if (mounted) {
         setState(() => _busy = false);
       }
-    } on Exception {
-      widget.feedback?.failed(isShare ? 'share_error' : 'save_error');
+    } on Exception catch (error) {
+      widget.feedback?.failed(isShare ? 'share_error' : 'save_error', error);
       _reportActionFailure();
-    } on Error {
-      widget.feedback?.failed(isShare ? 'share_error' : 'save_error');
+    } on Error catch (error) {
+      widget.feedback?.failed(isShare ? 'share_error' : 'save_error', error);
       _reportActionFailure();
     }
   }
@@ -523,6 +543,7 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
   WorkoutImagePicker? pickImage,
   void Function(String source)? onSourceSelected,
   void Function(String stage)? onFailureStage,
+  void Function(String stage, Object error)? onFailure,
 }) async {
   final WorkoutCopy copy = WorkoutCopy(languageCode);
   final WorkoutImagePicker picker = pickImage ?? _pickWorkoutImage;
@@ -549,14 +570,17 @@ Future<WorkoutPhotoChoiceResult> chooseWorkoutPhoto(
       }
       onSourceSelected?.call(sourceName);
       return WorkoutPhotoChoiceResult.photo(photoFile, sourceName);
-    } on PlatformException {
+    } on PlatformException catch (error) {
       onFailureStage?.call('picker_error');
+      onFailure?.call('picker_error', error);
       return const WorkoutPhotoChoiceResult.cancelled();
-    } on Exception {
+    } on Exception catch (error) {
       onFailureStage?.call('picker_error');
+      onFailure?.call('picker_error', error);
       return const WorkoutPhotoChoiceResult.cancelled();
-    } on Error {
+    } on Error catch (error) {
       onFailureStage?.call('picker_error');
+      onFailure?.call('picker_error', error);
       return const WorkoutPhotoChoiceResult.cancelled();
     }
   }

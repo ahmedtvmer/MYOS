@@ -4,11 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mayos_mobile/src/core/models.dart';
 import 'package:mayos_mobile/src/core/personal_records.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_share_card.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_card_action_adapter.dart';
 import 'package:mayos_mobile/src/features/player/workout/workout_card_web_action_adapter.dart';
+import 'package:mayos_mobile/src/features/player/workout/workout_photo_adapter.dart';
 import 'support/fake_analytics_client.dart';
 
 void main() {
@@ -46,18 +48,47 @@ void main() {
       'picker_error', 'decode_error', 'capture_timeout',
       'capture_error', 'share_error', 'save_error',
     ]) {
-      analytics.shareCardFailed(source: 'home', stage: stage);
+      analytics.shareCardFailed(source: 'home', stage: stage, errorType: 'StateError');
     }
     expect(analytics.events, hasLength(6));
     expect(analytics.events.map((event) => event['properties']), <Map<String, Object>>[
       for (final String stage in <String>[
         'picker_error', 'decode_error', 'capture_timeout',
         'capture_error', 'share_error', 'save_error',
-      ]) <String, Object>{'source': 'home', 'stage': stage},
+      ]) <String, Object>{'source': 'home', 'stage': stage, 'error_type': 'StateError'},
     ]);
     analytics.setEnabled(false);
-    analytics.shareCardFailed(source: 'finish', stage: 'capture_error');
+    analytics.shareCardFailed(source: 'finish', stage: 'capture_error', errorType: 'StateError');
     expect(analytics.events, hasLength(6));
+  });
+
+  test('photo resize bounds preserve portrait and landscape aspect ratios', () {
+    expect(workoutPhotoResizeSize(3000, 4000), const WorkoutPhotoSize(1080, 1440));
+    expect(workoutPhotoResizeSize(4000, 3000), const WorkoutPhotoSize(1080, 810));
+  });
+
+  test('share card receives the bytes returned by photo preparation', () async {
+    final Uint8List preparedJpeg = _validPngBytes();
+    final WorkoutShareCard card = WorkoutShareCard(
+      languageCode: 'en', dayName: 'Push A',
+      stats: const WorkoutSummaryStats(exercisesDone: 0, workingSets: 0,
+        totalVolumeKg: 0), records: const <WorkoutRecord>[],
+      photoFile: XFile.fromData(Uint8List.fromList(<int>[1, 2, 3]),
+          mimeType: 'image/jpeg'));
+    final WorkoutShareCard prepared = await card.withPreparedPhoto(
+        (_) async => preparedJpeg);
+    expect(prepared.photoBytes, same(preparedJpeg));
+    expect(prepared.photoFile, isNull);
+  });
+
+  test('share failure analytics sends error type but never error message', () {
+    final FakeAnalyticsClient analytics = FakeAnalyticsClient();
+    analytics.shareCardFailed(source: 'finish', stage: 'capture_error',
+        errorType: 'StateError');
+    expect(analytics.events.single['properties'], <String, Object>{
+      'source': 'finish', 'stage': 'capture_error', 'error_type': 'StateError',
+    });
+    expect(analytics.events.single.toString(), isNot(contains('private detail')));
   });
 
   testWidgets('a flow reports only its first terminal failure', (tester) async {
@@ -66,14 +97,15 @@ void main() {
       final WorkoutShareFlowFeedback feedback = WorkoutShareFlowFeedback(
         overlay: Overlay.of(context), analytics: analytics, source: 'home',
         languageCode: 'en');
-      feedback.failed('capture_timeout');
-      feedback.failed('share_error');
+      feedback.failed('capture_timeout', TimeoutException('private detail'));
+      feedback.failed('share_error', StateError('private detail'));
       return const SizedBox.shrink();
     })));
     expect(analytics.events, hasLength(1));
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'capture_timeout',
+      'source': 'home', 'stage': 'capture_timeout', 'error_type': 'TimeoutException',
     });
+    expect(analytics.events.single.toString(), isNot(contains('private detail')));
   });
 
   testWidgets('preparing overlay blocks capture and is removed when preview opens', (tester) async {
@@ -136,7 +168,7 @@ void main() {
     expect(find.text('Preparing your card…'), findsNothing);
     expect(find.text('Could not create or share the image. Try again.'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'capture_error',
+      'source': 'home', 'stage': 'capture_error', 'error_type': 'StateError',
     });
   });
 
@@ -232,7 +264,7 @@ void main() {
     expect(find.text('Could not create or share the image. Try again.'), findsAtLeastNWidgets(1));
     expect(find.text('Save image'), findsOneWidget);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'share_error',
+      'source': 'home', 'stage': 'share_error', 'error_type': 'StateError',
     });
   });
 
@@ -252,7 +284,7 @@ void main() {
     await tester.tap(find.text('Save image'));
     await tester.pumpAndSettle();
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'save_error',
+      'source': 'finish', 'stage': 'save_error', 'error_type': 'StateError',
     });
   });
 
@@ -279,7 +311,7 @@ void main() {
     expect(find.text('Share'), findsNothing);
     expect(find.text('Preparing your card…'), findsNothing);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'capture_timeout',
+      'source': 'finish', 'stage': 'capture_timeout', 'error_type': 'TimeoutException',
     });
   });
 
@@ -657,7 +689,7 @@ void main() {
     expect(find.text('Share'), findsNothing);
     expect(find.text('Preparing your card…'), findsNothing);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'finish', 'stage': 'decode_error',
+      'source': 'finish', 'stage': 'decode_error', 'error_type': '_WorkoutPhotoDecodeException',
     });
   });
 

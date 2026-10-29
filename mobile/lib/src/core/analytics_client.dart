@@ -46,7 +46,7 @@ abstract interface class AnalyticsClient {
     required String photoSource,
   });
 
-  void shareCardFailed({required String source, required String stage});
+  void shareCardFailed({required String source, required String stage, required String errorType});
 
   void installPromptShown(InstallPromptVariant variant);
 
@@ -97,7 +97,7 @@ class NoOpAnalyticsClient implements AnalyticsClient {
   }) {}
 
   @override
-  void shareCardFailed({required String source, required String stage}) {}
+  void shareCardFailed({required String source, required String stage, required String errorType}) {}
 
   @override
   void installPromptShown(InstallPromptVariant variant) {}
@@ -300,10 +300,11 @@ class PostHogAnalyticsClient implements AnalyticsClient {
       });
 
   @override
-  void shareCardFailed({required String source, required String stage}) =>
+  void shareCardFailed({required String source, required String stage, required String errorType}) =>
       _captureEvent('share_card_failed', <String, Object>{
         'source': source,
         'stage': stage,
+        'error_type': errorType,
       });
 
   void _captureWorkoutEvent(String event) {

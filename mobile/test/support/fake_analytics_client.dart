@@ -57,11 +57,11 @@ class FakeAnalyticsClient implements AnalyticsClient {
   }
 
   @override
-  void shareCardFailed({required String source, required String stage}) {
+  void shareCardFailed({required String source, required String stage, required String errorType}) {
     if (!enabled) return;
     events.add(<String, Object>{
       'event': 'share_card_failed',
-      'properties': <String, Object>{'source': source, 'stage': stage},
+        'properties': <String, Object>{'source': source, 'stage': stage, 'error_type': errorType},
     });
   }
 

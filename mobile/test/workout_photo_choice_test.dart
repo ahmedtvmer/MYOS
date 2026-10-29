@@ -67,10 +67,10 @@ void main() {
               result = await chooseWorkoutPhoto(
                 context,
                 languageCode: 'ar',
-                onFailureStage: (String stage) {
+                onFailure: (String stage, Object error) {
                   failureStages.add(stage);
                   WorkoutShareFlowFeedback(overlay: Overlay.of(context),
-                    source: 'home', analytics: analytics, languageCode: 'ar').failed(stage);
+                    source: 'home', analytics: analytics, languageCode: 'ar').failed(stage, error);
                 },
                 pickImage: (ImageSource source) async {
                   attempts++;
@@ -93,7 +93,7 @@ void main() {
     expect(attempts, 1);
     expect(failureStages, <String>['picker_error']);
     expect(analytics.events.single['properties'], <String, Object>{
-      'source': 'home', 'stage': 'picker_error',
+      'source': 'home', 'stage': 'picker_error', 'error_type': 'PlatformException',
     });
     await tester.pumpAndSettle();
     expect(find.text('بدون صورة'), findsNothing);
@@ -110,7 +110,7 @@ void main() {
           onFailureStage: (String stage) {
             failureStages.add(stage);
             WorkoutShareFlowFeedback(overlay: Overlay.of(context), source: 'finish',
-              analytics: analytics, languageCode: 'en').failed(stage);
+              analytics: analytics, languageCode: 'en').failed(stage, StateError('private detail'));
           },
           pickImage: (_) async => null);
       }, child: const Text('open')),
