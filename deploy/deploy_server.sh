@@ -78,7 +78,7 @@ read_history() {
   remote_bash <<'REMOTE'
 history=/opt/mayos/state/deploy-history.tsv
 [[ -d /opt/mayos/state && -w /opt/mayos/state ]] || {
-  echo "/opt/mayos/state is missing or not writable; rerun deploy/setup_vps.sh. If its setup marker was lost after bootstrap SSH access was removed, use the OVH console recovery steps in docs/SERVER_SETUP.md." >&2
+  echo "/opt/mayos/state is missing or not writable; rerun deploy/setup_vps.sh. If its setup marker was lost after bootstrap SSH access was removed, use the provider's web console recovery steps in docs/SERVER_SETUP.md." >&2
   exit 1
 }
 if [[ -f "$history" ]]; then cat "$history"; fi

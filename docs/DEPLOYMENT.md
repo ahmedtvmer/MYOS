@@ -6,7 +6,7 @@ This document details production deployment procedures, container orchestration,
 > runbook](#10-flyio-closed-trial-api-deployment-fastapi-only) for its
 > always-on API Machine and durable volume. Use the
 > [closed-trial release gate runbook](TRIAL_RELEASE_GATE.md) before expansion.
-> **OVHcloud production:** follow [§14](#14-production-server-deployment-380)
+> **Contabo production:** follow [§14](#14-production-server-deployment-380)
 > and its owner checklist for the Cloudflare Tunnel deployment.
 > The Docker Compose topology below supports hosted chat inference and local
 > embeddings; it is not the trial topology.
@@ -123,8 +123,8 @@ admission. Their launch sizing is deferred to #263.
 **Caller IP and rate-limit keying.** Every route limit (`RATE_LIMIT_*`) is keyed
 by caller address — plus a bearer-token suffix for authenticated calls — in
 `svc/rate_limit.py::_key`. Set `MAYOS_CLIENT_IP_HEADER` to the single proxy-set
-header that identifies callers. The OVHcloud production setup behind
-Cloudflare Tunnel uses `MAYOS_CLIENT_IP_HEADER=cf-connecting-ip`. Header names
+header that identifies callers. The production setup behind Cloudflare Tunnel
+uses `MAYOS_CLIENT_IP_HEADER=cf-connecting-ip`. Header names
 are matched case-insensitively; if the selected header is missing or does not
 contain an IP address, the socket address is used.
 
@@ -436,7 +436,7 @@ Check an existing report without loading a model:
 
 ### Standalone `docker-compose.yaml` topology
 
-This root Compose file is separate from the OVH production stack. Production
+This root Compose file is separate from the Contabo production stack. Production
 uses `deploy/compose.server.yaml` as described in §14.
 
 ```yaml
@@ -1481,8 +1481,8 @@ traffic so a pre-deletion catalog cannot recreate a deleted Account.
 
 ## 14. Production server deployment (#380)
 
-The production API runs on one OVHcloud VPS-1 2027 in London (Erith): 2 vCores,
-4 GB RAM, 40 GB NVMe, about $5.35/month, with no commitment. Application data
+The production API runs on one Contabo Cloud VPS in Germany (EU): 4 vCPU,
+8 GB RAM, 100 GB SSD, one IPv4 address, on a monthly term. Application data
 lives in `/mnt/mayos-data/data` on the server's local disk; Compose
 bind-mounts it at `/data` in both the API and Litestream containers. The
 long-syntax bind disables host-path creation, so the containers fail to start
@@ -1490,9 +1490,9 @@ if the bootstrap-created data directory is absent.
 
 Durability rests on the local disk and Litestream's continuous replication to
 R2, which bounds loss on server loss to about one second; daily R2 snapshots
-remain the second backup layer. The server is ordered in OVH's console and
+remain the second backup layer. The server is ordered in Contabo's panel and
 prepared by the provider-neutral `deploy/setup_vps.sh` bootstrap. Follow the
-[server setup checklist](SERVER_SETUP.md#2-provision-the-server) for
+[server setup checklist](SERVER_SETUP.md#3-provision-the-server) for
 provisioning, UFW and Docker port guidance, SSH hardening, secret migration,
 first deployment, restore/copy rehearsal, and verification. The Fly.io runbook
 in §10 remains for the existing closed-trial deployment.
@@ -1530,7 +1530,7 @@ are kept in `/opt/mayos/state/deploy-history.tsv`; older `mayos-api` images are
 removed while the running image is retained. After a successful deploy, the
 script also prunes Docker build cache older than 168 hours and prints `df -h /`;
 it warns if less than 5 GB is free. Images are several GB each, so this cleanup
-helps preserve space on the 40 GB disk.
+helps preserve space on the 100 GB disk.
 
 If readiness fails, the script reads `CURRENT_LEDGER_SCHEMA_VERSION` from both
 images. It automatically restores the previous image when its schema version

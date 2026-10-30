@@ -1,35 +1,53 @@
 # Production server setup
 
-This checklist prepares MAYOS on an OVHcloud VPS behind a Cloudflare Tunnel.
+This checklist prepares MAYOS on a Contabo Cloud VPS behind a Cloudflare Tunnel.
 It requires the owned domain and Cloudflare zone from #132. All hostnames are
 configuration; this guide does not choose a domain.
 
 ## Owner steps
 
-### 1. Order the OVHcloud VPS
+### 1. Order the server (Contabo)
 
-1. Create an OVHcloud account and order **VPS-1 2027** with no commitment. The
-   offer is 2 vCores, 4 GB RAM, and 40 GB NVMe, about $5.35/month; check OVH's
-   current [VPS pricing](https://www.ovhcloud.com/en/vps/) when ordering.
-2. Select London (Erith, United Kingdom) and prefer Ubuntu 24.04. Add the
-   owner's SSH public key during the order. OVH's Ubuntu image accepts SSH as
-   `ubuntu` with passwordless sudo. Ubuntu 26.04 is also acceptable only when
-   Docker's Ubuntu apt repository publishes a `Release` file for its codename;
-   `server_bootstrap.sh` checks this before adding Docker's repository.
-3. OVH's optional Automated Backup is a disk copy. Enable it only with a
-   retention period of 30 days or less, matching the account-deletion window in
-   ADRs 015 and 044; otherwise leave it disabled.
-4. Note the server's public IP address. Leave OVH's optional network firewall
-   disabled; host firewall setup is covered below.
-5. Install OpenSSH, `rsync`, `nc`, and the AWS CLI (for the R2 object listing)
+1. Order a **Contabo Cloud VPS** in Contabo's EU region (Germany) with 4 vCPU,
+   8 GB RAM, 100 GB SSD, Ubuntu 24.04, one IPv4 address, and a monthly term.
+   Add the owner's SSH public key at order. Ubuntu 26.04 is also acceptable
+   only when Docker's Ubuntu apt repository publishes a `Release` file for its
+   codename; `server_bootstrap.sh` checks this before adding Docker's
+   repository.
+2. Skip Contabo's backup add-on: Litestream and R2 already cover backups. Skip
+   private networking and extra IPs: the Cloudflare Tunnel needs no extra
+   network. Note the server's public IP address.
+3. Install OpenSSH, `rsync`, `nc`, and the AWS CLI (for the R2 object listing)
    on the machine that has this checkout. Set `MAYOS_DEPLOY_HOST` in the
    environment or as an unquoted line in this checkout's ignored `.env`. This
    owner-machine value does not belong in `/opt/mayos/.env`.
-6. The setup script defaults to `~/.ssh/id_ed25519.pub` and its matching
-   private key. If the key added in OVH's console uses another path, set
+4. The setup script defaults to `~/.ssh/id_ed25519.pub` and its matching
+   private key. If the key added at order uses another path, set
    `SSH_PUBLIC_KEY_PATH` and `SSH_PRIVATE_KEY_PATH` when running the script.
 
-### 2. Provision the server
+### 2. Prepare the bootstrap account
+
+Contabo's Ubuntu image logs in as `root`. Sign in from the owner machine using
+the key added at order, then create the non-root `ubuntu` account that
+`setup_vps.sh` expects. Give it passwordless sudo and install the same public
+key in its `authorized_keys`:
+
+```bash
+adduser --disabled-password --gecos '' ubuntu
+usermod -aG sudo ubuntu
+printf 'ubuntu ALL=(ALL) NOPASSWD:ALL\n' >/etc/sudoers.d/ubuntu
+chmod 0440 /etc/sudoers.d/ubuntu
+install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.ssh
+install -o ubuntu -g ubuntu -m 0600 /dev/null /home/ubuntu/.ssh/authorized_keys
+cat >>/home/ubuntu/.ssh/authorized_keys
+```
+
+Paste the owner's public key as one line, then press Ctrl-D. Verify key login
+and sudo access as `ubuntu` before continuing. `setup_vps.sh` then runs as
+normal; its final hardening removes this bootstrap key after installing the
+owner key for `deploy`.
+
+### 3. Provision the server
 
 From the repository root, run with `MAYOS_DEPLOY_HOST` set in the environment
 or checkout `.env`:
@@ -64,8 +82,9 @@ final root step, then writes the world-readable
 `/opt/mayos/state/.setup-complete` marker. Deploy SSH and Docker access are
 verified before SSH settings change and again after reload. SSH is restricted
 to key authentication, with root login disabled. The `ubuntu` account remains
-on the host with sudo access; use OVH's console for host-level repairs. Over
-SSH, only `deploy` can log in.
+on the host with sudo access; use the provider's web console (Contabo: VNC
+console in the customer panel) for host-level repairs. Over SSH, only `deploy`
+can log in.
 `deploy` is not in the `docker` group; use `sudo docker compose ...` for Docker
 commands and `sudoedit /opt/mayos/.env` to edit the root-owned file.
 
@@ -75,8 +94,9 @@ user, re-applies the idempotent bootstrap, verifies deploy access, then
 re-hardens SSH and removes the bootstrap key.
 
 If `/opt/mayos/state` or its setup marker is lost after a completed setup, the
-bootstrap SSH key has already been removed. Use OVH's console to restore the
-bootstrap user's authorized key with the owner's public key, then rerun setup
+bootstrap SSH key has already been removed. Use the provider's web console
+(Contabo: VNC console in the customer panel) to restore the bootstrap user's
+authorized key with the owner's public key, then rerun setup
 so it recreates the state directory and markers. With the default user, run
 these commands in the console and paste the owner's public key as one line
 when `sudoedit` opens the file:
@@ -105,7 +125,12 @@ layout are fixed for the deploy script in #376:
 - Run Compose with
   `sudo docker compose -f /opt/mayos/app/deploy/compose.server.yaml --env-file /opt/mayos/.env --env-file /opt/mayos/app/deploy/.image.env -p mayos ...`.
 
-### 3. Create the Cloudflare Tunnel
+Contabo includes one snapshot. Take it right after setup completes, **before
+any Player data is on the server**. A snapshot is a full disk copy. If a
+snapshot is made after Player data exists, delete it within 30 days to meet
+ADRs 015 and 044.
+
+### 4. Create the Cloudflare Tunnel
 
 In the Cloudflare Zero Trust dashboard, create a remotely managed Tunnel and
 copy its token. Under its public hostnames, add both
@@ -125,7 +150,7 @@ Replace both example hostnames with the actual hostnames. The staging hostname
 is for the owner verification; installed clients use the API hostname. Set each
 as a hostname only, without `https://`.
 
-### 4. Migrate runtime settings and secrets
+### 5. Migrate runtime settings and secrets
 
 Before stopping the Fly Machine, inspect its application environment with
 `fly ssh console -C printenv`. It displays secret values: use a private,
@@ -217,7 +242,7 @@ or send it through the #376 rsync step; it stays at `/opt/mayos/.env` on the
 server. Also exclude the repository-root `.env` from rsync. `.dockerignore`
 keeps that file out of the image build context as well.
 
-### 5. Deploy and verify
+### 6. Deploy and verify
 
 From the main checkout at `/mnt/work/MAYOS`, run
 `./deploy/deploy_server.sh`. The script refuses linked worktrees and warns if
@@ -285,14 +310,23 @@ separate volume. Durability rests on that disk plus Litestream's continuous R2
 replication (about one second of loss if the server is lost) and the daily R2
 snapshots.
 
+### Pre-cutover load test
+
+Before move day, run the 20-Player load test from the 2026-10-07 production
+load script used for ADR 072 against the staging hostname on a copy of
+production data, as part of the #377 rehearsal. It passes only if it beats
+Fly's 19 requests/s and 1.3 s median workout save. If it fails, check CPU
+steal (`%st` in `top`) and ask Contabo to move the VPS to another host. If it
+still fails, stay on Fly.
+
 ### Move day: privacy policy
 
-As part of the #378 cutover, replace the current server-location sentence,
+As part of the #378/#573 cutover, replace the current server-location sentence,
 which spans lines 14–15 of `docs/PRIVACY_POLICY.md`, as a whole with:
 
-> The service runs on a single server in London, United Kingdom (OVHcloud) and is served over https from the address of this page.
+> The service runs on a single server in Germany (Contabo) and is served over https from the address of this page.
 
 Set `POLICY_VERSION` in `service/privacy_policy.py` to the next minor version
-after the one live on move day (1.4 → 1.5 at the time of writing), and set
+after the one live on move day (1.9 → 1.10 at the time of writing), and set
 `POLICY_EFFECTIVE_DATE` to the move day. Deploy both policy changes with the
 cutover.

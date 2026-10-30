@@ -150,13 +150,13 @@ configure_server_access() {
     die "setup is marked complete but deploy cannot run sudo docker compose"
 
   wait_for_ssh "$MAYOS_BOOTSTRAP_USER" "$server_address" ||
-    die "cannot SSH as $MAYOS_BOOTSTRAP_USER. If the setup marker or state directory was lost after setup, use the OVH console recovery steps in docs/SERVER_SETUP.md."
+    die "cannot SSH as $MAYOS_BOOTSTRAP_USER. If the setup marker or state directory was lost after setup, use the provider's web console recovery steps in docs/SERVER_SETUP.md."
   bootstrap_server "$server_address"
   verify_deploy_access "$server_address" ||
     die "deploy SSH and sudo access did not work; SSH settings were not changed"
   finalize_server_setup "$server_address"
   verify_deploy_access "$server_address" ||
-    die "deploy SSH or sudo access failed after hardening; use the OVH console to recover access"
+    die "deploy SSH or sudo access failed after hardening; use the provider's web console to recover access"
 }
 
 main() {
