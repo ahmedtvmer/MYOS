@@ -325,10 +325,15 @@ snapshots.
 
 ### Pre-cutover load test
 
-Before move day, run the 20-Player load test from the 2026-10-07 production
-load script used for ADR 072 against the staging hostname on a copy of
-production data, as part of the #377 rehearsal. It passes only if it beats
-Fly's 19 requests/s and 1.3 s median workout save. If it fails, check CPU
+Before move day, run the 20-Player load test with `scripts/load_test.py`
+against the staging hostname on a copy of production data, as part of the #377
+rehearsal. For example:
+
+```sh
+python scripts/load_test.py --base-url "https://${MAYOS_STAGING_HOSTNAME}"
+```
+
+It passes only if it beats Fly's 19 requests/s and 1.3 s median workout save. If it fails, check CPU
 steal (`%st` in `top`) and ask Contabo to move the VPS to another host. If it
 still fails, stay on Fly.
 
