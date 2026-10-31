@@ -8,7 +8,7 @@ if [[ $# -ne 1 || "$EUID" -ne 0 ]]; then
   exit 2
 fi
 
-owner_public_key="$(printf '%s' "$1" | base64 -d | awk 'NF { print; exit }')"
+owner_public_key="$(printf '%s' "$1" | base64 -d | awk 'NF && !found { print; found = 1 }')"
 [[ -n "$owner_public_key" ]] || { echo "owner SSH public key is empty" >&2; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 
@@ -42,7 +42,7 @@ DOCKER_REPO
 configure_host_firewall() {
   local ssh_port
 
-  ssh_port="$(sshd -T | awk '$1 == "port" { print $2; exit }')"
+  ssh_port="$(sshd -T | awk '$1 == "port" && !found { print $2; found = 1 }')"
   ssh_port="${ssh_port:-22}"
   [[ "$ssh_port" =~ ^[0-9]{1,5}$ ]] || {
     echo "could not determine a valid SSH port from sshd -T" >&2

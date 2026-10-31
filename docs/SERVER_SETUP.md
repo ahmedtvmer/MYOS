@@ -18,7 +18,12 @@ configuration; this guide does not choose a domain.
    private networking and extra IPs: the Cloudflare Tunnel needs no extra
    network. Note the server's public IP address.
 3. Install OpenSSH, `rsync`, `nc`, and the AWS CLI (for the R2 object listing)
-   on the machine that has this checkout. Set `MAYOS_DEPLOY_HOST` in the
+   on the machine that has this checkout. Windows owners must run setup and
+   deploys from WSL (Ubuntu), using a checkout on the WSL filesystem (for
+   example `~/MAYOS`) created with `git config --global core.autocrlf false`;
+   never use a checkout under `/mnt/c`, `/mnt/f`, or another Windows drive.
+   Install `rsync`, `nc`, and `ssh` from the WSL distribution's packages. Set
+   `MAYOS_DEPLOY_HOST` in the
    environment or as an unquoted line in this checkout's ignored `.env`. This
    owner-machine value does not belong in `/opt/mayos/.env`.
 4. The setup script defaults to `~/.ssh/id_ed25519.pub` and its matching
@@ -28,9 +33,17 @@ configuration; this guide does not choose a domain.
 ### 2. Prepare the bootstrap account
 
 Contabo's Ubuntu image logs in as `root`. Sign in from the owner machine using
-the key added at order, then create the non-root `ubuntu` account that
-`setup_vps.sh` expects. Give it passwordless sudo and install the same public
-key in its `authorized_keys`:
+the key added at order, then, as root, check whether cloud-init already created
+an `ubuntu` user with passwordless sudo:
+
+```bash
+id ubuntu
+```
+
+If the user exists, install the owner's public key in
+`/home/ubuntu/.ssh/authorized_keys`, owned by `ubuntu` and mode `0600`. If it
+does not exist, create the non-root `ubuntu` account that `setup_vps.sh`
+expects, give it passwordless sudo, and install the key as follows:
 
 ```bash
 adduser --disabled-password --gecos '' ubuntu
@@ -112,7 +125,7 @@ sudo chmod 0600 /home/ubuntu/.ssh/authorized_keys
 Use the configured home and account name instead if `MAYOS_BOOTSTRAP_USER` is
 not `ubuntu`.
 
-The server IP is available as `MAYOS_DEPLOY_HOST`. The Compose command and
+The server address is available as `MAYOS_DEPLOY_HOST`. The Compose command and
 layout are fixed for the deploy script in #376:
 
 - `/opt/mayos/app`: rsynced checkout/build input, owned by `deploy`.
@@ -244,8 +257,8 @@ keeps that file out of the image build context as well.
 
 ### 6. Deploy and verify
 
-From the main checkout at `/mnt/work/MAYOS`, run
-`./deploy/deploy_server.sh`. The script refuses linked worktrees and warns if
+From the main checkout, run `./deploy/deploy_server.sh`. The script refuses
+linked worktrees and warns if
 the checkout has uncommitted changes. See the [deployment runbook](DEPLOYMENT.md)
 for deploy, status, and rollback commands. Compose builds
 `mayos-api:${MAYOS_IMAGE_TAG}` on the server from the rsynced checkout using

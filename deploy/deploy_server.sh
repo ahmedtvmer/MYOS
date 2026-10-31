@@ -87,7 +87,7 @@ REMOTE
 
 running_tag() {
   remote_bash <<'REMOTE'
-container="$(sudo docker ps -aq --filter label=com.docker.compose.project=mayos --filter label=com.docker.compose.service=api | head -n 1)"
+container="$(sudo docker ps -aq --filter label=com.docker.compose.project=mayos --filter label=com.docker.compose.service=api | awk 'NR == 1 { print }')"
 [[ -n "$container" ]] || exit 0
 image="$(sudo docker inspect --format '{{.Config.Image}}' "$container")"
 case "$image" in
@@ -217,7 +217,7 @@ prune_images() {
   remote_bash "$previous_tag" <<'REMOTE'
 previous_tag="$1"
 history=/opt/mayos/state/deploy-history.tsv
-running_container="$(sudo docker ps -aq --filter label=com.docker.compose.project=mayos --filter label=com.docker.compose.service=api | head -n 1)"
+running_container="$(sudo docker ps -aq --filter label=com.docker.compose.project=mayos --filter label=com.docker.compose.service=api | awk 'NR == 1 { print }')"
 running_image=""
 if [[ -n "$running_container" ]]; then
   running_image="$(sudo docker inspect --format '{{.Config.Image}}' "$running_container")"
