@@ -4,11 +4,6 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ "${1:-}" == __selftest-paths ]]; then
-  printf '%s\n' "$script_dir/rollback_guard.py"
-  exit 0
-fi
-
 readonly IMAGE_TAG_RE='^[0-9a-f]{7,64}(-[0-9]{14}-[0-9]{1,5})?$'
 readonly REMOTE_PREAMBLE=$'set -euo pipefail\nreadonly IMAGE_TAG_RE="^[0-9a-f]{7,64}(-[0-9]{14}-[0-9]{1,5})?$"\ncompose=(sudo docker compose -f /opt/mayos/app/deploy/compose.server.yaml --env-file /opt/mayos/.env --env-file /opt/mayos/app/deploy/.image.env -p mayos)\n'
 
@@ -28,21 +23,6 @@ die() {
   printf 'deploy_server: %s\n' "$1" >&2
   exit 1
 }
-
-command_name="${1:-deploy}"
-case "$command_name" in
-  deploy|status) [[ $# -le 1 ]] || { usage >&2; exit 2; } ;;
-  rollback) [[ $# -eq 2 ]] || { usage >&2; exit 2; } ;;
-  -h|--help|help) usage; exit 0 ;;
-  *) usage >&2; exit 2 ;;
-esac
-
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run this script inside the MAYOS checkout"
-git_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-dir)"
-common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir)"
-if [[ -f "$repo_root/.git" || "$git_dir" != "$common_dir" ]]; then
-  die "refusing to deploy from a git worktree; run from the main checkout"
-fi
 
 resolve_host() {
   local env_line
@@ -71,7 +51,13 @@ warn_if_dirty() {
 
 remote_bash() {
   local -a remote_args=("$@")
-  { printf '%s' "$REMOTE_PREAMBLE"; cat; } | ssh "$ssh_target" bash -s -- "${remote_args[@]}"
+  local remote_command="bash -s --"
+  local arg
+  for arg in "${remote_args[@]}"; do
+    printf -v arg '%q' "$arg"
+    remote_command+=" $arg"
+  done
+  { printf '%s' "$REMOTE_PREAMBLE"; cat; } | ssh "$ssh_target" "$remote_command"
 }
 
 read_history() {
@@ -109,6 +95,12 @@ REMOTE
 compose_up() {
   remote_bash <<'REMOTE'
 "${compose[@]}" up -d --no-deps --no-build api
+REMOTE
+}
+
+start_companion_services() {
+  remote_bash <<'REMOTE'
+"${compose[@]}" up -d --no-build cloudflared litestream
 REMOTE
 }
 
@@ -367,6 +359,7 @@ deploy_release() {
   set_image_tag "$tag"
   build_and_start "$tag"
   if check_readiness; then
+    start_companion_services
     remember_image "$full_commit" "$tag" "$previous_tag"
     prune_images "$previous_tag"
     prune_build_cache_and_report_disk
@@ -406,18 +399,42 @@ rollback_release() {
   printf 'Rollback to %s is ready.\n' "$rollback_tag"
 }
 
-ssh_host="$(resolve_host)"
-ssh_target="deploy@$ssh_host"
-if [[ "$command_name" != status ]]; then warn_if_dirty; fi
-history_rows="$(read_history)"
-current_tag="$(running_tag)"
+main() {
+  local command_name="${1:-deploy}"
+  case "$command_name" in
+    deploy|status) [[ $# -le 1 ]] || { usage >&2; exit 2; } ;;
+    rollback) [[ $# -eq 2 ]] || { usage >&2; exit 2; } ;;
+    -h|--help|help) usage; return 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
 
-case "$command_name" in
-  deploy)
-    full_commit="$(git -C "$repo_root" rev-parse HEAD)"
-    short_commit="$(git -C "$repo_root" rev-parse --short=12 HEAD)"
-    deploy_release "$full_commit" "$(choose_image_tag "$short_commit")"
-    ;;
-  rollback) rollback_release "$2" ;;
-  status) show_status ;;
-esac
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "run this script inside the MAYOS checkout"
+  git_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-dir)"
+  common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir)"
+  if [[ -f "$repo_root/.git" || "$git_dir" != "$common_dir" ]]; then
+    die "refusing to deploy from a git worktree; run from the main checkout"
+  fi
+
+  ssh_host="$(resolve_host)"
+  ssh_target="deploy@$ssh_host"
+  if [[ "$command_name" != status ]]; then warn_if_dirty; fi
+  history_rows="$(read_history)"
+  current_tag="$(running_tag)"
+  case "$command_name" in
+    deploy)
+      full_commit="$(git -C "$repo_root" rev-parse HEAD)"
+      short_commit="$(git -C "$repo_root" rev-parse --short=12 HEAD)"
+      deploy_release "$full_commit" "$(choose_image_tag "$short_commit")"
+      ;;
+    rollback) rollback_release "$2" ;;
+    status) show_status ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  if [[ "${1:-}" == __selftest-paths ]]; then
+    printf '%s\n' "$script_dir/rollback_guard.py"
+    exit 0
+  fi
+  main "$@"
+fi
