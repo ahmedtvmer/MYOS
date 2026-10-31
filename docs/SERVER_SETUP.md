@@ -325,12 +325,17 @@ snapshots.
 
 ### Pre-cutover load test
 
-Before move day, run the 20-Player load test with `scripts/load_test.py`
-against the staging hostname on a copy of production data, as part of the #377
-rehearsal. For example:
+Before move day, run `scripts/load_test.py` against the staging hostname on a
+copy of production data, as part of the #377 rehearsal. Step up from 20 to 50
+to 100 Players, reusing the accounts created in the first step and staggering
+each measured phase:
 
 ```sh
-python scripts/load_test.py --base-url "https://${MAYOS_STAGING_HOSTNAME}"
+for players in 20 50 100; do
+  python scripts/load_test.py --base-url "https://${MAYOS_STAGING_HOSTNAME}" \
+    --players "$players" --setup-concurrency 5 --ramp-up 30 \
+    --reuse-accounts
+done
 ```
 
 It passes only if it beats Fly's 19 requests/s and 1.3 s median workout save. If it fails, check CPU

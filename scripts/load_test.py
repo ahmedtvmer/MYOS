@@ -30,12 +30,15 @@ def is_production_url(base_url: str) -> bool:
 async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
               duration: float = 180, account_prefix: str = "loadtest-",
               chat_share: float = 0.0, think_time: tuple[float, float] = (0.05, 0.25),
-              allow_production: bool = False, setup_timeout: float = 600) -> dict:
+              allow_production: bool = False, setup_timeout: float = 600,
+              setup_concurrency: int = 5, ramp_up: float = 0,
+              reuse_accounts: bool = False) -> dict:
     """Run a load rehearsal through an injected httpx client."""
     if is_production_url(base_url) and not allow_production:
         raise ValueError("Refusing to load test a production host without --allow-production.")
-    if players < 1 or duration <= 0 or setup_timeout <= 0 or not 0 <= chat_share <= 1:
-        raise ValueError("players, duration, and setup_timeout must be positive; chat_share must be in [0, 1].")
+    if (players < 1 or duration <= 0 or setup_timeout <= 0 or setup_concurrency < 1
+            or ramp_up < 0 or not 0 <= chat_share <= 1):
+        raise ValueError("players, duration, setup_timeout, and setup_concurrency must be positive; ramp_up must be nonnegative and chat_share must be in [0, 1].")
     import httpx
 
     base_url = base_url.rstrip("/")
@@ -43,6 +46,8 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
     measured_statuses: Counter[str] = Counter()
     measured_errors_by_type: dict[str, Counter[str]] = defaultdict(Counter)
     setup_errors: Counter[str] = Counter()
+    reused_players = 0
+    setup_semaphore = asyncio.Semaphore(setup_concurrency)
     totals = 0
     lock = asyncio.Lock()
     setup_deadline = time.monotonic() + setup_timeout
@@ -50,6 +55,7 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
     async def measured_request(kind: str, method: str, path: str, **kwargs) -> httpx.Response:
         nonlocal totals
         started = time.perf_counter()
+        measured = started >= measured_start
         try:
             response = await client.request(method, base_url + path, **kwargs)
             code = str(response.status_code)
@@ -57,12 +63,13 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
             response = None
             code = "network_error"
         elapsed = (time.perf_counter() - started) * 1000
-        async with lock:
-            totals += 1
-            measured_latencies[kind].append(elapsed)
-            if response is None or response.is_error:
-                measured_statuses[code] += 1
-                measured_errors_by_type[kind][code] += 1
+        if measured:
+            async with lock:
+                totals += 1
+                measured_latencies[kind].append(elapsed)
+                if response is None or response.is_error:
+                    measured_statuses[code] += 1
+                    measured_errors_by_type[kind][code] += 1
         return response
 
     async def setup_request(method: str, path: str, *, expected_statuses: frozenset[int] = frozenset(), **kwargs) -> httpx.Response | None:
@@ -93,15 +100,26 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
         return None
 
     async def player_setup(index: int) -> dict | None:
+        async with setup_semaphore:
+            return await limited_player_setup(index)
+
+    async def limited_player_setup(index: int) -> dict | None:
+        nonlocal reused_players
         username = f"{account_prefix}{index}"
         credentials = {"trainee_id": username, "password": "LoadTest-pass-2026"}
         response = await setup_request("POST", "/auth/register", json=credentials, expected_statuses=frozenset({409}))
         if response is None:
             return None
-        if response.status_code == 409:
+        registration_conflict = response.status_code == 409
+        if registration_conflict:
+            if not reuse_accounts:
+                setup_errors["account_exists"] += 1
+                return None
             response = await setup_request("POST", "/auth/login", json=credentials)
         if response is None or response.is_error:
             return None
+        if registration_conflict:
+            reused_players += 1
         headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
         existing_program = await setup_request("GET", "/programs/active", headers=headers)
         if existing_program is None or existing_program.is_error:
@@ -132,9 +150,13 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
     setups = await asyncio.gather(*(player_setup(i) for i in range(players)))
     setup_seconds = round(time.monotonic() - setup_started, 3)
     ready_players = [setup for setup in setups if setup is not None]
-    end_at = time.monotonic() + duration
+    ready_at = time.monotonic()
+    ramp_interval = ramp_up / max(len(ready_players) - 1, 1)
+    measured_start = ready_at + ramp_up
+    end_at = measured_start + duration
 
-    async def player_task(setup: dict) -> None:
+    async def player_task(index: int, setup: dict) -> None:
+        await asyncio.sleep(ramp_interval * index)
         headers = setup["headers"]
         program = setup["program"]
         days = program.get("days") or []
@@ -153,9 +175,8 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
                                              "readiness": 3, "session_notes": "", "sets": sets})
             await asyncio.sleep(random.uniform(*think_time))
 
-    started = time.monotonic()
-    await asyncio.gather(*(player_task(setup) for setup in ready_players))
-    elapsed = max(time.monotonic() - started, 0.000001)
+    await asyncio.gather(*(player_task(index, setup) for index, setup in enumerate(ready_players)))
+    elapsed = max(time.monotonic() - measured_start, 0.000001)
 
     def percentile(values: list[float], fraction: float) -> float | None:
         if not values:
@@ -167,6 +188,8 @@ async def run(client: httpx.AsyncClient, *, base_url: str, players: int = 20,
 
     summary = {
         "setup_seconds": setup_seconds,
+        "ramp_up_seconds": ramp_up,
+        "players_reused": reused_players,
         "players_ready": len(ready_players),
         "setup_errors_by_status_code": dict(sorted(setup_errors.items())),
         "total_requests": totals,
@@ -187,11 +210,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--players", type=int, default=20)
     parser.add_argument("--duration", type=float, default=180)
     parser.add_argument("--setup-timeout", type=float, default=600)
+    parser.add_argument("--setup-concurrency", type=int, default=5)
+    parser.add_argument("--ramp-up", type=float, default=0)
+    parser.add_argument("--request-timeout", type=float, default=30)
     parser.add_argument("--account-prefix", default="loadtest-")
     parser.add_argument("--chat-share", type=float, default=0.0)
     parser.add_argument("--think-time", type=float, nargs=2, metavar=("MIN", "MAX"), default=(0.05, 0.25))
     parser.add_argument("--json", dest="json_path")
     parser.add_argument("--allow-production", action="store_true")
+    parser.add_argument("--reuse-accounts", action="store_true")
     return parser
 
 
@@ -204,11 +231,13 @@ async def _main(args: argparse.Namespace) -> int:
         return 2
     import httpx
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=args.request_timeout) as client:
         summary = await run(client, base_url=args.base_url, players=args.players,
                             duration=args.duration, account_prefix=args.account_prefix,
                             chat_share=args.chat_share, think_time=tuple(args.think_time),
-                            setup_timeout=args.setup_timeout, allow_production=args.allow_production)
+                            setup_timeout=args.setup_timeout, allow_production=args.allow_production,
+                            setup_concurrency=args.setup_concurrency, ramp_up=args.ramp_up,
+                            reuse_accounts=args.reuse_accounts)
     print(f"Total requests: {summary['total_requests']}")
     print(f"Requests/s: {summary['requests_per_second']}")
     print(f"Errors by status code: {summary['errors_by_status_code']}")
